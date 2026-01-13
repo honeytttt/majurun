@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../../../../core/widgets/custom_text_field.dart';
+import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -17,23 +16,43 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    final authRepo = Provider.of<AuthRepository>(context, listen: false);
 
     try {
+      final authRepo = context.read<AuthRepository>();
+      
+      // Matches the 3-argument signature: email, password, name
       await authRepo.signUp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
         _nameController.text.trim(),
       );
-      if (mounted) Navigator.pop(context);
+
+      // Success! Note: We don't navigate manually. 
+      // AuthWrapper detects the new user and shows MainNavScreen automatically.
+      if (mounted) {
+        Navigator.pop(context); // Go back to the AuthWrapper/Login screen
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -48,41 +67,59 @@ class _SignupScreenState extends State<SignupScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text("Join the MajuRun Community", 
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 30),
-              CustomTextField(
+              const Icon(Icons.directions_run, size: 80, color: Colors.green),
+              const SizedBox(height: 32),
+              
+              // Name Field
+              TextFormField(
                 controller: _nameController,
-                hintText: "Full Name",
-                icon: Icons.person_outline,
-                validator: (val) => val!.isEmpty ? "Enter your name" : null,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _emailController,
-                hintText: "Email Address",
-                icon: Icons.email_outlined,
-                validator: (val) => !val!.contains("@") ? "Invalid email" : null,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _passwordController,
-                hintText: "Password",
-                icon: Icons.lock_outline,
-                isPassword: true,
-                validator: (val) => val!.length < 6 ? "Min 6 characters" : null,
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _handleSignup,
-                  child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Sign Up", style: TextStyle(fontSize: 16, color: Colors.white)),
+                decoration: const InputDecoration(
+                  labelText: "Full Name",
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(),
                 ),
+                validator: (v) => v!.isEmpty ? "Enter your name" : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Email Field
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: "Email Address",
+                  prefixIcon: Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v!.contains('@') ? null : "Enter a valid email",
+              ),
+              const SizedBox(height: 16),
+
+              // Password Field
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: "Password",
+                  prefixIcon: Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v!.length < 6 ? "Minimum 6 characters" : null,
+              ),
+              const SizedBox(height: 32),
+
+              ElevatedButton(
+                onPressed: _isLoading ? null : _handleSignup,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("Sign Up", style: TextStyle(color: Colors.white, fontSize: 16)),
               ),
             ],
           ),

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-import '../../../auth/domain/repositories/auth_repository.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/feed_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
+import 'package:majurun/modules/workout/presentation/screens/record_workout_screen.dart';
+import 'package:majurun/modules/profile/domain/repositories/profile_repository.dart';
+import 'package:majurun/modules/profile/domain/entities/user_entity.dart';
 
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
@@ -13,101 +17,77 @@ class MainNavScreen extends StatefulWidget {
 class _MainNavScreenState extends State<MainNavScreen> {
   int _selectedIndex = 0;
 
-  // Each item in this list corresponds to a tab in the BottomNavigationBar
-  final List<Widget> _pages = [
-    const _PlaceholderScreen(title: "Community Feed", icon: Icons.forum_outlined),
-    const _PlaceholderScreen(title: "GPS Run Tracker", icon: Icons.play_circle_fill),
-    const ProfileScreen(), // Your modular Profile Module
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final authRepo = context.read<AuthRepository>();
+    final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    final List<Widget> pages = [
+      const FeedScreen(),
+      const Center(child: Text("Workouts History")),
+      const CreatePostScreen(),
+      const Center(child: Text("Events")),
+      const RecordWorkoutScreen(),
+    ];
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          "MajuRun",
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
+        leading: StreamBuilder<UserEntity?>(
+          stream: context.read<ProfileRepository>().streamUser(uid),
+          builder: (context, snap) {
+            final user = snap.data;
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: CircleAvatar(
+                backgroundColor: Colors.grey[200],
+                backgroundImage: (user != null && user.photoUrl.isNotEmpty) 
+                    ? NetworkImage(user.photoUrl) : null,
+                child: (user == null || user.photoUrl.isEmpty) 
+                    ? const Icon(Icons.person, color: Colors.black54) : null,
+              ),
+            );
+          },
         ),
-        actions: [
-          // Quick logout for testing purposes
-          IconButton(
-            tooltip: "Logout",
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () async {
-              await authRepo.signOut();
-            },
-          ),
-        ],
-      ),
-      // IndexedStack keeps the state of pages alive when switching tabs
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          elevation: 0,
-          backgroundColor: Colors.white,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Theme.of(context).primaryColor,
-          unselectedItemColor: Colors.grey,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          unselectedLabelStyle: const TextStyle(fontSize: 12),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined),
-              activeIcon: Icon(Icons.explore),
-              label: 'Feed',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.directions_run_outlined),
-              activeIcon: Icon(Icons.directions_run),
-              label: 'Run',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bolt, color: Colors.green, size: 24),
+            const SizedBox(width: 4),
+            const Text(
+              "MAJURUN",
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, letterSpacing: -1),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// A simple internal widget to show placeholders for unfinished modules
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+        actions: [
+          // FIX: Changed to Bell Icon
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Colors.black),
+            onPressed: () {},
           ),
+          // FIX: Changed to Email Icon
+          IconButton(
+            icon: const Icon(Icons.mail_outline, color: Colors.black),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: IndexedStack(index: _selectedIndex, children: pages),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.black,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'home'),
+          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), label: 'Create'),
+          BottomNavigationBarItem(icon: Icon(Icons.event_outlined), label: 'Events'),
+          BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'Record'),
         ],
       ),
     );
