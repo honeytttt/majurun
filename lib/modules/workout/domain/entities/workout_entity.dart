@@ -1,57 +1,77 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 
-class WorkoutEntity {
+class WorkoutEntity extends Equatable {
   final String id;
   final String userId;
-  final String? text;
+  final String? userName;
+  final String type;
   final String? imageUrl;
-  final String type; // 'run' or 'post'
+  final String? text;
+  final double distance;
+  final Duration duration;
   final DateTime date;
-  final List<String> likes;
+  final List<String> likes; 
   final int commentCount;
-  final double? distance;
-  final Duration? duration;
+  final List<Map<String, double>> routePoints;
 
-  WorkoutEntity({
+  const WorkoutEntity({
     required this.id,
     required this.userId,
-    this.text,
+    this.userName,
+    this.type = 'Run',
     this.imageUrl,
-    required this.type,
+    this.text,
+    required this.distance,
+    required this.duration,
     required this.date,
-    required this.likes,
-    required this.commentCount,
-    this.distance,
-    this.duration,
+    this.likes = const [],
+    this.commentCount = 0,
+    this.routePoints = const [],
   });
 
-  // FIX: Parameter order: (Map, String)
-  factory WorkoutEntity.fromMap(Map<String, dynamic> map, String documentId) {
+  @override
+  List<Object?> get props => [
+        id, userId, userName, type, distance, duration, date, imageUrl, text, likes, commentCount,
+      ];
+
+  factory WorkoutEntity.fromMap(Map<String, dynamic> map, String docId) {
     return WorkoutEntity(
-      id: documentId,
+      id: docId,
       userId: map['userId'] ?? '',
-      text: map['text'],
+      userName: map['userName'],
+      type: map['workoutType'] ?? map['type'] ?? 'Run',
       imageUrl: map['imageUrl'],
-      type: map['type'] ?? 'post',
-      date: (map['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      likes: List<String>.from(map['likes'] ?? []),
+      text: map['content'] ?? map['text'],
+      distance: (map['distance'] ?? 0).toDouble(),
+      duration: Duration(
+        seconds: map['durationSeconds'] ?? ((map['durationMinutes'] ?? 0) * 60).toInt()
+      ),
+      date: map['timestamp'] != null 
+          ? (map['timestamp'] as dynamic).toDate() 
+          : DateTime.now(),
+      // Check your Firestore: if the field is 'likes', change 'likedBy' to 'likes'
+      likes: List<String>.from(map['likedBy'] ?? map['likes'] ?? []),
       commentCount: map['commentCount'] ?? 0,
-      distance: (map['distance'] as num?)?.toDouble(),
-      duration: map['duration'] != null ? Duration(seconds: map['duration']) : null,
+      routePoints: (map['routePoints'] as List?)
+              ?.map((p) => Map<String, double>.from(p))
+              .toList() ?? 
+          const [],
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
-      'text': text,
+      'userName': userName,
+      'workoutType': type,
       'imageUrl': imageUrl,
-      'type': type,
-      'date': FieldValue.serverTimestamp(),
-      'likes': likes,
-      'commentCount': commentCount,
+      'content': text,
       'distance': distance,
-      'duration': duration?.inSeconds,
+      'durationSeconds': duration.inSeconds,
+      'timestamp': date,
+      'likedBy': likes, // Matches factory mapping
+      'commentCount': commentCount,
+      'routePoints': routePoints,
     };
   }
 }

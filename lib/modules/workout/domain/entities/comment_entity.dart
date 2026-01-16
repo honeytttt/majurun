@@ -3,31 +3,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class CommentEntity {
   final String id;
   final String userId;
+  final String userName;
+  final String userPhoto;
   final String text;
-  final DateTime createdAt;
+  final DateTime timestamp;
+  final List<String> likes;
+  final String? parentId; // Added for nesting
 
   CommentEntity({
     required this.id,
     required this.userId,
+    required this.userName,
+    required this.userPhoto,
     required this.text,
-    required this.createdAt,
+    required this.timestamp,
+    required this.likes,
+    this.parentId,
   });
 
-  // FIXED: Added the missing fromMap factory
-  factory CommentEntity.fromMap(String id, Map<String, dynamic> map) {
+  factory CommentEntity.fromMap(Map<String, dynamic> map, String docId) {
     return CommentEntity(
-      id: id,
+      id: docId,
       userId: map['userId'] ?? '',
+      userName: map['userName'] ?? 'Runner',
+      userPhoto: map['userPhoto'] ?? '',
       text: map['text'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      likes: List<String>.from(map['likes'] ?? []),
+      parentId: map['parentId'],
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'text': text,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
   }
 }

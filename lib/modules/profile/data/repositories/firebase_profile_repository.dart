@@ -30,7 +30,7 @@ class FirebaseProfileRepository implements ProfileRepository {
   Stream<UserEntity?> streamUser(String uid) {
     return _firestore.collection('users').doc(uid).snapshots().map((doc) {
       if (!doc.exists) return null;
-      return UserEntity.fromMap(doc.id, doc.data()!);
+      return UserEntity.fromMap(doc.data()!, doc.id);
     });
   }
 

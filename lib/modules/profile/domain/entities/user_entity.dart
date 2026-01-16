@@ -1,44 +1,54 @@
 import 'package:equatable/equatable.dart';
 
-class UserEntity {
-  final String uid;
-  final String displayName;
+class UserEntity extends Equatable {
+  final String id;
+  final String name;
   final String email;
   final String photoUrl;
+  final String bio;
   final int postCount;
-  final List<String> followers;
-  final List<String> following;
+  final int followersCount;
+  final int followingCount;
 
-  UserEntity({
-    required this.uid,
-    required this.displayName,
-    required this.email,
-    required this.photoUrl,
+  const UserEntity({
+    required this.id,
+    required this.name,
+    this.email = '',
+    this.photoUrl = '',
+    this.bio = '',
     this.postCount = 0,
-    this.followers = const [],
-    this.following = const [],
+    this.followersCount = 0,
+    this.followingCount = 0,
   });
 
-  factory UserEntity.fromMap(String id, Map<String, dynamic> map) {
-    return UserEntity(
-      uid: id,
-      displayName: map['displayName'] ?? '',
-      email: map['email'] ?? '',
-      photoUrl: map['photoUrl'] ?? '',
-      postCount: map['postCount'] ?? 0,
-      followers: List<String>.from(map['followers'] ?? []),
-      following: List<String>.from(map['following'] ?? []),
-    );
-  }
+  String get uid => id;
+  String get displayName => name;
+
+  @override
+  List<Object?> get props => [id, name, email, photoUrl, bio, postCount, followersCount, followingCount];
 
   Map<String, dynamic> toMap() {
     return {
-      'displayName': displayName,
+      'name': name,
       'email': email,
       'photoUrl': photoUrl,
+      'bio': bio,
       'postCount': postCount,
-      'followers': followers,
-      'following': following,
+      'followersCount': followersCount,
+      'followingCount': followingCount,
     };
+  }
+
+  factory UserEntity.fromMap(Map<String, dynamic> map, String docId) {
+    return UserEntity(
+      id: docId,
+      name: map['name'] ?? map['displayName'] ?? 'User',
+      email: map['email'] ?? '',
+      photoUrl: map['photoUrl'] ?? '',
+      bio: map['bio'] ?? '',
+      postCount: map['postCount'] ?? 0,
+      followersCount: map['followersCount'] ?? 0,
+      followingCount: map['followingCount'] ?? 0,
+    );
   }
 }

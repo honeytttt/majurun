@@ -1,63 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+// FIXED: Looking in the same directory based on your tree output
+import 'summary_card.dart'; 
 import '../../domain/entities/workout_entity.dart';
 import '../../domain/repositories/workout_repository.dart';
 
-class WorkoutSummaryScreen extends StatefulWidget {
-  final double distance; // Changed to match record screen
+class WorkoutSummaryScreen extends StatelessWidget {
+  final double distance;
   final Duration duration;
+  final String type;
 
   const WorkoutSummaryScreen({
     super.key,
     required this.distance,
     required this.duration,
+    required this.type,
   });
 
-  @override
-  State<WorkoutSummaryScreen> createState() => _WorkoutSummaryScreenState();
-}
+  void _saveWorkout(BuildContext context) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
 
-class _WorkoutSummaryScreenState extends State<WorkoutSummaryScreen> {
-  final _textController = TextEditingController();
-  bool _isSaving = false;
-
-  Future<void> _save() async {
-    setState(() => _isSaving = true);
-    final user = FirebaseAuth.instance.currentUser;
-    
     final workout = WorkoutEntity(
-      id: '',
-      userId: user?.uid ?? '',
-      text: _textController.text,
-      type: 'run',
+      id: '', 
+      userId: userId,
+      type: type,
+      distance: distance,
+      duration: duration, 
       date: DateTime.now(),
       likes: [],
       commentCount: 0,
-      distance: widget.distance,
-      duration: widget.duration,
     );
 
-    await context.read<WorkoutRepository>().saveWorkout(workout);
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    try {
+      await context.read<WorkoutRepository>().saveWorkout(workout);
+      if (context.mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Run Summary")),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Workout Summary', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            Text("${widget.distance.toStringAsFixed(2)} km", style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
-            TextField(controller: _textController, decoration: const InputDecoration(hintText: "How was your run?")),
+            // This now works because the import points to the file next to it
+            SummaryCard(
+              distance: distance,
+              duration: duration,
+              type: type,
+            ),
             const Spacer(),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _save,
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.green),
-              child: _isSaving ? const CircularProgressIndicator() : const Text("SAVE RUN", style: TextStyle(color: Colors.white)),
-            )
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () => _saveWorkout(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Text('SAVE WORKOUT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
