@@ -1,44 +1,47 @@
 import 'package:equatable/equatable.dart';
 
-class UserEntity {
-  final String uid;
-  final String displayName;
-  final String email;
+class UserEntity extends Equatable {
+  final String id;
+  final String name;
   final String photoUrl;
-  final int postCount;
-  final List<String> followers;
-  final List<String> following;
+  final String bio;
+  final int followers; // Changed from followersCount to match UI
+  final int following; // Changed from followingCount to match UI
 
-  UserEntity({
-    required this.uid,
-    required this.displayName,
-    required this.email,
-    required this.photoUrl,
-    this.postCount = 0,
-    this.followers = const [],
-    this.following = const [],
+  const UserEntity({
+    required this.id,
+    required this.name,
+    this.photoUrl = '',
+    this.bio = '',
+    this.followers = 0,
+    this.following = 0,
   });
 
-  factory UserEntity.fromMap(String id, Map<String, dynamic> map) {
-    return UserEntity(
-      uid: id,
-      displayName: map['displayName'] ?? '',
-      email: map['email'] ?? '',
-      photoUrl: map['photoUrl'] ?? '',
-      postCount: map['postCount'] ?? 0,
-      followers: List<String>.from(map['followers'] ?? []),
-      following: List<String>.from(map['following'] ?? []),
-    );
-  }
+  // These getters fix the "uid/displayName isn't defined" errors in UI
+  String get uid => id;
+  String get displayName => name;
+
+  @override
+  List<Object?> get props => [id, name, photoUrl, bio, followers, following];
 
   Map<String, dynamic> toMap() {
     return {
-      'displayName': displayName,
-      'email': email,
+      'name': name,
       'photoUrl': photoUrl,
-      'postCount': postCount,
+      'bio': bio,
       'followers': followers,
       'following': following,
     };
+  }
+
+  factory UserEntity.fromMap(Map<String, dynamic> map, String documentId) {
+    return UserEntity(
+      id: documentId,
+      name: map['name'] ?? '',
+      photoUrl: map['photoUrl'] ?? '',
+      bio: map['bio'] ?? '',
+      followers: map['followers'] ?? 0,
+      following: map['following'] ?? 0,
+    );
   }
 }

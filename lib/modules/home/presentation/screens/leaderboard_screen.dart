@@ -14,11 +14,13 @@ class LeaderboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Weekly Leaderboard", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text("Weekly Leaderboard", 
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
+      // Fix: Ensured the type matches the Repository's return type
       body: StreamBuilder<List<WorkoutEntity>>(
         stream: workoutRepo.streamLeaderboard(),
         builder: (context, snapshot) {
@@ -26,10 +28,16 @@ class LeaderboardScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+
           final workouts = snapshot.data ?? [];
           
+          // Logic to aggregate distances by user
           Map<String, double> userDistances = {};
           for (var workout in workouts) {
+            // Since we updated WorkoutEntity earlier, .distance is now valid
             userDistances[workout.userId] = (userDistances[workout.userId] ?? 0) + workout.distance;
           }
 
@@ -42,6 +50,7 @@ class LeaderboardScreen extends StatelessWidget {
 
           return ListView.builder(
             itemCount: sortedEntries.length,
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemBuilder: (context, index) {
               final entry = sortedEntries[index];
               final rank = index + 1;
@@ -49,7 +58,11 @@ class LeaderboardScreen extends StatelessWidget {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: _getRankColor(rank),
-                  child: Text("$rank", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text("$rank", 
+                    style: TextStyle(
+                      color: rank <= 3 ? Colors.white : Colors.green.shade700, 
+                      fontWeight: FontWeight.bold
+                    )),
                 ),
                 title: UserNameWidget(
                   userId: entry.key,
@@ -58,7 +71,11 @@ class LeaderboardScreen extends StatelessWidget {
                 subtitle: const Text("Total Distance"),
                 trailing: Text(
                   "${entry.value.toStringAsFixed(2)} km",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.green),
+                  style: const TextStyle(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.w900, 
+                    color: Colors.green
+                  ),
                 ),
               );
             },
@@ -72,6 +89,6 @@ class LeaderboardScreen extends StatelessWidget {
     if (rank == 1) return Colors.amber;
     if (rank == 2) return Colors.grey.shade400;
     if (rank == 3) return Colors.brown.shade300;
-    return Colors.green.shade100;
+    return Colors.green.shade50; // Lighter green for ranks > 3
   }
 }

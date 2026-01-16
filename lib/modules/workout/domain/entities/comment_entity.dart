@@ -4,30 +4,24 @@ class CommentEntity {
   final String id;
   final String userId;
   final String text;
-  final DateTime createdAt;
+  final DateTime timestamp;
+  final List<String> likes;
 
   CommentEntity({
     required this.id,
     required this.userId,
     required this.text,
-    required this.createdAt,
+    required this.timestamp,
+    required this.likes,
   });
 
-  // FIXED: Added the missing fromMap factory
-  factory CommentEntity.fromMap(String id, Map<String, dynamic> map) {
+  factory CommentEntity.fromMap(Map<String, dynamic> map, String docId) {
     return CommentEntity(
-      id: id,
+      id: docId,
       userId: map['userId'] ?? '',
       text: map['text'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      likes: List<String>.from(map['likes'] ?? []),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'text': text,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
   }
 }
