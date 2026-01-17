@@ -1,10 +1,7 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/modules/workout/domain/repositories/workout_repository.dart';
-import 'package:majurun/core/services/cloudinary_service.dart';
+import '../../../workout/domain/repositories/workout_repository.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -14,95 +11,74 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
-  final _textController = TextEditingController();
-  Uint8List? _fileBytes;
-  bool _isVideo = false;
-  bool _isUploading = false;
+  final TextEditingController _textController = TextEditingController();
+  bool _isPosting = false;
 
-  Future<void> _pickFile(bool video) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? file = video 
-        ? await picker.pickVideo(source: ImageSource.gallery)
-        : await picker.pickImage(source: ImageSource.gallery);
-    
-    if (file != null) {
-      final bytes = await file.readAsBytes();
-      setState(() {
-        _fileBytes = bytes;
-        _isVideo = video;
-      });
-    }
-  }
+  Future<void> _handleSave() async {
+    if (_textController.text.trim().isEmpty) return;
 
-  Future<void> _submitPost() async {
-    if (_textController.text.trim().isEmpty && _fileBytes == null) return;
-    setState(() => _isUploading = true);
+    setState(() => _isPosting = true);
+    final user = FirebaseAuth.instance.currentUser;
 
     try {
-      String? finalUrl;
-      if (_fileBytes != null) {
-        finalUrl = await CloudinaryService().uploadImageBytes(_fileBytes!);
-      }
-
       await context.read<WorkoutRepository>().savePost(
-        userId: FirebaseAuth.instance.currentUser!.uid,
+        userId: user?.uid ?? '',
+        userName: user?.displayName ?? 'Runner',
         text: _textController.text.trim(),
-        imageUrl: finalUrl,
+        imageUrl: null, // You can add image picker logic here later
       );
 
-      _textController.clear();
-      setState(() => _fileBytes = null);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Post Shared!")));
+      if (mounted) {
+        _textController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Post shared!")));
+        // Optionally switch back to Feed index
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     } finally {
-      setState(() => _isUploading = false);
+      if (mounted) setState(() => _isPosting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          TextField(
-            controller: _textController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: "What's on your mind?",
-              border: InputBorder.none,
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Create Post", style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          TextButton(
+            onPressed: _isPosting ? null : _handleSave,
+            child: _isPosting 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                : const Text("Post", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
           ),
-          if (_fileBytes != null)
-            Container(
-              height: 200,
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _isVideo 
-                ? const Icon(Icons.video_file, size: 50, color: Colors.green)
-                : Image.memory(_fileBytes!, fit: BoxFit.cover),
-            ),
-          const Divider(),
-          Row(
-            children: [
-              IconButton(onPressed: () => _pickFile(false), icon: const Icon(Icons.image_outlined, color: Colors.green)),
-              IconButton(onPressed: () => _pickFile(true), icon: const Icon(Icons.videocam_outlined, color: Colors.green)),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: _isUploading ? null : _submitPost,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-                child: _isUploading 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                    : const Text("Post", style: TextStyle(color: Colors.white)),
-              )
-            ],
-          )
         ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _textController,
+              maxLines: 8,
+              decoration: const InputDecoration(
+                hintText: "What's on your mind?",
+                border: InputBorder.none,
+              ),
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                IconButton(icon: const Icon(Icons.image, color: Colors.green), onPressed: () {}),
+                IconButton(icon: const Icon(Icons.location_on, color: Colors.red), onPressed: () {}),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }

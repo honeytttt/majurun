@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/services/watch_sync_service.dart';
 import 'workout_summary_screen.dart';
 
@@ -19,17 +18,12 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   bool _isTracking = false;
 
   void _toggleTracking() {
-    setState(() {
-      _isTracking = !_isTracking;
-    });
-
+    setState(() => _isTracking = !_isTracking);
     if (_isTracking) {
       _startTimer();
     } else {
       _timer?.cancel();
     }
-    
-    // Initial sync update
     _syncToWatch();
   }
 
@@ -37,7 +31,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _seconds++;
-        // Simulate running 2 meters every second (approx 7.2 km/h)
         _distance += 0.002; 
       });
       _syncToWatch();
@@ -45,7 +38,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   }
 
   void _syncToWatch() {
-    // Pushes the current phone state to the watch service
     context.read<WatchSyncService>().updateStats(
       _distance, 
       _formattedTime, 
@@ -75,7 +67,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("CURRENT DISTANCE", style: TextStyle(color: Colors.grey, letterSpacing: 1.5)),
+            const Text("CURRENT DISTANCE", 
+              style: TextStyle(color: Colors.grey, letterSpacing: 1.5)),
             Text(
               "${_distance.toStringAsFixed(2)} km",
               style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w900, color: Colors.green),
@@ -110,7 +103,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // Stop Button
         if (_seconds > 0)
           FloatingActionButton(
             heroTag: "stop",
@@ -121,6 +113,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => WorkoutSummaryScreen(
+                    type: 'Run', // FIXED: Pass required parameter
                     distance: _distance,
                     duration: Duration(seconds: _seconds),
                   ),
@@ -129,7 +122,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
             },
             child: const Icon(Icons.stop, color: Colors.white),
           ),
-        // Play/Pause Button
         FloatingActionButton.large(
           heroTag: "play",
           backgroundColor: Colors.green,

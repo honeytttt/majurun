@@ -1,60 +1,79 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'package:majurun/firebase_options.dart';
 
-// Interfaces
-import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
-import 'package:majurun/modules/profile/domain/repositories/profile_repository.dart';
-import 'package:majurun/modules/workout/domain/repositories/workout_repository.dart';
-
-// Implementations
+// Repositories
 import 'package:majurun/modules/auth/data/repositories/firebase_auth_repository.dart';
-import 'package:majurun/modules/profile/data/repositories/firebase_profile_repository.dart';
+import 'package:majurun/modules/workout/domain/repositories/workout_repository.dart';
 import 'package:majurun/modules/workout/data/repositories/firebase_workout_repository.dart';
+import 'package:majurun/modules/profile/domain/repositories/profile_repository.dart';
+import 'package:majurun/modules/profile/data/repositories/firebase_profile_repository.dart';
 
-import 'package:majurun/modules/auth/presentation/screens/auth_wrapper.dart';
+// Screens
+import 'package:majurun/modules/auth/presentation/screens/login_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
+
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Note: .env not found.");
+  }
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(
-    MultiProvider(
-      providers: [
-        // 1. Auth Provider
-        Provider<AuthRepository>(
-          create: (_) => FirebaseAuthRepository(),
-        ),
-        // 2. Profile Provider (This was likely missing or incorrectly typed)
-        Provider<ProfileRepository>(
-          create: (_) => FirebaseProfileRepository(),
-        ),
-        // 3. Workout Provider
-        Provider<WorkoutRepository>(
-          create: (_) => FirebaseWorkoutRepository(),
-        ),
-      ],
-      child: const MajuRunApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
-class MajuRunApp extends StatelessWidget {
-  const MajuRunApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MajuRun',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        Provider<FirebaseAuthRepository>(create: (_) => FirebaseAuthRepository()),
+        Provider<WorkoutRepository>(create: (_) => FirebaseWorkoutRepository()),
+        Provider<ProfileRepository>(create: (_) => FirebaseProfileRepository()),
+      ],
+      child: MaterialApp(
+        title: 'Majurun',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorSchemeSeed: Colors.green,
+          scaffoldBackgroundColor: Colors.white,
+        ),
+        home: const AuthWrapper(),
       ),
-      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authRepo = context.watch<FirebaseAuthRepository>();
+    return StreamBuilder<User?>(
+      stream: authRepo.userStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasData && snapshot.data != null) {
+          return const HomeScreen(); // Your restored blueprint screen
+        }
+        return const LoginScreen();
+      },
     );
   }
 }

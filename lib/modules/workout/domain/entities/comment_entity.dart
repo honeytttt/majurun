@@ -1,36 +1,24 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 
-class CommentEntity {
+class CommentEntity extends Equatable {
   final String id;
   final String userId;
   final String userName;
-  final String userPhoto;
   final String text;
-  final DateTime timestamp;
+  final DateTime date;
   final List<String> likes;
-  final String? parentId; // Added for nesting
+  final List<CommentEntity>? replies;
 
-  CommentEntity({
+  const CommentEntity({
     required this.id,
     required this.userId,
     required this.userName,
-    required this.userPhoto,
     required this.text,
-    required this.timestamp,
-    required this.likes,
-    this.parentId,
+    required this.date,
+    this.likes = const [],
+    this.replies = const [],
   });
 
-  factory CommentEntity.fromMap(Map<String, dynamic> map, String docId) {
-    return CommentEntity(
-      id: docId,
-      userId: map['userId'] ?? '',
-      userName: map['userName'] ?? 'Runner',
-      userPhoto: map['userPhoto'] ?? '',
-      text: map['text'] ?? '',
-      timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      likes: List<String>.from(map['likes'] ?? []),
-      parentId: map['parentId'],
-    );
-  }
+  @override
+  List<Object?> get props => [id, userId, userName, text, date, likes, replies];
 }

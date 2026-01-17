@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WorkoutEntity extends Equatable {
   final String id;
@@ -10,7 +11,7 @@ class WorkoutEntity extends Equatable {
   final double distance;
   final Duration duration;
   final DateTime date;
-  final List<String> likes; 
+  final List<String> likes;
   final int commentCount;
   final List<Map<String, double>> routePoints;
 
@@ -31,30 +32,52 @@ class WorkoutEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, userId, userName, type, distance, duration, date, imageUrl, text, likes, commentCount,
+        id,
+        userId,
+        userName,
+        type,
+        distance,
+        duration,
+        date,
+        imageUrl,
+        text,
+        likes,
+        commentCount,
+        routePoints, // Added routePoints to props
       ];
 
   factory WorkoutEntity.fromMap(Map<String, dynamic> map, String docId) {
+    // Handle date conversion safely
+    DateTime parsedDate;
+    if (map['timestamp'] is Timestamp) {
+      parsedDate = (map['timestamp'] as Timestamp).toDate();
+    } else if (map['date'] is Timestamp) {
+      parsedDate = (map['date'] as Timestamp).toDate();
+    } else {
+      parsedDate = DateTime.now();
+    }
+
     return WorkoutEntity(
       id: docId,
       userId: map['userId'] ?? '',
       userName: map['userName'],
+      // Check multiple possible keys used in previous versions
       type: map['workoutType'] ?? map['type'] ?? 'Run',
-      imageUrl: map['imageUrl'],
+      imageUrl: map['imageUrl'] ?? map['image'],
       text: map['content'] ?? map['text'],
       distance: (map['distance'] ?? 0).toDouble(),
       duration: Duration(
-        seconds: map['durationSeconds'] ?? ((map['durationMinutes'] ?? 0) * 60).toInt()
+        seconds: (map['durationSeconds'] ?? 
+                 map['duration'] ?? 
+                 ((map['durationMinutes'] ?? 0) * 60)).toInt()
       ),
-      date: map['timestamp'] != null 
-          ? (map['timestamp'] as dynamic).toDate() 
-          : DateTime.now(),
-      // Check your Firestore: if the field is 'likes', change 'likedBy' to 'likes'
+      date: parsedDate,
+      // Mapping likes from multiple possible keys for compatibility
       likes: List<String>.from(map['likedBy'] ?? map['likes'] ?? []),
-      commentCount: map['commentCount'] ?? 0,
+      commentCount: (map['commentCount'] ?? 0).toInt(),
       routePoints: (map['routePoints'] as List?)
               ?.map((p) => Map<String, double>.from(p))
-              .toList() ?? 
+              .toList() ??
           const [],
     );
   }
@@ -63,13 +86,13 @@ class WorkoutEntity extends Equatable {
     return {
       'userId': userId,
       'userName': userName,
-      'workoutType': type,
+      'type': type, // Standardized key
       'imageUrl': imageUrl,
-      'content': text,
+      'text': text, // Standardized key
       'distance': distance,
-      'durationSeconds': duration.inSeconds,
-      'timestamp': date,
-      'likedBy': likes, // Matches factory mapping
+      'duration': duration.inSeconds,
+      'date': Timestamp.fromDate(date),
+      'likes': likes,
       'commentCount': commentCount,
       'routePoints': routePoints,
     };

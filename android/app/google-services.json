@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "648836412000",
-    "project_id": "majurun-8d8b5",
-    "storage_bucket": "majurun-8d8b5.firebasestorage.app"
+    "project_number": "233375879664",
+    "project_id": "ewforall",
+    "storage_bucket": "ewforall.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:648836412000:android:d6af7bffe4374005ac8905",
+        "mobilesdk_app_id": "1:233375879664:android:14de79e97f6de652128d35",
         "android_client_info": {
           "package_name": "com.example.majurun"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB-glMd9_6VjXa50OG9jleoCkllNhtdFBY"
+          "current_key": "AIzaSyAfbeWn5G4YW8XPIkRZCORsLYX43aGn1nU"
         }
       ],
       "services": {

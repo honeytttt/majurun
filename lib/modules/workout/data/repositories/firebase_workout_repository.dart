@@ -1,173 +1,170 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/workout_entity.dart';
 import '../../domain/entities/comment_entity.dart';
 import '../../domain/repositories/workout_repository.dart';
 
 class FirebaseWorkoutRepository implements WorkoutRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  // --- WORKOUT METHODS ---
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
-  Stream<List<WorkoutEntity>> streamAllWorkouts({String typeFilter = 'all'}) {
-    Query query = _db.collection('workouts').orderBy('date', descending: true);
-    
-    if (typeFilter != 'all') {
-      query = query.where('type', isEqualTo: typeFilter);
-    }
-
-    return query.snapshots().map((snapshot) {
+  Stream<List<CommentEntity>> streamComments(String workoutId) {
+    return _firestore
+        .collection('workouts')
+        .doc(workoutId)
+        .collection('comments')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) {
       return snapshot.docs.map((doc) {
-        return WorkoutEntity.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        final data = doc.data();
+        
+        // NESTED REPLIES MAPPING
+        final List<dynamic> repliesData = data['replies'] ?? [];
+        final List<CommentEntity> parsedReplies = repliesData.map((r) {
+          final replyMap = Map<String, dynamic>.from(r);
+          return CommentEntity(
+            id: replyMap['replyId'] ?? '', 
+            userId: replyMap['userId'] ?? '',
+            userName: replyMap['userName'] ?? 'User',
+            text: replyMap['text'] ?? '',
+            // Handle null date during local sync
+            date: (replyMap['date'] is Timestamp) 
+                ? (replyMap['date'] as Timestamp).toDate() 
+                : DateTime.now(),
+            likes: List<String>.from(replyMap['likes'] ?? []),
+          );
+        }).toList();
+
+        // MAIN COMMENT MAPPING
+        return CommentEntity(
+          id: doc.id,
+          userId: data['userId'] ?? '',
+          userName: data['userName'] ?? 'User',
+          text: data['text'] ?? '',
+          // CRITICAL: prevents blink crash if date is null on sync
+          date: (data['date'] is Timestamp) 
+              ? (data['date'] as Timestamp).toDate() 
+              : DateTime.now(), 
+          likes: List<String>.from(data['likes'] ?? []),
+          replies: parsedReplies,
+        );
       }).toList();
     });
   }
 
   @override
-  Stream<List<WorkoutEntity>> streamUserWorkouts(String userId) {
-    return _db.collection('workouts')
-        .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => WorkoutEntity.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
-  }
+  Future<void> addReply(String workoutId, String commentId, String text) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  @override
-  Future<void> saveWorkout(WorkoutEntity workout) async {
-    await _db.collection('workouts').add(workout.toMap());
-  }
+    final newReply = {
+      'replyId': 'reply_${DateTime.now().millisecondsSinceEpoch}',
+      'userId': user.uid,
+      'userName': user.displayName ?? "User",
+      'text': text,
+      'date': Timestamp.now(), // Local timestamp
+      'likes': [],
+    };
 
-  @override
-Future<void> toggleCheer(String workoutId, String userId) async {
-  final docRef = _db.collection('workouts').doc(workoutId);
-  
-  // Fetch current state
-  final doc = await docRef.get();
-  if (!doc.exists) return;
-
-  List currentLikes = List.from(doc.data()?['likes'] ?? []);
-
-  if (currentLikes.contains(userId)) {
-    // Remove like (Unlike)
-    await docRef.update({
-      'likes': FieldValue.arrayRemove([userId])
-    });
-  } else {
-    // Add like
-    await docRef.update({
-      'likes': FieldValue.arrayUnion([userId])
-    });
-  }
-}
-
-  // --- COMMENT METHODS (Nested & Likable) ---
-
-  @override
-  Stream<List<CommentEntity>> streamComments(String workoutId) {
-    // We stream all comments for this workout. 
-    // The UI handles the nesting logic by filtering the parentId.
-    return _db.collection('workouts')
-        .doc(workoutId)
-        .collection('comments')
-        .orderBy('timestamp', descending: false) // Ascending for conversation flow
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => CommentEntity.fromMap(d.data() as Map<String, dynamic>, d.id))
-            .toList());
-  }
-
-  @override
-  Future<void> addComment({
-    required String workoutId, 
-    required String userId, 
-    required String text, 
-    String? parentId,
-  }) async {
-    // 1. Resolve User Name/Photo to fix "random letters" (Denormalization)
-    final userDoc = await _db.collection('users').doc(userId).get();
-    final userData = userDoc.data() ?? {};
-    
-    final String name = userData['name'] ?? userData['displayName'] ?? 'Runner';
-    final String photo = userData['photoUrl'] ?? '';
-
-    // 2. Add comment/reply to the sub-collection
-    final commentRef = _db
+    await _firestore
         .collection('workouts')
         .doc(workoutId)
         .collection('comments')
-        .doc();
-    
-    await commentRef.set({
-      'id': commentRef.id,
-      'userId': userId,
-      'userName': name,      
-      'userPhoto': photo,
-      'text': text,
-      'parentId': parentId, // If null, it's a top-level comment. If not, it's a reply.
-      'timestamp': FieldValue.serverTimestamp(),
-      'likes': [],
+        .doc(commentId)
+        .update({
+      'replies': FieldValue.arrayUnion([newReply])
     });
+  }
 
-    // 3. Update the total comment count on the main workout document
-    await _db.collection('workouts').doc(workoutId).update({
+  @override
+  Future<void> addComment(String workoutId, String text) async {
+    final user = FirebaseAuth.instance.currentUser;
+    await _firestore.collection('workouts').doc(workoutId).collection('comments').add({
+      'userId': user?.uid,
+      'userName': user?.displayName ?? "User",
+      'text': text,
+      'date': FieldValue.serverTimestamp(),
+      'likes': [],
+      'replies': [],
+    });
+    await _firestore.collection('workouts').doc(workoutId).update({
       'commentCount': FieldValue.increment(1)
     });
   }
 
-  @override
   Future<void> toggleCommentLike(String workoutId, String commentId, String userId) async {
-    // Targets the specific comment document inside the workout's sub-collection
-    final commentRef = _db
+    final docRef = _firestore
         .collection('workouts')
         .doc(workoutId)
         .collection('comments')
         .doc(commentId);
-        
-    final doc = await commentRef.get();
-    
-    if (doc.exists) {
-      List likes = List.from(doc.data()?['likes'] ?? []);
-      if (likes.contains(userId)) {
-        await commentRef.update({'likes': FieldValue.arrayRemove([userId])});
-      } else {
-        await commentRef.update({'likes': FieldValue.arrayUnion([userId])});
-      }
+
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final List likes = List<String>.from(doc.data()?['likes'] ?? []);
+
+    if (likes.contains(userId)) {
+      await docRef.update({'likes': FieldValue.arrayRemove([userId])});
+    } else {
+      await docRef.update({'likes': FieldValue.arrayUnion([userId])});
     }
   }
 
-  // --- ADDITIONAL METHODS ---
-
+  // Standard methods...
   @override
-  Stream<List<Map<String, dynamic>>> streamLeaderboard() {
-    return _db.collection('users')
-        .orderBy('totalDistance', descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => {
-          ...d.data(),
-          'uid': d.id,
-        }).toList());
+  Future<void> savePost({required String userId, required String userName, required String text, String? imageUrl}) async {
+    await _firestore.collection('workouts').add({'userId': userId, 'userName': userName, 'text': text, 'imageUrl': imageUrl, 'type': 'Post', 'distance': 0.0, 'duration': 0, 'date': FieldValue.serverTimestamp(), 'likes': [], 'commentCount': 0});
   }
 
   @override
-  Future<void> savePost({required String userId, required String text, String? imageUrl}) async {
-    final userDoc = await _db.collection('users').doc(userId).get();
-    final userData = userDoc.data() ?? {};
+  Stream<List<WorkoutEntity>> streamAllWorkouts({String? typeFilter}) {
+    Query q = _firestore.collection('workouts').orderBy('date', descending: true);
+    if (typeFilter != null && typeFilter != 'all') q = q.where('type', isEqualTo: typeFilter);
+    return q.snapshots().map((s) => s.docs.map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      return WorkoutEntity(id: d.id, userId: data['userId'] ?? '', userName: data['userName'] ?? 'Runner', type: data['type'] ?? 'Run', distance: (data['distance'] ?? 0.0).toDouble(), duration: Duration(seconds: (data['duration'] ?? 0).toInt()), date: (data['date'] is Timestamp) ? (data['date'] as Timestamp).toDate() : DateTime.now(), likes: List<String>.from(data['likes'] ?? []), commentCount: (data['commentCount'] ?? 0).toInt(), text: data['text'], imageUrl: data['imageUrl']);
+    }).toList());
+  }
 
-    await _db.collection('workouts').add({
-      'userId': userId,
-      'userName': userData['name'] ?? 'Runner',
-      'userPhoto': userData['photoUrl'] ?? '',
-      'text': text,
-      'imageUrl': imageUrl,
-      'type': 'post',
-      'date': FieldValue.serverTimestamp(),
-      'likes': [],
-      'commentCount': 0,
-      'distance': 0.0,
-      'duration': 0,
+  @override
+  Future<void> toggleCheer(String workoutId, String userId) async {
+    final docRef = _firestore.collection('workouts').doc(workoutId);
+    final snapshot = await docRef.get();
+    final List likes = List<String>.from(snapshot.data()?['likes'] ?? []);
+    if (likes.contains(userId)) {
+      await docRef.update({'likes': FieldValue.arrayRemove([userId])});
+    } else {
+      await docRef.update({'likes': FieldValue.arrayUnion([userId])});
+    }
+  }
+
+  @override
+  Future<void> createWorkout(WorkoutEntity workout) async {
+    await _firestore.collection('workouts').add({
+      'userId': workout.userId, 'userName': workout.userName, 'type': workout.type, 'distance': workout.distance, 'duration': workout.duration.inSeconds, 'date': Timestamp.fromDate(workout.date), 'likes': [], 'commentCount': 0, 'text': workout.text, 'imageUrl': workout.imageUrl,
+    });
+  }
+
+  @override
+  Stream<List<Map<String, dynamic>>> streamLeaderboard() {
+    return _firestore.collection('workouts').snapshots().map((snapshot) {
+      Map<String, Map<String, dynamic>> userStats = {};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final uid = data['userId'];
+        if (uid == null) continue;
+        double dist = (data['distance'] ?? 0.0).toDouble();
+        if (userStats.containsKey(uid)) {
+          userStats[uid]!['totalDistance'] = (userStats[uid]!['totalDistance'] as double) + dist;
+        } else {
+          userStats[uid] = {'userId': uid, 'userName': data['userName'] ?? 'Runner', 'totalDistance': dist};
+        }
+      }
+      var list = userStats.values.toList();
+      list.sort((a, b) => (b['totalDistance'] as double).compareTo(a['totalDistance'] as double));
+      return list;
     });
   }
 }
