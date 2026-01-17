@@ -43,28 +43,28 @@ class _CommentsSheetState extends State<CommentsSheet> {
               child: StreamBuilder<List<CommentEntity>>(
                 stream: repo.streamComments(widget.workoutId),
                 builder: (context, snapshot) {
-                  // Keep showing the old data while the stream is refreshing (Prevents Blinking)
-                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final comments = snapshot.data ?? [];
+                  // We check hasData first so we don't show a loader if we have old data to display
+                  if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+                  final comments = snapshot.data!;
 
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: comments.length,
                     itemBuilder: (context, index) {
                       final comment = comments[index];
+                      // ValueKey prevents the whole list item from rebuilding when likes change
                       return Column(
-                        key: ValueKey(comment.id),
+                        key: ValueKey('thread_${comment.id}'),
                         children: [
-                          _buildCommentTile(comment, false),
-                          // Render Replies
+                          _buildCommentItem(comment, false),
                           if (comment.replies != null)
                             ...comment.replies!.map((reply) => Padding(
-                                  padding: const EdgeInsets.only(left: 44.0),
-                                  child: _buildCommentTile(reply, true),
+                                  padding: const EdgeInsets.only(left: 48.0),
+                                  child: _buildCommentItem(reply, true),
                                 )),
-                          const Divider(),
+                          const Divider(height: 1),
                         ],
                       );
                     },
@@ -72,14 +72,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                 },
               ),
             ),
-            _buildInputArea(repo),
+            _buildInput(repo),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCommentTile(CommentEntity comment, bool isReply) {
+  Widget _buildCommentItem(CommentEntity comment, bool isReply) {
     final bool isLiked = comment.likes.contains(currentUid);
     final fRepo = context.read<WorkoutRepository>() as FirebaseWorkoutRepository;
 
@@ -118,13 +118,21 @@ class _CommentsSheetState extends State<CommentsSheet> {
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, 
-                       size: 16, color: isLiked ? Colors.red : Colors.grey),
-            onPressed: () {
-              if (!isReply) fRepo.toggleCommentLike(widget.workoutId, comment.id, currentUid);
-            },
-          ),
+          // Like Action (Specific to main comments to prevent nested map complexity)
+          if (!isReply)
+            Column(
+              children: [
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, 
+                             size: 16, color: isLiked ? Colors.red : Colors.grey),
+                  onPressed: () => fRepo.toggleCommentLike(widget.workoutId, comment.id, currentUid),
+                ),
+                if (comment.likes.isNotEmpty)
+                  Text("${comment.likes.length}", style: const TextStyle(fontSize: 10)),
+              ],
+            ),
         ],
       ),
     );
@@ -137,16 +145,17 @@ class _CommentsSheetState extends State<CommentsSheet> {
     return "${diff.inHours}h";
   }
 
-  Widget _buildInputArea(WorkoutRepository repo) {
+  Widget _buildInput(WorkoutRepository repo) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[200]!))),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (_replyingToId != null)
             Row(
               children: [
-                Text("Replying to $_replyingToName", style: const TextStyle(fontSize: 12, color: Colors.green)),
+                Text("Replying to $_replyingToName", style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () => setState(() => _replyingToId = null)),
               ],

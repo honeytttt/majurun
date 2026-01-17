@@ -19,16 +19,17 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
       return snapshot.docs.map((doc) {
         final data = doc.data();
         
-        // NESTED REPLIES MAPPING
+        // 1. SAFE REPLY MAPPING
         final List<dynamic> repliesData = data['replies'] ?? [];
         final List<CommentEntity> parsedReplies = repliesData.map((r) {
           final replyMap = Map<String, dynamic>.from(r);
           return CommentEntity(
-            id: replyMap['replyId'] ?? '', 
+            // Ensure every reply has a stable ID to prevent UI disappearance
+            id: replyMap['replyId']?.toString() ?? DateTime.now().toIso8601String(),
             userId: replyMap['userId'] ?? '',
             userName: replyMap['userName'] ?? 'User',
             text: replyMap['text'] ?? '',
-            // Handle null date during local sync
+            // Fallback for null timestamps during server sync
             date: (replyMap['date'] is Timestamp) 
                 ? (replyMap['date'] as Timestamp).toDate() 
                 : DateTime.now(),
@@ -36,16 +37,15 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
           );
         }).toList();
 
-        // MAIN COMMENT MAPPING
+        // 2. SAFE MAIN COMMENT MAPPING
         return CommentEntity(
           id: doc.id,
           userId: data['userId'] ?? '',
           userName: data['userName'] ?? 'User',
           text: data['text'] ?? '',
-          // CRITICAL: prevents blink crash if date is null on sync
           date: (data['date'] is Timestamp) 
               ? (data['date'] as Timestamp).toDate() 
-              : DateTime.now(), 
+              : DateTime.now(), // Critical for preventing "blink"
           likes: List<String>.from(data['likes'] ?? []),
           replies: parsedReplies,
         );
@@ -58,12 +58,15 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    // We generate the ID locally so it's stable the moment it hits the stream
+    final String replyId = 'reply_${DateTime.now().millisecondsSinceEpoch}_${user.uid}';
+
     final newReply = {
-      'replyId': 'reply_${DateTime.now().millisecondsSinceEpoch}',
+      'replyId': replyId,
       'userId': user.uid,
       'userName': user.displayName ?? "User",
       'text': text,
-      'date': Timestamp.now(), // Local timestamp
+      'date': Timestamp.now(), 
       'likes': [],
     };
 
@@ -88,11 +91,13 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
       'likes': [],
       'replies': [],
     });
+    
     await _firestore.collection('workouts').doc(workoutId).update({
       'commentCount': FieldValue.increment(1)
     });
   }
 
+  // Missing toggle logic from earlier
   Future<void> toggleCommentLike(String workoutId, String commentId, String userId) async {
     final docRef = _firestore
         .collection('workouts')
@@ -103,21 +108,20 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
     final doc = await docRef.get();
     if (!doc.exists) return;
 
-    final List likes = List<String>.from(doc.data()?['likes'] ?? []);
+    final List currentLikes = List<String>.from(doc.data()?['likes'] ?? []);
 
-    if (likes.contains(userId)) {
+    if (currentLikes.contains(userId)) {
       await docRef.update({'likes': FieldValue.arrayRemove([userId])});
     } else {
       await docRef.update({'likes': FieldValue.arrayUnion([userId])});
     }
   }
 
-  // Standard methods...
+  // The rest of your repository methods...
   @override
   Future<void> savePost({required String userId, required String userName, required String text, String? imageUrl}) async {
     await _firestore.collection('workouts').add({'userId': userId, 'userName': userName, 'text': text, 'imageUrl': imageUrl, 'type': 'Post', 'distance': 0.0, 'duration': 0, 'date': FieldValue.serverTimestamp(), 'likes': [], 'commentCount': 0});
   }
-
   @override
   Stream<List<WorkoutEntity>> streamAllWorkouts({String? typeFilter}) {
     Query q = _firestore.collection('workouts').orderBy('date', descending: true);
@@ -127,7 +131,6 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
       return WorkoutEntity(id: d.id, userId: data['userId'] ?? '', userName: data['userName'] ?? 'Runner', type: data['type'] ?? 'Run', distance: (data['distance'] ?? 0.0).toDouble(), duration: Duration(seconds: (data['duration'] ?? 0).toInt()), date: (data['date'] is Timestamp) ? (data['date'] as Timestamp).toDate() : DateTime.now(), likes: List<String>.from(data['likes'] ?? []), commentCount: (data['commentCount'] ?? 0).toInt(), text: data['text'], imageUrl: data['imageUrl']);
     }).toList());
   }
-
   @override
   Future<void> toggleCheer(String workoutId, String userId) async {
     final docRef = _firestore.collection('workouts').doc(workoutId);
@@ -139,14 +142,10 @@ class FirebaseWorkoutRepository implements WorkoutRepository {
       await docRef.update({'likes': FieldValue.arrayUnion([userId])});
     }
   }
-
   @override
   Future<void> createWorkout(WorkoutEntity workout) async {
-    await _firestore.collection('workouts').add({
-      'userId': workout.userId, 'userName': workout.userName, 'type': workout.type, 'distance': workout.distance, 'duration': workout.duration.inSeconds, 'date': Timestamp.fromDate(workout.date), 'likes': [], 'commentCount': 0, 'text': workout.text, 'imageUrl': workout.imageUrl,
-    });
+    await _firestore.collection('workouts').add({'userId': workout.userId, 'userName': workout.userName, 'type': workout.type, 'distance': workout.distance, 'duration': workout.duration.inSeconds, 'date': Timestamp.fromDate(workout.date), 'likes': [], 'commentCount': 0, 'text': workout.text, 'imageUrl': workout.imageUrl});
   }
-
   @override
   Stream<List<Map<String, dynamic>>> streamLeaderboard() {
     return _firestore.collection('workouts').snapshots().map((snapshot) {
