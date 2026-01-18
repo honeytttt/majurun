@@ -62,7 +62,16 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
+        onTap: (index) {
+  if (index == 2) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+    );
+  } else {
+    setState(() => _selectedIndex = index);
+  }
+},
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey,
         items: const [
