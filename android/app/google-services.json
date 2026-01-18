@@ -12,7 +12,20 @@
           "package_name": "com.example.majurun"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "648836412000-vgl0o8at7nr22ttnfdrkmslfkreglsu1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.majurun",
+            "certificate_hash": "a9e8de138f8db700bc04c7354d3cee856cbd0608"
+          }
+        },
+        {
+          "client_id": "648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB-glMd9_6VjXa50OG9jleoCkllNhtdFBY"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "648836412000-f462s9o01pmajtm0lrcotcade630dtqu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.majurun"
+              }
+            }
+          ]
         }
       }
     }

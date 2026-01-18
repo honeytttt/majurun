@@ -1,15 +1,22 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import '../entities/app_user.dart';
 
 abstract class AuthRepository {
-  // Stream to listen to user login state
-  Stream<User?> get authStateChanges;
-  
-  // Sign Up
-  Future<UserCredential?> signUp(String email, String password, String name);
-  
-  // Login
-  Future<UserCredential?> signIn(String email, String password);
-  
-  // Sign Out
+  Stream<AppUser?> get onAuthStateChanged;
+
+  Future<AppUser?> signInWithEmail(String email, String password);
+
+  Future<AppUser?> signUpWithEmail({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    required DateTime dob,
+    required String gender,
+    required String phoneNumber,
+  });
+
+  Future<AppUser?> signInWithGoogle();
+  Future<AppUser?> signInWithFacebook();
+  Future<AppUser?> signInAsGuest();
   Future<void> signOut();
 }

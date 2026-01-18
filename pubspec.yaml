@@ -11,10 +11,14 @@ dependencies:
     sdk: flutter
   firebase_core: ^2.32.0
   firebase_auth: ^4.20.0
-  cloud_firestore: ^4.17.0
+  cloud_firestore: ^4.17.5
   provider: ^6.1.1
   equatable: ^2.0.5
   cached_network_image: ^3.3.0
+  google_sign_in: ^6.2.1
+  flutter_facebook_auth: ^6.1.0
+  twitter_login: ^4.4.2
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
