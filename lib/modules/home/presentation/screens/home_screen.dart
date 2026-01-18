@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
-import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
+import 'package:majurun/modules/home/domain/entities/post.dart';
+import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
+import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
+import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,68 +15,70 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final PostRepositoryImpl _postRepo = PostRepositoryImpl();
 
   @override
   Widget build(BuildContext context) {
-    // Variable removed to fix 'unused_local_variable' warning.
-    // Use context.read<AuthRepository>() directly where needed.
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.account_circle_outlined),
-          onPressed: () {},
-        ),
-        title: IconButton(
-          icon: const Icon(Icons.search),
-          onPressed: () {},
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leadingWidth: 100,
+        leading: const Row(
+          children: [
+            SizedBox(width: 12),
+            Icon(Icons.account_circle_outlined, color: Colors.black, size: 28),
+            SizedBox(width: 12),
+            Icon(Icons.search, color: Colors.black, size: 28),
+          ],
         ),
         actions: [
+          const Icon(Icons.notifications_none, color: Colors.black, size: 28),
+          const SizedBox(width: 12),
+          const Icon(Icons.chat_bubble_outline, color: Colors.black, size: 28),
+          const SizedBox(width: 12),
           IconButton(
-            icon: const Icon(Icons.notifications_none), 
-            onPressed: () {}
-          ),
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline), 
-            onPressed: () {}
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
             onPressed: () => context.read<AuthRepository>().signOut(),
           ),
         ],
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
       ),
+      body: StreamBuilder<List<AppPost>>(
+        stream: _postRepo.getPostStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
 
-      body: ListView.builder(
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          return PostCard(
-            username: "User_$index",
-            content: "This is a sample workout post from the Majurun community feed! #Run #Fitness",
-            imageUrl: "https://via.placeholder.com/300",
+          final posts = snapshot.data ?? [];
+
+          return RefreshIndicator(
+            onRefresh: () async => setState(() {}),
+            child: posts.isEmpty
+                ? const Center(child: Text("No posts or feed yet"))
+                : ListView.builder(
+                    itemCount: posts.length,
+                    itemBuilder: (context, index) => FeedItemWrapper(post: posts[index]),
+                  ),
           );
         },
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-        onTap: (index) {
-  if (index == 2) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const CreatePostScreen()),
-    );
-  } else {
-    setState(() => _selectedIndex = index);
-  }
-},
-        selectedItemColor: Colors.blueAccent,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          if (index == 2) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePostScreen()));
+          } else {
+            setState(() => _selectedIndex = index);
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'home'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),

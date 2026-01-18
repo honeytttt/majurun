@@ -1,102 +1,157 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Add to pubspec: intl: ^0.19.0
-import 'package:mahurun/modules/home/domain/entities/post.dart';
+import 'package:majurun/modules/home/domain/entities/post.dart';
+import 'package:intl/intl.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+import 'dart:html' as html; // Used for Web Downloads
 
 class FeedItemWrapper extends StatelessWidget {
   final AppPost post;
-
   const FeedItemWrapper({super.key, required this.post});
 
-  String _getRelativeTime(DateTime dateTime) {
-    final duration = DateTime.now().difference(dateTime);
-    if (duration.inDays > 7) return DateFormat.yMMMd().format(dateTime);
-    if (duration.inDays > 0) return "${duration.inDays}d";
-    if (duration.inHours > 0) return "${duration.inHours}h";
-    if (duration.inMinutes > 0) return "${duration.inMinutes}m";
-    return "just now";
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0.5,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            leading: const CircleAvatar(backgroundColor: Colors.blueGrey, child: Icon(Icons.person, color: Colors.white)),
+            title: Text(post.username, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(DateFormat('MMM d, HH:mm').format(post.createdAt)),
+          ),
+          if (post.content.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(post.content, style: const TextStyle(fontSize: 16)),
+            ),
+          if (post.media.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: _buildMedia(context, post.media.first),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
+                Text("${post.likes.length}"),
+                const SizedBox(width: 16),
+                IconButton(icon: const Icon(Icons.chat_bubble_outline), onPressed: () {}),
+                const Text("0"),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMedia(BuildContext context, PostMedia media) {
+    if (media.type == MediaType.image) {
+      return GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FullScreenImage(imageUrl: media.url))),
+        child: Hero(
+          tag: media.url,
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 500),
+            child: Image.network(media.url, fit: BoxFit.contain),
+          ),
+        ),
+      );
+    } else {
+      return VideoPlayerWidget(videoUrl: media.url);
+    }
+  }
+}
+
+class VideoPlayerWidget extends StatefulWidget {
+  final String videoUrl;
+  const VideoPlayerWidget({super.key, required this.videoUrl});
+
+  @override
+  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  late VideoPlayerController _videoController;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePlayer();
+  }
+
+  Future<void> _initializePlayer() async {
+    _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    await _videoController.initialize();
+    _chewieController = ChewieController(
+      videoPlayerController: _videoController,
+      autoPlay: false,
+      looping: false,
+      aspectRatio: _videoController.value.aspectRatio,
+    );
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _videoController.dispose();
+    _chewieController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(radius: 18, child: Icon(Icons.person)),
-              const SizedBox(width: 10),
-              Text(post.username, style: const TextStyle(fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Text(_getRelativeTime(post.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(post.content),
-          // Media Placeholder
-          if (post.media.isNotEmpty)
-            Container(
-              height: 200,
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.play_circle_outline, size: 50, color: Colors.grey),
-            ),
-          const Divider(),
-          Row(
-            children: [
-              _actionBtn(Icons.favorite_border, post.likes.length.toString()),
-              _actionBtn(Icons.chat_bubble_outline, post.comments.length.toString()),
-              _actionBtn(Icons.repeat, "Quote"),
-            ],
-          ),
-          // Nested Comments Display (Simplified for brevity)
-          if (post.comments.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 16.0, top: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: post.comments.map((comment) => _buildComment(comment)).toList(),
-              ),
-            ),
-        ],
-      ),
+      height: 300,
+      width: double.infinity,
+      color: Colors.black,
+      child: _chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
+          ? Chewie(controller: _chewieController!)
+          : const Center(child: CircularProgressIndicator()),
     );
   }
+}
 
-  Widget _buildComment(AppComment comment) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("${comment.username}: ${comment.text}", style: const TextStyle(fontSize: 13)),
-          Row(
-            children: [
-              Text(_getRelativeTime(comment.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              const SizedBox(width: 10),
-              const Text("Like", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              const SizedBox(width: 10),
-              const Text("Reply", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-            ],
+class FullScreenImage extends StatelessWidget {
+  final String imageUrl;
+  const FullScreenImage({super.key, required this.imageUrl});
+
+  // Web-friendly download function
+  void _downloadImage() {
+    html.AnchorElement(href: imageUrl)
+      ..setAttribute("download", "majurun_image.png")
+      ..click();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: _downloadImage,
+            tooltip: "Download Image",
           ),
         ],
       ),
-    );
-  }
-
-  Widget _actionBtn(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 20),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey[700]),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.grey)),
-        ],
+      body: Center(
+        child: Hero(
+          tag: imageUrl,
+          child: InteractiveViewer(child: Image.network(imageUrl, fit: BoxFit.contain)),
+        ),
       ),
     );
   }
