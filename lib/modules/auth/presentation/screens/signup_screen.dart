@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Ensure intl is in pubspec.yaml
-import '../../domain/repositories/auth_repository.dart';
+import 'package:intl/intl.dart'; 
+import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -22,7 +22,6 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _gender;
   bool _loading = false;
 
-  // Function to handle Date Selection
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -53,7 +52,6 @@ class _SignupScreenState extends State<SignupScreen> {
             TextFormField(controller: _phone, decoration: const InputDecoration(labelText: "Phone Number")),
             
             const SizedBox(height: 10),
-            // FIXED DOB DISPLAY
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey),
@@ -64,7 +62,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 subtitle: Text(
                   _dob == null 
                     ? "Not Selected" 
-                    : DateFormat('dd MMMM yyyy').format(_dob!), // Reactive update
+                    : DateFormat('dd MMMM yyyy').format(_dob!),
                   style: TextStyle(color: _dob == null ? Colors.red : Colors.blue),
                 ),
                 trailing: const Icon(Icons.calendar_month),
@@ -72,12 +70,26 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
 
+            // FIXED: Swapped 'value' for 'initialValue' to resolve deprecation warning
             DropdownButtonFormField<String>(
-              value: _gender,
-              items: ["Male", "Female", "Other"].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (v) => setState(() => _gender = v),
               decoration: const InputDecoration(labelText: "Gender"),
+              hint: const Text("Select Gender"),
+              initialValue: _gender,
+              onChanged: (String? newValue) {
+                setState(() {
+                  _gender = newValue;
+                });
+              },
+              items: ["Male", "Female", "Other"]
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              validator: (value) => value == null ? "Field required" : null,
             ),
+            
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: _loading ? null : () async {
@@ -85,29 +97,54 @@ class _SignupScreenState extends State<SignupScreen> {
                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing fields!")));
                    return;
                 }
+                
                 setState(() => _loading = true);
+                
+                final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(context);
+
                 try {
                   await context.read<AuthRepository>().signUpWithEmail(
-                    email: _email.text, password: _pass.text, firstName: _fName.text,
-                    lastName: _lName.text, dob: _dob!, gender: _gender!, phoneNumber: _phone.text,
+                    email: _email.text.trim(), 
+                    password: _pass.text.trim(), 
+                    firstName: _fName.text.trim(),
+                    lastName: _lName.text.trim(), 
+                    dob: _dob!, 
+                    gender: _gender!, 
+                    phoneNumber: _phone.text.trim(),
                   );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Verification email sent! Check your inbox."))
-                    );
-                    Navigator.pop(context);
-                  }
+
+                  if (!mounted) return;
+
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text("Verification email sent! Check your inbox."))
+                  );
+                  navigator.pop();
+                  
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                  if (!mounted) return;
+                  messenger.showSnackBar(SnackBar(content: Text(e.toString())));
                 } finally {
                   if (mounted) setState(() => _loading = false);
                 }
               },
-              child: _loading ? const CircularProgressIndicator() : const Text("CREATE ACCOUNT"),
+              child: _loading 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                : const Text("CREATE ACCOUNT"),
             ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _pass.dispose();
+    _fName.dispose();
+    _lName.dispose();
+    _phone.dispose();
+    super.dispose();
   }
 }

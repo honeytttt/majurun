@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../../domain/entities/app_user.dart';
-import '../screens/login_screen.dart';
+import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
+import 'package:majurun/modules/auth/domain/entities/app_user.dart';
+import 'package:majurun/modules/auth/presentation/screens/login_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -22,32 +23,12 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // 2. If user exists, show the main App/Home
+        // 2. If user exists, show the Blueprint Home Screen
         if (snapshot.hasData && snapshot.data != null) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text("Majurun"),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: () => authRepository.signOut(),
-                )
-              ],
-            ),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("Welcome, ${snapshot.data!.email}"),
-                  if (snapshot.data!.isGuest) 
-                    const Text("(Guest Mode)", style: TextStyle(color: Colors.orange)),
-                ],
-              ),
-            ),
-          );
+          return const HomeScreen();
         }
 
-        // 3. If no user, show the Login Screen
+        // 3. If no user, show the Login Screen (LOCKED 100%)
         return const LoginScreen();
       },
     );
