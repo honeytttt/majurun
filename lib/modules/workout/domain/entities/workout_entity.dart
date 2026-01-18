@@ -14,6 +14,7 @@ class WorkoutEntity extends Equatable {
   final List<String> likes;
   final int commentCount;
   final List<Map<String, double>> routePoints;
+  final bool isPublic; // ADDED: Fixes 'isPublic' undefined_getter error
 
   const WorkoutEntity({
     required this.id,
@@ -28,26 +29,16 @@ class WorkoutEntity extends Equatable {
     this.likes = const [],
     this.commentCount = 0,
     this.routePoints = const [],
+    this.isPublic = true, // Default to true
   });
 
   @override
   List<Object?> get props => [
-        id,
-        userId,
-        userName,
-        type,
-        distance,
-        duration,
-        date,
-        imageUrl,
-        text,
-        likes,
-        commentCount,
-        routePoints, // Added routePoints to props
+        id, userId, userName, type, distance, duration, 
+        date, imageUrl, text, likes, commentCount, routePoints, isPublic,
       ];
 
   factory WorkoutEntity.fromMap(Map<String, dynamic> map, String docId) {
-    // Handle date conversion safely
     DateTime parsedDate;
     if (map['timestamp'] is Timestamp) {
       parsedDate = (map['timestamp'] as Timestamp).toDate();
@@ -61,24 +52,20 @@ class WorkoutEntity extends Equatable {
       id: docId,
       userId: map['userId'] ?? '',
       userName: map['userName'],
-      // Check multiple possible keys used in previous versions
       type: map['workoutType'] ?? map['type'] ?? 'Run',
       imageUrl: map['imageUrl'] ?? map['image'],
       text: map['content'] ?? map['text'],
       distance: (map['distance'] ?? 0).toDouble(),
       duration: Duration(
-        seconds: (map['durationSeconds'] ?? 
-                 map['duration'] ?? 
-                 ((map['durationMinutes'] ?? 0) * 60)).toInt()
+        seconds: (map['durationSeconds'] ?? map['duration'] ?? 0).toInt()
       ),
       date: parsedDate,
-      // Mapping likes from multiple possible keys for compatibility
       likes: List<String>.from(map['likedBy'] ?? map['likes'] ?? []),
       commentCount: (map['commentCount'] ?? 0).toInt(),
       routePoints: (map['routePoints'] as List?)
               ?.map((p) => Map<String, double>.from(p))
-              .toList() ??
-          const [],
+              .toList() ?? const [],
+      isPublic: map['isPublic'] ?? true, // Standardized mapping
     );
   }
 
@@ -86,15 +73,16 @@ class WorkoutEntity extends Equatable {
     return {
       'userId': userId,
       'userName': userName,
-      'type': type, // Standardized key
+      'type': type,
       'imageUrl': imageUrl,
-      'text': text, // Standardized key
+      'text': text,
       'distance': distance,
       'duration': duration.inSeconds,
       'date': Timestamp.fromDate(date),
       'likes': likes,
       'commentCount': commentCount,
       'routePoints': routePoints,
+      'isPublic': isPublic,
     };
   }
 }

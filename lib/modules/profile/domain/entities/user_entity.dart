@@ -1,54 +1,56 @@
 import 'package:equatable/equatable.dart';
 
 class UserEntity extends Equatable {
-  final String id;
-  final String name;
+  final String uid;
+  final String displayName;
   final String email;
   final String photoUrl;
   final String bio;
   final int postCount;
-  final int followersCount;
-  final int followingCount;
+  final List<String> followers;
+  final List<String> following;
 
   const UserEntity({
-    required this.id,
-    required this.name,
-    this.email = '',
+    required this.uid,
+    required this.displayName,
+    required this.email,
     this.photoUrl = '',
     this.bio = '',
     this.postCount = 0,
-    this.followersCount = 0,
-    this.followingCount = 0,
+    this.followers = const [],
+    this.following = const [],
   });
 
-  String get uid => id;
-  String get displayName => name;
-
-  @override
-  List<Object?> get props => [id, name, email, photoUrl, bio, postCount, followersCount, followingCount];
+  // Fixes the 'undefined_named_parameter' and 'undefined_getter' errors
+  int get followersCount => followers.length;
+  int get followingCount => following.length;
 
   Map<String, dynamic> toMap() {
     return {
-      'name': name,
+      'uid': uid,
+      'displayName': displayName,
       'email': email,
       'photoUrl': photoUrl,
       'bio': bio,
       'postCount': postCount,
-      'followersCount': followersCount,
-      'followingCount': followingCount,
+      'followers': followers,
+      'following': following,
     };
   }
 
-  factory UserEntity.fromMap(Map<String, dynamic> map, String docId) {
+  factory UserEntity.fromMap(Map<String, dynamic> map, String id) {
     return UserEntity(
-      id: docId,
-      name: map['name'] ?? map['displayName'] ?? 'User',
+      uid: id,
+      displayName: map['displayName'] ?? '',
       email: map['email'] ?? '',
       photoUrl: map['photoUrl'] ?? '',
       bio: map['bio'] ?? '',
       postCount: map['postCount'] ?? 0,
-      followersCount: map['followersCount'] ?? 0,
-      followingCount: map['followingCount'] ?? 0,
+      followers: List<String>.from(map['followers'] ?? []),
+      following: List<String>.from(map['following'] ?? []),
     );
   }
+
+  @override
+  List<Object?> get props => [uid, displayName, email, photoUrl, bio, postCount, followers, following];
 }

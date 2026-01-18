@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../repositories/firebase_auth_repository.dart';
+// IMPORT THE INTERFACE, NOT THE FIREBASE REPOSITORY
+import '../../domain/repositories/auth_repository.dart';
 
 class SocialLoginButtons extends StatelessWidget {
   const SocialLoginButtons({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // This now correctly finds the AuthRepository type
     final authRepo = context.read<AuthRepository>();
 
     return Column(
@@ -26,14 +28,14 @@ class SocialLoginButtons extends StatelessWidget {
         // Google Button
         _socialButton(
           label: "Continue with Google",
-          iconPath: "assets/icons/google.png", // Ensure you have this icon
+          iconPath: "assets/icons/google.png",
           color: Colors.white,
           textColor: Colors.black,
           onTap: () async {
             try {
               await authRepo.signInWithGoogle();
-              // Navigate to Home on success
             } catch (e) {
+              if (!context.mounted) return; // Fixes 'async gap' info
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text("Google Login Failed: $e")),
               );
@@ -46,13 +48,14 @@ class SocialLoginButtons extends StatelessWidget {
         // Facebook Button
         _socialButton(
           label: "Continue with Facebook",
-          iconPath: "assets/icons/facebook.png", // Ensure you have this icon
+          iconPath: "assets/icons/facebook.png",
           color: const Color(0xFF1877F2),
           textColor: Colors.white,
           onTap: () async {
             try {
               await authRepo.signInWithFacebook();
             } catch (e) {
+              if (!context.mounted) return; // Fixes 'async gap' info
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text("Facebook Login Failed: $e")),
               );
@@ -82,8 +85,7 @@ class SocialLoginButtons extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Image.asset(iconPath, height: 24), // Uncomment when icons are added
-            const Icon(Icons.login), // Temporary icon
+            const Icon(Icons.login), 
             const SizedBox(width: 12),
             Text(label, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
           ],
