@@ -21,41 +21,58 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickMedia(bool isVideo) async {
     final picker = ImagePicker();
     final XFile? file = isVideo
         ? await picker.pickVideo(source: ImageSource.gallery)
         : await picker.pickImage(source: ImageSource.gallery);
 
-    if (file != null) {
-      setState(() => _isUploading = true);
-      try {
-        final Uint8List bytes = await file.readAsBytes();
-        String? url = await _cloudinary.uploadMedia(bytes, file.name, isVideo);
+    if (file == null) return;
 
-        if (url != null) {
-          setState(() {
-            _mediaList.add(PostMedia(
-              url: url,
-              type: isVideo ? MediaType.video : MediaType.image,
-            ));
-          });
-        }
-      } catch (e) {
-        debugPrint("Upload error: $e");
-      } finally {
-        if (mounted) setState(() => _isUploading = false);
+    setState(() => _isUploading = true);
+    try {
+      final Uint8List bytes = await file.readAsBytes();
+
+      // Note: Make sure CloudinaryService.uploadMedia accepts these 3 positional parameters:
+      // Uint8List bytes, String filename, bool isVideo
+      String? url = await _cloudinary.uploadMedia(bytes, file.name, isVideo);
+
+      if (url != null && mounted) {
+        setState(() {
+          _mediaList.add(PostMedia(
+            url: url,
+            type: isVideo ? MediaType.video : MediaType.image,
+          ));
+        });
       }
+    } catch (e) {
+      debugPrint("Media upload error: $e");
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
   Future<void> _handlePost() async {
     final text = _controller.text.trim();
     if (text.isEmpty && _mediaList.isEmpty) return;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     setState(() => _isUploading = true);
+
     try {
       const uuid = Uuid();
       final post = AppPost(
@@ -67,11 +84,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         createdAt: DateTime.now(),
         likes: const [],
         comments: const [],
+        quotedPostId: null,
       );
+
       await _postRepo.createPost(post);
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      debugPrint("Post failed: $e");
+      debugPrint("Post creation failed: $e");
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -79,7 +99,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool canPost = (_controller.text.isNotEmpty || _mediaList.isNotEmpty) && !_isUploading;
+    final bool hasContent =
+        _controller.text.trim().isNotEmpty || _mediaList.isNotEmpty;
+    final bool canPost = hasContent && !_isUploading;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -91,14 +113,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
-            child: _isUploading 
-              ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
-              : TextButton(
-                  onPressed: canPost ? _handlePost : null,
-                  child: Text("POST", 
-                    style: TextStyle(fontWeight: FontWeight.bold, color: canPost ? Colors.blue : Colors.grey),
+            child: _isUploading
+                ? const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : TextButton(
+                    onPressed: canPost ? _handlePost : null,
+                    child: Text(
+                      "POST",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: canPost ? Colors.blue : Colors.grey,
+                      ),
+                    ),
                   ),
-                ),
           )
         ],
       ),
@@ -108,6 +140,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: TextField(
               controller: _controller,
               maxLines: null,
+              autofocus: true,
               decoration: const InputDecoration(
                 hintText: "What's on your mind?",
                 contentPadding: EdgeInsets.all(20),
@@ -134,17 +167,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             width: 120,
                             height: 120,
                             color: Colors.grey[200],
-                            // FIX: Check type before showing Image.network
                             child: media.type == MediaType.image
                                 ? Image.network(media.url, fit: BoxFit.cover)
-                                : const Center(child: Icon(Icons.videocam, size: 40, color: Colors.grey)),
+                                : const Center(
+                                    child: Icon(
+                                      Icons.videocam,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                           ),
                         ),
                         Positioned(
-                          right: 4, top: 4,
+                          right: 4,
+                          top: 4,
                           child: GestureDetector(
                             onTap: () => setState(() => _mediaList.removeAt(i)),
-                            child: const CircleAvatar(radius: 12, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 16, color: Colors.white)),
+                            child: const CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.black54,
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -153,12 +200,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 },
               ),
             ),
-          const Divider(),
+          const Divider(height: 1),
           SafeArea(
             child: Row(
               children: [
-                IconButton(icon: const Icon(Icons.image_outlined, color: Colors.blue), onPressed: () => _pickMedia(false)),
-                IconButton(icon: const Icon(Icons.videocam_outlined, color: Colors.red), onPressed: () => _pickMedia(true)),
+                IconButton(
+                  icon: const Icon(Icons.image_outlined, color: Colors.blue),
+                  onPressed: () => _pickMedia(false),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.videocam_outlined, color: Colors.red),
+                  onPressed: () => _pickMedia(true),
+                ),
               ],
             ),
           )

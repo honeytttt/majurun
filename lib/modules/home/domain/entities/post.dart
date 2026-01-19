@@ -19,8 +19,8 @@ class AppComment extends Equatable {
   final String text;
   final List<PostMedia> media;
   final DateTime createdAt;
-  final List<String> likes; // List of user UIDs
-  final List<AppComment> replies; // Nested comments
+  final List<String> likes; 
+  final List<AppComment> replies; 
 
   const AppComment({
     required this.id,
@@ -46,7 +46,7 @@ class AppPost extends Equatable {
   final DateTime createdAt;
   final List<String> likes;
   final List<AppComment> comments;
-  final String? quotedPostId; // For quoting old posts
+  final String? quotedPostId; 
 
   const AppPost({
     required this.id,
@@ -61,5 +61,5 @@ class AppPost extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, content, likes, comments];
+  List<Object?> get props => [id, content, likes, comments, quotedPostId];
 }

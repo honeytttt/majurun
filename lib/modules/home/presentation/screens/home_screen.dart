@@ -50,20 +50,32 @@ class _HomeScreenState extends State<HomeScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  "Something went wrong\n${snapshot.error}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            );
           }
 
           final posts = snapshot.data ?? [];
 
+          if (posts.isEmpty) {
+            return const Center(child: Text("No posts or feed yet"));
+          }
+
           return RefreshIndicator(
             onRefresh: () async => setState(() {}),
-            child: posts.isEmpty
-                ? const Center(child: Text("No posts or feed yet"))
-                : ListView.builder(
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) => FeedItemWrapper(post: posts[index]),
-                  ),
+            child: ListView.builder(
+              itemCount: posts.length,
+              itemBuilder: (context, index) => FeedItemWrapper(post: posts[index]),
+            ),
           );
         },
       ),
@@ -74,15 +86,20 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: Colors.grey,
         onTap: (index) {
           if (index == 2) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePostScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+            );
           } else {
             setState(() => _selectedIndex = index);
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'home'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), label: 'Create'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.fitness_center), label: 'Workouts'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.add_box_outlined), label: 'Create'),
           BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
           BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
         ],
