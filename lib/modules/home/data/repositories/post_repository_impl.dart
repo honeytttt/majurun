@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 
 class PostRepositoryImpl {
@@ -17,10 +18,18 @@ class PostRepositoryImpl {
           )).toList();
     }
 
+    List<LatLng>? routePoints;
+    if (data['routePoints'] != null && data['routePoints'] is List) {
+      final List<dynamic> pts = data['routePoints'];
+      routePoints = pts.map((p) => LatLng(
+        (p['lat'] as num).toDouble(), 
+        (p['lng'] as num).toDouble()
+      )).toList();
+    }
+
     String content = data['content'] ?? '';
     String? quotedPostId = data['quotedPostId'];
 
-    // Clean up broken repost content patterns
     final trimmed = content.trim();
     final bool isLikelyBrokenRepostReference =
         trimmed.startsWith('Referencing Post ID:') ||
@@ -30,9 +39,7 @@ class PostRepositoryImpl {
                 RegExp(r'^[0-9a-f-]{30,}$').hasMatch(trimmed));
 
     if (isLikelyBrokenRepostReference) {
-      content = ''; // Hide the garbage text
-
-      // Only try to recover ID if we don't already have quotedPostId
+      content = '';
       if (quotedPostId == null || quotedPostId.isEmpty) {
         quotedPostId = trimmed
             .replaceAll('Referencing Post ID:', '')
@@ -51,15 +58,18 @@ class PostRepositoryImpl {
       likes: List<String>.from(data['likes'] ?? []),
       comments: const [],
       quotedPostId: quotedPostId,
+      routePoints: routePoints,
     );
   }
 
-  Future<void> createPost(AppPost post) async {
+  // Updated to accept numeric distance
+  Future<void> createPost(AppPost post, {double? numericDistance}) async {
     try {
       await _db.collection('posts').doc(post.id).set({
         'userId': post.userId,
         'username': post.username,
         'content': post.content,
+        'distance': numericDistance, // Numeric storage for history
         'media': post.media.map((m) => {
               'url': m.url,
               'type': m.type == MediaType.video ? 'video' : 'image',
@@ -67,6 +77,11 @@ class PostRepositoryImpl {
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
         if (post.quotedPostId != null) 'quotedPostId': post.quotedPostId,
+        if (post.routePoints != null) 
+          'routePoints': post.routePoints!.map((p) => {
+            'lat': p.latitude,
+            'lng': p.longitude,
+          }).toList(),
       });
     } catch (e) {
       debugPrint("Error creating post: $e");
@@ -121,7 +136,6 @@ class PostRepositoryImpl {
 
   Future<void> repost(AppPost originalPost, String userId, String username) async {
     try {
-      // Flatten quote chain - always reference the root original post
       final String targetId = originalPost.quotedPostId != null &&
               originalPost.quotedPostId!.isNotEmpty
           ? originalPost.quotedPostId!
@@ -130,7 +144,7 @@ class PostRepositoryImpl {
       await _db.collection('posts').add({
         'userId': userId,
         'username': username,
-        'content': '', // ← Very important for clean reposts
+        'content': '', 
         'media': [],
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
@@ -141,7 +155,6 @@ class PostRepositoryImpl {
     }
   }
 
-  // Comments related methods remain unchanged...
   Stream<List<Map<String, dynamic>>> getCommentsStream(String postId) {
     return _db
         .collection('posts')

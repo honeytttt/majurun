@@ -5,6 +5,7 @@ import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
 import 'package:majurun/modules/home/presentation/widgets/quoted_post_preview.dart';
+import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class FeedItemWrapper extends StatelessWidget {
@@ -22,13 +23,13 @@ class FeedItemWrapper extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0.5,
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // --- Header Section ---
           ListTile(
             leading: const CircleAvatar(
               backgroundColor: Colors.blueGrey,
@@ -48,7 +49,7 @@ class FeedItemWrapper extends StatelessWidget {
                   const SizedBox(width: 6),
                   const Icon(Icons.repeat, size: 16, color: Colors.green),
                   const SizedBox(width: 4),
-                  Text(  // ← removed 'const' here
+                  Text(
                     "reposted",
                     style: TextStyle(
                       color: Colors.grey[600],
@@ -67,7 +68,7 @@ class FeedItemWrapper extends StatelessWidget {
                 : null,
           ),
 
-          // Main content (skip if pure repost)
+          // --- Post Text Content ---
           if (post.content.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -77,21 +78,28 @@ class FeedItemWrapper extends StatelessWidget {
               ),
             ),
 
-          // Media
+          // --- NEW: Run Map Preview (If it's a Run Activity) ---
+          if (post.routePoints != null && post.routePoints!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: RunMapPreview(points: post.routePoints!),
+            ),
+
+          // --- Media / Images Section ---
           if (post.media.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
               child: _buildMedia(context, post.media.first),
             ),
 
-          // Quoted / Repost preview
+          // --- Quoted Post Section ---
           if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: QuotedPostPreview(postId: post.quotedPostId!),
             ),
 
-          // Actions bar
+          // --- Actions Bar (Like, Comment, Share) ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -99,6 +107,7 @@ class FeedItemWrapper extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    // Like Button
                     IconButton(
                       icon: Icon(
                         isLiked ? Icons.favorite : Icons.favorite_border,
@@ -106,7 +115,7 @@ class FeedItemWrapper extends StatelessWidget {
                         color: isLiked ? Colors.red : Colors.grey[700],
                       ),
                       onPressed: currentUserId != null
-                          ? () => PostRepositoryImpl().toggleLike(post.id, currentUserId!)
+                          ? () => PostRepositoryImpl().toggleLike(post.id, currentUserId)
                           : () => _showLoginSnack(context),
                     ),
                     Text(
@@ -114,6 +123,8 @@ class FeedItemWrapper extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(width: 16),
+                    
+                    // Comment Button
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_outline, size: 20),
                       onPressed: () {
@@ -139,13 +150,14 @@ class FeedItemWrapper extends StatelessWidget {
                 ),
                 Row(
                   children: [
+                    // Repost Button
                     IconButton(
                       icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
                       onPressed: currentUserId != null
                           ? () {
                               PostRepositoryImpl().repost(
                                 post,
-                                currentUserId!,
+                                currentUserId,
                                 currentUser?.displayName ?? "Runner",
                               );
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -154,6 +166,7 @@ class FeedItemWrapper extends StatelessWidget {
                             }
                           : () => _showLoginSnack(context),
                     ),
+                    // Share Button
                     IconButton(
                       icon: const Icon(Icons.share_outlined, size: 22),
                       onPressed: () => _sharePost(context),
@@ -163,7 +176,7 @@ class FeedItemWrapper extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -193,6 +206,9 @@ class FeedItemWrapper extends StatelessWidget {
   void _showOptionsBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -248,13 +264,24 @@ class FeedItemWrapper extends StatelessWidget {
           fit: BoxFit.cover,
           width: double.infinity,
           height: 320,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              height: 320,
+              color: Colors.grey[200],
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
           errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
         ),
       );
     } else {
       return Container(
         height: 320,
-        color: Colors.black,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: const Center(child: Icon(Icons.videocam, color: Colors.white, size: 60)),
       );
     }

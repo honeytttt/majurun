@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 enum MediaType { text, image, video }
 
@@ -47,6 +48,8 @@ class AppPost extends Equatable {
   final List<String> likes;
   final List<AppComment> comments;
   final String? quotedPostId; 
+  // NEW: Support for Run GPS path
+  final List<LatLng>? routePoints;
 
   const AppPost({
     required this.id,
@@ -58,8 +61,9 @@ class AppPost extends Equatable {
     this.likes = const [],
     this.comments = const [],
     this.quotedPostId,
+    this.routePoints,
   });
 
   @override
-  List<Object?> get props => [id, content, likes, comments, quotedPostId];
+  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints];
 }

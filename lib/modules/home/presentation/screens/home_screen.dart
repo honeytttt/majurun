@@ -5,6 +5,7 @@ import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart'; // NEW: Import Tracker
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -86,9 +87,16 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: Colors.grey,
         onTap: (index) {
           if (index == 2) {
+            // Navigate to Create Post
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+            );
+          } else if (index == 4) {
+            // NEW: Navigate to Run Tracker Screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RunTrackerScreen()),
             );
           } else {
             setState(() => _selectedIndex = index);

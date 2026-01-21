@@ -27,6 +27,15 @@ dependencies:
   url_launcher: ^6.3.0
   timeago: ^3.7.1
   share_plus: ^10.1.0
+  geolocator: ^13.0.1      # GPS location fetching
+  google_maps_flutter: ^2.10.0 # To display the path
+  latlong2: ^0.9.1         # Math for distance calculation
+  sensors_plus: ^6.1.1     # Pedometer/Motion backup
+  flutter_tts: ^4.2.2
+  shared_preferences: ^2.2.2
+  http: ^1.1.0
+
+  
 
 dev_dependencies:
   flutter_test:

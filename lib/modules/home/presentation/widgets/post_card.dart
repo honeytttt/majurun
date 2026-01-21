@@ -4,6 +4,7 @@ import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
+import 'run_map_preview.dart'; // NEW: Import our map component
 import 'package:timeago/timeago.dart' as timeago;
 
 class PostCard extends StatelessWidget {
@@ -74,7 +75,7 @@ class PostCard extends StatelessWidget {
                               color: Colors.green,
                             ),
                             const SizedBox(width: 4),
-                            Text(  // ← removed 'const' here
+                            Text(
                               "reposted",
                               style: TextStyle(
                                 color: Colors.grey[600],
@@ -117,6 +118,7 @@ class PostCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 1. Text Content
                 if (post.content.trim().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -125,11 +127,23 @@ class PostCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 15, height: 1.4),
                     ),
                   ),
+
+                // 2. NEW: Run Map Preview (GPS Path)
+                if (post.routePoints != null && post.routePoints!.isNotEmpty)
+                  RunMapPreview(points: post.routePoints!),
+
+                // 3. Quoted Post / Repost Preview
                 if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
                   QuotedPostPreview(postId: post.quotedPostId!),
+                
                 const SizedBox(height: 8),
+                
+                // 4. Media Section (Images/Videos)
                 _buildMediaSection(post),
+                
                 const Divider(height: 32),
+                
+                // 5. Interaction Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
