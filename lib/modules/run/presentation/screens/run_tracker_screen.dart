@@ -17,8 +17,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _heartController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkSummary());
+    _heartController = AnimationController(
+      vsync: this, 
+      duration: const Duration(milliseconds: 800)
+    )..repeat(reverse: true);
+    
+    // Using addPostFrameCallback ensures the widget tree (and Provider) 
+    // is built before we try to access the controller.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _checkSummary();
+    });
   }
 
   @override
@@ -28,10 +36,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
   }
 
   void _checkSummary() async {
-    // Note: Provider.of should be used carefully inside initState callbacks
-    final controller = Provider.of<RunController>(context, listen: false);
-    final summary = await controller.checkMonthlySummary();
-    if (summary != null && mounted) { _showSummaryDialog(summary, controller); }
+    // We access the provider through the primary context now that it's initialized
+    try {
+      final controller = Provider.of<RunController>(context, listen: false);
+      final summary = await controller.checkMonthlySummary();
+      if (summary != null && mounted) {
+        _showSummaryDialog(summary, controller);
+      }
+    } catch (e) {
+      debugPrint("Summary check skipped: Provider not yet available.");
+    }
   }
 
   void _showSummaryDialog(Map<String, dynamic> summary, RunController controller) {
@@ -44,7 +58,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
           children: [
             const Text("🏆", style: TextStyle(fontSize: 40)),
             const SizedBox(height: 10),
-            Text("${summary['monthName']} Recap", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text("${summary['monthName']} Recap", 
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const Divider(height: 30),
             Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
               _summaryStat("KM", summary['distance']),
@@ -55,9 +70,15 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
               icon: const Icon(Icons.share, color: Colors.white, size: 18),
               label: const Text("SHARE TO FEED", style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-              onPressed: () { controller.shareSummaryToFeed(summary); Navigator.pop(context); },
+              onPressed: () { 
+                controller.shareSummaryToFeed(summary); 
+                Navigator.pop(context); 
+              },
             )),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE", style: TextStyle(color: Colors.grey))),
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text("CLOSE", style: TextStyle(color: Colors.grey))
+            ),
           ],
         ),
       ),
@@ -73,33 +94,36 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    // Creating the provider here at the top of the screen
     return ChangeNotifierProvider(
       create: (_) => RunController(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Consumer<RunController>(
-          builder: (context, controller, child) {
-            double speedFactor = (controller.currentBpm / 70).clamp(1.0, 3.0);
-            _heartController.duration = Duration(milliseconds: (800 / speedFactor).round());
+      child: Builder(
+        builder: (innerContext) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            body: Consumer<RunController>(
+              builder: (context, controller, child) {
+                double speedFactor = (controller.currentBpm / 70).clamp(1.0, 3.0);
+                _heartController.duration = Duration(milliseconds: (800 / speedFactor).round());
 
-            return SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  const Spacer(flex: 1),
-                  _buildControlCenter(context, controller),
-                  const Spacer(flex: 1),
-                  _buildLiveMetics(controller),
-                  const Spacer(flex: 1),
-                  _buildStatsGrid(controller),
-                  const Spacer(flex: 2),
-                  _buildFooter(context),
-                ],
-              ),
-            );
-          },
-        ),
+                return SafeArea(
+                  child: Column(
+                    children: [
+                      _buildHeader(controller),
+                      const Spacer(flex: 1),
+                      _buildControlCenter(context, controller),
+                      const Spacer(flex: 1),
+                      _buildLiveMetics(controller),
+                      const Spacer(flex: 1),
+                      _buildStatsGrid(controller),
+                      const Spacer(flex: 2),
+                      _buildFooter(context, controller),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        }
       ),
     );
   }
@@ -117,7 +141,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
               child: const Icon(Icons.favorite, color: Colors.red, size: 24),
             ),
             const SizedBox(width: 8),
-            Text("${controller.currentBpm}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text("${controller.currentBpm}", 
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const Text(" BPM", style: TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
@@ -143,14 +168,20 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildHeader() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 30),
+  Widget _buildHeader(RunController controller) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("Basic", style: TextStyle(fontSize: 18, color: Colors.grey)),
-          Text("PRO", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+          const Text("PRO", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+          IconButton(
+            icon: Icon(
+              controller.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
+              color: controller.isVoiceEnabled ? Colors.black : Colors.grey,
+            ),
+            onPressed: () => controller.toggleVoice(),
+          ),
         ],
       ),
     );
@@ -223,7 +254,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
           ElevatedButton(
-            onPressed: () { Navigator.pop(context); controller.stopRun(context); },
+            onPressed: () { 
+              Navigator.pop(context); 
+              controller.stopRun(context); 
+            },
             child: const Text("FINISH"),
           ),
         ],
@@ -271,32 +305,26 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
     ]);
   }
 
-  Widget _buildFooter(BuildContext context) {
-    // Use the context from the Consumer to ensure we have access to the Provider
-    return Builder(
-      builder: (innerContext) {
-        return Column(
-          children: [
-            TextButton(
-              onPressed: () {
-                final currentController = Provider.of<RunController>(innerContext, listen: false);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChangeNotifierProvider.value(
-                      value: currentController,
-                      child: const RunHistoryScreen(),
-                    ),
-                  ),
-                );
-              },
-              child: const Text("All running activities", 
-                style: TextStyle(color: Colors.black, fontSize: 16, decoration: TextDecoration.underline)),
-            ),
-            const SizedBox(height: 20),
-          ],
-        );
-      }
+  Widget _buildFooter(BuildContext context, RunController controller) {
+    return Column(
+      children: [
+        TextButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChangeNotifierProvider.value(
+                  value: controller,
+                  child: const RunHistoryScreen(),
+                ),
+              ),
+            );
+          },
+          child: const Text("All running activities", 
+            style: TextStyle(color: Colors.black, fontSize: 16, decoration: TextDecoration.underline)),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 }

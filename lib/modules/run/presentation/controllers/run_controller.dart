@@ -43,7 +43,8 @@ class RunController extends ChangeNotifier {
   String? _weatherIcon;
   bool _isWeatherLoading = false;
 
-  final bool _isAudioCoachingEnabled = true;
+  // Voice Feedback State
+  bool _isAudioCoachingEnabled = true;
   int _lastAnnouncedKm = 0;
 
   final FlutterTts _tts = FlutterTts();
@@ -70,6 +71,9 @@ class RunController extends ChangeNotifier {
   double get shoeProgress => (_shoeMileage / 500).clamp(0.0, 1.0);
   String get shoeName => _shoeName;
   
+  // FIXED: Added getter for UI
+  bool get isVoiceEnabled => _isAudioCoachingEnabled;
+
   String get totalHistoryTimeStr {
     int hours = _totalHistoryTime.inHours;
     int minutes = _totalHistoryTime.inMinutes.remainder(60);
@@ -85,6 +89,15 @@ class RunController extends ChangeNotifier {
   Future<void> _initTts() async {
     await _tts.setLanguage("en-US");
     await _tts.setSpeechRate(0.5);
+  }
+
+  // FIXED: Added toggle method for UI
+  void toggleVoice() {
+    _isAudioCoachingEnabled = !_isAudioCoachingEnabled;
+    if (_isAudioCoachingEnabled) {
+      _tts.speak("Voice coaching on");
+    }
+    notifyListeners();
   }
 
   Future<void> _loadAllTimeData() async {
@@ -179,7 +192,6 @@ class RunController extends ChangeNotifier {
   void _onLocationUpdate(Position pos) {
     if (_state != RunState.running) return;
 
-    // Auto-pause logic implementation
     if (pos.speed < 0.5 && !_isAutoPaused) {
       _isAutoPaused = true;
     } else if (pos.speed >= 0.5 && _isAutoPaused) {
@@ -198,13 +210,11 @@ class RunController extends ChangeNotifier {
       _detailedPath.add(PathPoint(point, pos.speed));
       _currentBpm = (70 + (pos.speed * 20)).round().clamp(70, 190);
 
-      // Check for New Personal Best
       if (_totalDistance > _allTimeBest && _allTimeBest > 0 && !_isNewPB) {
         _isNewPB = true;
         if (_isAudioCoachingEnabled) _tts.speak("New personal best distance!");
       }
 
-      // Audio Coaching for split kilometers
       int currentKm = _totalDistance.floor();
       if (currentKm > _lastAnnouncedKm) {
         _lastAnnouncedKm = currentKm;
@@ -254,6 +264,10 @@ class RunController extends ChangeNotifier {
     if (_totalDistance > _allTimeBest) {
       await prefs.setDouble('all_time_best_dist', _totalDistance);
     }
+    
+    if (_isAudioCoachingEnabled) {
+      _tts.speak("Workout complete. Well done.");
+    }
 
     if (context.mounted) _finalizePost(context);
   }
@@ -276,6 +290,7 @@ class RunController extends ChangeNotifier {
   void dispose() {
     _timer?.cancel();
     _positionStream?.cancel();
+    _tts.stop();
     super.dispose();
   }
 }
