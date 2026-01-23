@@ -17,6 +17,10 @@ class RunController extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // FIX: Added postRepo getter to resolve history screen error
+  // This allows the UI to access the Firestore collection directly as a 'repository'
+  CollectionReference get postRepo => _firestore.collection('feed');
+
   RunState _state = RunState.idle;
   RunState get state => _state;
 
@@ -44,7 +48,6 @@ class RunController extends ChangeNotifier {
   int totalCalories = 0;
   bool isVoiceEnabled = true;
 
-  // NEW PROPERTIES for History Screen
   double historyDistance = 0.0;
   int runStreak = 0;
 
@@ -145,8 +148,15 @@ class RunController extends ChangeNotifier {
     ));
   }
 
-  void pauseRun() => { _state = RunState.paused, notifyListeners() };
-  void resumeRun() => { _state = RunState.running, notifyListeners() };
+  void pauseRun() {
+    _state = RunState.paused;
+    notifyListeners();
+  }
+
+  void resumeRun() {
+    _state = RunState.running;
+    notifyListeners();
+  }
 
   Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
     _state = RunState.idle;
@@ -163,7 +173,6 @@ class RunController extends ChangeNotifier {
           'pace': paceString,
           'completedAt': FieldValue.serverTimestamp(),
         });
-        // Update local stats for the history screen
         historyDistance += (_totalDistance / 1000);
         runStreak += 1;
       } catch (e) {
@@ -176,7 +185,7 @@ class RunController extends ChangeNotifier {
   Future<void> finalizeProPost(String aiContent, String videoUrl, {String? planTitle}) async {
     final user = _auth.currentUser;
     if (user == null) return;
-    await _firestore.collection('feed').add({
+    await postRepo.add({
       'userId': user.uid,
       'content': aiContent,
       'videoUrl': videoUrl,
