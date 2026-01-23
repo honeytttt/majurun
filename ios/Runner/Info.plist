@@ -28,6 +28,16 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSHealthShareUsageDescription</key>
+    <string>Majurun needs access to your health data to sync your runs and progress.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Majurun needs access to your health data to sync your runs and progress.</string>
+	<key>UIBackgroundModes</key>
+<array>
+    <string>location</string>
+</array>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>Majurun needs your location to track your run even when the screen is off.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

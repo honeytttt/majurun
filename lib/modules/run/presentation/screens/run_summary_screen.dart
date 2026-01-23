@@ -5,7 +5,13 @@ import '../widgets/shareable_run_card.dart';
 
 class RunSummaryScreen extends StatefulWidget {
   final RunController controller;
-  const RunSummaryScreen({super.key, required this.controller});
+  final String? planTitle;
+
+  const RunSummaryScreen({
+    super.key,
+    required this.controller,
+    this.planTitle,
+  });
 
   @override
   State<RunSummaryScreen> createState() => _RunSummaryScreenState();
@@ -25,12 +31,18 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
 
   void _generateAIText() async {
     await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      setState(() {
-        _aiGeneratedPost = "Morning grit. ${widget.controller.distanceString} KM crushed. "
-            "Engine stayed steady at ${widget.controller.currentBpm} BPM. The road doesn't get easier, you just get stronger. #MajurunPro";
-      });
-    }
+    if (!mounted) return;
+
+    String planContext = widget.planTitle != null
+        ? "Another session of ${widget.planTitle} in the books."
+        : "Another great run in the books.";
+
+    setState(() {
+      // Fixed: no unnecessary braces
+      _aiGeneratedPost = "$planContext ${widget.controller.distanceString} KM crushed. "
+          "Engine stayed steady at ${widget.controller.currentBpm} BPM. "
+          "The road doesn't get easier, you just get stronger. #MajurunPro";
+    });
   }
 
   @override
@@ -38,12 +50,18 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("PRO SUMMARY", 
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+        title: const Text(
+          "PRO SUMMARY",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        automaticallyImplyLeading: false, 
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -51,31 +69,41 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
           children: [
             _buildVideoReplay(),
             const SizedBox(height: 20),
+            if (widget.planTitle != null) ...[
+              Text(
+                widget.planTitle!.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.blueAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             _buildStatBanner(),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Divider(),
             ),
-            
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ShareableRunCard(
                 boundaryKey: _cardKey,
                 distance: widget.controller.distanceString,
-                pace: widget.controller.lastKmPaceString,
+                pace: widget.controller.paceString,
                 bpm: widget.controller.currentBpm.toString(),
                 route: widget.controller.routePoints,
               ),
             ),
-            
             const SizedBox(height: 20),
             _buildProgressToggle(),
-            _showGraph 
-              ? PerformanceGraph(
-                  hrHistory: widget.controller.hrHistorySpots.map((e) => e.y.toInt()).toList(),
-                  paceHistory: widget.controller.paceHistorySpots.map((e) => e.y).toList(),
-                ) 
-              : _buildSplitsList(),
+            _showGraph
+                ? PerformanceGraph(
+                    hrHistory: widget.controller.hrHistorySpots.map((e) => e.y.toInt()).toList(),
+                    paceHistory: widget.controller.paceHistorySpots.map((e) => e.y).toList(),
+                  )
+                : _buildSplitsList(),
             _buildAiPostCard(),
             const SizedBox(height: 10),
             _buildActionButtons(),
@@ -94,24 +122,49 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
-      child: widget.controller.lastVideoUrl == null 
-        ? GestureDetector(
-            onTap: () => widget.controller.generateVeoVideo(),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Icon(Icons.play_circle_fill, color: Colors.cyanAccent, size: 60),
-                Positioned(
-                  bottom: 15,
-                  child: Text("GENERATE VE-O REPLAY", 
-                    style: TextStyle(color: Colors.cyanAccent.withValues(alpha: 0.7), fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.bold)),
-                ),
-              ],
+      child: widget.controller.lastVideoUrl == null
+          ? GestureDetector(
+              onTap: () => widget.controller.generateVeoVideo(),
+              child: const Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(Icons.play_circle_fill, color: Colors.cyanAccent, size: 60),
+                  Positioned(
+                    bottom: 15,
+                    child: Text(
+                      "GENERATE VE-O REPLAY",
+                      style: TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 10,
+                        letterSpacing: 2,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.greenAccent, size: 40),
+                  SizedBox(height: 8),
+                  Text(
+                    "VIDEO READY!",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
-          )
-        : const Center(child: Text("Video Ready!", style: TextStyle(color: Colors.white))),
     );
   }
 
@@ -133,7 +186,10 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Column(
       children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1),
+        ),
       ],
     );
   }
@@ -144,11 +200,17 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text("PERFORMANCE TREND", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          const Text(
+            "PERFORMANCE TREND",
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          ),
           TextButton.icon(
             onPressed: () => setState(() => _showGraph = !_showGraph),
             icon: Icon(_showGraph ? Icons.list_alt : Icons.show_chart, size: 18),
-            label: Text(_showGraph ? "VIEW LIST" : "VIEW GRAPH", style: const TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(
+              _showGraph ? "VIEW LIST" : "VIEW GRAPH",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -157,11 +219,25 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
 
   Widget _buildSplitsList() {
     final hrSpots = widget.controller.hrHistorySpots;
+    if (hrSpots.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(child: Text("No splits data available", style: TextStyle(color: Colors.grey))),
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: hrSpots.length,
       itemBuilder: (context, index) {
+        final paceValue = widget.controller.paceHistorySpots.length > index
+            ? widget.controller.paceHistorySpots[index].y
+            : 0.0;
+
+        final paceMin = paceValue.floor();
+        final paceSec = ((paceValue - paceMin) * 60).round();
+
         return ListTile(
           dense: true,
           leading: CircleAvatar(
@@ -170,8 +246,11 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
             child: Text("${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 10)),
           ),
           title: Text("Kilometer ${index + 1}"),
-          trailing: Text("${hrSpots[index].y.toInt()} BPM", 
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
+          subtitle: Text("${paceMin}:${paceSec.toString().padLeft(2, '0')} /km"),
+          trailing: Text(
+            "${hrSpots[index].y.toInt()} BPM",
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
+          ),
         );
       },
     );
@@ -184,23 +263,37 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       decoration: BoxDecoration(
         color: Colors.blueGrey.shade50,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.1)),
+        // Fixed deprecated withOpacity
+        border: Border.all(color: Colors.blueAccent.withAlpha(25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 18),
-              const SizedBox(width: 8),
-              const Text("AI STORYTELLING", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
-              const Spacer(),
-              IconButton(onPressed: _generateAIText, icon: const Icon(Icons.refresh, size: 16, color: Colors.grey)),
+            children: const [
+              Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 18),
+              SizedBox(width: 8),
+              Text(
+                "AI STORYTELLING",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+              ),
+              Spacer(),
+              IconButton(
+                onPressed: null,
+                icon: Icon(Icons.refresh, size: 16, color: Colors.grey),
+              ),
             ],
           ),
           const SizedBox(height: 5),
-          Text(_aiGeneratedPost, 
-            style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black87, height: 1.5, fontSize: 13)),
+          Text(
+            _aiGeneratedPost,
+            style: const TextStyle(
+              fontStyle: FontStyle.italic,
+              color: Colors.black87,
+              height: 1.5,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -220,14 +313,21 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
                 backgroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
-              child: _isFinalizing 
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text("SHARE TO MAJURUN FEED", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: _isFinalizing
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      "SHARE TO MAJURUN FEED",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
             ),
           ),
+          const SizedBox(height: 12),
           TextButton(
             onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-            child: const Text("DISCARD AND EXIT", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "DISCARD AND EXIT",
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -236,16 +336,28 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
 
   void _handleFinalize() async {
     setState(() => _isFinalizing = true);
-    await widget.controller.finalizeProPost(
-      _aiGeneratedPost, 
-      widget.controller.lastVideoUrl ?? ""
-    );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Run successfully shared to feed!")),
+    try {
+      // Correct named parameter usage
+      await widget.controller.finalizeProPost(
+        _aiGeneratedPost,
+        widget.controller.lastVideoUrl ?? "",
+        planTitle: widget.planTitle,
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Run successfully shared to feed!")),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isFinalizing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Sharing failed: $e")),
+        );
+      }
     }
   }
 }

@@ -7,7 +7,10 @@ import 'firebase_options.dart';
 import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 import 'package:majurun/modules/auth/data/repositories/firebase_auth_impl.dart';
 
-// WRAPPER - Corrected path to 'widgets' instead of 'screens'
+// TRAINING MODULE (New)
+import 'package:majurun/modules/training/services/training_service.dart';
+
+// WRAPPER
 import 'package:majurun/modules/auth/presentation/widgets/auth_wrapper.dart';
 
 void main() async {
@@ -20,8 +23,14 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        // Existing Auth Repository
         Provider<AuthRepository>(
           create: (_) => FirebaseAuthImpl(),
+        ),
+        // NEW: Training Service for automated voice coaching
+        // Use ChangeNotifierProvider because TrainingService extends ChangeNotifier
+        ChangeNotifierProvider<TrainingService>(
+          create: (_) => TrainingService(),
         ),
       ],
       child: const MyApp(),
@@ -40,6 +49,11 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        // Ensures the drawer and bottom sheets look consistent
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+        ),
       ),
       home: const AuthWrapper(), 
     );
