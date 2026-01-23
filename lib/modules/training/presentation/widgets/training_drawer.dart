@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'package:majurun/modules/training/data/plans/c25k_plan.dart';
 import '../../services/training_service.dart';
 import '../../data/models/training_plan.dart';
 import '../screens/active_workout_screen.dart';

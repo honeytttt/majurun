@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../controllers/run_controller.dart'; // This imports RunState & RunController
+import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'run_history_screen.dart';
 import 'run_summary_screen.dart';
-import '../../../training/presentation/widgets/training_drawer.dart';
+import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});

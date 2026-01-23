@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// Define enum at top-level so it's visible to other files
+// MOVE THIS HERE (Outside the class) to fix 'Undefined name RunState'
 enum RunState { idle, running, paused }
 
 class ChartDataSpot {
@@ -42,7 +41,6 @@ class RunController extends ChangeNotifier {
   List<ChartDataSpot> paceHistorySpots = [];
 
   String? lastVideoUrl;
-
   int currentBpm = 145;
   int totalCalories = 0;
   bool isVoiceEnabled = true;
@@ -57,10 +55,10 @@ class RunController extends ChangeNotifier {
 
   double get averageSpeedMs => _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
 
-  /// **FIXED: Missing getter that caused most of the errors**
+  // ADDED MISSING GETTER: Fixes 'paceString' isn't defined errors
   String get paceString {
-    if (averageSpeedMs < 0.5) return "--:--";
-    double paceMinKm = 16.666666 / averageSpeedMs; // min/km
+    if (averageSpeedMs < 0.5) return "0:00";
+    double paceMinKm = 16.666666 / averageSpeedMs;
     int minutes = paceMinKm.floor();
     int seconds = ((paceMinKm - minutes) * 60).round();
     return "$minutes:${seconds.toString().padLeft(2, '0')}";
@@ -155,6 +153,7 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // UPDATED SIGNATURE: Returns Future<void> to fix 'await_only_futures' and 'use_of_void_result'
   Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
     _state = RunState.idle;
     _timer?.cancel();
@@ -174,11 +173,10 @@ class RunController extends ChangeNotifier {
         debugPrint("Error saving run history: $e");
       }
     }
-
     notifyListeners();
   }
 
-  /// **FIXED: Added named parameter 'planTitle'**
+  // ADDED NAMED PARAMETER: Fixes 'planTitle' isn't defined error in summary screen
   Future<void> finalizeProPost(
     String aiContent,
     String videoUrl, {
