@@ -5,7 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// MOVE THIS HERE (Outside the class) to fix 'Undefined name RunState'
+// Top-level enum to ensure visibility across all screens
 enum RunState { idle, running, paused }
 
 class ChartDataSpot {
@@ -55,7 +55,7 @@ class RunController extends ChangeNotifier {
 
   double get averageSpeedMs => _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
 
-  // ADDED MISSING GETTER: Fixes 'paceString' isn't defined errors
+  // FIX: Added missing paceString getter
   String get paceString {
     if (averageSpeedMs < 0.5) return "0:00";
     double paceMinKm = 16.666666 / averageSpeedMs;
@@ -153,7 +153,6 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // UPDATED SIGNATURE: Returns Future<void> to fix 'await_only_futures' and 'use_of_void_result'
   Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
     _state = RunState.idle;
     _timer?.cancel();
@@ -176,7 +175,7 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ADDED NAMED PARAMETER: Fixes 'planTitle' isn't defined error in summary screen
+  // FIX: Added named parameter {String? planTitle}
   Future<void> finalizeProPost(
     String aiContent,
     String videoUrl, {

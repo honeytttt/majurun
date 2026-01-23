@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// FIX: Using full package path to ensure the correct RunController is used
 import 'package:majurun/modules/run/controllers/run_controller.dart';
-import 'run_history_screen.dart';
-import 'run_summary_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
 class RunTrackerScreen extends StatefulWidget {
@@ -169,7 +170,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
                   MaterialPageRoute(
                     builder: (_) => RunSummaryScreen(
                       controller: controller,
-                      planTitle: null, // Change if you have real plan title
+                      planTitle: null,
                     ),
                   ),
                 );

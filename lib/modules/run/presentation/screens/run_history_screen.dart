@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
 import '../../../home/domain/entities/post.dart';
 
 class RunHistoryScreen extends StatelessWidget {
