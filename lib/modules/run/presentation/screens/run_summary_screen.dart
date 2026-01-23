@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../controllers/run_controller.dart';
-import '../widgets/performance_graph.dart';
-import '../widgets/shareable_run_card.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/presentation/widgets/performance_graph.dart';
+import 'package:majurun/modules/run/presentation/widgets/shareable_run_card.dart';
 
 class RunSummaryScreen extends StatefulWidget {
   final RunController controller;
@@ -38,7 +38,6 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
         : "Another great run in the books.";
 
     setState(() {
-      // Fixed: no unnecessary braces
       _aiGeneratedPost = "$planContext ${widget.controller.distanceString} KM crushed. "
           "Engine stayed steady at ${widget.controller.currentBpm} BPM. "
           "The road doesn't get easier, you just get stronger. #MajurunPro";
@@ -50,44 +49,20 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          "PRO SUMMARY",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
+        title: const Text("PRO SUMMARY", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
             _buildVideoReplay(),
             const SizedBox(height: 20),
-            if (widget.planTitle != null) ...[
-              Text(
-                widget.planTitle!.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.blueAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
             _buildStatBanner(),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Divider(),
-            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: ShareableRunCard(
                 boundaryKey: _cardKey,
                 distance: widget.controller.distanceString,
@@ -96,16 +71,14 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
                 route: widget.controller.routePoints,
               ),
             ),
-            const SizedBox(height: 20),
             _buildProgressToggle(),
-            _showGraph
-                ? PerformanceGraph(
-                    hrHistory: widget.controller.hrHistorySpots.map((e) => e.y.toInt()).toList(),
-                    paceHistory: widget.controller.paceHistorySpots.map((e) => e.y).toList(),
-                  )
-                : _buildSplitsList(),
+            _showGraph 
+              ? PerformanceGraph(
+                  hrHistory: widget.controller.hrHistorySpots.map((e) => e.y.toInt()).toList(),
+                  paceHistory: widget.controller.paceHistorySpots.map((e) => e.y).toList(),
+                )
+              : const SizedBox(height: 100, child: Center(child: Text("Splits coming soon"))),
             _buildAiPostCard(),
-            const SizedBox(height: 10),
             _buildActionButtons(),
             const SizedBox(height: 40),
           ],
@@ -119,66 +92,24 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       height: 200,
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
       child: widget.controller.lastVideoUrl == null
           ? GestureDetector(
               onTap: () => widget.controller.generateVeoVideo(),
-              child: const Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(Icons.play_circle_fill, color: Colors.cyanAccent, size: 60),
-                  Positioned(
-                    bottom: 15,
-                    child: Text(
-                      "GENERATE VE-O REPLAY",
-                      style: TextStyle(
-                        color: Colors.cyanAccent,
-                        fontSize: 10,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: const Center(child: Text("GENERATE VE-O REPLAY", style: TextStyle(color: Colors.cyanAccent))),
             )
-          : const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle, color: Colors.greenAccent, size: 40),
-                  SizedBox(height: 8),
-                  Text(
-                    "VIDEO READY!",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
+          : const Center(child: Icon(Icons.check_circle, color: Colors.greenAccent, size: 40)),
     );
   }
 
   Widget _buildStatBanner() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _statItem("DISTANCE", "${widget.controller.distanceString} KM"),
-          _statItem("TIME", widget.controller.durationString),
-          _statItem("CALORIES", "${widget.controller.totalCalories} KCAL"),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _statItem("DISTANCE", "${widget.controller.distanceString} KM"),
+        _statItem("TIME", widget.controller.durationString),
+        _statItem("CALORIES", "${widget.controller.totalCalories} KCAL"),
+      ],
     );
   }
 
@@ -186,10 +117,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Column(
       children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1),
-        ),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
       ],
     );
   }
@@ -200,59 +128,10 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            "PERFORMANCE TREND",
-            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-          ),
-          TextButton.icon(
-            onPressed: () => setState(() => _showGraph = !_showGraph),
-            icon: Icon(_showGraph ? Icons.list_alt : Icons.show_chart, size: 18),
-            label: Text(
-              _showGraph ? "VIEW LIST" : "VIEW GRAPH",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
+          const Text("PERFORMANCE TREND", style: TextStyle(fontWeight: FontWeight.bold)),
+          TextButton(onPressed: () => setState(() => _showGraph = !_showGraph), child: Text(_showGraph ? "VIEW LIST" : "VIEW GRAPH")),
         ],
       ),
-    );
-  }
-
-  Widget _buildSplitsList() {
-    final hrSpots = widget.controller.hrHistorySpots;
-    if (hrSpots.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(child: Text("No splits data available", style: TextStyle(color: Colors.grey))),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: hrSpots.length,
-      itemBuilder: (context, index) {
-        final paceValue = widget.controller.paceHistorySpots.length > index
-            ? widget.controller.paceHistorySpots[index].y
-            : 0.0;
-
-        final paceMin = paceValue.floor();
-        final paceSec = ((paceValue - paceMin) * 60).round();
-
-        return ListTile(
-          dense: true,
-          leading: CircleAvatar(
-            backgroundColor: Colors.black,
-            radius: 12,
-            child: Text("${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 10)),
-          ),
-          title: Text("Kilometer ${index + 1}"),
-          subtitle: Text("${paceMin}:${paceSec.toString().padLeft(2, '0')} /km"),
-          trailing: Text(
-            "${hrSpots[index].y.toInt()} BPM",
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
-          ),
-        );
-      },
     );
   }
 
@@ -260,42 +139,8 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.blueGrey.shade50,
-        borderRadius: BorderRadius.circular(24),
-        // Fixed deprecated withOpacity
-        border: Border.all(color: Colors.blueAccent.withAlpha(25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 18),
-              SizedBox(width: 8),
-              Text(
-                "AI STORYTELLING",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
-              ),
-              Spacer(),
-              IconButton(
-                onPressed: null,
-                icon: Icon(Icons.refresh, size: 16, color: Colors.grey),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(
-            _aiGeneratedPost,
-            style: const TextStyle(
-              fontStyle: FontStyle.italic,
-              color: Colors.black87,
-              height: 1.5,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(20)),
+      child: Text(_aiGeneratedPost, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black87)),
     );
   }
 
@@ -309,26 +154,11 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
             height: 55,
             child: ElevatedButton(
               onPressed: _isFinalizing ? null : _handleFinalize,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              ),
-              child: _isFinalizing
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text(
-                      "SHARE TO MAJURUN FEED",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+              child: _isFinalizing ? const CircularProgressIndicator() : const Text("SHARE TO MAJURUN FEED", style: TextStyle(color: Colors.white)),
             ),
           ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-            child: const Text(
-              "DISCARD AND EXIT",
-              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
-            ),
-          ),
+          TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text("DISCARD", style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -336,28 +166,11 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
 
   void _handleFinalize() async {
     setState(() => _isFinalizing = true);
-
     try {
-      // Correct named parameter usage
-      await widget.controller.finalizeProPost(
-        _aiGeneratedPost,
-        widget.controller.lastVideoUrl ?? "",
-        planTitle: widget.planTitle,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Run successfully shared to feed!")),
-        );
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
+      await widget.controller.finalizeProPost(_aiGeneratedPost, widget.controller.lastVideoUrl ?? "", planTitle: widget.planTitle);
+      if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
     } catch (e) {
-      if (mounted) {
-        setState(() => _isFinalizing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Sharing failed: $e")),
-        );
-      }
+      if (mounted) setState(() => _isFinalizing = false);
     }
   }
 }

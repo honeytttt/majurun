@@ -5,7 +5,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Top-level enum to ensure visibility across all screens
 enum RunState { idle, running, paused }
 
 class ChartDataSpot {
@@ -45,6 +44,10 @@ class RunController extends ChangeNotifier {
   int totalCalories = 0;
   bool isVoiceEnabled = true;
 
+  // NEW PROPERTIES for History Screen
+  double historyDistance = 0.0;
+  int runStreak = 0;
+
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
 
   String get durationString {
@@ -55,7 +58,6 @@ class RunController extends ChangeNotifier {
 
   double get averageSpeedMs => _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
 
-  // FIX: Added missing paceString getter
   String get paceString {
     if (averageSpeedMs < 0.5) return "0:00";
     double paceMinKm = 16.666666 / averageSpeedMs;
@@ -143,15 +145,8 @@ class RunController extends ChangeNotifier {
     ));
   }
 
-  void pauseRun() {
-    _state = RunState.paused;
-    notifyListeners();
-  }
-
-  void resumeRun() {
-    _state = RunState.running;
-    notifyListeners();
-  }
+  void pauseRun() => { _state = RunState.paused, notifyListeners() };
+  void resumeRun() => { _state = RunState.running, notifyListeners() };
 
   Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
     _state = RunState.idle;
@@ -168,6 +163,9 @@ class RunController extends ChangeNotifier {
           'pace': paceString,
           'completedAt': FieldValue.serverTimestamp(),
         });
+        // Update local stats for the history screen
+        historyDistance += (_totalDistance / 1000);
+        runStreak += 1;
       } catch (e) {
         debugPrint("Error saving run history: $e");
       }
@@ -175,32 +173,21 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // FIX: Added named parameter {String? planTitle}
-  Future<void> finalizeProPost(
-    String aiContent,
-    String videoUrl, {
-    String? planTitle,
-  }) async {
+  Future<void> finalizeProPost(String aiContent, String videoUrl, {String? planTitle}) async {
     final user = _auth.currentUser;
     if (user == null) return;
-
-    try {
-      await _firestore.collection('feed').add({
-        'userId': user.uid,
-        'content': aiContent,
-        'videoUrl': videoUrl,
-        'planTitle': planTitle ?? "Free Run",
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      debugPrint("Error posting to feed: $e");
-      rethrow;
-    }
+    await _firestore.collection('feed').add({
+      'userId': user.uid,
+      'content': aiContent,
+      'videoUrl': videoUrl,
+      'planTitle': planTitle ?? "Free Run",
+      'timestamp': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> generateVeoVideo() async {
-    await Future.delayed(const Duration(seconds: 3));
-    lastVideoUrl = "https://example.com/generated-run-replay-${DateTime.now().millisecondsSinceEpoch}.mp4";
+    await Future.delayed(const Duration(seconds: 2));
+    lastVideoUrl = "https://example.com/replay.mp4";
     notifyListeners();
   }
 
