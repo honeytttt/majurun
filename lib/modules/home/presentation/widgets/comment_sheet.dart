@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/services/cloudinary_service.dart';
 import '../../data/repositories/post_repository_impl.dart';
-// REMOVED: unused import '../../domain/entities/post.dart'
 
 class CommentSheet extends StatefulWidget {
   final String postId;
@@ -32,6 +31,13 @@ class _CommentSheetState extends State<CommentSheet> {
   bool isVideo = false;
   bool isUploading = false;
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // FIXED: Restored missing _pickMedia method
   Future<void> _pickMedia(bool video) async {
     final XFile? file = video
         ? await _picker.pickVideo(source: ImageSource.gallery)
@@ -47,6 +53,7 @@ class _CommentSheetState extends State<CommentSheet> {
     }
   }
 
+  // FIXED: Restored missing _submitComment method
   void _submitComment() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || (_controller.text.trim().isEmpty && selectedMediaBytes == null)) return;
@@ -79,9 +86,16 @@ class _CommentSheetState extends State<CommentSheet> {
     });
   }
 
-  void _shareCommentExternally(String content, String author) {
-    Share.share('Check out this comment by $author on Majurun: "$content"');
-  }
+  Future<void> _shareCommentExternally(String content, String author) async {
+  final String shareText = 'Check out this comment by $author on Majurun: "$content"';
+
+  await SharePlus.instance.share(
+    ShareParams(
+      text: shareText,
+      subject: 'Majurun Comment',
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -89,20 +103,39 @@ class _CommentSheetState extends State<CommentSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20))
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
           const SizedBox(height: 12),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-          const Padding(padding: EdgeInsets.all(16.0), child: Text("Comments", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              "Comments",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ),
           const Divider(height: 1),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _postRepo.getCommentsStream(widget.postId),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("No comments yet."));
+                }
+
                 final all = snapshot.data!;
                 final topLevel = all.where((c) => c['parentId'] == null).toList();
 
@@ -134,7 +167,9 @@ class _CommentSheetState extends State<CommentSheet> {
         if (replies.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 32),
-            child: Column(children: replies.map((r) => _buildCommentItem(r)).toList()),
+            child: Column(
+              children: replies.map((r) => _buildCommentItem(r)).toList(),
+            ),
           ),
       ],
     );
@@ -159,37 +194,64 @@ class _CommentSheetState extends State<CommentSheet> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(comment['username'] ?? "Runner", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      if (comment['content'] != null) Text(comment['content']),
+                      Text(
+                        comment['username'] ?? "Runner",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      if (comment['content'] != null && comment['content'].toString().isNotEmpty)
+                        Text(comment['content']),
                       if (mediaList.isNotEmpty) _buildCommentMedia(mediaList.first),
                     ],
                   ),
                 ),
                 Row(
                   children: [
-                    Text(timeago.format((comment['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now()), style: const TextStyle(fontSize: 11)),
+                    Text(
+                      timeago.format((comment['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now()),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                     const SizedBox(width: 12),
                     GestureDetector(
                       onTap: () => setState(() {
                         replyingToId = comment['id'];
                         replyingToUsername = comment['username'];
                       }),
-                      child: const Text("Reply", style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold))
+                      child: const Text(
+                        "Reply",
+                        style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.share, size: 14),
-                      onPressed: () => _shareCommentExternally(comment['content'] ?? "", comment['username'] ?? "Runner")
+                      icon: const Icon(Icons.share, size: 14, color: Colors.grey),
+                      onPressed: () => _shareCommentExternally(
+                        comment['content'] ?? "",
+                        comment['username'] ?? "Runner",
+                      ),
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, size: 16, color: isLiked ? Colors.red : Colors.grey),
-                      onPressed: () => _postRepo.toggleCommentLike(widget.postId, comment['id'], currentUserId)
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: isLiked ? Colors.red : Colors.grey,
+                      ),
+                      onPressed: () => _postRepo.toggleCommentLike(
+                        widget.postId,
+                        comment['id'],
+                        currentUserId,
+                      ),
                     ),
-                    Text("${likes.length}", style: const TextStyle(fontSize: 12)),
+                    const SizedBox(width: 4),
+                    Text("${likes.length}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 )
               ],
@@ -201,30 +263,53 @@ class _CommentSheetState extends State<CommentSheet> {
   }
 
   Widget _buildCommentMedia(Map<String, dynamic> media) {
-    if (media['type'] == 'video') {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: ClipRRect(borderRadius: BorderRadius.circular(8), child: CommentVideoPlayer(url: media['url'])),
-      );
-    }
+    bool isMediaVideo = media['type'] == 'video';
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(media['url'], height: 150, fit: BoxFit.cover)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: isMediaVideo
+            ? CommentVideoPlayer(url: media['url'])
+            : Image.network(
+                media['url'],
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+              ),
+      ),
     );
   }
 
   Widget _buildMediaPreview() {
     return Container(
       padding: const EdgeInsets.all(16),
+      alignment: Alignment.centerLeft,
       child: Stack(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: isVideo
-              ? Container(width: 80, height: 80, color: Colors.black, child: const Icon(Icons.videocam, color: Colors.white))
-              : Image.memory(selectedMediaBytes!, width: 80, height: 80, fit: BoxFit.cover),
+                ? Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.black,
+                    child: const Icon(Icons.videocam, color: Colors.white),
+                  )
+                : Image.memory(selectedMediaBytes!, width: 80, height: 80, fit: BoxFit.cover),
           ),
-          Positioned(right: 0, top: 0, child: GestureDetector(onTap: () => setState(() => selectedMediaBytes = null), child: const CircleAvatar(radius: 10, child: Icon(Icons.close, size: 12)))),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              onTap: () => setState(() => selectedMediaBytes = null),
+              child: const CircleAvatar(
+                radius: 10,
+                backgroundColor: Colors.red,
+                child: Icon(Icons.close, size: 12, color: Colors.white),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -233,7 +318,10 @@ class _CommentSheetState extends State<CommentSheet> {
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[200]!))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -244,9 +332,18 @@ class _CommentSheetState extends State<CommentSheet> {
                 children: [
                   const Icon(Icons.reply, size: 16, color: Colors.blue),
                   const SizedBox(width: 8),
-                  Text("Replying to @$replyingToUsername", style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                  Text(
+                    "Replying to @$replyingToUsername",
+                    style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
+                  ),
                   const Spacer(),
-                  GestureDetector(onTap: () => setState(() { replyingToId = null; replyingToUsername = null; }), child: const Icon(Icons.cancel, size: 16, color: Colors.grey)),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      replyingToId = null;
+                      replyingToUsername = null;
+                    }),
+                    child: const Icon(Icons.cancel, size: 16, color: Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -254,8 +351,20 @@ class _CommentSheetState extends State<CommentSheet> {
             children: [
               IconButton(icon: const Icon(Icons.image_outlined), onPressed: () => _pickMedia(false)),
               IconButton(icon: const Icon(Icons.videocam_outlined), onPressed: () => _pickMedia(true)),
-              Expanded(child: TextField(controller: _controller, decoration: const InputDecoration(hintText: "Write a comment...", border: InputBorder.none))),
-              IconButton(icon: const Icon(Icons.send, color: Colors.blue), onPressed: isUploading ? null : _submitComment),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: "Write a comment...",
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.send, color: Colors.blue),
+                onPressed: isUploading ? null : _submitComment,
+              ),
             ],
           ),
         ],
@@ -274,22 +383,43 @@ class CommentVideoPlayer extends StatefulWidget {
 class _CommentVideoPlayerState extends State<CommentVideoPlayer> {
   late VideoPlayerController _controller;
   bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))..initialize().then((_) => setState(() => _initialized = true));
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _initialized = true);
+      });
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) return const SizedBox(height: 150, child: Center(child: CircularProgressIndicator()));
+    if (!_initialized) {
+      return const SizedBox(
+        height: 150,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
     return GestureDetector(
       onTap: () => setState(() => _controller.value.isPlaying ? _controller.pause() : _controller.play()),
-      child: Stack(alignment: Alignment.center, children: [
-        AspectRatio(aspectRatio: _controller.value.aspectRatio, child: VideoPlayer(_controller)),
-        if (!_controller.value.isPlaying) const Icon(Icons.play_circle_fill, size: 50, color: Colors.white70),
-      ]),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AspectRatio(
+            aspectRatio: _controller.value.aspectRatio,
+            child: VideoPlayer(_controller),
+          ),
+          if (!_controller.value.isPlaying)
+            const Icon(Icons.play_circle_fill, size: 50, color: Colors.white70),
+        ],
+      ),
     );
   }
 }

@@ -26,7 +26,7 @@ dependencies:
   chewie: ^1.7.1
   url_launcher: ^6.3.0
   timeago: ^3.7.1
-  share_plus: ^10.1.0
+  share_plus: ^12.0.1
   geolocator: ^13.0.1      # GPS location fetching
   google_maps_flutter: ^2.10.0 # To display the path
   latlong2: ^0.9.1         # Math for distance calculation
@@ -34,6 +34,9 @@ dependencies:
   flutter_tts: ^4.2.2
   shared_preferences: ^2.2.2
   http: ^1.1.0
+  screenshot: ^3.0.0
+  path_provider: ^2.1.5
+  fl_chart: ^1.1.1
 
   
 

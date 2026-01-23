@@ -8,15 +8,19 @@ class RunHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The Consumer now looks up the tree and finds the controller 
-    // we passed through ChangeNotifierProvider.value
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text("RUNNING HISTORY", 
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          style: TextStyle(
+            color: Colors.black, 
+            fontWeight: FontWeight.bold, 
+            letterSpacing: 1.2,
+            fontSize: 16,
+          )),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Consumer<RunController>(
@@ -24,30 +28,52 @@ class RunHistoryScreen extends StatelessWidget {
           return Column(
             children: [
               _buildSummaryHeader(controller),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.history, size: 16, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text("RECENT ACTIVITIES", 
+                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+              ),
               Expanded(
                 child: FutureBuilder<List<AppPost>>(
-                  // Correctly filter for runs in history
                   future: controller.postRepo.getPostStream().first.then(
-                    (posts) => posts.where((p) => p.content.contains("Distance")).toList()
+                    (posts) => posts.where((p) {
+                      final isLegacy = p.content.contains("Distance");
+                      final isPro = p.content.contains("AI detected") || p.content.contains("Beast Mode");
+                      return isLegacy || isPro;
+                    }).toList()
                   ),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(child: CircularProgressIndicator(color: Colors.black));
                     }
                     
                     final runs = snapshot.data ?? [];
                     
                     if (runs.isEmpty) {
                       return const Center(
-                        child: Text("No runs recorded yet.\nTime to hit the road!", 
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey))
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.directions_run, size: 48, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text("No runs recorded yet.\nTime to hit the road!", 
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey)),
+                          ],
+                        )
                       );
                     }
 
                     return ListView.builder(
                       itemCount: runs.length,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
+                      physics: const BouncingScrollPhysics(),
                       itemBuilder: (context, index) {
                         final run = runs[index];
                         return _buildRunCard(run);
@@ -69,14 +95,40 @@ class RunHistoryScreen extends StatelessWidget {
       margin: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.black,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            // FIXED: Used withValues(alpha: ...) to resolve deprecation
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          )
+        ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
         children: [
-          _headerStat("TOTAL KM", controller.historyDistance.toStringAsFixed(1)),
-          _headerStat("STREAK", "${controller.runStreak}D"),
-          _headerStat("CALORIES", "${controller.totalCalories}"),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _headerStat("TOTAL KM", controller.historyDistance.toStringAsFixed(1)),
+              _headerStat("STREAK", "${controller.runStreak}D"),
+              _headerStat("CALORIES", "${controller.totalCalories}"),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Divider(color: Colors.white24, height: 1),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.speed, color: Colors.cyanAccent, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                "AVG PACE: ${controller.averageSpeedMs.toStringAsFixed(1)} m/s", 
+                style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)
+              ),
+            ],
+          )
         ],
       ),
     );
@@ -85,42 +137,103 @@ class RunHistoryScreen extends StatelessWidget {
   Widget _headerStat(String label, String value) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10, letterSpacing: 1)),
       ],
     );
   }
 
   Widget _buildRunCard(AppPost run) {
+    final bool isProRun = run.content.contains("AI") || run.content.contains("BPM");
+
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.grey.withAlpha(20),
-        borderRadius: BorderRadius.circular(15),
+        // FIXED: Used withValues(alpha: ...) to resolve deprecation
+        color: isProRun ? Colors.blue.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: isProRun ? Border.all(color: Colors.blue.withValues(alpha: 0.1)) : null,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(
-            backgroundColor: Colors.black,
-            child: Icon(Icons.directions_run, color: Colors.white, size: 18),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(run.content, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  "${run.createdAt.day}/${run.createdAt.month}/${run.createdAt.year}",
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isProRun ? Colors.blueAccent : Colors.black,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
+                child: const Icon(Icons.directions_run, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${run.createdAt.day} ${_getMonth(run.createdAt.month)} ${run.createdAt.year}",
+                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isProRun ? "AI Analysis Available" : "Standard Run",
+                      style: TextStyle(
+                        color: isProRun ? Colors.blueAccent : Colors.black87,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isProRun)
+                const Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
+            ],
           ),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          const SizedBox(height: 15),
+          Text(
+            run.content,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.black54, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(50, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  children: [
+                    Text("VIEW DETAILS", 
+                      style: TextStyle(
+                        color: isProRun ? Colors.blueAccent : Colors.black, 
+                        fontSize: 11, 
+                        fontWeight: FontWeight.bold
+                      )),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios, size: 10, color: isProRun ? Colors.blueAccent : Colors.black),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  String _getMonth(int month) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return months[month - 1];
   }
 }

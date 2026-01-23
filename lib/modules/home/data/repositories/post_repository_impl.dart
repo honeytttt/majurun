@@ -1,14 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:majurun/modules/home/domain/entities/post.dart';
+
+// Ensure these entities are defined in your project
+import '../../domain/entities/post.dart'; 
 
 class PostRepositoryImpl {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   AppPost _mapDocToAppPost(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
-
+    
     List<PostMedia> mediaList = [];
     if (data['media'] is List) {
       final List<dynamic> mediaData = data['media'];
@@ -22,54 +24,41 @@ class PostRepositoryImpl {
     if (data['routePoints'] != null && data['routePoints'] is List) {
       final List<dynamic> pts = data['routePoints'];
       routePoints = pts.map((p) => LatLng(
-        (p['lat'] as num).toDouble(), 
-        (p['lng'] as num).toDouble()
-      )).toList();
-    }
-
-    String content = data['content'] ?? '';
-    String? quotedPostId = data['quotedPostId'];
-
-    final trimmed = content.trim();
-    final bool isLikelyBrokenRepostReference =
-        trimmed.startsWith('Referencing Post ID:') ||
-            (trimmed.length > 25 &&
-                trimmed.contains('-') &&
-                !trimmed.contains(' ') &&
-                RegExp(r'^[0-9a-f-]{30,}$').hasMatch(trimmed));
-
-    if (isLikelyBrokenRepostReference) {
-      content = '';
-      if (quotedPostId == null || quotedPostId.isEmpty) {
-        quotedPostId = trimmed
-            .replaceAll('Referencing Post ID:', '')
-            .replaceAll('Referencing PostId:', '')
-            .trim();
-      }
+            (p['lat'] as num).toDouble(),
+            (p['lng'] as num).toDouble(),
+          )).toList();
     }
 
     return AppPost(
       id: doc.id,
       userId: data['userId'] ?? 'unknown',
       username: data['username'] ?? 'Runner',
-      content: content,
+      content: data['content'] ?? '',
       media: mediaList,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likes: List<String>.from(data['likes'] ?? []),
       comments: const [],
-      quotedPostId: quotedPostId,
+      quotedPostId: data['quotedPostId'],
       routePoints: routePoints,
     );
   }
 
-  // Updated to accept numeric distance
-  Future<void> createPost(AppPost post, {double? numericDistance}) async {
+  Future<void> createPost(
+    AppPost post, {
+    double? numericDistance,
+    int? avgBpm,
+    List<int>? splits,
+    String type = 'regular',
+  }) async {
     try {
       await _db.collection('posts').doc(post.id).set({
         'userId': post.userId,
         'username': post.username,
         'content': post.content,
-        'distance': numericDistance, // Numeric storage for history
+        'distance': numericDistance,
+        'avgBpm': avgBpm,
+        'splits': splits,
+        'type': type,
         'media': post.media.map((m) => {
               'url': m.url,
               'type': m.type == MediaType.video ? 'video' : 'image',
@@ -77,16 +66,18 @@ class PostRepositoryImpl {
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
         if (post.quotedPostId != null) 'quotedPostId': post.quotedPostId,
-        if (post.routePoints != null) 
+        if (post.routePoints != null)
           'routePoints': post.routePoints!.map((p) => {
-            'lat': p.latitude,
-            'lng': p.longitude,
+                'lat': p.latitude,
+                'lng': p.longitude,
           }).toList(),
       });
     } catch (e) {
       debugPrint("Error creating post: $e");
     }
   }
+  // ... (Other methods: deletePost, getPostStream, toggleLike follow same logic)
+
 
   Future<void> deletePost(String postId) async {
     try {
@@ -112,9 +103,7 @@ class PostRepositoryImpl {
         .collection('posts')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => _mapDocToAppPost(doc)).toList();
-    });
+        .map((snapshot) => snapshot.docs.map((doc) => _mapDocToAppPost(doc)).toList());
   }
 
   Future<void> toggleLike(String postId, String userId) async {
@@ -122,14 +111,12 @@ class PostRepositoryImpl {
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;
-
       List<String> likes = List<String>.from(snapshot.data()?['likes'] ?? []);
       if (likes.contains(userId)) {
         likes.remove(userId);
       } else {
         likes.add(userId);
       }
-
       transaction.update(docRef, {'likes': likes});
     });
   }
@@ -144,7 +131,7 @@ class PostRepositoryImpl {
       await _db.collection('posts').add({
         'userId': userId,
         'username': username,
-        'content': '', 
+        'content': '',
         'media': [],
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
@@ -184,21 +171,17 @@ class PostRepositoryImpl {
     });
   }
 
-  Future<void> toggleCommentLike(
-      String postId, String commentId, String userId) async {
-    final docRef =
-        _db.collection('posts').doc(postId).collection('comments').doc(commentId);
+  Future<void> toggleCommentLike(String postId, String commentId, String userId) async {
+    final docRef = _db.collection('posts').doc(postId).collection('comments').doc(commentId);
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;
-
       List<String> likes = List<String>.from(snapshot.data()?['likes'] ?? []);
       if (likes.contains(userId)) {
         likes.remove(userId);
       } else {
         likes.add(userId);
       }
-
       transaction.update(docRef, {'likes': likes});
     });
   }

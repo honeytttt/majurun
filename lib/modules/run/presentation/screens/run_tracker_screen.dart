@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../controllers/run_controller.dart';
 import '../../domain/entities/run_activity.dart';
 import 'run_history_screen.dart';
+import 'run_summary_screen.dart';
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});
@@ -18,12 +19,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _heartController = AnimationController(
-      vsync: this, 
+      vsync: this,
       duration: const Duration(milliseconds: 800)
     )..repeat(reverse: true);
-    
-    // Using addPostFrameCallback ensures the widget tree (and Provider) 
-    // is built before we try to access the controller.
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _checkSummary();
     });
@@ -35,61 +34,14 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
     super.dispose();
   }
 
-  void _checkSummary() async {
-    // We access the provider through the primary context now that it's initialized
+  void _checkSummary() {
     try {
       final controller = Provider.of<RunController>(context, listen: false);
-      final summary = await controller.checkMonthlySummary();
-      if (summary != null && mounted) {
-        _showSummaryDialog(summary, controller);
-      }
+      // RunController.checkMonthlySummary is void, so we don't await/assign it
+      controller.checkMonthlySummary();
     } catch (e) {
       debugPrint("Summary check skipped: Provider not yet available.");
     }
-  }
-
-  void _showSummaryDialog(Map<String, dynamic> summary, RunController controller) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("🏆", style: TextStyle(fontSize: 40)),
-            const SizedBox(height: 10),
-            Text("${summary['monthName']} Recap", 
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const Divider(height: 30),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-              _summaryStat("KM", summary['distance']),
-              _summaryStat("Runs", summary['runs'].toString()),
-            ]),
-            const SizedBox(height: 30),
-            SizedBox(width: double.infinity, child: ElevatedButton.icon(
-              icon: const Icon(Icons.share, color: Colors.white, size: 18),
-              label: const Text("SHARE TO FEED", style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-              onPressed: () { 
-                controller.shareSummaryToFeed(summary); 
-                Navigator.pop(context); 
-              },
-            )),
-            TextButton(
-              onPressed: () => Navigator.pop(context), 
-              child: const Text("CLOSE", style: TextStyle(color: Colors.grey))
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _summaryStat(String label, String value) {
-    return Column(children: [
-      Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-      Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-    ]);
   }
 
   @override
@@ -98,87 +50,59 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
       create: (_) => RunController(),
       child: Builder(
         builder: (innerContext) {
-          return Scaffold(
-            backgroundColor: Colors.white,
-            body: Consumer<RunController>(
-              builder: (context, controller, child) {
-                double speedFactor = (controller.currentBpm / 70).clamp(1.0, 3.0);
-                _heartController.duration = Duration(milliseconds: (800 / speedFactor).round());
+          return Consumer<RunController>(
+            builder: (context, controller, child) {
+              final bgColor = (controller.temp != null && controller.temp! > 25)
+                  ? Colors.orange.withValues(alpha: 0.05)
+                  : Colors.white;
 
-                return SafeArea(
+              double speedFactor = (controller.currentBpm / 70).clamp(1.0, 3.0);
+              _heartController.duration = Duration(milliseconds: (800 / speedFactor).round());
+
+              return Scaffold(
+                backgroundColor: bgColor,
+                body: SafeArea(
                   child: Column(
                     children: [
                       _buildHeader(controller),
                       const Spacer(flex: 1),
                       _buildControlCenter(context, controller),
                       const Spacer(flex: 1),
-                      _buildLiveMetics(controller),
+                      _buildLiveMetrics(controller),
                       const Spacer(flex: 1),
                       _buildStatsGrid(controller),
                       const Spacer(flex: 2),
                       _buildFooter(context, controller),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           );
         }
       ),
     );
   }
 
-  Widget _buildLiveMetics(RunController controller) {
-    if (controller.state != RunState.running) return const SizedBox(height: 60);
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ScaleTransition(
-              scale: Tween(begin: 0.9, end: 1.1).animate(_heartController),
-              child: const Icon(Icons.favorite, color: Colors.red, size: 24),
-            ),
-            const SizedBox(width: 8),
-            Text("${controller.currentBpm}", 
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text(" BPM", style: TextStyle(fontSize: 14, color: Colors.grey)),
-          ],
-        ),
-        const SizedBox(height: 15),
-        if (controller.averageSpeedMs > 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: (controller.totalDistance >= controller.ghostDistance) 
-                  ? Colors.green.withAlpha(25) 
-                  : Colors.red.withAlpha(25),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              (controller.totalDistance >= controller.ghostDistance) ? "Ahead of Ghost" : "Behind Ghost",
-              style: TextStyle(
-                fontWeight: FontWeight.bold, 
-                color: (controller.totalDistance >= controller.ghostDistance) ? Colors.green : Colors.red
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildHeader(RunController controller) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text("PRO", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("MAJURUN PRO", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              if (controller.temp != null)
+                Text("${controller.temp}°C | ${controller.weatherIcon == '01d' ? 'Sunny' : 'Active'}",
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
           IconButton(
             icon: Icon(
-              controller.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
-              color: controller.isVoiceEnabled ? Colors.black : Colors.grey,
+              controller.isVoiceEnabled ? Icons.record_voice_over : Icons.voice_over_off,
+              color: controller.isVoiceEnabled ? Colors.blueAccent : Colors.grey,
             ),
             onPressed: () => controller.toggleVoice(),
           ),
@@ -189,31 +113,39 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
 
   Widget _buildControlCenter(BuildContext context, RunController controller) {
     if (controller.state == RunState.idle) {
-      return GestureDetector(
-        onTap: () => controller.startRun(),
-        child: Container(
-          width: 200, height: 200,
-          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 3)),
-          child: ClipOval(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (controller.currentLocation != null)
-                  Opacity(opacity: 0.5, child: GoogleMap(
-                    initialCameraPosition: CameraPosition(target: controller.currentLocation!, zoom: 16),
-                    liteModeEnabled: true, myLocationButtonEnabled: false,
-                  )),
-                Container(color: Colors.white.withAlpha(75),
-                  child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text("start", style: TextStyle(fontSize: 18)),
-                    Text("RUN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  ])),
-              ],
+      return Column(
+        children: [
+          _buildPreRunToggles(controller),
+          const SizedBox(height: 30),
+          GestureDetector(
+            onTap: () => controller.startRun(),
+            child: Container(
+              width: 200, height: 200,
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 3)),
+              child: ClipOval(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (controller.currentLocation != null)
+                      Opacity(opacity: 0.5, child: GoogleMap(
+                        initialCameraPosition: CameraPosition(target: controller.currentLocation!, zoom: 16),
+                        liteModeEnabled: true, myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                      )),
+                    Container(color: Colors.white.withValues(alpha: 0.3),
+                      child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text("start", style: TextStyle(fontSize: 18)),
+                        Text("RUN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      ])),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       );
     }
+
     return Column(
       children: [
         if (controller.isNewPB)
@@ -246,22 +178,101 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
     );
   }
 
+  Widget _buildPreRunToggles(RunController controller) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _proToggle(
+          "AI COACH",
+          controller.compareHeartRateVoice,
+          () => controller.toggleHeartRateVoice(!controller.compareHeartRateVoice)
+        ),
+        const SizedBox(width: 15),
+        _proToggle(
+          "HR DATA",
+          controller.enableHeartRateTracking,
+          () => controller.toggleHeartRateTracking(!controller.enableHeartRateTracking)
+        ),
+      ],
+    );
+  }
+
+  Widget _proToggle(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? Colors.black : Colors.transparent,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black),
+        ),
+        child: Text(label, style: TextStyle(color: active ? Colors.white : Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
   void _confirmStop(BuildContext context, RunController controller) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (innerContext) => AlertDialog(
         title: const Text("Finish Run?"),
+        content: const Text("We'll generate your AI summary and performance graphs."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          TextButton(onPressed: () => Navigator.pop(innerContext), child: const Text("CANCEL")),
           ElevatedButton(
-            onPressed: () { 
-              Navigator.pop(context); 
-              controller.stopRun(context); 
+            onPressed: () {
+              Navigator.pop(innerContext);
+              controller.stopRun(context);
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => RunSummaryScreen(controller: controller),
+              ));
             },
             child: const Text("FINISH"),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLiveMetrics(RunController controller) {
+    if (controller.state != RunState.running) return const SizedBox(height: 60);
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ScaleTransition(
+              scale: Tween(begin: 0.9, end: 1.1).animate(_heartController),
+              child: const Icon(Icons.favorite, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 8),
+            Text("${controller.currentBpm}",
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Text(" BPM", style: TextStyle(fontSize: 14, color: Colors.grey)),
+          ],
+        ),
+        const SizedBox(height: 15),
+        if (controller.averageSpeedMs > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: (controller.totalDistance >= controller.ghostDistance)
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Colors.red.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              (controller.totalDistance >= controller.ghostDistance) ? "Ahead of Ghost" : "Behind Ghost",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: (controller.totalDistance >= controller.ghostDistance) ? Colors.green : Colors.red
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -276,7 +287,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
             _statBox("Total Time", controller.totalHistoryTimeStr),
             _statBox("Total KM", controller.historyDistance.toStringAsFixed(0)),
           ]),
-          const SizedBox(height: 40),
+          const SizedBox(height: 30),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             _statBox("Streak", streakValue),
             _statBox("Total Calories", controller.totalCalories.toString()),
@@ -287,7 +298,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
   }
 
   Widget _statBox(String label, String value) {
-    return SizedBox(width: 120, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return SizedBox(width: 130, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 14, color: Colors.black54)),
       Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
     ]));
@@ -320,7 +331,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
               ),
             );
           },
-          child: const Text("All running activities", 
+          child: const Text("All running activities",
             style: TextStyle(color: Colors.black, fontSize: 16, decoration: TextDecoration.underline)),
         ),
         const SizedBox(height: 20),
