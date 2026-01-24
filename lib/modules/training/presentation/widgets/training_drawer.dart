@@ -4,7 +4,10 @@ import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/training/presentation/screens/active_workout_screen.dart';
 
 class TrainingDrawer extends StatelessWidget {
-  const TrainingDrawer({super.key});
+  // Use Widget? to allow passing null to clear the sub-page
+  final Function(Widget?)? onSubPageSelected;
+
+  const TrainingDrawer({super.key, this.onSubPageSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +27,7 @@ class TrainingDrawer extends StatelessWidget {
                   subtitle: "9 Weeks • 3 Days/Week",
                   icon: Icons.directions_run,
                   color: Colors.orange,
-                  onTap: () => _startPlan(context, "C25K"),
+                  onTap: () => _startPlan(context, "Couch to 5K"),
                 ),
                 _planTile(
                   context,
@@ -32,7 +35,7 @@ class TrainingDrawer extends StatelessWidget {
                   subtitle: "12 Weeks • 4 Days/Week",
                   icon: Icons.speed,
                   color: Colors.blue,
-                  onTap: () => _startPlan(context, "10K"),
+                  onTap: () => _startPlan(context, "10K Finisher"),
                 ),
                 _buildSectionHeader("AI CHALLENGES"),
                 _planTile(
@@ -60,8 +63,14 @@ class TrainingDrawer extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("TRAINING", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
-          Text("Select your path", style: TextStyle(color: Colors.grey, fontSize: 14)),
+          Text("TRAINING",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2)),
+          Text("Select your path",
+              style: TextStyle(color: Colors.grey, fontSize: 14)),
         ],
       ),
     );
@@ -70,15 +79,27 @@ class TrainingDrawer extends StatelessWidget {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 20, top: 30, bottom: 10),
-      child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+      child: Text(title,
+          style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+              letterSpacing: 1.5)),
     );
   }
 
-  Widget _planTile(BuildContext context, {required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _planTile(BuildContext context,
+      {required String title,
+      required String subtitle,
+      required IconData icon,
+      required Color color,
+      required VoidCallback onTap}) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, color: color),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -91,18 +112,36 @@ class TrainingDrawer extends StatelessWidget {
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(20),
-      child: const Text("PRO PLAN ACTIVE", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1)),
+      child: const Text("PRO PLAN ACTIVE",
+          style: TextStyle(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              letterSpacing: 1)),
     );
   }
 
   void _startPlan(BuildContext context, String planName) {
-    Navigator.pop(context); // Close drawer
-    context.read<TrainingService>().startC25K(); // Or specific plan logic
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ActiveWorkoutScreen(planTitle: planName),
-      ),
+    Navigator.pop(context); // Close the drawer
+
+    context.read<TrainingService>().startC25K();
+
+    final activeWorkout = ActiveWorkoutScreen(
+      planTitle: planName,
+      onCancel: () {
+        if (onSubPageSelected != null) {
+          onSubPageSelected!(null); // Safe way to clear the sub-page
+        }
+      },
     );
+
+    if (onSubPageSelected != null) {
+      onSubPageSelected!(activeWorkout);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => activeWorkout),
+      );
+    }
   }
 }

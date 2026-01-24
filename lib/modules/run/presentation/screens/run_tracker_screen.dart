@@ -1,98 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
-import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
-import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart';
-import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
 class RunTrackerScreen extends StatelessWidget {
-  const RunTrackerScreen({super.key});
+  final VoidCallback onShowHistory;
+  final VoidCallback onOpenDrawer;
+
+  const RunTrackerScreen({
+    super.key, 
+    required this.onShowHistory,
+    required this.onOpenDrawer,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<RunController>();
+Widget build(BuildContext context) {
+  final controller = context.watch<RunController>();
 
-    return Scaffold(
-      drawer: const TrainingDrawer(),
-      body: Builder( // FIX: Builder provides child context to see the Scaffold
-        builder: (scaffoldContext) {
-          return SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(scaffoldContext, controller),
-                const Spacer(),
-                _buildStartCircle(context, controller),
-                const Spacer(),
-                _buildStatsGrid(controller),
-                const SizedBox(height: 40),
-                _buildBottomLink(context),
-              ],
-            ),
-          );
-        },
+  return SafeArea(
+    child: SingleChildScrollView( // <--- Add this to allow scrolling if height is tight
+      child: ConstrainedBox(
+        // Ensure the content takes at least the full height of the available screen
+        constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - 200), 
+        child: IntrinsicHeight(
+          child: Column(
+            children: [
+              _buildHeader(onOpenDrawer, controller),
+              const Spacer(),
+              _buildStartCircle(context, controller),
+              const Spacer(),
+              _buildStatsGrid(controller),
+              const SizedBox(height: 20),
+              _buildBottomLink(),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildHeader(BuildContext context, RunController controller) {
+  Widget _buildHeader(VoidCallback openDrawer, RunController controller) {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _headerItem("Training", "Menu", Icons.menu, () => Scaffold.of(context).openDrawer()),
-          const Column(children: [
-            Text("BASIC   PRO", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
-            Text("AI Coach", style: TextStyle(color: Colors.grey, fontSize: 10)),
-          ]),
-          Row( // Separated Notification and Voice buttons
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _headerItem("Notif", controller.isNotificationEnabled ? "On" : "Off", 
-                Icons.notifications_active, () => controller.toggleNotifications()),
-              const SizedBox(width: 15),
-              _headerItem("Voice", controller.isVoiceEnabled ? "On" : "Off", 
-                controller.isVoiceEnabled ? Icons.volume_up : Icons.volume_off, () => controller.toggleVoice()),
+              Text("BASIC", style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Text("RUNNER", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
             ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu, size: 30),
+            onPressed: openDrawer,
           ),
         ],
       ),
     );
   }
 
-  Widget _headerItem(String t1, String t2, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Text(t1, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          Text(t2, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-          Icon(icon, size: 20),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStartCircle(BuildContext context, RunController controller) {
-    bool isRunning = controller.state == RunState.running;
     return GestureDetector(
-      onTap: () {
-        if (isRunning) {
-          controller.stopRun(context);
-          Navigator.push(context, MaterialPageRoute(builder: (_) => RunSummaryScreen(controller: controller)));
-        } else {
-          controller.startRun();
-        }
-      },
+      onTap: () => controller.startRun(),
       child: Container(
-        width: 180, height: 180,
-        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(width: 4)),
-        child: Center(
+        height: 200,
+        width: 200,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, spreadRadius: 5)
+          ],
+          border: Border.all(color: Colors.black12, width: 1),
+        ),
+        child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(isRunning ? "stop" : "start"),
-              Text(isRunning ? controller.durationString : "RUN", 
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              Icon(Icons.play_arrow, size: 50),
+              Text("START", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -127,10 +116,11 @@ class RunTrackerScreen extends StatelessWidget {
     ],
   ));
 
-  Widget _buildBottomLink(BuildContext context) {
+  Widget _buildBottomLink() {
     return TextButton(
-      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RunHistoryScreen())),
-      child: const Text("All running activities", style: TextStyle(decoration: TextDecoration.underline, color: Colors.black)),
+      onPressed: onShowHistory,
+      child: const Text("All running activities", 
+        style: TextStyle(decoration: TextDecoration.underline, color: Colors.black, fontSize: 14)),
     );
   }
 }

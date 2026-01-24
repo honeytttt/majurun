@@ -71,7 +71,6 @@ class RunController extends ChangeNotifier {
       ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       Uint8List pngBytes = byteData!.buffer.asUint8List();
 
-      // Replace these with your actual Cloudinary Config
       const String cloudName = "your_cloud_name"; 
       const String uploadPreset = "your_unsigned_preset";
 
@@ -98,49 +97,40 @@ class RunController extends ChangeNotifier {
     final user = _auth.currentUser;
     if (user == null) return const Stream.empty();
     return _firestore
-        .collection('posts') // Changed from 'feed'
+        .collection('posts')
         .where('userId', isEqualTo: user.uid)
         .orderBy('timestamp', descending: true)
         .snapshots();
   }
 
-  // Inside RunController class
-Future<void> finalizeProPost(
-  String aiContent, 
-  String videoUrl, 
-  {String? imageUrl, String? planTitle}
-) async {
-  final user = _auth.currentUser;
-  if (user == null) throw Exception("User not authenticated");
+  Future<void> finalizeProPost(
+    String aiContent, 
+    String videoUrl, 
+    {String? imageUrl, String? planTitle}
+  ) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception("User not authenticated");
 
-  // We MUST use 'posts' because your rules only define 'posts' and 'users'
-  await _firestore.collection('posts').add({
-    'userId': user.uid, // Required for 'allow create' rule
-    'username': user.displayName ?? "Runner",
-    'content': aiContent,
-    'videoUrl': videoUrl,
-    'planTitle': planTitle ?? "Free Run",
-    'createdAt': FieldValue.serverTimestamp(),
-    // Your rules expect a 'likes' array for the update logic to work later
-    'likes': [], 
-    'comments': [],
-    // Map the Cloudinary URL to the 'media' format used by your home feed
-    'media': imageUrl != null ? [{
-      'url': imageUrl,
-      'type': 'image',
-    }] : [],
-  });
-}
+    await _firestore.collection('posts').add({
+      'userId': user.uid,
+      'username': user.displayName ?? "Runner",
+      'content': aiContent,
+      'videoUrl': videoUrl,
+      'planTitle': planTitle ?? "Free Run",
+      'timestamp': FieldValue.serverTimestamp(),
+      'likes': [], 
+      'comments': [],
+      'media': imageUrl != null ? [{
+        'url': imageUrl,
+        'type': 'image',
+      }] : [],
+    });
+  }
 
   // --- RUN ACTIONS ---
   Future<void> startRun() async {
+    resetRun(); // Clean previous state before starting
     _state = RunState.running;
-    _secondsElapsed = 0;
-    _totalDistance = 0.0;
-    _routePoints.clear();
-    _polylines.clear();
-    _hrHistorySpots.clear();
-    _paceHistorySpots.clear();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_state == RunState.running) {
         _secondsElapsed++;
@@ -150,6 +140,18 @@ Future<void> finalizeProPost(
       }
     });
     _startLocationUpdates();
+    notifyListeners();
+  }
+
+  // FIXED: Variable names matched to class definitions
+  void resetRun() {
+    _currentPosition = null;
+    _polylines.clear();
+    _routePoints.clear();
+    _totalDistance = 0.0;
+    _secondsElapsed = 0;
+    _hrHistorySpots.clear();
+    _paceHistorySpots.clear();
     notifyListeners();
   }
 
@@ -182,7 +184,6 @@ Future<void> finalizeProPost(
     ));
   }
 
-  // FIXED: Added planTitle named parameter
   Future<void> stopRun(BuildContext context, {String? planTitle}) async {
     _state = RunState.idle;
     _timer?.cancel();
