@@ -1,239 +1,141 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
-import '../../../home/domain/entities/post.dart';
 
 class RunHistoryScreen extends StatelessWidget {
   const RunHistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<RunController>();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("RUNNING HISTORY", 
-          style: TextStyle(
-            color: Colors.black, 
-            fontWeight: FontWeight.bold, 
-            letterSpacing: 1.2,
-            fontSize: 16,
-          )),
+        title: const Text("TRAINING HISTORY", 
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: Consumer<RunController>(
-        builder: (context, controller, child) {
-          return Column(
-            children: [
-              _buildSummaryHeader(controller),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-                child: Row(
-                  children: [
-                    Icon(Icons.history, size: 16, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text("RECENT ACTIVITIES", 
-                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: FutureBuilder<List<AppPost>>(
-                  future: controller.postRepo.getPostStream().first.then(
-                    (posts) => posts.where((p) {
-                      final isLegacy = p.content.contains("Distance");
-                      final isPro = p.content.contains("AI detected") || p.content.contains("Beast Mode");
-                      return isLegacy || isPro;
-                    }).toList()
-                  ),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: Colors.black));
-                    }
-                    
-                    final runs = snapshot.data ?? [];
-                    
-                    if (runs.isEmpty) {
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.directions_run, size: 48, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text("No runs recorded yet.\nTime to hit the road!", 
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey)),
-                          ],
-                        )
-                      );
-                    }
+      body: Column(
+        children: [
+          _buildLifetimeStats(controller),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text("PAST ACTIVITIES", 
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              // FIX: Now using the controller method instead of direct repo access
+              stream: controller.getPostStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: Colors.black));
+                }
 
-                    return ListView.builder(
-                      itemCount: runs.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      physics: const BouncingScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        final run = runs[index];
-                        return _buildRunCard(run);
-                      },
-                    );
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    final doc = snapshot.data!.docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    return _buildHistoryCard(data);
                   },
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSummaryHeader(RunController controller) {
+  Widget _buildLifetimeStats(RunController controller) {
     return Container(
-      padding: const EdgeInsets.all(25),
       margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            // FIXED: Used withValues(alpha: ...) to resolve deprecation
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          )
-        ],
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _headerStat("TOTAL KM", controller.historyDistance.toStringAsFixed(1)),
-              _headerStat("STREAK", "${controller.runStreak}D"),
-              _headerStat("CALORIES", "${controller.totalCalories}"),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.speed, color: Colors.cyanAccent, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                "AVG PACE: ${controller.averageSpeedMs.toStringAsFixed(1)} m/s", 
-                style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)
-              ),
-            ],
-          )
+          _statColumn("TOTAL KM", controller.historyDistance.toStringAsFixed(1)),
+          _statColumn("STREAK", "${controller.runStreak}D"),
+          _statColumn("LEVEL", "PRO"),
         ],
       ),
     );
   }
 
-  Widget _headerStat(String label, String value) {
+  Widget _statColumn(String label, String value) {
     return Column(
       children: [
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10, letterSpacing: 1)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 1)),
       ],
     );
   }
 
-  Widget _buildRunCard(AppPost run) {
-    final bool isProRun = run.content.contains("AI") || run.content.contains("BPM");
+  Widget _buildHistoryCard(Map<String, dynamic> data) {
+    final timestamp = data['timestamp'] as Timestamp?;
+    final dateStr = timestamp != null 
+        ? "${timestamp.toDate().day}/${timestamp.toDate().month}/${timestamp.toDate().year}" 
+        : "Recent";
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        // FIXED: Used withValues(alpha: ...) to resolve deprecation
-        color: isProRun ? Colors.blue.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: isProRun ? Border.all(color: Colors.blue.withValues(alpha: 0.1)) : null,
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isProRun ? Colors.blueAccent : Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.directions_run, color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "${run.createdAt.day} ${_getMonth(run.createdAt.month)} ${run.createdAt.year}",
-                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isProRun ? "AI Analysis Available" : "Standard Run",
-                      style: TextStyle(
-                        color: isProRun ? Colors.blueAccent : Colors.black87,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isProRun)
-                const Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
-            ],
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.directions_run, color: Colors.white, size: 20),
           ),
-          const SizedBox(height: 15),
-          Text(
-            run.content,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.black54, fontSize: 13, height: 1.4),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(data['planTitle'] ?? "Free Run", 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(dateStr, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              ],
+            ),
           ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(50, 30),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Row(
-                  children: [
-                    Text("VIEW DETAILS", 
-                      style: TextStyle(
-                        color: isProRun ? Colors.blueAccent : Colors.black, 
-                        fontSize: 11, 
-                        fontWeight: FontWeight.bold
-                      )),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 10, color: isProRun ? Colors.blueAccent : Colors.black),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          const Icon(Icons.chevron_right, color: Colors.grey),
         ],
       ),
     );
   }
 
-  String _getMonth(int month) {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    return months[month - 1];
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.history, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text("No runs recorded yet.", style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
   }
 }

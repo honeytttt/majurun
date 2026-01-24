@@ -17,10 +17,7 @@ class RunController extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // FIX: Added postRepo getter to resolve history screen error
-  // This allows the UI to access the Firestore collection directly as a 'repository'
-  CollectionReference get postRepo => _firestore.collection('feed');
-
+  // --- STATE VARIABLES ---
   RunState _state = RunState.idle;
   RunState get state => _state;
 
@@ -29,11 +26,12 @@ class RunController extends ChangeNotifier {
       ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
       : null;
 
-  double _totalDistance = 0.0;
+  double _totalDistance = 0.0; // In meters
   int _secondsElapsed = 0;
   Timer? _timer;
   StreamSubscription<Position>? _positionStream;
 
+  // --- MAP & DATA VISUALS ---
   final List<LatLng> _routePoints = [];
   List<LatLng> get routePoints => List.unmodifiable(_routePoints);
 
@@ -43,14 +41,15 @@ class RunController extends ChangeNotifier {
   List<ChartDataSpot> hrHistorySpots = [];
   List<ChartDataSpot> paceHistorySpots = [];
 
+  // --- RUN METRICS ---
   String? lastVideoUrl;
   int currentBpm = 145;
   int totalCalories = 0;
   bool isVoiceEnabled = true;
-
   double historyDistance = 0.0;
   int runStreak = 0;
 
+  // --- GETTERS ---
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
 
   String get durationString {
@@ -67,6 +66,27 @@ class RunController extends ChangeNotifier {
     int minutes = paceMinKm.floor();
     int seconds = ((paceMinKm - minutes) * 60).round();
     return "$minutes:${seconds.toString().padLeft(2, '0')}";
+  }
+
+  // --- CORE LOGIC ---
+
+  /// Provides a stream of historical runs for the History Screen
+  Stream<QuerySnapshot> getPostStream() {
+    final user = _auth.currentUser;
+    if (user == null) return const Stream.empty();
+    return _firestore
+        .collection('feed')
+        .where('userId', isEqualTo: user.uid)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
+  // FIX: Added the missing generateVeoVideo method for RunSummaryScreen
+  Future<void> generateVeoVideo() async {
+    // Simulating API call to Google Veo
+    await Future.delayed(const Duration(seconds: 2));
+    lastVideoUrl = "https://example.com/replay_video.mp4";
+    notifyListeners();
   }
 
   Future<void> startRun() async {
@@ -86,7 +106,7 @@ class RunController extends ChangeNotifier {
     _polylines.clear();
     hrHistorySpots.clear();
     paceHistorySpots.clear();
-    lastVideoUrl = null;
+    lastVideoUrl = null; // Reset video for new run
 
     _startTimer();
     _startLocationUpdates();
@@ -158,7 +178,7 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
+  Future<void> stopRun(BuildContext context, {String? planTitle}) async {
     _state = RunState.idle;
     _timer?.cancel();
     _positionStream?.cancel();
@@ -167,7 +187,7 @@ class RunController extends ChangeNotifier {
     if (user != null) {
       try {
         await _firestore.collection('users').doc(user.uid).collection('training_history').add({
-          'planTitle': planTitle,
+          'planTitle': planTitle ?? "Free Run",
           'distanceKm': double.parse(distanceString),
           'durationSeconds': _secondsElapsed,
           'pace': paceString,
@@ -185,24 +205,13 @@ class RunController extends ChangeNotifier {
   Future<void> finalizeProPost(String aiContent, String videoUrl, {String? planTitle}) async {
     final user = _auth.currentUser;
     if (user == null) return;
-    await postRepo.add({
+    await _firestore.collection('feed').add({
       'userId': user.uid,
       'content': aiContent,
       'videoUrl': videoUrl,
       'planTitle': planTitle ?? "Free Run",
       'timestamp': FieldValue.serverTimestamp(),
     });
-  }
-
-  Future<void> generateVeoVideo() async {
-    await Future.delayed(const Duration(seconds: 2));
-    lastVideoUrl = "https://example.com/replay.mp4";
-    notifyListeners();
-  }
-
-  void toggleVoice() {
-    isVoiceEnabled = !isVoiceEnabled;
-    notifyListeners();
   }
 
   @override
