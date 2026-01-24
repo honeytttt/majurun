@@ -5,33 +5,8 @@ import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart
 import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
-class RunTrackerScreen extends StatefulWidget {
+class RunTrackerScreen extends StatelessWidget {
   const RunTrackerScreen({super.key});
-  @override
-  State<RunTrackerScreen> createState() => _RunTrackerScreenState();
-}
-
-class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) Provider.of<RunController>(context, listen: false).checkMonthlySummary();
-    });
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,23 +14,85 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
 
     return Scaffold(
       drawer: const TrainingDrawer(),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            colors: [Colors.white, Colors.blue.withValues(alpha: 0.05)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
+      body: Builder( // FIX: Builder provides child context to see the Scaffold
+        builder: (scaffoldContext) {
+          return SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(scaffoldContext, controller),
+                const Spacer(),
+                _buildStartCircle(context, controller),
+                const Spacer(),
+                _buildStatsGrid(controller),
+                const SizedBox(height: 40),
+                _buildBottomLink(context),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, RunController controller) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _headerItem("Training", "Menu", Icons.menu, () => Scaffold.of(context).openDrawer()),
+          const Column(children: [
+            Text("BASIC   PRO", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+            Text("AI Coach", style: TextStyle(color: Colors.grey, fontSize: 10)),
+          ]),
+          Row( // Separated Notification and Voice buttons
             children: [
-              _buildHeader(context),
-              const Spacer(flex: 1),
-              _buildControlCenter(context, controller),
-              const Spacer(flex: 1),
-              _buildMetrics(controller),
-              const Spacer(flex: 2),
-              _buildFooter(context),
+              _headerItem("Notif", controller.isNotificationEnabled ? "On" : "Off", 
+                Icons.notifications_active, () => controller.toggleNotifications()),
+              const SizedBox(width: 15),
+              _headerItem("Voice", controller.isVoiceEnabled ? "On" : "Off", 
+                controller.isVoiceEnabled ? Icons.volume_up : Icons.volume_off, () => controller.toggleVoice()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerItem(String t1, String t2, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Text(t1, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(t2, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          Icon(icon, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStartCircle(BuildContext context, RunController controller) {
+    bool isRunning = controller.state == RunState.running;
+    return GestureDetector(
+      onTap: () {
+        if (isRunning) {
+          controller.stopRun(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => RunSummaryScreen(controller: controller)));
+        } else {
+          controller.startRun();
+        }
+      },
+      child: Container(
+        width: 180, height: 180,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(width: 4)),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(isRunning ? "stop" : "start"),
+              Text(isRunning ? controller.durationString : "RUN", 
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -63,154 +100,37 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildStatsGrid(RunController controller) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Column(
         children: [
-          Builder(builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, size: 28),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          )),
-          const Text("MAJURUN PRO", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.redAccent, size: 28),
-            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-          ),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            _stat("Total Time", controller.totalHistoryTimeStr),
+            _stat("Total KM", controller.historyDistance.toStringAsFixed(0)),
+          ]),
+          const SizedBox(height: 30),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            _stat("total runs", controller.totalRuns.toString()),
+            _stat("Total Calories", controller.totalCalories.toString()),
+          ]),
         ],
       ),
     );
   }
 
-  Widget _buildControlCenter(BuildContext context, RunController controller) {
-    bool isRunning = controller.state == RunState.running;
-    bool isPaused = controller.state == RunState.paused;
+  Widget _stat(String label, String value) => SizedBox(width: 100, child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    ],
+  ));
 
-    return Column(
-      children: [
-        if (controller.state == RunState.idle) _buildMotivationalReminder(controller),
-        const SizedBox(height: 20),
-        ScaleTransition(
-          scale: Tween(begin: 1.0, end: 1.05).animate(_pulseController),
-          child: GestureDetector(
-            onTap: () {
-              if (controller.state == RunState.idle) {
-                controller.startRun();
-              } else if (isRunning) {
-                controller.pauseRun();
-              } else {
-                controller.resumeRun();
-              }
-            },
-            child: Container(
-              width: 220, height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: (isRunning ? Colors.blue : Colors.black).withValues(alpha: 0.2),
-                    blurRadius: 20, spreadRadius: 5
-                  )
-                ],
-                gradient: LinearGradient(
-                  colors: isRunning 
-                    ? [Colors.blue.shade300, Colors.blue.shade700] 
-                    : [Colors.black87, Colors.black],
-                ),
-                border: Border.all(color: Colors.white, width: 8),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(isRunning ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 40),
-                    Text(
-                      isRunning ? controller.durationString : (isPaused ? "RESUME" : "START"),
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    if (isRunning) Text("${controller.distanceString} KM", style: const TextStyle(color: Colors.white70)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (isRunning || isPaused)
-          Padding(
-            padding: const EdgeInsets.only(top: 30),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-              onPressed: () => _confirmStop(context, controller),
-              icon: const Icon(Icons.stop),
-              label: const Text("FINISH RUN"),
-            ),
-          )
-      ],
-    );
-  }
-
-  Widget _buildMotivationalReminder(RunController controller) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      margin: const EdgeInsets.symmetric(horizontal: 40),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
-      child: Row(
-        children: [
-          const Icon(Icons.wb_sunny, color: Colors.orange),
-          const SizedBox(width: 10),
-          Expanded(child: Text(
-            "Weather is ${controller.temp}°C. Keep your ${controller.runStreak} day streak alive!",
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          ))
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetrics(RunController controller) {
-    if (controller.state == RunState.idle) return const SizedBox(height: 100);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.favorite, color: Colors.red),
-        const SizedBox(width: 8),
-        Text("${controller.currentBpm}", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-        const Text(" BPM", style: TextStyle(color: Colors.grey)),
-      ],
-    );
-  }
-
-  void _confirmStop(BuildContext context, RunController controller) {
-    showDialog(
-      context: context,
-      builder: (innerContext) => AlertDialog(
-        title: const Text("Finish Run?"),
-        content: const Text("Ready for your split analysis?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(innerContext), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(innerContext);
-              controller.stopRun(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => RunSummaryScreen(controller: controller)));
-            },
-            child: const Text("FINISH"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    return Column(
-      children: [
-        TextButton(
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RunHistoryScreen())),
-          child: const Text("View Activity History", style: TextStyle(color: Colors.black, decoration: TextDecoration.underline)),
-        ),
-        const SizedBox(height: 10),
-      ],
+  Widget _buildBottomLink(BuildContext context) {
+    return TextButton(
+      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RunHistoryScreen())),
+      child: const Text("All running activities", style: TextStyle(decoration: TextDecoration.underline, color: Colors.black)),
     );
   }
 }

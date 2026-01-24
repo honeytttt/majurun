@@ -7,11 +7,7 @@ class RunSummaryScreen extends StatefulWidget {
   final RunController controller;
   final String? planTitle;
 
-  const RunSummaryScreen({
-    super.key,
-    required this.controller,
-    this.planTitle,
-  });
+  const RunSummaryScreen({super.key, required this.controller, this.planTitle});
 
   @override
   State<RunSummaryScreen> createState() => _RunSummaryScreenState();
@@ -32,16 +28,45 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
   void _generateAIText() async {
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
-
-    String planContext = widget.planTitle != null
-        ? "Another session of ${widget.planTitle} in the books."
-        : "Another great run in the books.";
-
     setState(() {
-      _aiGeneratedPost = "$planContext ${widget.controller.distanceString} KM crushed. "
-          "Engine stayed steady at ${widget.controller.currentBpm} BPM. "
-          "The road doesn't get easier, you just get stronger. #MajurunPro";
+      _aiGeneratedPost = "${widget.planTitle ?? 'Run'} complete! "
+          "${widget.controller.distanceString} KM crushed at ${widget.controller.currentBpm} BPM. #MajurunPro";
     });
+  }
+
+  void _handleFinalize() async {
+    setState(() => _isFinalizing = true);
+    
+    try {
+      debugPrint("Starting upload...");
+      String? url = await widget.controller.uploadToCloudinary(_cardKey);
+      debugPrint("Upload successful: $url");
+
+      await widget.controller.finalizeProPost(
+        _aiGeneratedPost,
+        widget.controller.lastVideoUrl ?? "",
+        imageUrl: url, 
+        planTitle: widget.planTitle,
+      );
+
+      debugPrint("Post successful!");
+      if (mounted) {
+        Navigator.popUntil(context, (r) => r.isFirst);
+      }
+    } catch (e) {
+      debugPrint("DETAILED ERROR: $e");
+      if (mounted) {
+        setState(() => _isFinalizing = false);
+        // This will show you exactly why it's failing (e.g., [cloud_firestore/permission-denied])
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Post Failed: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -49,11 +74,21 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("PRO SUMMARY", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.black),
+          onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+        ),
+        title: const Text("PRO SUMMARY", 
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check, color: Colors.cyanAccent),
+            onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+          )
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -89,9 +124,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
 
   Widget _buildVideoReplay() {
     return Container(
-      height: 200,
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 200, width: double.infinity, margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
       child: widget.controller.lastVideoUrl == null
           ? GestureDetector(
@@ -114,12 +147,10 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
   }
 
   Widget _statItem(String label, String value) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-      ],
-    );
+    return Column(children: [
+      Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+    ]);
   }
 
   Widget _buildProgressToggle() {
@@ -137,8 +168,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
 
   Widget _buildAiPostCard() {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.all(20), padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(20)),
       child: Text(_aiGeneratedPost, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black87)),
     );
@@ -147,30 +177,23 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
   Widget _buildActionButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 55,
-            child: ElevatedButton(
-              onPressed: _isFinalizing ? null : _handleFinalize,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-              child: _isFinalizing ? const CircularProgressIndicator() : const Text("SHARE TO MAJURUN FEED", style: TextStyle(color: Colors.white)),
-            ),
+      child: Column(children: [
+        SizedBox(
+          width: double.infinity, height: 55,
+          child: ElevatedButton(
+            onPressed: _isFinalizing ? null : _handleFinalize,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+            child: _isFinalizing 
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text("SHARE TO MAJURUN FEED", style: TextStyle(color: Colors.white)),
           ),
-          TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text("DISCARD", style: TextStyle(color: Colors.red))),
-        ],
-      ),
+        ),
+        const SizedBox(height: 10),
+        TextButton(
+          onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), 
+          child: const Text("DISCARD", style: TextStyle(color: Colors.red))
+        ),
+      ]),
     );
-  }
-
-  void _handleFinalize() async {
-    setState(() => _isFinalizing = true);
-    try {
-      await widget.controller.finalizeProPost(_aiGeneratedPost, widget.controller.lastVideoUrl ?? "", planTitle: widget.planTitle);
-      if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
-    } catch (e) {
-      if (mounted) setState(() => _isFinalizing = false);
-    }
   }
 }
