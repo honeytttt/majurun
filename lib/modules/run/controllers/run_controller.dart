@@ -30,7 +30,36 @@ class RunController extends ChangeNotifier {
   int _secondsElapsed = 0;
   Timer? _timer;
   StreamSubscription<Position>? _positionStream;
+  
+  
+  double? temp = 27.0; 
+  String weatherIcon = '01d';
+  bool isNewPB = false;
+  double ghostDistance = 5.0; // KM
+  bool compareHeartRateVoice = true;
+  bool enableHeartRateTracking = true;
+  String totalHistoryTimeStr = "15H:30M";
 
+  void checkMonthlySummary() {
+    debugPrint("Checking monthly summary...");
+  }
+
+  void toggleVoice() {
+    isVoiceEnabled = !isVoiceEnabled;
+    notifyListeners();
+  }
+
+  void toggleHeartRateVoice(bool value) {
+    compareHeartRateVoice = value;
+    notifyListeners();
+  }
+
+  void toggleHeartRateTracking(bool value) {
+    enableHeartRateTracking = value;
+    notifyListeners();
+  }
+  
+  
   // --- MAP & DATA VISUALS ---
   final List<LatLng> _routePoints = [];
   List<LatLng> get routePoints => List.unmodifiable(_routePoints);
