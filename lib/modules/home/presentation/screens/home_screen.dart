@@ -1,4 +1,3 @@
-// lib/modules/home/presentation/screens/home_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,13 +24,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // --- UI STATE ---
   int _selectedIndex = 0;
   Widget? _activeSubPage;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
 
-  // --- PROFILE DATA ---
   String _userName = "Loading...";
   String _userBio = "Loading...";
   String _profileImageUrl = "";
@@ -39,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchFirebaseUserData(); 
+    _fetchFirebaseUserData();
   }
 
   void _fetchFirebaseUserData() {
@@ -66,16 +63,33 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+    Map<String, dynamic> updateData = {
       'displayName': name,
       'bio': bio,
-    }, SetOptions(merge: true));
+    };
+
+    if (imageFile != null) {
+      // Upload image to Cloudinary (replace with your upload function)
+      String uploadedUrl = await uploadProfileImageToCloudinary(imageFile);
+      updateData['photoUrl'] = uploadedUrl;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .set(updateData, SetOptions(merge: true));
+  }
+
+  // Dummy Cloudinary upload function (replace with your real one)
+  Future<String> uploadProfileImageToCloudinary(File image) async {
+    // Example: return uploaded URL
+    return _profileImageUrl; // placeholder
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      _activeSubPage = null; 
+      _activeSubPage = null;
     });
   }
 
@@ -85,7 +99,18 @@ class _HomeScreenState extends State<HomeScreen> {
         currentName: _userName,
         currentBio: _userBio,
         currentImageUrl: _profileImageUrl,
-        onSave: (name, bio, image) => _handleProfileUpdate(name, bio, image),
+        onSave: (name, bio, imageFile) async {
+          await _handleProfileUpdate(name, bio, imageFile);
+          // Refresh local variables after update
+          setState(() {
+            _userName = name;
+            _userBio = bio;
+            if (imageFile != null) {
+              _profileImageUrl = imageFile.path; // optional: set local preview
+            }
+            _activeSubPage = null;
+          });
+        },
         onBack: () => setState(() => _activeSubPage = null),
       );
     });
@@ -94,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.white,
@@ -122,7 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const EventsScreen(),
           RunTrackerScreen(
             onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-            onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(onBack: () => setState(() => _activeSubPage = null))),
+            onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(
+              onBack: () => setState(() => _activeSubPage = null),
+            )),
           ),
         ],
       ),
@@ -143,20 +171,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBranding(Color brandGreen) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.directions_run, color: brandGreen, size: 26),
-        const SizedBox(width: 6),
-        ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [brandGreen, const Color(0xFF00C853)],
-          ).createShader(bounds),
-          child: const Text("MAJURUN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.directions_run, color: brandGreen, size: 26), // run icon left
+      const SizedBox(width: 6),
+      ShaderMask(
+        shaderCallback: (bounds) => LinearGradient(
+          colors: [brandGreen, const Color(0xFF00C853)],
+        ).createShader(bounds),
+        child: const Text(
+          "MAJURUN",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
         ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(width: 6),
+      Icon(Icons.fitness_center, color: brandGreen, size: 26), // dumbbell icon right
+    ],
+  );
+}
+
 
   Widget _buildHomeFeed() {
     return StreamBuilder<List<AppPost>>(
