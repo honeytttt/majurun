@@ -1,23 +1,21 @@
 // lib/modules/home/presentation/screens/home_screen.dart
-// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// IMPORT your cloudinary service here
-// import 'package:majurun/core/services/cloudinary_service.dart';
 
+// Import All Required Modules
 import 'package:majurun/modules/home/domain/entities/post.dart';
-import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
+import 'package:majurun/modules/home/presentation/widgets/app_bar_leading.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
+import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
-import 'package:majurun/modules/home/presentation/widgets/app_bar_leading.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,15 +25,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // --- UI STATE ---
   int _selectedIndex = 0;
   Widget? _activeSubPage;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
 
-  // --- PERSISTENCE STATE ---
-  String _userName = "Phoebe Maju";
-  String _userBio = "Training for the Singapore Marathon 2026...";
-  String _profileImageUrl = "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400";
+  // --- PROFILE DATA ---
+  String _userName = "Loading...";
+  String _userBio = "Loading...";
+  String _profileImageUrl = "";
 
   @override
   void initState() {
@@ -43,53 +42,34 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchFirebaseUserData(); 
   }
 
-  // FETCH: Loads data from Firestore on app start
-  Future<void> _fetchFirebaseUserData() async {
+  void _fetchFirebaseUserData() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    if (doc.exists) {
-      final data = doc.data()!;
-      setState(() {
-        _userName = data['displayName'] ?? _userName;
-        _userBio = data['bio'] ?? _userBio;
-        _profileImageUrl = data['photoUrl'] ?? _profileImageUrl;
-      });
-    }
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists && mounted) {
+        final data = doc.data()!;
+        setState(() {
+          _userName = data['displayName'] ?? "No Name";
+          _userBio = data['bio'] ?? "No Bio";
+          _profileImageUrl = data['photoUrl'] ?? "";
+        });
+      }
+    });
   }
 
-  // SAVE: Handles Cloudinary Upload + Firestore Write
   Future<void> _handleProfileUpdate(String name, String bio, File? imageFile) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-      String finalUrl = _profileImageUrl;
-
-      // 1. Upload to Cloudinary if image changed
-      if (imageFile != null) {
-        // Replace this with your actual Cloudinary service call
-        // finalUrl = await CloudinaryService.uploadImage(imageFile);
-      }
-
-      // 2. Save to Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'displayName': name,
-        'bio': bio,
-        'photoUrl': finalUrl,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      // 3. Update Local State
-      setState(() {
-        _userName = name;
-        _userBio = bio;
-        _profileImageUrl = finalUrl;
-      });
-    } catch (e) {
-      debugPrint("Update failed: $e");
-    }
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'displayName': name,
+      'bio': bio,
+    }, SetOptions(merge: true));
   }
 
   void _onItemTapped(int index) {
@@ -99,22 +79,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // lib/modules/home/presentation/screens/home_screen.dart
-
-void _showProfile() {
-  setState(() {
-    _activeSubPage = ProfileScreen(
-      currentName: _userName,
-      currentBio: _userBio,
-      // This now matches the updated ProfileScreen signature
-      onSave: (newName, newBio, newImage) => _handleProfileUpdate(newName, newBio, newImage),
-      onBack: () => setState(() {
-        _activeSubPage = null;
-        _selectedIndex = 0;
-      }),
-    );
-  });
-}
+  void _showProfile() {
+    setState(() {
+      _activeSubPage = ProfileScreen(
+        currentName: _userName,
+        currentBio: _userBio,
+        currentImageUrl: _profileImageUrl,
+        onSave: (name, bio, image) => _handleProfileUpdate(name, bio, image),
+        onBack: () => setState(() => _activeSubPage = null),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,8 +108,8 @@ void _showProfile() {
         leading: AppBarLeading(onProfilePressed: _showProfile),
         title: _buildBranding(brandGreen),
         actions: [
-          IconButton(icon: Icon(Icons.search, color: Colors.black), onPressed: () {}),
-          IconButton(icon: Icon(Icons.notifications_none_outlined, color: Colors.black), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.search, color: Colors.black), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.notifications_none_outlined, color: Colors.black), onPressed: () {}),
           const SizedBox(width: 8),
         ],
       ),
@@ -142,9 +117,9 @@ void _showProfile() {
         index: _selectedIndex,
         children: [
           _buildHomeFeed(),
-          WorkoutScreen(),
-          CreatePostScreen(),
-          EventsScreen(),
+          const WorkoutScreen(),
+          const CreatePostScreen(),
+          const EventsScreen(),
           RunTrackerScreen(
             onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(onBack: () => setState(() => _activeSubPage = null))),
@@ -166,8 +141,6 @@ void _showProfile() {
       ),
     );
   }
-
-  // ... (keep _buildBranding and _buildHomeFeed as they were)
 
   Widget _buildBranding(Color brandGreen) {
     return Row(
