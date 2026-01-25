@@ -72,7 +72,7 @@ Widget build(BuildContext context) {
           shape: BoxShape.circle,
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, spreadRadius: 5)
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: 5)
           ],
           border: Border.all(color: Colors.black12, width: 1),
         ),

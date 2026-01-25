@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
@@ -31,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const Color brandGreen = Color(0xFF00E676);
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.white,
@@ -44,17 +45,61 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        centerTitle: true,
+        leadingWidth: 100, 
+        leading: Row(
+          children: [
+            const SizedBox(width: 8), 
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: const Icon(Icons.account_circle_outlined, color: Colors.black, size: 28),
+              onPressed: () => debugPrint("Profile clicked"),
+            ),
+            const SizedBox(width: 12), 
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: const Icon(Icons.question_answer_outlined, color: Colors.black, size: 24),
+              onPressed: () => debugPrint("Forum/Chat clicked"),
+            ),
+          ],
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.directions_run, color: brandGreen, size: 26),
+            const SizedBox(width: 6),
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [brandGreen, Color(0xFF00C853)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: const Text(
+                "MAJURUN",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.fitness_center, color: brandGreen, size: 24),
+          ],
         ),
         actions: [
-          const Icon(Icons.notifications_none, color: Colors.black, size: 28),
-          const SizedBox(width: 12),
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-            onPressed: () => context.read<AuthRepository>().signOut(),
+            icon: const Icon(Icons.search, color: Colors.black, size: 26),
+            onPressed: () => debugPrint("Search clicked"),
           ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_outlined, color: Colors.black, size: 26),
+            onPressed: () => debugPrint("Notifications clicked"),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _activeSubPage ?? IndexedStack(
@@ -81,7 +126,8 @@ class _HomeScreenState extends State<HomeScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'home'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), label: 'Create'),
+          // UPDATED: Rounded + icon and renamed to 'Post'
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
           BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
           BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
         ],
@@ -93,7 +139,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
         final posts = snapshot.data ?? [];
         return RefreshIndicator(
           onRefresh: () async => setState(() {}),
