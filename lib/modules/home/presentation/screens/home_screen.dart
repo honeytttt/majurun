@@ -3,7 +3,6 @@
 // Leading: Profile + QuestionAnswer
 // BottomNav: Home, Workouts, Post (+ Round), Events, RUN
 import 'package:flutter/material.dart';
-//import 'package:provider/provider.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
@@ -13,6 +12,7 @@ import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
+import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,11 +57,16 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SizedBox(width: 8), 
             IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: const Icon(Icons.account_circle_outlined, color: Colors.black, size: 28),
-              onPressed: () => debugPrint("Profile clicked"),
-            ),
+  padding: EdgeInsets.zero,
+  constraints: const BoxConstraints(),
+  icon: const Icon(Icons.account_circle_outlined, color: Colors.black, size: 28),
+  onPressed: () {
+    setState(() {
+      _selectedIndex = 4; // Switches the view to ProfileScreen
+      _activeSubPage = null; // Clears any sub-pages like Run History
+    });
+  },
+),
             const SizedBox(width: 12), 
             IconButton(
               padding: EdgeInsets.zero,
@@ -108,21 +113,25 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _activeSubPage ?? IndexedStack(
-        index: _selectedIndex,
-        children: [
-          _buildHomeFeed(),
-          const WorkoutScreen(),
-          const CreatePostScreen(),
-          const EventsScreen(),
-          RunTrackerScreen(
-            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-            onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(
-              onBack: () => setState(() => _activeSubPage = null)
-            )),
-          ),
-        ],
-      ),
+      body: _activeSubPage ?? // Inside IndexedStack children:
+IndexedStack(
+  index: _selectedIndex,
+  children: [
+    _buildHomeFeed(),         // Index 0
+    const WorkoutScreen(),    // Index 1
+    const CreatePostScreen(), // Index 2
+    const EventsScreen(),     // Index 3
+    const ProfileScreen(),    // Index 4 (NEW)
+    RunTrackerScreen(         // Index 5
+      onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+      onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(
+        onBack: () => setState(() => _activeSubPage = null)
+      )),
+    ),
+  ],
+),
+
+// Ensure your BottomNavigationBar has 6 items to match, or update indices!
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
