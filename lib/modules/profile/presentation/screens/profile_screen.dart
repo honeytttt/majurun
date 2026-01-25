@@ -1,4 +1,3 @@
-// lib/modules/profile/presentation/screens/profile_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +7,8 @@ class ProfileScreen extends StatefulWidget {
   final String currentName;
   final String currentBio;
   final String currentImageUrl;
-  final Function(String, String, File?) onSave;
+  final String currentEmail;
+  final Function(String, String, File?, String) onSave; // original type
   final VoidCallback onBack;
 
   const ProfileScreen({
@@ -16,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
     required this.currentName,
     required this.currentBio,
     required this.currentImageUrl,
+    required this.currentEmail,
     required this.onSave,
     required this.onBack,
   });
@@ -33,7 +34,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           currentName: widget.currentName,
           currentBio: widget.currentBio,
           currentImageUrl: widget.currentImageUrl,
-          onSave: widget.onSave,
+          currentEmail: widget.currentEmail,
+          onSave: (name, bio, imageUrl) {
+            // Adapted types for ProfileSettingsScreen
+            widget.onSave(name, bio, null, widget.currentEmail);
+          },
         ),
       ),
     );
@@ -43,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        /// HEADER
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           child: Row(
@@ -54,7 +60,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const Text(
                 "MY PROFILE",
-                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 14),
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  fontSize: 14,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
@@ -63,6 +73,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+
+        /// BODY
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -99,23 +111,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// PROFILE HEADER
   Widget _buildProfileHeader(String name, String imageUrl) {
     return Column(
       children: [
         CircleAvatar(
           radius: 50,
           backgroundColor: Colors.grey,
-          backgroundImage: imageUrl.isNotEmpty 
-              ? NetworkImage(imageUrl) 
-              : const NetworkImage('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400'),
+          backgroundImage: imageUrl.isNotEmpty
+              ? NetworkImage(imageUrl)
+              : const NetworkImage(
+                  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400',
+                ),
         ),
         const SizedBox(height: 15),
-        Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-        const Text("Elite Runner • Level 12", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        Text(
+          name,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
+        const Text(
+          "Elite Runner • Level 12",
+          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
 
+  /// SOCIAL STATS
   Widget _buildSocialStats() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -134,20 +156,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1),
+        ),
       ],
     );
   }
 
+  /// BIO
   Widget _buildBioSection(String bio) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(15)),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("CURRENT GOAL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            "CURRENT GOAL",
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+          ),
           const SizedBox(height: 5),
           Text(bio, style: const TextStyle(fontSize: 13, height: 1.4)),
         ],
@@ -155,6 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// STATS
   Widget _buildStatGrid() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -170,11 +203,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
 
+  /// SECTIONS
   Widget _buildSectionHeader(String title, String action) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -188,11 +225,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildTrophyCase() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: ["🌅", "🎖️", "🏔️", "🔥"].map((e) => Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(15)),
-            child: Text(e, style: const TextStyle(fontSize: 24)),
-          )).toList(),
+      children: ["🌅", "🎖️", "🏔️", "🔥"]
+          .map(
+            (e) => Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Text(e, style: const TextStyle(fontSize: 24)),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -203,6 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       {"icon": Icons.privacy_tip_outlined, "label": "Privacy", "onTap": null},
       {"icon": Icons.help_outline, "label": "Support", "onTap": null},
     ];
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -236,6 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// LOGOUT
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,

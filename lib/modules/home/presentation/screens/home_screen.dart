@@ -1,9 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Import All Required Modules
+// Import Modules
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
@@ -15,6 +16,7 @@ import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
+import 'package:majurun/core/services/cloudinary_service.dart'; // Cloudinary
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,9 +31,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
 
+  // Profile Data
   String _userName = "Loading...";
   String _userBio = "Loading...";
   String _profileImageUrl = "";
+  String _email = "";
 
   @override
   void initState() {
@@ -42,6 +46,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _fetchFirebaseUserData() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    _email = user.email ?? "";
 
     FirebaseFirestore.instance
         .collection('users')
@@ -59,31 +65,56 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _handleProfileUpdate(String name, String bio, File? imageFile) async {
+  /// Handle profile update: name, bio, email, image upload
+  /// Supports both Mobile (File) and Web (Uint8List)
+  Future<void> _handleProfileUpdate(
+      String name, String bio, dynamic image, String email) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    Map<String, dynamic> updateData = {
-      'displayName': name,
-      'bio': bio,
-    };
+    String? imageUrl = _profileImageUrl;
 
-    if (imageFile != null) {
-      // Upload image to Cloudinary (replace with your upload function)
-      String uploadedUrl = await uploadProfileImageToCloudinary(imageFile);
-      updateData['photoUrl'] = uploadedUrl;
+    try {
+      if (image != null) {
+        if (kIsWeb && image is Uint8List) {
+          // Web
+          imageUrl = await CloudinaryService().uploadMedia(image, "web_upload.png", false);
+        } else if (!kIsWeb && image is File) {
+          // Mobile
+          final bytes = await image.readAsBytes();
+          imageUrl = await CloudinaryService()
+              .uploadMedia(bytes, image.path.split('/').last, false);
+        }
+      }
+    } catch (e) {
+      debugPrint("Profile image upload failed: $e");
     }
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .set(updateData, SetOptions(merge: true));
-  }
+    // Update Firestore
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'displayName': name,
+      'bio': bio,
+      'photoUrl': imageUrl,
+      'email': email,
+    }, SetOptions(merge: true));
 
-  // Dummy Cloudinary upload function (replace with your real one)
-  Future<String> uploadProfileImageToCloudinary(File image) async {
-    // Example: return uploaded URL
-    return _profileImageUrl; // placeholder
+    // Update Firebase Auth email if changed
+    if (email.isNotEmpty && email != user.email) {
+      try {
+        final newEmail = email;
+        await user.verifyBeforeUpdateEmail(newEmail);
+      } catch (e) {
+        debugPrint("Email update failed: $e");
+      }
+    }
+
+    // Update local state
+    setState(() {
+      _userName = name;
+      _userBio = bio;
+      _profileImageUrl = imageUrl!;
+      _email = email;
+    });
   }
 
   void _onItemTapped(int index) {
@@ -99,18 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
         currentName: _userName,
         currentBio: _userBio,
         currentImageUrl: _profileImageUrl,
-        onSave: (name, bio, imageFile) async {
-          await _handleProfileUpdate(name, bio, imageFile);
-          // Refresh local variables after update
-          setState(() {
-            _userName = name;
-            _userBio = bio;
-            if (imageFile != null) {
-              _profileImageUrl = imageFile.path; // optional: set local preview
-            }
-            _activeSubPage = null;
-          });
-        },
+        currentEmail: _email,
+        onSave: _handleProfileUpdate,
         onBack: () => setState(() => _activeSubPage = null),
       );
     });
@@ -119,7 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
-
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.white,
@@ -139,21 +159,21 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _activeSubPage ?? IndexedStack(
-        index: _selectedIndex,
-        children: [
-          _buildHomeFeed(),
-          const WorkoutScreen(),
-          const CreatePostScreen(),
-          const EventsScreen(),
-          RunTrackerScreen(
-            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-            onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(
-              onBack: () => setState(() => _activeSubPage = null),
-            )),
+      body: _activeSubPage ??
+          IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _buildHomeFeed(),
+              const WorkoutScreen(),
+              const CreatePostScreen(),
+              const EventsScreen(),
+              RunTrackerScreen(
+                onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+                onShowHistory: () => setState(() =>
+                    _activeSubPage = RunHistoryScreen(onBack: () => setState(() => _activeSubPage = null))),
+              ),
+            ],
           ),
-        ],
-      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -171,26 +191,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBranding(Color brandGreen) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.directions_run, color: brandGreen, size: 26), // run icon left
-      const SizedBox(width: 6),
-      ShaderMask(
-        shaderCallback: (bounds) => LinearGradient(
-          colors: [brandGreen, const Color(0xFF00C853)],
-        ).createShader(bounds),
-        child: const Text(
-          "MAJURUN",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.directions_run, color: brandGreen, size: 26),
+        const SizedBox(width: 6),
+        ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [brandGreen, const Color(0xFF00C853)],
+          ).createShader(bounds),
+          child: const Text(
+            "MAJURUN",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
+          ),
         ),
-      ),
-      const SizedBox(width: 6),
-      Icon(Icons.fitness_center, color: brandGreen, size: 26), // dumbbell icon right
-    ],
-  );
-}
-
+        const SizedBox(width: 6),
+        Icon(Icons.fitness_center, color: brandGreen, size: 26),
+      ],
+    );
+  }
 
   Widget _buildHomeFeed() {
     return StreamBuilder<List<AppPost>>(
