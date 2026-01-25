@@ -146,12 +146,12 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: brandGreen.withOpacity(0.2), 
+              color: brandGreen.withValues(alpha: 0.2), 
               blurRadius: 40, 
               spreadRadius: 10
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.05), 
+              color: Colors.black.withValues(alpha: 0.5), 
               blurRadius: 10, 
               offset: const Offset(0, 10)
             )
@@ -163,7 +163,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen> {
             width: 180,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: brandGreen.withOpacity(0.3), width: 2),
+              border: Border.all(color: brandGreen.withValues(alpha: 0.3), width: 2),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

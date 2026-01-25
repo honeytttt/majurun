@@ -1,7 +1,46 @@
+// @UI_LOCK: Finalized Workout Hub Layout - 2026-01-25
+// -----------------------------------------------------------------------
+// THEME: Majurun Cyber-Sport (Brand Green: 0xFF00E676)
+// NAVIGATION: Scroll-to-top FAB (Only appears when scrolling down)
+// -----------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
-class WorkoutScreen extends StatelessWidget {
+class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
+
+  @override
+  State<WorkoutScreen> createState() => _WorkoutScreenState();
+}
+
+class _WorkoutScreenState extends State<WorkoutScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _showBackToTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      setState(() {
+        // Show button only after scrolling down 200 pixels
+        _showBackToTop = _scrollController.offset > 200;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -9,8 +48,18 @@ class WorkoutScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      // THE SCROLL TO TOP BUTTON
+      floatingActionButton: _showBackToTop
+          ? FloatingActionButton(
+              onPressed: _scrollToTop,
+              backgroundColor: brandGreen,
+              mini: true, // Small and professional, not bulky
+              child: const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.black),
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController, // Attach the listener here
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -31,37 +80,20 @@ class WorkoutScreen extends StatelessWidget {
     );
   }
 
+  // --- UI HELPER METHODS ---
+
   Widget _buildHeader(Color brandGreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "CHOOSE YOUR",
-          style: TextStyle(
-            fontSize: 12,
-            color: brandGreen,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const Text(
-          "WORKOUT HUB",
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-        ),
+        Text("CHOOSE YOUR", style: TextStyle(fontSize: 12, color: brandGreen, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        const Text("WORKOUT HUB", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
       ],
     );
   }
 
   Widget _buildCategoryChips(Color brandGreen) {
-    final List<String> categories = [
-      "All",
-      "Strength",
-      "Yoga",
-      "HIIT",
-      "Meditation",
-      "Outdoors"
-    ];
-
+    final List<String> categories = ["All", "Strength", "Yoga", "HIIT", "Meditation", "Outdoors"];
     return SizedBox(
       height: 40,
       child: ListView.builder(
@@ -75,19 +107,11 @@ class WorkoutScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelected ? brandGreen : Colors.grey[100],
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected ? brandGreen : Colors.grey[300]!,
-              ),
+              border: Border.all(color: isSelected ? brandGreen : Colors.grey[300]!),
             ),
             child: Center(
-              child: Text(
-                categories[index],
-                style: TextStyle(
-                  color: isSelected ? Colors.black : Colors.grey[600],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+              child: Text(categories[index],
+                  style: TextStyle(color: isSelected ? Colors.black : Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           );
         },
@@ -101,13 +125,9 @@ class WorkoutScreen extends StatelessWidget {
       height: 180,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
-        gradient: LinearGradient(
-          begin: Alignment.bottomRight,
-          colors: [Colors.black.withOpacity(0.9), Colors.black.withOpacity(0.1)],
-        ),
+        gradient: LinearGradient(begin: Alignment.bottomRight, colors: [Colors.black.withValues(alpha: 0.9), Colors.black.withValues(alpha: 0.1)]),
         image: const DecorationImage(
-          image: NetworkImage(
-              'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800'),
+          image: NetworkImage('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800'),
           fit: BoxFit.cover,
           opacity: 0.6,
         ),
@@ -120,28 +140,12 @@ class WorkoutScreen extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: brandGreen,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                "RECOMMENDED",
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-              ),
+              decoration: BoxDecoration(color: brandGreen, borderRadius: BorderRadius.circular(8)),
+              child: const Text("RECOMMENDED", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 8),
-            const Text(
-              "Pre-Run Activation",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Text(
-              "AI-Guided • 8 Mins",
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            const Text("Pre-Run Activation", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text("AI-Guided • 8 Mins", style: TextStyle(color: Colors.white70, fontSize: 14)),
           ],
         ),
       ),
@@ -149,15 +153,7 @@ class WorkoutScreen extends StatelessWidget {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
-        color: Colors.grey,
-        letterSpacing: 1.0,
-      ),
-    );
+    return Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.0));
   }
 
   Widget _buildWorkoutGrid(Color brandGreen) {
@@ -179,17 +175,13 @@ class WorkoutScreen extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 15,
         mainAxisSpacing: 15,
-        childAspectRatio: 0.95, // Adjusted to fit stats row comfortably
+        childAspectRatio: 0.95,
       ),
       itemCount: coaches.length,
       itemBuilder: (context, index) {
         final coach = coaches[index];
         return Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
+          decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey[200]!)),
           child: Stack(
             children: [
               Padding(
@@ -202,17 +194,8 @@ class WorkoutScreen extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          coach["name"]!,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          coach["label"]!,
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
+                        Text(coach["name"]!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(coach["label"]!, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -230,11 +213,7 @@ class WorkoutScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: _buildLevelBadge(coach["level"]!),
-              ),
+              Positioned(top: 12, right: 12, child: _buildLevelBadge(coach["level"]!)),
             ],
           ),
         );
@@ -245,34 +224,19 @@ class WorkoutScreen extends StatelessWidget {
   Widget _buildLevelBadge(String level) {
     Color badgeColor;
     switch (level) {
-      case 'Beginner':
-        badgeColor = Colors.green[400]!;
-        break;
-      case 'Intermediate':
-        badgeColor = Colors.orange[400]!;
-        break;
-      case 'Pro':
-        badgeColor = Colors.red[400]!;
-        break;
-      default:
-        badgeColor = Colors.grey;
+      case 'Beginner': badgeColor = Colors.green[400]!; break;
+      case 'Intermediate': badgeColor = Colors.orange[400]!; break;
+      case 'Pro': badgeColor = Colors.red[400]!; break;
+      default: badgeColor = Colors.grey;
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.1),
+        color: badgeColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: badgeColor.withOpacity(0.4), width: 0.5),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.4), width: 0.5),
       ),
-      child: Text(
-        level.toUpperCase(),
-        style: TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.bold,
-          color: badgeColor,
-        ),
-      ),
+      child: Text(level.toUpperCase(), style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: badgeColor)),
     );
   }
 }

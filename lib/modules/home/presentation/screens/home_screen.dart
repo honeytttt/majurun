@@ -3,12 +3,13 @@
 // Leading: Profile + QuestionAnswer
 // BottomNav: Home, Workouts, Post (+ Round), Events, RUN
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+//import 'package:provider/provider.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
@@ -113,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildHomeFeed(),
           const WorkoutScreen(),
           const CreatePostScreen(),
-          const Center(child: Text("Events Page")),
+          const EventsScreen(),
           RunTrackerScreen(
             onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(
@@ -133,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
           // UPDATED: Rounded + icon and renamed to 'Post'
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
-          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
+          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Rewards'),
           BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
         ],
       ),
