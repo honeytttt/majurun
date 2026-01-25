@@ -1,3 +1,12 @@
+// @UI_LOCK: Finalized Run Screen Layout - 2026-01-25
+// -----------------------------------------------------------------------
+// THEME: Majurun Cyber-Sport (Brand Green: 0xFF00E676)
+// HEADER: Left (AI Coach Plans + Hamburger), Right (Voice Toggle + Gear)
+// CENTER: Dual-ring "GO" button with Green Glow
+// DASHBOARD: Rounded Stats Card (KM, Time, Runs, Calories) with Dividers
+// -----------------------------------------------------------------------
+// DO NOT CHANGE the leadingWidth or Row structure in Header without 
+// checking the final-run-layout branch.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
