@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
+import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
@@ -110,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _selectedIndex,
         children: [
           _buildHomeFeed(),
-          const Center(child: Text("Workouts Page")),
+          const WorkoutScreen(),
           const CreatePostScreen(),
           const Center(child: Text("Events Page")),
           RunTrackerScreen(
