@@ -1,11 +1,13 @@
-// @UI_LOCK: Profile Specific Settings - 2026-01-25
+// lib/modules/profile/presentation/screens/profile_settings_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:majurun/modules/profile/presentation/screens/edit_profile_screen.dart';
 
 class ProfileSettingsScreen extends StatelessWidget {
   final String currentName;
   final String currentBio;
-  final Function(String, String) onSave;
+  // FIX: Updated to 3 arguments
+  final Function(String name, String bio, File? imageFile) onSave;
 
   const ProfileSettingsScreen({
     super.key,

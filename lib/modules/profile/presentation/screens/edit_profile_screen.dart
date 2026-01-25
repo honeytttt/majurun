@@ -1,4 +1,4 @@
-// @UI_LOCK: Edit Profile Form - 2026-01-25
+// lib/modules/profile/presentation/screens/edit_profile_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 class EditProfileScreen extends StatefulWidget {
   final String currentName;
   final String currentBio;
-  final Function(String, String) onSave;
+  final Function(String name, String bio, File? imageFile) onSave;
 
   const EditProfileScreen({
     super.key,
@@ -20,8 +20,8 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  late TextEditingController _nameController;
-  late TextEditingController _bioController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _bioController;
   File? _imageFile;
 
   @override
@@ -40,15 +40,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
     if (pickedFile != null) {
+      if (!mounted) return;
       setState(() => _imageFile = File(pickedFile.path));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color brandGreen = Color(0xFF00E676);
+    final brandGreen = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -66,11 +71,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              widget.onSave(_nameController.text, _bioController.text);
-              Navigator.pop(context); // Close EditProfileScreen
-              Navigator.pop(context); // Close ProfileSettingsScreen
+              if (_nameController.text.trim().isEmpty) return;
+
+              widget.onSave(
+                _nameController.text.trim(),
+                _bioController.text.trim(),
+                _imageFile,
+              );
+
+              Navigator.pop(context, true);
             },
-            child: const Text(
+            child: Text(
               "Save",
               style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16),
             ),
@@ -111,23 +122,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             const SizedBox(height: 40),
-            _buildInputField("FULL NAME", _nameController, 1),
+            _buildInputField(label: "FULL NAME", controller: _nameController, maxLines: 1),
             const SizedBox(height: 25),
-            _buildInputField("BIO", _bioController, 4),
+            _buildInputField(label: "BIO", controller: _bioController, maxLines: 4),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, int maxLines) {
+  Widget _buildInputField({required String label, required TextEditingController controller, required int maxLines}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1.2),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1.2)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,

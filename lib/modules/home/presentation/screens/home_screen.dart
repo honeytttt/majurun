@@ -1,7 +1,12 @@
+// lib/modules/home/presentation/screens/home_screen.dart
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
-// @UI_LOCK: Finalized Navigation Hub - 2026-01-25
-
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// IMPORT your cloudinary service here
+// import 'package:majurun/core/services/cloudinary_service.dart';
+
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
@@ -24,138 +29,157 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   Widget? _activeSubPage;
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
 
+  // --- PERSISTENCE STATE ---
   String _userName = "Phoebe Maju";
-  String _userBio =
-      "Training for the Singapore Marathon 2026. Sub-4 goal! 🏃‍♂️💨";
+  String _userBio = "Training for the Singapore Marathon 2026...";
+  String _profileImageUrl = "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFirebaseUserData(); 
+  }
+
+  // FETCH: Loads data from Firestore on app start
+  Future<void> _fetchFirebaseUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    if (doc.exists) {
+      final data = doc.data()!;
+      setState(() {
+        _userName = data['displayName'] ?? _userName;
+        _userBio = data['bio'] ?? _userBio;
+        _profileImageUrl = data['photoUrl'] ?? _profileImageUrl;
+      });
+    }
+  }
+
+  // SAVE: Handles Cloudinary Upload + Firestore Write
+  Future<void> _handleProfileUpdate(String name, String bio, File? imageFile) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      String finalUrl = _profileImageUrl;
+
+      // 1. Upload to Cloudinary if image changed
+      if (imageFile != null) {
+        // Replace this with your actual Cloudinary service call
+        // finalUrl = await CloudinaryService.uploadImage(imageFile);
+      }
+
+      // 2. Save to Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'displayName': name,
+        'bio': bio,
+        'photoUrl': finalUrl,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // 3. Update Local State
+      setState(() {
+        _userName = name;
+        _userBio = bio;
+        _profileImageUrl = finalUrl;
+      });
+    } catch (e) {
+      debugPrint("Update failed: $e");
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      _activeSubPage = null;
+      _activeSubPage = null; 
     });
   }
 
-  void _showProfile() {
-    setState(() {
-      _activeSubPage = ProfileScreen(
-        currentName: _userName,
-        currentBio: _userBio,
-        onSave: (newName, newBio) {
-          setState(() {
-            _userName = newName;
-            _userBio = newBio;
-          });
-        },
-        onBack: () => setState(() {
-          _activeSubPage = null;
-          _selectedIndex = 0;
-        }),
-      );
-    });
-  }
+  // lib/modules/home/presentation/screens/home_screen.dart
+
+void _showProfile() {
+  setState(() {
+    _activeSubPage = ProfileScreen(
+      currentName: _userName,
+      currentBio: _userBio,
+      // This now matches the updated ProfileScreen signature
+      onSave: (newName, newBio, newImage) => _handleProfileUpdate(newName, newBio, newImage),
+      onBack: () => setState(() {
+        _activeSubPage = null;
+        _selectedIndex = 0;
+      }),
+    );
+  });
+}
 
   @override
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
-
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.white,
       drawer: TrainingDrawer(
-        onSubPageSelected: (Widget? page) {
-          setState(() => _activeSubPage = page);
-        },
+        onSubPageSelected: (Widget? page) => setState(() => _activeSubPage = page),
       ),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
         centerTitle: true,
         leadingWidth: 100,
-        leading: AppBarLeading(
-          onProfilePressed: _showProfile,
-        ),
+        leading: AppBarLeading(onProfilePressed: _showProfile),
         title: _buildBranding(brandGreen),
         actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: Colors.black),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.notifications_none_outlined, color: Colors.black),
-            onPressed: () {},
-          ),
+          IconButton(icon: Icon(Icons.search, color: Colors.black), onPressed: () {}),
+          IconButton(icon: Icon(Icons.notifications_none_outlined, color: Colors.black), onPressed: () {}),
           const SizedBox(width: 8),
         ],
       ),
-      body: _activeSubPage ??
-          IndexedStack(
-            index: _selectedIndex,
-            children: [
-              _buildHomeFeed(),
-              WorkoutScreen(),
-              CreatePostScreen(),
-              EventsScreen(),
-              RunTrackerScreen(
-                onOpenDrawer: () =>
-                    _scaffoldKey.currentState?.openDrawer(),
-                onShowHistory: () => setState(
-                  () => _activeSubPage = RunHistoryScreen(
-                    onBack: () => setState(() => _activeSubPage = null),
-                  ),
-                ),
-              ),
-            ],
+      body: _activeSubPage ?? IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _buildHomeFeed(),
+          WorkoutScreen(),
+          CreatePostScreen(),
+          EventsScreen(),
+          RunTrackerScreen(
+            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+            onShowHistory: () => setState(() => _activeSubPage = RunHistoryScreen(onBack: () => setState(() => _activeSubPage = null))),
           ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-        selectedItemColor: brandGreen,
-        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
+        selectedItemColor: brandGreen,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.add_circle_outline), label: 'Post'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.card_giftcard), label: 'Rewards'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.directions_run), label: 'RUN'),
+          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
+          BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Rewards'),
+          BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
         ],
       ),
     );
   }
 
+  // ... (keep _buildBranding and _buildHomeFeed as they were)
+
   Widget _buildBranding(Color brandGreen) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.directions_run,
-          color: brandGreen,
-          size: 26,
-        ),
+        Icon(Icons.directions_run, color: brandGreen, size: 26),
         const SizedBox(width: 6),
         ShaderMask(
           shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              brandGreen,
-              const Color(0xFF00C853),
-            ],
+            colors: [brandGreen, const Color(0xFF00C853)],
           ).createShader(bounds),
-          child: const Text(
-            "MAJURUN",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-            ),
-          ),
+          child: const Text("MAJURUN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
         ),
       ],
     );
@@ -165,16 +189,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final posts = snapshot.data ?? [];
         return RefreshIndicator(
           onRefresh: () async => setState(() {}),
           child: ListView.builder(
             itemCount: posts.length,
-            itemBuilder: (context, index) =>
-                FeedItemWrapper(post: posts[index]),
+            itemBuilder: (context, index) => FeedItemWrapper(post: posts[index]),
           ),
         );
       },

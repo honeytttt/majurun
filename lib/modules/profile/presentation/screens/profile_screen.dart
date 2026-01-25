@@ -1,12 +1,13 @@
-// @UI_LOCK: Profile Sub-Page Mode - 2026-01-25
+// lib/modules/profile/presentation/screens/profile_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_settings_screen.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   final String currentName;
   final String currentBio;
-  final Function(String, String) onSave;
+  final Function(String name, String bio, File? imageFile) onSave; 
   final VoidCallback onBack;
 
   const ProfileScreen({
@@ -17,19 +18,14 @@ class ProfileScreen extends StatefulWidget {
     required this.onBack,
   });
 
-  @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  void _navigateToSettings() {
+  void _navigateToSettings(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProfileSettingsScreen(
-          currentName: widget.currentName,
-          currentBio: widget.currentBio,
-          onSave: widget.onSave,
+          currentName: currentName,
+          currentBio: currentBio,
+          onSave: onSave,
         ),
       ),
     );
@@ -46,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                onPressed: widget.onBack,
+                onPressed: onBack,
               ),
               const Text(
                 "MY PROFILE",
@@ -54,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
-                onPressed: _navigateToSettings,
+                onPressed: () => _navigateToSettings(context),
               ),
             ],
           ),
@@ -65,9 +61,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
-                _buildProfileHeader(widget.currentName),
+                _buildProfileHeader(currentName),
                 _buildSocialStats(),
-                _buildBioSection(widget.currentBio),
+                _buildBioSection(currentBio),
                 const SizedBox(height: 25),
                 _buildStatGrid(),
                 const SizedBox(height: 30),
@@ -77,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 30),
                 _buildSectionHeader("ACCOUNT SETTINGS", "Manage"),
                 const SizedBox(height: 15),
-                _buildAccountGrid(),
+                _buildAccountGrid(context),
                 const SizedBox(height: 30),
                 TextButton(
                   onPressed: () => _showLogoutDialog(context),
@@ -190,9 +186,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAccountGrid() {
+  Widget _buildAccountGrid(BuildContext context) {
     final items = [
-      {"icon": Icons.person_outline, "label": "Edit Profile", "onTap": _navigateToSettings},
+      {"icon": Icons.person_outline, "label": "Edit Profile", "onTap": () => _navigateToSettings(context)},
       {"icon": Icons.notifications_none, "label": "Notifications", "onTap": null},
       {"icon": Icons.privacy_tip_outlined, "label": "Privacy", "onTap": null},
       {"icon": Icons.help_outline, "label": "Support", "onTap": null},
