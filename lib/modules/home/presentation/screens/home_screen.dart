@@ -1,3 +1,7 @@
+// @UI_LOCK: Finalized 2026-01-25
+// Branding: MAJURUN (Green Gradient)
+// Leading: Profile + QuestionAnswer
+// BottomNav: Home, Workouts, Post (+ Round), Events, RUN
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
