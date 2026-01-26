@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_settings_screen.dart';
 import 'package:majurun/core/services/storage_service.dart';
 
@@ -29,6 +30,48 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   
+  /// Fetches real document counts from Firestore
+  Future<Map<String, int>> _getProfileStats() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return {'followers': 0, 'following': 0, 'workouts': 0};
+
+    try {
+      // Fetch Followers count from subcollection
+      final followersQuery = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('followers')
+          .count()
+          .get();
+
+      // Fetch Following count from subcollection
+      final followingQuery = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('following')
+          .count()
+          .get();
+
+      // Fetch Workouts/Posts count
+      final workoutsQuery = FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: uid)
+          .count()
+          .get();
+
+      final results = await Future.wait([followersQuery, followingQuery, workoutsQuery]);
+
+      return {
+        'followers': results[0].count ?? 0,
+        'following': results[1].count ?? 0,
+        'workouts': results[2].count ?? 0,
+      };
+    } catch (e) {
+      debugPrint("Error fetching stats: $e");
+      return {'followers': 0, 'following': 0, 'workouts': 0};
+    }
+  }
+
   void _navigateToSettings() {
     Navigator.push(
       context,
@@ -44,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (imageData != null) {
               final storageService = StorageService();
               
-              if (imageData is File) {
+              if (!kIsWeb && imageData is File) {
                 // Mobile upload
                 uploadedImageUrl = await storageService.uploadFile(imageData, false);
               } else if (imageData is Uint8List) {
@@ -54,7 +97,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             }
 
-            widget.onSave(name, bio, uploadedImageUrl, email);
+            await widget.onSave(name, bio, uploadedImageUrl, email);
+            // Refresh stats after returning
+            setState(() {});
           },
         ),
       ),
@@ -95,32 +140,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                _buildProfileHeader(widget.currentName, widget.currentImageUrl),
-                _buildSocialStats(),
-                _buildBioSection(widget.currentBio),
-                const SizedBox(height: 25),
-                _buildStatGrid(),
-                const SizedBox(height: 30),
-                _buildSectionHeader("TROPHY CASE", "View All"),
-                const SizedBox(height: 15),
-                _buildTrophyCase(),
-                const SizedBox(height: 30),
-                _buildSectionHeader("ACCOUNT SETTINGS", "Manage"),
-                const SizedBox(height: 15),
-                _buildAccountGrid(),
-                const SizedBox(height: 30),
-                TextButton(
-                  onPressed: () => _showLogoutDialog(context),
-                  child: const Text(
-                    "LOGOUT", 
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
+            child: FutureBuilder<Map<String, int>>(
+              future: _getProfileStats(),
+              builder: (context, snapshot) {
+                final stats = snapshot.data ?? {'followers': 0, 'following': 0, 'workouts': 0};
+                
+                return Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    _buildProfileHeader(widget.currentName, widget.currentImageUrl),
+                    _buildSocialStats(stats['followers']!, stats['following']!),
+                    _buildBioSection(widget.currentBio),
+                    const SizedBox(height: 25),
+                    _buildStatGrid(stats['workouts']!),
+                    const SizedBox(height: 30),
+                    _buildSectionHeader("TROPHY CASE", "View All"),
+                    const SizedBox(height: 15),
+                    _buildTrophyCase(),
+                    const SizedBox(height: 30),
+                    _buildSectionHeader("ACCOUNT SETTINGS", "Manage"),
+                    const SizedBox(height: 15),
+                    _buildAccountGrid(),
+                    const SizedBox(height: 30),
+                    TextButton(
+                      onPressed: () => _showLogoutDialog(context),
+                      child: const Text(
+                        "LOGOUT", 
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                );
+              }
             ),
           ),
         ),
@@ -129,14 +181,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader(String name, String imageUrl) {
-    // Determine the image provider with a cache-buster timestamp
     ImageProvider imageProvider;
     if (imageUrl.isEmpty) {
       imageProvider = const NetworkImage(
         'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400'
       );
     } else {
-      // The ?t= timestamp forces the browser to treat this as a new request
+      // Added a timestamp to force refresh on image update
       imageProvider = NetworkImage('$imageUrl?t=${DateTime.now().millisecondsSinceEpoch}');
     }
 
@@ -157,15 +208,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSocialStats() {
+  Widget _buildSocialStats(int followers, int following) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildSocialCount("1.2k", "FOLLOWERS"),
+          _buildSocialCount(followers.toString(), "FOLLOWERS"),
           const SizedBox(width: 40),
-          _buildSocialCount("482", "FOLLOWING"),
+          _buildSocialCount(following.toString(), "FOLLOWING"),
         ],
       ),
     );
@@ -196,19 +247,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)
           ),
           const SizedBox(height: 5),
-          Text(bio, style: const TextStyle(fontSize: 13, height: 1.4)),
+          Text(bio.isEmpty ? "No goal set yet." : bio, style: const TextStyle(fontSize: 13, height: 1.4)),
         ],
       ),
     );
   }
 
-  Widget _buildStatGrid() {
+  Widget _buildStatGrid(int workoutCount) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildStatItem("124.5", "KM RUN"),
-        _buildStatItem("24", "WORKOUTS"),
-        _buildStatItem("8.2k", "CALORIES"),
+        _buildStatItem("124.5", "KM RUN"), // Placeholder for GPS logic
+        _buildStatItem(workoutCount.toString(), "WORKOUTS"),
+        _buildStatItem("8.2k", "CALORIES"), // Placeholder
       ],
     );
   }

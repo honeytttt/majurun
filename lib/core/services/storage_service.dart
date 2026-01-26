@@ -31,4 +31,7 @@ class StorageService {
     final fileName = file.path.split('/').last;
     return uploadMedia(bytes, fileName, isVideo);
   }
+  Future<void> deleteOldImage(String fileUrl) async {
+  await _s3Service.deleteOldImage(fileUrl);
+  }
 }

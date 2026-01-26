@@ -65,12 +65,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Handle profile update: name, bio, email, image upload to S3
+  /// Handle profile update: name, bio, email, image upload to S3, and old file cleanup
   Future<void> _handleProfileUpdate(
       String name, String bio, dynamic imageOrUrl, String email) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    final String oldImageUrl = _profileImageUrl;
     String? finalImageUrl = _profileImageUrl;
 
     // 1. Logic to catch the URL if it was already uploaded by ProfileScreen
@@ -103,6 +104,18 @@ class _HomeScreenState extends State<HomeScreen> {
       }, SetOptions(merge: true));
 
       debugPrint("✨ Firestore Update Success!");
+
+      // 4. CLEANUP: If the image actually changed, delete the old one from S3
+      if (finalImageUrl != null && 
+          finalImageUrl != oldImageUrl && 
+          oldImageUrl.isNotEmpty && 
+          oldImageUrl.contains('amazonaws.com')) {
+        debugPrint("♻️ Triggering cleanup for old S3 image...");
+        // We call the service directly or through storage_service helper
+        // Using storage_service is better if you've added the proxy method there
+        await _storageService.deleteOldImage(oldImageUrl);
+      }
+
     } catch (e) {
       debugPrint("❌ Firestore Update Failed: $e");
     }

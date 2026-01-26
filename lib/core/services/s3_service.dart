@@ -8,7 +8,6 @@ class S3Service {
   Future<String?> uploadFile(
       Uint8List bytes, String fileName, String contentType) async {
     try {
-      // The URL must be exact
       final url = Uri.parse('https://$_bucketName.s3.$_region.amazonaws.com/$fileName');
       
       debugPrint("Attempting upload to: $url");
@@ -18,9 +17,6 @@ class S3Service {
         body: bytes,
         headers: {
           'Content-Type': contentType,
-          // We remove x-amz-acl for now to ensure the request 
-          // isn't rejected for lack of a signature. 
-          // The Bucket Policy handles the permissions.
         },
       );
 
@@ -35,6 +31,34 @@ class S3Service {
     } catch (e) {
       debugPrint("S3 Service Runtime Error: $e");
       return null;
+    }
+  }
+
+  Future<void> deleteOldImage(String fileUrl) async {
+    // Basic validation: Don't try to delete if it's empty or doesn't belong to our bucket
+    if (fileUrl.isEmpty || !fileUrl.contains(_bucketName)) return;
+    
+    try {
+      // 1. Extract the filename from the full URL
+      // Example: https://.../profile_123.png?t=456 -> profile_123.png
+      String fileName = fileUrl.split('/').last;
+      if (fileName.contains('?')) {
+        fileName = fileName.split('?').first;
+      }
+
+      final url = Uri.parse('https://$_bucketName.s3.$_region.amazonaws.com/$fileName');
+      
+      debugPrint("🧹 S3: Attempting to delete old file: $fileName");
+      
+      final response = await http.delete(url); 
+      
+      if (response.statusCode == 204 || response.statusCode == 200) {
+        debugPrint("✅ S3: Successfully deleted old image: $fileName");
+      } else {
+        debugPrint("⚠️ S3: Delete status code: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("❌ S3: Failed to delete old image: $e");
     }
   }
 }

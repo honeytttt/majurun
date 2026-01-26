@@ -48,8 +48,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
+    // Prevent picking if already saving
+    if (_isSaving) return;
+
     final picker = ImagePicker();
-    final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery, 
+      imageQuality: 70, // Added slight compression at picker level
+    );
+    
     if (picked != null && mounted) {
       if (kIsWeb) {
         final bytes = await picked.readAsBytes();
@@ -61,6 +68,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    // 1. Start Loading State
     setState(() => _isSaving = true);
     
     dynamic imageData;
@@ -70,18 +78,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       imageData = _imageFile;
     }
 
-    // Call the onSave function provided by HomeScreen
-    await widget.onSave(
-      _nameController.text.trim(),
-      _bioController.text.trim(),
-      imageData,
-      _emailController.text.trim(),
-    );
+    try {
+      // 2. Execute onSave (S3 Upload + Firestore Update)
+      await widget.onSave(
+        _nameController.text.trim(),
+        _bioController.text.trim(),
+        imageData,
+        _emailController.text.trim(),
+      );
 
-    // FIX: "use_build_context_synchronously" 
-    // Check if the widget is still in the tree before popping
-    if (!mounted) return;
-    Navigator.pop(context, true);
+      // 3. Success: Return to profile
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      // 4. Handle Errors
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to save profile: $e")),
+        );
+      }
+    }
   }
 
   @override
@@ -99,52 +116,88 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _isSaving ? null : Navigator.pop(context),
         ),
-        title: const Text("EDIT PROFILE", 
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
+        title: const Text(
+          "EDIT PROFILE", 
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14),
+        ),
         actions: [
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-            )
-          else
+          if (!_isSaving)
             TextButton(
               onPressed: _saveProfile,
-              child: const Text("Save", style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16)),
+              child: const Text(
+                "Save", 
+                style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Stack(
-                children: [
-                  CircleAvatar(radius: 55, backgroundColor: Colors.grey[200], backgroundImage: avatarImage),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: brandGreen, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                      child: const Icon(Icons.camera_alt, size: 20, color: Colors.black),
-                    ),
+      // Use Stack to show the Loading Overlay
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(25),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 55, 
+                        backgroundColor: Colors.grey[200], 
+                        backgroundImage: avatarImage,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: brandGreen, 
+                            shape: BoxShape.circle, 
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(Icons.camera_alt, size: 20, color: Colors.black),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                const SizedBox(height: 40),
+                _buildInputField("FULL NAME", _nameController, enabled: !_isSaving),
+                const SizedBox(height: 25),
+                _buildInputField("BIO", _bioController, maxLines: 4, enabled: !_isSaving),
+                const SizedBox(height: 25),
+                _buildInputField("EMAIL", _emailController, enabled: !_isSaving),
+              ],
+            ),
+          ),
+          
+          // The Loading Overlay
+          if (_isSaving)
+            Container(
+              color: Colors.white.withValues(alpha: 0.7),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: brandGreen),
+                    const SizedBox(height: 20),
+                    Text(
+                      "Uploading to S3...",
+                      style: TextStyle(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 40),
-            _buildInputField("FULL NAME", _nameController),
-            const SizedBox(height: 25),
-            _buildInputField("BIO", _bioController, maxLines: 4),
-            const SizedBox(height: 25),
-            _buildInputField("EMAIL", _emailController),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -155,20 +208,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : const NetworkImage('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400');
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1}) {
+  Widget _buildInputField(
+    String label, 
+    TextEditingController controller, 
+    {int maxLines = 1, bool enabled = true}
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1.2)),
+        Text(
+          label, 
+          style: const TextStyle(
+            fontSize: 11, 
+            fontWeight: FontWeight.w800, 
+            color: Colors.grey, 
+            letterSpacing: 1.2,
+          ),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           maxLines: maxLines,
+          enabled: enabled,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey[50],
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey[200]!)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: Colors.black)),
+            fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15), 
+              borderSide: BorderSide(color: Colors.grey[200]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15), 
+              borderSide: const BorderSide(color: Colors.black),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15), 
+              borderSide: BorderSide(color: Colors.grey[100]!),
+            ),
           ),
         ),
       ],
