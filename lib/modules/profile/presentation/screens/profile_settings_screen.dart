@@ -1,145 +1,174 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/modules/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
-class ProfileSettingsScreen extends StatelessWidget {
+class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;
   final String currentBio;
-  final String currentEmail;
   final String currentImageUrl;
-  final Function(String, String, String?) onSave;
+  final String currentEmail;
+  final Function(String, String, dynamic, String) onSave; // name, bio, image(File/Uint8List), email
 
   const ProfileSettingsScreen({
     super.key,
     required this.currentName,
     required this.currentBio,
-    required this.currentEmail,
     required this.currentImageUrl,
+    required this.currentEmail,
     required this.onSave,
   });
 
   @override
+  State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
+}
+
+class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _bioController;
+  late final TextEditingController _emailController;
+  File? _imageFile;
+  Uint8List? _webImage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.currentName);
+    _bioController = TextEditingController(text: widget.currentBio);
+    _emailController = TextEditingController(text: widget.currentEmail);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _bioController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  /// Pick image (Mobile + Web)
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    if (kIsWeb) {
+      final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked != null && mounted) {
+        _webImage = await picked.readAsBytes();
+        setState(() {});
+      }
+    } else {
+      final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked != null && mounted) {
+        _imageFile = File(picked.path);
+        setState(() {});
+      }
+    }
+  }
+
+  /// Save profile
+  Future<void> _saveProfile() async {
+    dynamic imageData;
+    if (_imageFile != null) {
+      imageData = _imageFile!;
+    } else if (_webImage != null) {
+      imageData = _webImage!;
+    }
+
+    widget.onSave(
+      _nameController.text.trim(),
+      _bioController.text.trim(),
+      imageData,
+      _emailController.text.trim(),
+    );
+
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final brandGreen = Theme.of(context).colorScheme.primary;
+
+    final ImageProvider avatarImage = kIsWeb
+        ? (_webImage != null
+            ? MemoryImage(_webImage!) as ImageProvider
+            : (widget.currentImageUrl.isNotEmpty
+                ? NetworkImage(widget.currentImageUrl)
+                : const NetworkImage(
+                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400')))
+        : (_imageFile != null
+            ? FileImage(_imageFile!) as ImageProvider
+            : (widget.currentImageUrl.isNotEmpty
+                ? NetworkImage(widget.currentImageUrl)
+                : const NetworkImage(
+                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400')));
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "PROFILE SETTINGS",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _buildSectionHeader("PERSONAL INFO"),
-          _buildSettingsTile(
-            icon: Icons.person_outline,
-            title: "Edit Name & Bio",
-            trailingText: currentName,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EditProfileScreen(
-                    currentName: currentName,
-                    currentBio: currentBio,
-                    currentImageUrl: currentImageUrl,
-                    currentEmail: currentEmail,
-                    onSave: onSave,
-                  ),
-                ),
-              );
-            },
-          ),
-          _buildSettingsTile(
-            icon: Icons.alternate_email,
-            title: "Email Address",
-            trailingText: currentEmail,
-            onTap: () => _updateEmail(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _updateEmail(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final controller = TextEditingController(text: currentEmail);
-
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text("Update Email"),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: "Enter new email"),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new), onPressed: () => Navigator.pop(context)),
+        title: const Text("PROFILE SETTINGS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Cancel")),
           TextButton(
-            onPressed: () async {
-              try {
-                await user.verifyBeforeUpdateEmail(controller.text.trim());
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
-              } catch (e) {
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    SnackBar(content: Text("Failed to update email: $e")),
-                  );
-                }
-              }
-            },
-            child: const Text("Update"),
+            onPressed: _saveProfile,
+            child: Text("Save", style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 10, bottom: 10),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildSettingsTile({
-    required IconData icon,
-    required String title,
-    String? trailingText,
-    VoidCallback? onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(15)),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: Colors.black, size: 22),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(25),
+        child: Column(
           children: [
-            if (trailingText != null)
-              Text(trailingText, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+            GestureDetector(
+              onTap: _pickImage,
+              child: Stack(
+                children: [
+                  CircleAvatar(radius: 55, backgroundColor: Colors.grey[200], backgroundImage: avatarImage),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: brandGreen,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.camera_alt, size: 20, color: Colors.black),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+            _buildInputField("FULL NAME", _nameController),
+            const SizedBox(height: 25),
+            _buildInputField("BIO", _bioController, maxLines: 4),
+            const SizedBox(height: 25),
+            _buildInputField("EMAIL", _emailController),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1.2)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey[50],
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey[200]!)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: Colors.black)),
+          ),
+        ),
+      ],
     );
   }
 }

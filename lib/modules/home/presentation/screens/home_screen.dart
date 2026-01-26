@@ -1,10 +1,9 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Import Modules
+// Required for other tabs and services
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
@@ -16,7 +15,7 @@ import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
-import 'package:majurun/core/services/cloudinary_service.dart'; // Cloudinary
+import 'package:majurun/core/services/storage_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget? _activeSubPage;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
+  final StorageService _storageService = StorageService();
 
   // Profile Data
   String _userName = "Loading...";
@@ -65,56 +65,47 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Handle profile update: name, bio, email, image upload
-  /// Supports both Mobile (File) and Web (Uint8List)
+  /// Handle profile update: name, bio, email, image upload to S3
   Future<void> _handleProfileUpdate(
-      String name, String bio, dynamic image, String email) async {
+      String name, String bio, dynamic imageOrUrl, String email) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    String? imageUrl = _profileImageUrl;
+    String? finalImageUrl = _profileImageUrl;
 
+    // 1. Logic to catch the URL if it was already uploaded by ProfileScreen
+    if (imageOrUrl is String && imageOrUrl.startsWith('http')) {
+      finalImageUrl = imageOrUrl;
+      debugPrint("✅ Received S3 URL: $finalImageUrl");
+    } 
+    // 2. Fallback: Upload if raw data (Uint8List) was passed instead
+    else if (imageOrUrl != null) {
+      debugPrint("📤 Uploading raw data from HomeScreen...");
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String fileName = "profile_${user.uid}_$timestamp.png";
+      
+      if (kIsWeb && imageOrUrl is Uint8List) {
+        finalImageUrl = await _storageService.uploadMedia(imageOrUrl, fileName, false);
+      }
+    }
+
+    debugPrint("💾 Firestore Update -> UID: ${user.uid} | URL: $finalImageUrl");
+
+    // 3. Update Firestore Document
     try {
-      if (image != null) {
-        if (kIsWeb && image is Uint8List) {
-          // Web
-          imageUrl = await CloudinaryService().uploadMedia(image, "web_upload.png", false);
-        } else if (!kIsWeb && image is File) {
-          // Mobile
-          final bytes = await image.readAsBytes();
-          imageUrl = await CloudinaryService()
-              .uploadMedia(bytes, image.path.split('/').last, false);
-        }
-      }
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      
+      await userDoc.set({
+        'displayName': name,
+        'bio': bio,
+        'photoUrl': finalImageUrl ?? "",
+        'email': email,
+      }, SetOptions(merge: true));
+
+      debugPrint("✨ Firestore Update Success!");
     } catch (e) {
-      debugPrint("Profile image upload failed: $e");
+      debugPrint("❌ Firestore Update Failed: $e");
     }
-
-    // Update Firestore
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'displayName': name,
-      'bio': bio,
-      'photoUrl': imageUrl,
-      'email': email,
-    }, SetOptions(merge: true));
-
-    // Update Firebase Auth email if changed
-    if (email.isNotEmpty && email != user.email) {
-      try {
-        final newEmail = email;
-        await user.verifyBeforeUpdateEmail(newEmail);
-      } catch (e) {
-        debugPrint("Email update failed: $e");
-      }
-    }
-
-    // Update local state
-    setState(() {
-      _userName = name;
-      _userBio = bio;
-      _profileImageUrl = imageUrl!;
-      _email = email;
-    });
   }
 
   void _onItemTapped(int index) {
@@ -196,14 +187,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Icon(Icons.directions_run, color: brandGreen, size: 26),
         const SizedBox(width: 6),
-        ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [brandGreen, const Color(0xFF00C853)],
-          ).createShader(bounds),
-          child: const Text(
-            "MAJURUN",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
-          ),
+        const Text(
+          "MAJURUN",
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 22),
         ),
         const SizedBox(width: 6),
         Icon(Icons.fitness_center, color: brandGreen, size: 26),
@@ -213,12 +199,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHomeFeed() {
     return StreamBuilder<List<AppPost>>(
-      stream: _postRepo.getPostStream(),
+      stream: _postRepo.getPostsStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+        
         final posts = snapshot.data ?? [];
         return RefreshIndicator(
-          onRefresh: () async => setState(() {}),
+          onRefresh: () async {
+            setState(() {});
+          },
           child: ListView.builder(
             itemCount: posts.length,
             itemBuilder: (context, index) => FeedItemWrapper(post: posts[index]),

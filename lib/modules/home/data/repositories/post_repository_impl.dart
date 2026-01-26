@@ -43,6 +43,17 @@ class PostRepositoryImpl {
     );
   }
 
+  /// Alias for HomeScreen compatibility
+  Stream<List<AppPost>> getPostsStream() => getPostStream();
+
+  Stream<List<AppPost>> getPostStream() {
+    return _db
+        .collection('posts')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => _mapDocToAppPost(doc)).toList());
+  }
+
   Future<void> createPost(
     AppPost post, {
     double? numericDistance,
@@ -76,8 +87,6 @@ class PostRepositoryImpl {
       debugPrint("Error creating post: $e");
     }
   }
-  // ... (Other methods: deletePost, getPostStream, toggleLike follow same logic)
-
 
   Future<void> deletePost(String postId) async {
     try {
@@ -96,14 +105,6 @@ class PostRepositoryImpl {
       debugPrint("Error fetching post: $e");
       return null;
     }
-  }
-
-  Stream<List<AppPost>> getPostStream() {
-    return _db
-        .collection('posts')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => _mapDocToAppPost(doc)).toList());
   }
 
   Future<void> toggleLike(String postId, String userId) async {

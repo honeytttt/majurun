@@ -1,14 +1,16 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_settings_screen.dart';
+import 'package:majurun/core/services/storage_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String currentName;
   final String currentBio;
   final String currentImageUrl;
   final String currentEmail;
-  final Function(String, String, File?, String) onSave; // original type
+  final Function(String, String, dynamic, String) onSave;
   final VoidCallback onBack;
 
   const ProfileScreen({
@@ -26,6 +28,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  
   void _navigateToSettings() {
     Navigator.push(
       context,
@@ -35,9 +38,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           currentBio: widget.currentBio,
           currentImageUrl: widget.currentImageUrl,
           currentEmail: widget.currentEmail,
-          onSave: (name, bio, imageUrl) {
-            // Adapted types for ProfileSettingsScreen
-            widget.onSave(name, bio, null, widget.currentEmail);
+          onSave: (name, bio, imageData, email) async {
+            dynamic uploadedImageUrl = widget.currentImageUrl;
+
+            if (imageData != null) {
+              final storageService = StorageService();
+              
+              if (imageData is File) {
+                // Mobile upload
+                uploadedImageUrl = await storageService.uploadFile(imageData, false);
+              } else if (imageData is Uint8List) {
+                // Web upload - using a unique timestamped name
+                final String webFileName = "web_profile_${DateTime.now().millisecondsSinceEpoch}.png";
+                uploadedImageUrl = await storageService.uploadMedia(imageData, webFileName, false);
+              }
+            }
+
+            widget.onSave(name, bio, uploadedImageUrl, email);
           },
         ),
       ),
@@ -55,8 +72,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                onPressed: widget.onBack,
+                icon: const Icon(Icons.arrow_back_ios_new, size: 20), 
+                onPressed: widget.onBack
               ),
               const Text(
                 "MY PROFILE",
@@ -67,13 +84,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: _navigateToSettings,
+                icon: const Icon(Icons.settings_outlined), 
+                onPressed: _navigateToSettings
               ),
             ],
           ),
         ),
-
+        
         /// BODY
         Expanded(
           child: SingleChildScrollView(
@@ -98,8 +115,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 TextButton(
                   onPressed: () => _showLogoutDialog(context),
                   child: const Text(
-                    "LOGOUT",
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    "LOGOUT", 
+                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -111,33 +128,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// PROFILE HEADER
   Widget _buildProfileHeader(String name, String imageUrl) {
+    // Determine the image provider with a cache-buster timestamp
+    ImageProvider imageProvider;
+    if (imageUrl.isEmpty) {
+      imageProvider = const NetworkImage(
+        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400'
+      );
+    } else {
+      // The ?t= timestamp forces the browser to treat this as a new request
+      imageProvider = NetworkImage('$imageUrl?t=${DateTime.now().millisecondsSinceEpoch}');
+    }
+
     return Column(
       children: [
         CircleAvatar(
-          radius: 50,
-          backgroundColor: Colors.grey,
-          backgroundImage: imageUrl.isNotEmpty
-              ? NetworkImage(imageUrl)
-              : const NetworkImage(
-                  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400',
-                ),
+          radius: 55,
+          backgroundColor: Colors.grey[200],
+          backgroundImage: imageProvider,
         ),
         const SizedBox(height: 15),
-        Text(
-          name,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-        ),
+        Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const Text(
-          "Elite Runner • Level 12",
-          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+          "Elite Runner • Level 12", 
+          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)
         ),
       ],
     );
   }
 
-  /// SOCIAL STATS
   Widget _buildSocialStats() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -156,15 +175,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1),
-        ),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1)),
       ],
     );
   }
 
-  /// BIO
   Widget _buildBioSection(String bio) {
     return Container(
       width: double.infinity,
@@ -177,8 +192,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "CURRENT GOAL",
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+            "CURRENT GOAL", 
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)
           ),
           const SizedBox(height: 5),
           Text(bio, style: const TextStyle(fontSize: 13, height: 1.4)),
@@ -187,7 +202,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// STATS
   Widget _buildStatGrid() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -204,19 +218,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
         Text(
-          label,
-          style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold),
+          label, 
+          style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)
         ),
       ],
     );
   }
 
-  /// SECTIONS
   Widget _buildSectionHeader(String title, String action) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        Text(
+          title, 
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)
+        ),
         Text(action, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
@@ -226,16 +242,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: ["🌅", "🎖️", "🏔️", "🔥"]
-          .map(
-            (e) => Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Text(e, style: const TextStyle(fontSize: 24)),
-            ),
-          )
+          .map((e) => Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Text(e, style: const TextStyle(fontSize: 24)),
+              ))
           .toList(),
     );
   }
@@ -272,7 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(width: 8),
               Text(
                 items[i]["label"] as String,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)
               ),
             ],
           ),
@@ -281,7 +295,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// LOGOUT
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -296,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               await FirebaseAuth.instance.signOut();
               navigator.pushNamedAndRemoveUntil('/', (r) => false);
             },
-            child: const Text("Yes", style: TextStyle(color: Colors.red)),
+            child: const Text("Yes", style: TextStyle(color: Colors.red))
           ),
         ],
       ),

@@ -41,6 +41,8 @@ dependencies:
   table_calendar: ^3.1.2
   permission_handler: ^11.3.1
   path: ^1.9.0
+  crypto: ^3.0.3
+  
 
   
 
