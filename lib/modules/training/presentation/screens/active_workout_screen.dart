@@ -1,17 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:majurun/modules/training/services/training_service.dart';
-import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ActiveWorkoutScreen extends StatefulWidget {
   final String planTitle;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
 
   const ActiveWorkoutScreen({
     super.key,
     required this.planTitle,
-    required this.onCancel,
+    this.onCancel,
   });
 
   @override
@@ -19,136 +18,202 @@ class ActiveWorkoutScreen extends StatefulWidget {
 }
 
 class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
+  bool isRunning = false;
+  bool canPause = false;
+  bool canStop = false;
+
+  StreamSubscription<Position>? _positionStream;
+  final List<LatLng> workoutPoints = [];
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RunController>().startRun();
+  void dispose() {
+    _positionStream?.cancel();
+    super.dispose();
+  }
+
+  @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(widget.planTitle),
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () {
+          widget.onCancel?.call();
+          Navigator.pop(context);
+        },
+      ),
+    ),
+    body: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // RUNNING STATUS
+        if (isRunning)
+          const Icon(
+            Icons.directions_run,
+            size: 64,
+            color: Colors.green,
+          )
+        else
+          const Icon(
+            Icons.pause_circle_outline,
+            size: 64,
+            color: Colors.grey,
+          ),
+
+        const SizedBox(height: 24),
+
+        // CONTROL BUTTONS
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // RUN
+            IconButton(
+              iconSize: 48,
+              color: Colors.green,
+              icon: const Icon(Icons.play_arrow),
+              onPressed: isRunning ? null : startRun,
+            ),
+
+            const SizedBox(width: 24),
+
+            // PAUSE
+            IconButton(
+              iconSize: 48,
+              color: Colors.orange,
+              icon: const Icon(Icons.pause),
+              onPressed: canPause ? pauseWorkout : null,
+            ),
+
+            const SizedBox(width: 24),
+
+            // STOP
+            IconButton(
+              iconSize: 48,
+              color: Colors.red,
+              icon: const Icon(Icons.stop),
+              onPressed: canStop ? stopWorkout : null,
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 32),
+
+        Text(
+          'GPS points: ${workoutPoints.length}',
+          style: const TextStyle(fontSize: 14),
+        ),
+      ],
+    ),
+  );
+}
+
+
+  // =========================
+  // START RUN
+  // =========================
+  Future<void> startRun() async {
+    final hasPermission = await _handleLocationPermission();
+    if (!hasPermission) {
+      if (!mounted) return;
+      _showMessage('Location permission required');
+      return;
+    }
+
+    setState(() {
+      isRunning = true;
+      canPause = true;
+      canStop = true;
     });
-  }
 
-  void _showExitConfirmation(BuildContext context, TrainingService training, RunController run) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text("Quit Workout?"),
-        content: const Text("Your current progress will be lost."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text("RESUME"),
-          ),
-          TextButton(
-            onPressed: () {
-              training.stop();
-              run.resetRun(); 
-              Navigator.pop(dialogContext); // Close Dialog
-              widget.onCancel(); // Quit the sub-page
-            },
-            child: const Text("QUIT", style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 5,
+    );
+
+    _positionStream =
+        Geolocator.getPositionStream(locationSettings: locationSettings)
+            .listen(
+      (position) {
+        workoutPoints.add(
+          LatLng(position.latitude, position.longitude),
+        );
+      },
+      onError: (_) {
+        _showMessage('GPS error occurred');
+      },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final training = context.watch<TrainingService>();
-    final run = context.watch<RunController>();
+  // =========================
+  // PAUSE
+  // =========================
+  void pauseWorkout() {
+    _positionStream?.pause();
 
-    return Stack(
-      children: [
-        Opacity(
-          opacity: 0.4,
-          child: GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: run.currentLocation ?? const LatLng(0, 0),
-              zoom: 16,
-            ),
-            polylines: run.polylines,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            mapType: MapType.normal,
-          ),
-        ),
-        SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(context, training, run),
-              const Spacer(),
-              Text(training.currentAction.toUpperCase(),
-                  style: const TextStyle(color: Colors.black, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 4)),
-              Text("${training.secondsRemaining}",
-                  style: const TextStyle(color: Colors.blueAccent, fontSize: 100, fontWeight: FontWeight.w100)),
-              const Spacer(),
-              _buildLiveStats(run),
-              const SizedBox(height: 20),
-              _buildStopButton(context, training, run),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ],
-    );
+    setState(() {
+      isRunning = false;
+      canPause = false;
+    });
+
+    _showMessage('Workout paused');
   }
 
-  Widget _buildTopBar(BuildContext context, TrainingService training, RunController run) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          GestureDetector(
-            onTap: () => _showExitConfirmation(context, training, run),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
-              child: const Icon(Icons.close, color: Colors.black, size: 22),
-            ),
-          ),
-          Text(widget.planTitle, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-          const SizedBox(width: 40),
-        ],
-      ),
-    );
+  // =========================
+  // STOP
+  // =========================
+  Future<void> stopWorkout() async {
+    await _positionStream?.cancel();
+    _positionStream = null;
+
+    setState(() {
+      isRunning = false;
+      canPause = false;
+      canStop = false;
+    });
+
+    _showMessage('Workout stopped');
+    workoutPoints.clear();
   }
 
-  Widget _buildLiveStats(RunController run) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _metric("DISTANCE", "${run.distanceString} KM"),
-        _metric("PACE", run.paceString),
-      ],
-    );
+  // =========================
+  // PERMISSIONS
+  // =========================
+  Future<bool> _handleLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
+
+    return true;
   }
 
-  Widget _metric(String l, String v) => Column(children: [
-        Text(l, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-        Text(v, style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
-      ]);
+  // =========================
+  // UI MESSAGE
+  // =========================
+  void _showMessage(String message) {
+    if (!mounted) return;
 
-  Widget _buildStopButton(BuildContext context, TrainingService training, RunController run) {
-    return Column(
-      children: [
-        const Text("LONG PRESS TO FINISH", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onLongPress: () async {
-            training.stop();
-            await run.stopRun(context, planTitle: widget.planTitle);
-            widget.onCancel(); 
-          },
-          child: Container(
-            height: 70, width: 70,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.redAccent, width: 2)),
-            child: const Icon(Icons.stop, color: Colors.redAccent, size: 30),
-          ),
-        ),
-      ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
+}
+
+// =========================
+// LAT LNG MODEL
+// =========================
+class LatLng {
+  final double latitude;
+  final double longitude;
+
+  const LatLng(this.latitude, this.longitude);
 }

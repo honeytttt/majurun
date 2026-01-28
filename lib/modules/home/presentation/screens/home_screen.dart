@@ -65,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Handle profile update: name, bio, email, image upload to S3, and old file cleanup
   Future<void> _handleProfileUpdate(
       String name, String bio, dynamic imageOrUrl, String email) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -74,28 +73,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final String oldImageUrl = _profileImageUrl;
     String? finalImageUrl = _profileImageUrl;
 
-    // 1. Logic to catch the URL if it was already uploaded by ProfileScreen
     if (imageOrUrl is String && imageOrUrl.startsWith('http')) {
       finalImageUrl = imageOrUrl;
-      debugPrint("✅ Received S3 URL: $finalImageUrl");
-    } 
-    // 2. Fallback: Upload if raw data (Uint8List) was passed instead
-    else if (imageOrUrl != null) {
+    } else if (imageOrUrl != null) {
       debugPrint("📤 Uploading raw data from HomeScreen...");
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final String fileName = "profile_${user.uid}_$timestamp.png";
-      
       if (kIsWeb && imageOrUrl is Uint8List) {
         finalImageUrl = await _storageService.uploadMedia(imageOrUrl, fileName, false);
       }
     }
 
-    debugPrint("💾 Firestore Update -> UID: ${user.uid} | URL: $finalImageUrl");
-
-    // 3. Update Firestore Document
     try {
       final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-      
       await userDoc.set({
         'displayName': name,
         'bio': bio,
@@ -103,19 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
         'email': email,
       }, SetOptions(merge: true));
 
-      debugPrint("✨ Firestore Update Success!");
-
-      // 4. CLEANUP: If the image actually changed, delete the old one from S3
-      if (finalImageUrl != null && 
-          finalImageUrl != oldImageUrl && 
-          oldImageUrl.isNotEmpty && 
+      if (finalImageUrl != null &&
+          finalImageUrl != oldImageUrl &&
+          oldImageUrl.isNotEmpty &&
           oldImageUrl.contains('amazonaws.com')) {
-        debugPrint("♻️ Triggering cleanup for old S3 image...");
-        // We call the service directly or through storage_service helper
-        // Using storage_service is better if you've added the proxy method there
         await _storageService.deleteOldImage(oldImageUrl);
       }
-
     } catch (e) {
       debugPrint("❌ Firestore Update Failed: $e");
     }
@@ -171,11 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const WorkoutScreen(),
               const CreatePostScreen(),
               const EventsScreen(),
-              RunTrackerScreen(
-                onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-                onShowHistory: () => setState(() =>
-                    _activeSubPage = RunHistoryScreen(onBack: () => setState(() => _activeSubPage = null))),
-              ),
+              RunTrackerScreenWrapper(scaffoldKey: _scaffoldKey, onShowHistory: _showRunHistory),
             ],
           ),
       bottomNavigationBar: BottomNavigationBar(
@@ -220,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
-        
+
         final posts = snapshot.data ?? [];
         return RefreshIndicator(
           onRefresh: () async {
@@ -233,5 +212,41 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  void _showRunHistory() {
+    setState(() {
+      _activeSubPage = RunHistoryScreenWrapper(onBack: () => setState(() => _activeSubPage = null));
+    });
+  }
+}
+
+class RunTrackerScreenWrapper extends StatelessWidget {
+  final GlobalKey<ScaffoldState> scaffoldKey;
+  final VoidCallback onShowHistory;
+
+  const RunTrackerScreenWrapper({
+    super.key,
+    required this.scaffoldKey,
+    required this.onShowHistory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RunTrackerScreen(
+      scaffoldKey: scaffoldKey,
+      onShowHistory: onShowHistory,
+    );
+  }
+}
+
+class RunHistoryScreenWrapper extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const RunHistoryScreenWrapper({super.key, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return RunHistoryScreen(onBack: onBack);
   }
 }

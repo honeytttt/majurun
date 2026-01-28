@@ -1,208 +1,305 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
 
 enum RunState { idle, running, paused }
 
 class ChartDataSpot {
   final double x;
   final double y;
-  ChartDataSpot(this.x, this.y);
+  const ChartDataSpot(this.x, this.y);
+}
+
+/// Run-specific AppPost
+class RunAppPost {
+  final String id;
+  final String content;
+  final String? videoUrl;
+  final Timestamp timestamp;
+
+  RunAppPost({
+    required this.id,
+    required this.content,
+    this.videoUrl,
+    required this.timestamp,
+  });
+
+  factory RunAppPost.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return RunAppPost(
+      id: doc.id,
+      content: data['content'] ?? '',
+      videoUrl: data['videoUrl'],
+      timestamp: data['timestamp'] ?? Timestamp.now(),
+    );
+  }
 }
 
 class RunController extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  CollectionReference<Map<String, dynamic>> get postRepo =>
+      _firestore.collection('feed');
+
+  /* ================= STATE ================= */
   RunState _state = RunState.idle;
   RunState get state => _state;
 
   Position? _currentPosition;
-  double _totalDistance = 0.0; 
+  LatLng? get currentLatLng => _currentPosition == null
+      ? null
+      : LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+
+  double _totalDistance = 0.0;
   int _secondsElapsed = 0;
+
   Timer? _timer;
   StreamSubscription<Position>? _positionStream;
 
-  // Stats
-  int currentBpm = 145;
-  int totalRuns = 38;
-  int runStreak = 5;
-  double historyDistance = 123.0;
-  int totalCalories = 2094;
-  String totalHistoryTimeStr = "15H:33M";
-  bool isVoiceEnabled = true;
-  bool isNotificationEnabled = true;
-  String? lastVideoUrl;
-
-  // Data Lists
   final List<LatLng> _routePoints = [];
   List<LatLng> get routePoints => List.unmodifiable(_routePoints);
-  final List<ChartDataSpot> _hrHistorySpots = [];
-  List<ChartDataSpot> get hrHistorySpots => _hrHistorySpots;
-  final List<ChartDataSpot> _paceHistorySpots = [];
-  List<ChartDataSpot> get paceHistorySpots => _paceHistorySpots;
+
   final Set<Polyline> _polylines = {};
   Set<Polyline> get polylines => _polylines;
 
-  LatLng? get currentLocation => _currentPosition != null 
-      ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude) : null;
+  final List<ChartDataSpot> hrHistorySpots = [];
+  final List<ChartDataSpot> paceHistorySpots = [];
 
+  String? lastVideoUrl;
+  int currentBpm = 145;
+  int totalCalories = 0;
+  bool isVoiceEnabled = true;
+
+  double historyDistance = 0.0;
+  int runStreak = 0;
+
+  /* ================= GETTERS ================= */
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
+
   String get durationString {
-    int mins = _secondsElapsed ~/ 60;
-    int secs = _secondsElapsed % 60;
+    final mins = _secondsElapsed ~/ 60;
+    final secs = _secondsElapsed % 60;
     return "${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
   }
-  String get paceString => "0:00";
 
-  // --- CLOUDINARY UPLOAD ---
-  Future<String?> uploadToCloudinary(GlobalKey boundaryKey) async {
-    try {
-      RenderRepaintBoundary boundary = boundaryKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      Uint8List pngBytes = byteData!.buffer.asUint8List();
+  double get averageSpeedMs =>
+      _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
 
-      const String cloudName = "your_cloud_name"; 
-      const String uploadPreset = "your_unsigned_preset";
-
-      var uri = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
-      var request = http.MultipartRequest("POST", uri);
-      
-      request.fields['upload_preset'] = uploadPreset;
-      request.files.add(http.MultipartFile.fromBytes('file', pngBytes, filename: 'run_share.png'));
-
-      var response = await request.send();
-      var responseData = await response.stream.toBytes();
-      var responseString = String.fromCharCodes(responseData);
-      var json = jsonDecode(responseString);
-
-      return json['secure_url'];
-    } catch (e) {
-      debugPrint("Cloudinary Error: $e");
-      return null;
-    }
+  String get paceString {
+    if (averageSpeedMs < 0.5) return "0:00";
+    final paceMinKm = 16.666666 / averageSpeedMs;
+    final minutes = paceMinKm.floor();
+    final seconds = ((paceMinKm - minutes) * 60).round();
+    return "$minutes:${seconds.toString().padLeft(2, '0')}";
   }
 
-  // --- FEED & POSTING ---
-  Stream<QuerySnapshot> getPostStream() {
+  int totalRuns = 0;
+  String totalHistoryTimeStr = "00:00:00";
+
+  /* ================= FIRESTORE HELPERS ================= */
+  Stream<List<RunAppPost>> getPostStream() {
+    return postRepo.orderBy('timestamp', descending: true).snapshots().map(
+        (snapshot) => snapshot.docs
+            .map((doc) => RunAppPost.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> refreshHistoryStats() async {
     final user = _auth.currentUser;
-    if (user == null) return const Stream.empty();
-    return _firestore
-        .collection('posts')
-        .where('userId', isEqualTo: user.uid)
-        .orderBy('timestamp', descending: true)
-        .snapshots();
+    if (user == null) return;
+
+    final history = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('training_history')
+        .get();
+
+    totalRuns = history.docs.length;
+
+    int totalSec = history.docs.fold<int>(
+        0,
+        (prev, doc) =>
+            prev + (doc.data()['durationSeconds'] as int? ?? 0));
+
+    final hours = totalSec ~/ 3600;
+    final minutes = (totalSec % 3600) ~/ 60;
+    final seconds = totalSec % 60;
+
+    totalHistoryTimeStr =
+        "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+
+    notifyListeners();
   }
 
-  Future<void> finalizeProPost(
-    String aiContent, 
-    String videoUrl, 
-    {String? imageUrl, String? planTitle}
-  ) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception("User not authenticated");
-
-    await _firestore.collection('posts').add({
-      'userId': user.uid,
-      'username': user.displayName ?? "Runner",
-      'content': aiContent,
-      'videoUrl': videoUrl,
-      'planTitle': planTitle ?? "Free Run",
-      'timestamp': FieldValue.serverTimestamp(),
-      'likes': [], 
-      'comments': [],
-      'media': imageUrl != null ? [{
-        'url': imageUrl,
-        'type': 'image',
-      }] : [],
-    });
-  }
-
-  // --- RUN ACTIONS ---
+  /* ================= RUN CONTROL ================= */
   Future<void> startRun() async {
-    resetRun(); // Clean previous state before starting
+    if (_state == RunState.running) return;
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) return;
+
     _state = RunState.running;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_state == RunState.running) {
-        _secondsElapsed++;
-        _hrHistorySpots.add(ChartDataSpot(_secondsElapsed.toDouble(), 145.0));
-        _paceHistorySpots.add(ChartDataSpot(_secondsElapsed.toDouble(), 5.0));
-        notifyListeners();
-      }
-    });
+    _secondsElapsed = 0;
+    _totalDistance = 0.0;
+    _routePoints.clear();
+    _polylines.clear();
+    hrHistorySpots.clear();
+    paceHistorySpots.clear();
+    lastVideoUrl = null;
+
+    _startTimer();
     _startLocationUpdates();
     notifyListeners();
   }
 
-  // FIXED: Variable names matched to class definitions
-  void resetRun() {
-    _currentPosition = null;
-    _polylines.clear();
-    _routePoints.clear();
-    _totalDistance = 0.0;
-    _secondsElapsed = 0;
-    _hrHistorySpots.clear();
-    _paceHistorySpots.clear();
+  void pauseRun() {
+    if (_state != RunState.running) return;
+    _state = RunState.paused;
     notifyListeners();
+  }
+
+  void resumeRun() {
+    if (_state != RunState.paused) return;
+    _state = RunState.running;
+    notifyListeners();
+  }
+
+  Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
+    _state = RunState.idle;
+    _timer?.cancel();
+    _positionStream?.cancel();
+
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('training_history')
+            .add({
+          'planTitle': planTitle,
+          'distanceKm': _totalDistance / 1000, // double
+          'durationSeconds': _secondsElapsed,
+          'pace': paceString,
+          'completedAt': FieldValue.serverTimestamp(),
+        });
+
+        historyDistance += _totalDistance / 1000;
+        runStreak += 1;
+
+        await refreshHistoryStats();
+      } catch (e) {
+        debugPrint("Error saving run history: $e");
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /* ================= INTERNAL ================= */
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_state == RunState.running) {
+        _secondsElapsed++;
+        totalCalories = ((_totalDistance / 1000) * 65).round();
+        if (_secondsElapsed % 10 == 0) _recordPerformanceSnapshot();
+        notifyListeners();
+      }
+    });
+  }
+
+  void _recordPerformanceSnapshot() {
+    final x = _secondsElapsed / 60.0;
+    hrHistorySpots.add(ChartDataSpot(x, currentBpm.toDouble()));
+    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0;
+    paceHistorySpots.add(ChartDataSpot(x, paceValue));
   }
 
   void _startLocationUpdates() {
     _positionStream?.cancel();
     _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
     ).listen((position) {
-      if (_state == RunState.running) {
-        if (_currentPosition != null) {
-          _totalDistance += Geolocator.distanceBetween(
-            _currentPosition!.latitude, _currentPosition!.longitude,
-            position.latitude, position.longitude,
-          );
-        }
-        _currentPosition = position;
-        _routePoints.add(LatLng(position.latitude, position.longitude));
-        _updatePolylines();
-        notifyListeners();
+      if (_state != RunState.running) return;
+
+      if (_currentPosition != null) {
+        _totalDistance += Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
       }
+
+      _currentPosition = position;
+      _routePoints.add(LatLng(position.latitude, position.longitude));
+
+      _updatePolylines();
+      notifyListeners();
     });
   }
 
   void _updatePolylines() {
-    _polylines.clear();
-    _polylines.add(Polyline(
-      polylineId: const PolylineId('route'),
-      points: List.from(_routePoints),
-      color: Colors.blueAccent, width: 5,
-    ));
+    _polylines
+      ..clear()
+      ..add(
+        Polyline(
+          polylineId: const PolylineId('run_route'),
+          points: List.from(_routePoints),
+          color: Colors.blueAccent.withOpacity(1.0),
+          width: 6,
+        ),
+      );
   }
 
-  Future<void> stopRun(BuildContext context, {String? planTitle}) async {
-    _state = RunState.idle;
-    _timer?.cancel();
-    _positionStream?.cancel();
-    totalRuns++;
-
-    final user = _auth.currentUser;
-    if (user != null) {
-      await _firestore.collection('users').doc(user.uid).collection('training_history').add({
-        'planTitle': planTitle ?? "Free Run",
-        'distanceKm': double.parse(distanceString),
-        'durationSeconds': _secondsElapsed,
-        'completedAt': FieldValue.serverTimestamp(),
-      });
-    }
+  /* ================= MEDIA ================= */
+  Future<void> generateVeoVideo() async {
+    await Future.delayed(const Duration(seconds: 2));
+    lastVideoUrl = "https://example.com/replay.mp4";
     notifyListeners();
   }
 
-  void generateVeoVideo() { lastVideoUrl = "https://example.com/video.mp4"; notifyListeners(); }
-  void toggleVoice() { isVoiceEnabled = !isVoiceEnabled; notifyListeners(); }
-  void toggleNotifications() { isNotificationEnabled = !isNotificationEnabled; notifyListeners(); }
+  Future<void> finalizeProPost(
+    String aiContent,
+    String videoUrl, {
+    String? planTitle,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await postRepo.add({
+      'userId': user.uid,
+      'content': aiContent,
+      'videoUrl': videoUrl,
+      'planTitle': planTitle ?? "Free Run",
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void toggleVoice() {
+    isVoiceEnabled = !isVoiceEnabled;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _positionStream?.cancel();
+    super.dispose();
+  }
 }

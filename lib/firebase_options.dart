@@ -16,27 +16,14 @@ import 'package:flutter/foundation.dart'
 /// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
-    if (kIsWeb) {
-      return web;
-    }
+    if (kIsWeb) return web;
     switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return android;
-      case TargetPlatform.iOS:
-        return ios;
-      case TargetPlatform.macOS:
-        return macos;
-      case TargetPlatform.windows:
-        return windows;
-      case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+      case TargetPlatform.android: return android;
+      case TargetPlatform.iOS: return ios;
+      case TargetPlatform.macOS: return macos;
+      case TargetPlatform.windows: return windows;
       default:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions are not supported for this platform.',
-        );
+        throw UnsupportedError('Platform not supported.');
     }
   }
 
@@ -45,9 +32,11 @@ class DefaultFirebaseOptions {
     appId: '1:648836412000:web:bd63d35e5459bd4eac8905',
     messagingSenderId: '648836412000',
     projectId: 'majurun-8d8b5',
-    authDomain: 'majurun-8d8b5.firebaseapp.com',
+    authDomain: 'majurun-8d8b5.firebaseapp.com', // Must stay as .firebaseapp.com
     storageBucket: 'majurun-8d8b5.firebasestorage.app',
     measurementId: 'G-SJNGLL06NR',
+    // ADD THIS LINE FOR WEB PRODUCTION:
+    iosClientId: '648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -89,5 +78,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'majurun-8d8b5.firebasestorage.app',
     measurementId: 'G-P963LYWWNN',
   );
-
 }
