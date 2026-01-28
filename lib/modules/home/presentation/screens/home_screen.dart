@@ -233,10 +233,10 @@ class RunTrackerScreenWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RunTrackerScreen(
-      scaffoldKey: scaffoldKey,
-      onShowHistory: onShowHistory,
-    );
+    return Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => RunTrackerScreen()),
+);
   }
 }
 
