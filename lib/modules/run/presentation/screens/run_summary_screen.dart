@@ -65,12 +65,12 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: ShareableRunCard(
-  boundaryKey: _cardKey, // ✅ pass GlobalKey directly, not toString()
-  distance: widget.controller.distanceString,
-  pace: widget.controller.paceString,
-  bpm: widget.controller.currentBpm.toString(),
-  route: widget.controller.routePoints,
-),
+                boundaryKey: _cardKey, // ✅ pass GlobalKey directly, not toString()
+                distance: widget.controller.distanceString,
+                pace: widget.controller.paceString,
+                bpm: widget.controller.currentBpm.toString(),
+                route: widget.controller.routePoints,
+              ),
             ),
             _buildProgressToggle(),
             _showGraph

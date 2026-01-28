@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
-import '../../../home/domain/entities/post.dart';
+//import 'package:majurun/modules/run/domain/entities/run_activity.dart';  // Assume RunAppPost is here or adjust import
 
 class RunHistoryScreen extends StatelessWidget {
-  final VoidCallback onBack; // ✅ added onBack callback
+  final VoidCallback onBack;
 
   const RunHistoryScreen({super.key, required this.onBack});
 
@@ -28,7 +28,7 @@ class RunHistoryScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: onBack, // ✅ use callback
+          onPressed: onBack,
         ),
       ),
       body: Consumer<RunController>(
@@ -54,7 +54,7 @@ class RunHistoryScreen extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: StreamBuilder<List<AppPost>>(
+                child: StreamBuilder<List<RunAppPost>>(  // Changed to RunAppPost
                   stream: controller.getPostStream(),
                   builder: (context, snapshot) {
                     final runs = snapshot.data
@@ -119,7 +119,7 @@ class RunHistoryScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(50), // ✅ fixed withOpacity
+            color: Colors.black.withAlpha(50),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -173,14 +173,14 @@ class RunHistoryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRunCard(AppPost run) {
+  Widget _buildRunCard(RunAppPost run) {  // Changed to RunAppPost
     final bool isProRun = run.content.contains("AI") || run.content.contains("BPM");
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isProRun ? Colors.blue.withAlpha(13) : Colors.grey.withAlpha(20), // ✅ fixed
+        color: isProRun ? Colors.blue.withAlpha(13) : Colors.grey.withAlpha(20),
         borderRadius: BorderRadius.circular(20),
         border: isProRun
             ? Border.all(color: Colors.blue.withAlpha(25))
@@ -205,7 +205,7 @@ class RunHistoryScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "${run.createdAt.day} ${_getMonth(run.createdAt.month)} ${run.createdAt.year}",
+                      "${run.timestamp.toDate().day} ${_getMonth(run.timestamp.toDate().month)} ${run.timestamp.toDate().year}",  // Changed to timestamp.toDate()
                       style: const TextStyle(
                           color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
                     ),

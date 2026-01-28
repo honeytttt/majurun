@@ -11,7 +11,7 @@ import 'package:majurun/modules/home/presentation/widgets/app_bar_leading.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
-import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';  // Direct import
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
@@ -154,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const WorkoutScreen(),
               const CreatePostScreen(),
               const EventsScreen(),
-              RunTrackerScreenWrapper(scaffoldKey: _scaffoldKey, onShowHistory: _showRunHistory),
+              const RunTrackerScreen(),  // Direct widget, no wrapper or navigation here
             ],
           ),
       bottomNavigationBar: BottomNavigationBar(
@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: _onItemTapped,
         selectedItemColor: brandGreen,
         type: BottomNavigationBarType.fixed,
-        items: const [
+        items: const [  // Added const for performance
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
@@ -214,30 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showRunHistory() {
-    setState(() {
-      _activeSubPage = RunHistoryScreenWrapper(onBack: () => setState(() => _activeSubPage = null));
-    });
-  }
-}
 
-class RunTrackerScreenWrapper extends StatelessWidget {
-  final GlobalKey<ScaffoldState> scaffoldKey;
-  final VoidCallback onShowHistory;
-
-  const RunTrackerScreenWrapper({
-    super.key,
-    required this.scaffoldKey,
-    required this.onShowHistory,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Navigator.push(
-  context,
-  MaterialPageRoute(builder: (_) => RunTrackerScreen()),
-);
-  }
 }
 
 class RunHistoryScreenWrapper extends StatelessWidget {

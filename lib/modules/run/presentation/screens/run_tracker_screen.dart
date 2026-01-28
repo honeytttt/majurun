@@ -14,7 +14,7 @@ class RunTrackerScreen extends StatefulWidget {
 
 class _RunTrackerScreenState extends State<RunTrackerScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _heartController;
+  late AnimationController _heartController;  // rename later if you want, but keep for now
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -80,7 +80,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => const RunHistoryScreen())),
+                    builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)))),  // Added onBack
           ),
         ],
       ),
@@ -89,64 +89,68 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   /// ================= CONTROL CENTER =================
   Widget _buildControlCenter(BuildContext context, RunController controller) {
-    return Column(
-      children: [
-        AnimatedBuilder(
-          animation: _heartController,
-          builder: (_, child) {
-            return Transform.scale(
-              scale: 1 + (_heartController.value * 0.3),
-              child: child,
-            );
-          },
-          child: const Icon(Icons.favorite, color: Colors.red, size: 50),
+  return Column(
+    children: [
+      AnimatedBuilder(
+        animation: _heartController,
+        builder: (_, child) {
+          return Transform.scale(
+            scale: 1 + (_heartController.value * 0.3),  // same pulsing: 1.0 → 1.3
+            child: child,
+          );
+        },
+        child: const Icon(
+          Icons.directions_run,             // ← human running symbol
+          color: Colors.black,               // neutral color (change to green/red if you prefer)
+          size: 60,                          // slightly larger than old heart for better visibility
         ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: controller.state == RunState.running
-                      ? Colors.orange
-                      : Colors.green,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 30, vertical: 15)),
-              onPressed: () {
-                if (controller.state == RunState.idle) {
-                  controller.startRun();
-                } else if (controller.state == RunState.running) {
-                  controller.pauseRun();
-                } else {
-                  controller.resumeRun();
-                }
-              },
-              child: Text(
-                controller.state == RunState.running
-                    ? "PAUSE"
-                    : controller.state == RunState.paused
-                        ? "RESUME"
-                        : "START",
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+      ),
+      const SizedBox(height: 20),
+
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: controller.state == RunState.running
+                  ? Colors.orange
+                  : Colors.green,
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
             ),
-            const SizedBox(width: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 30, vertical: 15)),
-              onPressed: controller.state == RunState.idle
-                  ? null
-                  : () => controller.stopRun(context),
-              child: const Text("STOP",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              if (controller.state == RunState.idle) {
+                controller.startRun();
+              } else if (controller.state == RunState.running) {
+                controller.pauseRun();
+              } else {
+                controller.resumeRun();
+              }
+            },
+            child: Text(
+              controller.state == RunState.running
+                  ? "PAUSE"
+                  : controller.state == RunState.paused
+                      ? "RESUME"
+                      : "START",
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-          ],
-        ),
-      ],
-    );
-  }
+          ),
+          const SizedBox(width: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            ),
+            onPressed: controller.state == RunState.idle
+                ? null
+                : () => controller.stopRun(context),
+            child: const Text("STOP", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
   /// ================= LIVE METRICS =================
   Widget _buildLiveMetrics(RunController controller) {

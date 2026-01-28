@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:majurun/modules/run/services/voice_announcer.dart';
 
 enum RunState { idle, running, paused }
 
@@ -140,14 +141,18 @@ class RunController extends ChangeNotifier {
     if (_state == RunState.running) return;
 
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
+    if (!serviceEnabled) {
+      return;
+    }
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) return;
+        permission == LocationPermission.deniedForever) {
+      return;
+    }
 
     _state = RunState.running;
     _secondsElapsed = 0;
@@ -223,7 +228,7 @@ class RunController extends ChangeNotifier {
   void _recordPerformanceSnapshot() {
     final x = _secondsElapsed / 60.0;
     hrHistorySpots.add(ChartDataSpot(x, currentBpm.toDouble()));
-    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0;
+    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;  // Changed to 0.0
     paceHistorySpots.add(ChartDataSpot(x, paceValue));
   }
 
@@ -261,7 +266,7 @@ class RunController extends ChangeNotifier {
         Polyline(
           polylineId: const PolylineId('run_route'),
           points: List.from(_routePoints),
-          color: Colors.blueAccent.withOpacity(1.0),
+          color: Colors.blueAccent.withValues(alpha: 1.0),  // Fixed deprecated withOpacity
           width: 6,
         ),
       );
