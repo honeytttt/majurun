@@ -4,7 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/modules/run/services/voice_announcer.dart';
+
+import 'package:majurun/modules/run/services/voice_announcer.dart'; // ← Step 3,4,5
 
 enum RunState { idle, running, paused }
 
@@ -78,6 +79,11 @@ class RunController extends ChangeNotifier {
   double historyDistance = 0.0;
   int runStreak = 0;
 
+  // Voice announcement tracking
+  final VoiceAnnouncer _voice = VoiceAnnouncer();
+  int _lastAnnouncedKm = 0;
+  double _previousKmPace = 0.0; // in min/km
+
   /* ================= GETTERS ================= */
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
 
@@ -141,18 +147,14 @@ class RunController extends ChangeNotifier {
     if (_state == RunState.running) return;
 
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return;
-    }
+    if (!serviceEnabled) return;
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return;
-    }
+        permission == LocationPermission.deniedForever) {return;}
 
     _state = RunState.running;
     _secondsElapsed = 0;
@@ -162,6 +164,10 @@ class RunController extends ChangeNotifier {
     hrHistorySpots.clear();
     paceHistorySpots.clear();
     lastVideoUrl = null;
+
+    // Reset voice tracking
+    _lastAnnouncedKm = 0;
+    _previousKmPace = 0.0;
 
     _startTimer();
     _startLocationUpdates();
@@ -194,7 +200,7 @@ class RunController extends ChangeNotifier {
             .collection('training_history')
             .add({
           'planTitle': planTitle,
-          'distanceKm': _totalDistance / 1000, // double
+          'distanceKm': _totalDistance / 1000,
           'durationSeconds': _secondsElapsed,
           'pace': paceString,
           'completedAt': FieldValue.serverTimestamp(),
@@ -209,15 +215,60 @@ class RunController extends ChangeNotifier {
       }
     }
 
+    // Step 4: Final voice summary
+    if (isVoiceEnabled && _totalDistance > 500) { // only announce if meaningful distance
+      final totalKm = _totalDistance / 1000;
+      final avgPaceMinKm = totalKm > 0 ? (_secondsElapsed / 60) / totalKm : 0.0;
+
+      String comparison = "";
+      if (_previousKmPace > 0) {
+        comparison = "Your last kilometer pace was close to your average.";
+      }
+
+      await _voice.announceSummary(avgPaceMinKm, _secondsElapsed, comparison);
+    }
+
+    // Reset voice tracking for next run
+    _lastAnnouncedKm = 0;
+    _previousKmPace = 0.0;
+
     notifyListeners();
   }
 
   /* ================= INTERNAL ================= */
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (_state == RunState.running) {
         _secondsElapsed++;
+
+        // Step 3: Announce every full kilometer
+        final currentKm = (_totalDistance / 1000).floor();
+        if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
+          await _voice.announceKm(currentKm);
+
+          // Pace comparison & advice
+          final currentPaceMinKm = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
+
+          if (_previousKmPace > 0) {
+            String advice;
+            final paceDiff = currentPaceMinKm - _previousKmPace;
+
+            if (paceDiff < -0.15) {
+              advice = "You're getting faster! Excellent work!";
+            } else if (paceDiff > 0.15) {
+              advice = "Try to pick up the pace a little.";
+            } else {
+              advice = "Solid steady pace. Keep it up!";
+            }
+
+            await _voice.speak(advice);
+          }
+
+          _previousKmPace = currentPaceMinKm;
+          _lastAnnouncedKm = currentKm;
+        }
+
         totalCalories = ((_totalDistance / 1000) * 65).round();
         if (_secondsElapsed % 10 == 0) _recordPerformanceSnapshot();
         notifyListeners();
@@ -228,7 +279,7 @@ class RunController extends ChangeNotifier {
   void _recordPerformanceSnapshot() {
     final x = _secondsElapsed / 60.0;
     hrHistorySpots.add(ChartDataSpot(x, currentBpm.toDouble()));
-    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;  // Changed to 0.0
+    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
     paceHistorySpots.add(ChartDataSpot(x, paceValue));
   }
 
@@ -266,7 +317,7 @@ class RunController extends ChangeNotifier {
         Polyline(
           polylineId: const PolylineId('run_route'),
           points: List.from(_routePoints),
-          color: Colors.blueAccent.withValues(alpha: 1.0),  // Fixed deprecated withOpacity
+          color: Colors.blueAccent.withValues(alpha: 1.0),
           width: 6,
         ),
       );
