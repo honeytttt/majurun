@@ -4,6 +4,7 @@ import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
+import 'package:majurun/modules/run/services/voice_announcer.dart'; // ← FIXED: Added this import
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});
@@ -69,38 +70,60 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildHeader(RunController controller) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
-          const Spacer(),
-          // Voice toggle
-          IconButton(
-            icon: Icon(
-              controller.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              color: controller.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.menu, color: Colors.black),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.record_voice_over, color: Colors.purple),
+                  tooltip: "Test Voice",
+                  onPressed: () async {
+                    final voice = VoiceAnnouncer();
+                    await voice.speak("Voice test successful! Running announcements should now work.");
+                    
+                    if (!mounted) return;
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Voice test sent! Check if you heard it.")),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: Icon(
+                    controller.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    color: controller.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+                  ),
+                  tooltip: controller.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
+                  onPressed: controller.toggleVoice,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.history, color: Colors.black),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            tooltip: controller.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
-            onPressed: controller.toggleVoice,
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.history, color: Colors.black),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildControlCenter(BuildContext context, RunController controller) {
     return Column(

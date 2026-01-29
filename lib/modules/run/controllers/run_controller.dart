@@ -4,8 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-import 'package:majurun/modules/run/services/voice_announcer.dart'; // ← Step 3,4,5
+import 'package:majurun/modules/run/services/voice_announcer.dart';
 
 enum RunState { idle, running, paused }
 
@@ -110,9 +109,10 @@ class RunController extends ChangeNotifier {
   /* ================= FIRESTORE HELPERS ================= */
   Stream<List<RunAppPost>> getPostStream() {
     return postRepo.orderBy('timestamp', descending: true).snapshots().map(
-        (snapshot) => snapshot.docs
-            .map((doc) => RunAppPost.fromFirestore(doc))
-            .toList());
+          (snapshot) => snapshot.docs
+              .map((doc) => RunAppPost.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Future<void> refreshHistoryStats() async {
@@ -128,9 +128,9 @@ class RunController extends ChangeNotifier {
     totalRuns = history.docs.length;
 
     int totalSec = history.docs.fold<int>(
-        0,
-        (prev, doc) =>
-            prev + (doc.data()['durationSeconds'] as int? ?? 0));
+      0,
+      (prev, doc) => prev + (doc.data()['durationSeconds'] as int? ?? 0),
+    );
 
     final hours = totalSec ~/ 3600;
     final minutes = (totalSec % 3600) ~/ 60;
@@ -154,7 +154,9 @@ class RunController extends ChangeNotifier {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {return;}
+        permission == LocationPermission.deniedForever) {
+      return;
+    }
 
     _state = RunState.running;
     _secondsElapsed = 0;
@@ -168,6 +170,11 @@ class RunController extends ChangeNotifier {
     // Reset voice tracking
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
+
+    // Prime TTS with a welcome message (helps on iOS Safari/web)
+    if (isVoiceEnabled) {
+      await _voice.speak("Run started! Good luck. I'll announce every kilometer.");
+    }
 
     _startTimer();
     _startLocationUpdates();
@@ -192,47 +199,104 @@ class RunController extends ChangeNotifier {
     _positionStream?.cancel();
 
     final user = _auth.currentUser;
-    if (user != null) {
-      try {
-        await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('training_history')
-            .add({
-          'planTitle': planTitle,
-          'distanceKm': _totalDistance / 1000,
-          'durationSeconds': _secondsElapsed,
-          'pace': paceString,
-          'completedAt': FieldValue.serverTimestamp(),
-        });
+    if (user == null) {
+      debugPrint("No authenticated user - cannot save or post");
+      return;
+    }
 
-        historyDistance += _totalDistance / 1000;
-        runStreak += 1;
+    try {
+      // Save run history
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('training_history')
+          .add({
+        'planTitle': planTitle,
+        'distanceKm': _totalDistance / 1000,
+        'durationSeconds': _secondsElapsed,
+        'pace': paceString,
+        'completedAt': FieldValue.serverTimestamp(),
+      });
 
-        await refreshHistoryStats();
-      } catch (e) {
-        debugPrint("Error saving run history: $e");
+      historyDistance += _totalDistance / 1000;
+      runStreak += 1;
+
+      await refreshHistoryStats();
+
+      // Auto-post with AI text + motivational visual
+      final motivationalPost = _generateAutoPostText(planTitle);
+      final motivationalVisualUrl = _getMotivationalVisual();
+
+      await finalizeProPost(
+        motivationalPost,
+        motivationalVisualUrl,
+        planTitle: planTitle,
+      );
+
+      // Success feedback
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Run auto-shared! ${distanceString}KM posted 🔥"),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint("Error in stopRun: $e");
+      debugPrint("Stack trace: $stackTrace");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to save/share run: $e")),
+        );
       }
     }
 
-    // Step 4: Final voice summary
-    if (isVoiceEnabled && _totalDistance > 500) { // only announce if meaningful distance
-      final totalKm = _totalDistance / 1000;
-      final avgPaceMinKm = totalKm > 0 ? (_secondsElapsed / 60) / totalKm : 0.0;
-
-      String comparison = "";
-      if (_previousKmPace > 0) {
-        comparison = "Your last kilometer pace was close to your average.";
-      }
-
-      await _voice.announceSummary(avgPaceMinKm, _secondsElapsed, comparison);
-    }
-
-    // Reset voice tracking for next run
+    // Reset voice & tracking
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
 
     notifyListeners();
+  }
+
+  /* ================= AUTO-POST HELPERS ================= */
+  String _generateAutoPostText(String planTitle) {
+    final distance = distanceString;
+    final time = durationString;
+    final pace = paceString;
+    final calories = totalCalories;
+
+    final templates = [
+      "Just smashed $distance KM in $time at $pace pace! Burned $calories kcal 🔥 Another win for the grind.",
+      "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪 #MajurunPro",
+      "From start line to finish — $distance KM done! $time total, $pace pace, $calories kcal torched. Keep pushing!",
+      "Today's mission accomplished: $distance KM @ $pace pace in $time. Body tired, soul on fire 🏃‍♂️✨",
+      "Logged another solid one: $distance KM, $time, $pace avg. Progress is progress. #RunStrong",
+    ];
+
+    final randomIndex = DateTime.now().millisecond % templates.length;
+    String text = templates[randomIndex];
+
+    if (planTitle != "Free Run") {
+      text += "\nCrushed the $planTitle workout today!";
+    }
+
+    text += "\n\n#Majurun #Running #FitnessJourney #${distance.replaceAll('.', '')}KM";
+
+    return text;
+  }
+
+  String _getMotivationalVisual() {
+    final motivationalGifs = [
+      "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif", // running celebration
+      "https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif", // runner finish line joy
+      "https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif", // animated runner silhouette
+      "https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif", // motivational achievement vibe
+      "https://media.giphy.com/media/l41lLuYtK4J8tXb8Q/giphy.gif", // running with energy
+    ];
+
+    final index = DateTime.now().millisecond % motivationalGifs.length;
+    return motivationalGifs[index];
   }
 
   /* ================= INTERNAL ================= */
@@ -242,9 +306,10 @@ class RunController extends ChangeNotifier {
       if (_state == RunState.running) {
         _secondsElapsed++;
 
-        // Step 3: Announce every full kilometer
+        // Announce every full kilometer
         final currentKm = (_totalDistance / 1000).floor();
         if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
+          debugPrint("Announcing $currentKm km");
           await _voice.announceKm(currentKm);
 
           // Pace comparison & advice
@@ -262,6 +327,7 @@ class RunController extends ChangeNotifier {
               advice = "Solid steady pace. Keep it up!";
             }
 
+            debugPrint("Pace advice: $advice");
             await _voice.speak(advice);
           }
 
@@ -336,15 +402,33 @@ class RunController extends ChangeNotifier {
     String? planTitle,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    debugPrint("finalizeProPost called | Auth user: ${user?.uid ?? 'NULL - not signed in'}");
+    debugPrint("Auth currentUser exists: ${user != null}");
 
-    await postRepo.add({
+    if (user == null) {
+      debugPrint("Cannot post: No authenticated user");
+      return;
+    }
+
+    final data = {
       'userId': user.uid,
       'content': aiContent,
       'videoUrl': videoUrl,
       'planTitle': planTitle ?? "Free Run",
       'timestamp': FieldValue.serverTimestamp(),
-    });
+    };
+
+    debugPrint("Posting to collection: ${postRepo.path}");
+    debugPrint("Data payload: $data");
+
+    try {
+      await postRepo.add(data);
+      debugPrint("Post SUCCESS");
+    } catch (e, stackTrace) {
+      debugPrint("Post FAILED: $e");
+      debugPrint("Full stack: $stackTrace");
+      rethrow;
+    }
   }
 
   void toggleVoice() {

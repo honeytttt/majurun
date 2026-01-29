@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    match /posts/{postId} {
+      // Required for the QuotedPostPreview to fetch the original post data
+      allow read: if request.auth != null;
+      
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // FIX: Allow update if the user is the owner OR if they are ONLY changing the 'likes' array
+      allow update: if request.auth != null && (
+        request.resource.data.userId == resource.data.userId || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+      );
+      
+      allow delete: if request.auth != null 
+                    && resource.data.userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null 
+                      && request.resource.data.userId == request.auth.uid;
+        
+        // Allow updates for comment likes by non-owners
+        allow update: if request.auth != null && (
+          request.resource.data.userId == resource.data.userId ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+        );
+                          
+        allow delete: if request.auth != null 
+                      && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /workouts/{workoutId} {
+      allow read, create, update: if request.auth != null;
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}
