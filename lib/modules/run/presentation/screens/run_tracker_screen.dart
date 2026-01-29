@@ -73,50 +73,27 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
     child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
           icon: const Icon(Icons.menu, color: Colors.black),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.record_voice_over, color: Colors.purple),
-                  tooltip: "Test Voice",
-                  onPressed: () async {
-                    final voice = VoiceAnnouncer();
-                    await voice.speak("Voice test successful! Running announcements should now work.");
-                    
-                    if (!mounted) return;
-                    
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Voice test sent! Check if you heard it.")),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: Icon(
-                    controller.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                    color: controller.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
-                  ),
-                  tooltip: controller.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
-                  onPressed: controller.toggleVoice,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.history, color: Colors.black),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
-                    ),
-                  ),
-                ),
-              ],
+        const Spacer(),
+        IconButton(
+          icon: Icon(
+            controller.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            color: controller.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+          ),
+          tooltip: controller.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
+          onPressed: controller.toggleVoice,
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.history, color: Colors.black),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
             ),
           ),
         ),
