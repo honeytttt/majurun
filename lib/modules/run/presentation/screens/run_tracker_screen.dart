@@ -4,7 +4,7 @@ import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
-import 'package:majurun/modules/run/services/voice_announcer.dart'; // ← FIXED: Added this import
+//import 'package:majurun/modules/run/services/voice_announcer.dart'; // ← FIXED: Added this import
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});

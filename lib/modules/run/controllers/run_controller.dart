@@ -14,7 +14,6 @@ class ChartDataSpot {
   const ChartDataSpot(this.x, this.y);
 }
 
-/// Run-specific AppPost
 class RunAppPost {
   final String id;
   final String content;
@@ -44,7 +43,7 @@ class RunController extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   CollectionReference<Map<String, dynamic>> get postRepo =>
-      _firestore.collection('feed');
+      _firestore.collection('posts');
 
   /* ================= STATE ================= */
   RunState _state = RunState.idle;
@@ -78,10 +77,10 @@ class RunController extends ChangeNotifier {
   double historyDistance = 0.0;
   int runStreak = 0;
 
-  // Voice announcement tracking
+  // Voice
   final VoiceAnnouncer _voice = VoiceAnnouncer();
   int _lastAnnouncedKm = 0;
-  double _previousKmPace = 0.0; // in min/km
+  double _previousKmPace = 0.0;
 
   /* ================= GETTERS ================= */
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
@@ -128,9 +127,8 @@ class RunController extends ChangeNotifier {
     totalRuns = history.docs.length;
 
     int totalSec = history.docs.fold<int>(
-      0,
-      (prev, doc) => prev + (doc.data()['durationSeconds'] as int? ?? 0),
-    );
+        0,
+        (prev, doc) => prev + (doc.data()['durationSeconds'] as int? ?? 0));
 
     final hours = totalSec ~/ 3600;
     final minutes = (totalSec % 3600) ~/ 60;
@@ -167,11 +165,9 @@ class RunController extends ChangeNotifier {
     paceHistorySpots.clear();
     lastVideoUrl = null;
 
-    // Reset voice tracking
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
 
-    // Prime TTS with a welcome message (helps on iOS Safari/web)
     if (isVoiceEnabled) {
       await _voice.speak("Run started! Good luck. I'll announce every kilometer.");
     }
@@ -200,12 +196,15 @@ class RunController extends ChangeNotifier {
 
     final user = _auth.currentUser;
     if (user == null) {
-      debugPrint("No authenticated user - cannot save or post");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Not signed in – run not saved")),
+        );
+      }
       return;
     }
 
     try {
-      // Save run history
       await _firestore
           .collection('users')
           .doc(user.uid)
@@ -220,83 +219,71 @@ class RunController extends ChangeNotifier {
 
       historyDistance += _totalDistance / 1000;
       runStreak += 1;
-
       await refreshHistoryStats();
 
-      // Auto-post with AI text + motivational visual
-      final motivationalPost = _generateAutoPostText(planTitle);
-      final motivationalVisualUrl = _getMotivationalVisual();
+      final aiPost = _generateAIPost(planTitle);
+      final gifUrl = _getRandomMotivationalGif();
 
-      await finalizeProPost(
-        motivationalPost,
-        motivationalVisualUrl,
-        planTitle: planTitle,
-      );
+      await finalizeProPost(aiPost, gifUrl, planTitle: planTitle);
 
-      // Success feedback
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Run auto-shared! ${distanceString}KM posted 🔥"),
-            duration: const Duration(seconds: 4),
+            content: Text("Run complete & auto-shared! $distanceString KM posted 🔥"),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
-    } catch (e, stackTrace) {
-      debugPrint("Error in stopRun: $e");
-      debugPrint("Stack trace: $stackTrace");
+    } catch (e, stack) {
+      debugPrint("Error in stopRun: $e\n$stack");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to save/share run: $e")),
+          SnackBar(content: Text("Error saving/posting run: $e")),
         );
       }
     }
 
-    // Reset voice & tracking
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
-
     notifyListeners();
   }
 
-  /* ================= AUTO-POST HELPERS ================= */
-  String _generateAutoPostText(String planTitle) {
+  /* ================= AI POST GENERATION ================= */
+  String _generateAIPost(String planTitle) {
     final distance = distanceString;
     final time = durationString;
     final pace = paceString;
     final calories = totalCalories;
 
     final templates = [
-      "Just smashed $distance KM in $time at $pace pace! Burned $calories kcal 🔥 Another win for the grind.",
-      "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪 #MajurunPro",
-      "From start line to finish — $distance KM done! $time total, $pace pace, $calories kcal torched. Keep pushing!",
-      "Today's mission accomplished: $distance KM @ $pace pace in $time. Body tired, soul on fire 🏃‍♂️✨",
-      "Logged another solid one: $distance KM, $time, $pace avg. Progress is progress. #RunStrong",
+      "Crushed $distance KM in $time at $pace pace! Torched $calories kcal 🔥 Beast mode activated.",
+      "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪",
+      "Another solid session: $distance KM done in $time with $pace pace. $calories kcal burned. Progress never stops!",
+      "From start to finish — $distance KM smashed! Time $time, pace $pace. The grind continues 🏃‍♂️✨",
+      "Logged $distance KM today at $pace pace in $time. $calories kcal down. Keep stacking wins!",
     ];
 
-    final randomIndex = DateTime.now().millisecond % templates.length;
-    String text = templates[randomIndex];
+    final index = DateTime.now().millisecond % templates.length;
+    String post = templates[index];
 
     if (planTitle != "Free Run") {
-      text += "\nCrushed the $planTitle workout today!";
+      post += "\nCrushed the $planTitle session!";
     }
 
-    text += "\n\n#Majurun #Running #FitnessJourney #${distance.replaceAll('.', '')}KM";
+    post += "\n\n#MajurunPro #RunStrong #FitnessJourney #${distance.replaceAll('.', '')}KM";
 
-    return text;
+    return post;
   }
 
-  String _getMotivationalVisual() {
-    final motivationalGifs = [
-      "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif", // running celebration
-      "https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif", // runner finish line joy
-      "https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif", // animated runner silhouette
-      "https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif", // motivational achievement vibe
-      "https://media.giphy.com/media/l41lLuYtK4J8tXb8Q/giphy.gif", // running with energy
+  String _getRandomMotivationalGif() {
+    final gifs = [
+      "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
+      "https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif",
+      "https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif",
+      "https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif",
+      "https://media.giphy.com/media/l41lLuYtK4J8tXb8Q/giphy.gif",
     ];
-
-    final index = DateTime.now().millisecond % motivationalGifs.length;
-    return motivationalGifs[index];
+    return gifs[DateTime.now().millisecond % gifs.length];
   }
 
   /* ================= INTERNAL ================= */
@@ -306,31 +293,25 @@ class RunController extends ChangeNotifier {
       if (_state == RunState.running) {
         _secondsElapsed++;
 
-        // Announce every full kilometer
         final currentKm = (_totalDistance / 1000).floor();
         if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
-          debugPrint("Announcing $currentKm km");
+          await Future.delayed(const Duration(milliseconds: 300));
           await _voice.announceKm(currentKm);
 
-          // Pace comparison & advice
           final currentPaceMinKm = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
-
           if (_previousKmPace > 0) {
             String advice;
-            final paceDiff = currentPaceMinKm - _previousKmPace;
-
-            if (paceDiff < -0.15) {
+            final diff = currentPaceMinKm - _previousKmPace;
+            if (diff < -0.15) {
               advice = "You're getting faster! Excellent work!";
-            } else if (paceDiff > 0.15) {
+            } else if (diff > 0.15) {
               advice = "Try to pick up the pace a little.";
             } else {
               advice = "Solid steady pace. Keep it up!";
             }
-
-            debugPrint("Pace advice: $advice");
+            await Future.delayed(const Duration(milliseconds: 300));
             await _voice.speak(advice);
           }
-
           _previousKmPace = currentPaceMinKm;
           _lastAnnouncedKm = currentKm;
         }
@@ -370,7 +351,6 @@ class RunController extends ChangeNotifier {
 
       _currentPosition = position;
       _routePoints.add(LatLng(position.latitude, position.longitude));
-
       _updatePolylines();
       notifyListeners();
     });
@@ -383,7 +363,7 @@ class RunController extends ChangeNotifier {
         Polyline(
           polylineId: const PolylineId('run_route'),
           points: List.from(_routePoints),
-          color: Colors.blueAccent.withValues(alpha: 1.0),
+          color: Colors.blueAccent,  // FIXED: Replaced deprecated withOpacity(1.0)
           width: 6,
         ),
       );
@@ -397,39 +377,48 @@ class RunController extends ChangeNotifier {
   }
 
   Future<void> finalizeProPost(
-    String aiContent,
-    String videoUrl, {
-    String? planTitle,
-  }) async {
-    final user = _auth.currentUser;
-    debugPrint("finalizeProPost called | Auth user: ${user?.uid ?? 'NULL - not signed in'}");
-    debugPrint("Auth currentUser exists: ${user != null}");
-
-    if (user == null) {
-      debugPrint("Cannot post: No authenticated user");
-      return;
-    }
-
-    final data = {
-      'userId': user.uid,
-      'content': aiContent,
-      'videoUrl': videoUrl,
-      'planTitle': planTitle ?? "Free Run",
-      'timestamp': FieldValue.serverTimestamp(),
-    };
-
-    debugPrint("Posting to collection: ${postRepo.path}");
-    debugPrint("Data payload: $data");
-
-    try {
-      await postRepo.add(data);
-      debugPrint("Post SUCCESS");
-    } catch (e, stackTrace) {
-      debugPrint("Post FAILED: $e");
-      debugPrint("Full stack: $stackTrace");
-      rethrow;
-    }
+  String aiContent,
+  String videoUrl, {
+  String? planTitle,
+}) async {
+  final user = _auth.currentUser;
+  if (user == null) {
+    debugPrint("finalizeProPost: No authenticated user");
+    return;
   }
+
+  // FIXED: Write full structure that matches PostRepositoryImpl mapper
+  final data = {
+    'userId': user.uid,
+    'username': user.displayName ?? 'Runner',  // Required for display
+    'content': aiContent,
+    'media': [
+      {
+        'url': videoUrl,
+        'type': 'image',  // GIF/video treated as image
+      }
+    ],
+    'createdAt': FieldValue.serverTimestamp(),  // Mapper looks for this
+    'likes': [],  // Required field
+    'planTitle': planTitle ?? "Free Run",
+    // Optional but helpful for future feed display
+    'distance': double.tryParse(distanceString) ?? 0.0,
+    'avgBpm': currentBpm,
+    // 'timestamp' can stay if you want it, but 'createdAt' is what mapper uses
+    'timestamp': FieldValue.serverTimestamp(),
+  };
+
+  debugPrint("finalizeProPost writing full post data: $data");
+
+  try {
+    await postRepo.add(data);
+    debugPrint("Auto-post SUCCESS to 'posts' collection");
+  } catch (e, stack) {
+    debugPrint("Auto-post FAILED: $e");
+    debugPrint("Stack: $stack");
+    rethrow;
+  }
+}
 
   void toggleVoice() {
     isVoiceEnabled = !isVoiceEnabled;
