@@ -188,7 +188,78 @@ class RunController extends ChangeNotifier {
     _state = RunState.running;
     notifyListeners();
   }
+  
+  
+  // Add these methods to your existing RunController class in run_controller.dart:
 
+/* ================= LAST ACTIVITY METHODS ================= */
+Future<Map<String, dynamic>?> getLastActivity() async {
+  final user = _auth.currentUser;
+  if (user == null) return null;
+
+  try {
+    final historySnapshot = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('training_history')
+        .orderBy('completedAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (historySnapshot.docs.isEmpty) return null;
+    
+    final lastRun = historySnapshot.docs.first;
+    final data = lastRun.data();
+    
+    // Extract pace if available
+    String pace = data['pace']?.toString() ?? "8:15"; // Default pace
+    
+    return {
+      'id': lastRun.id,
+      'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
+      'durationSeconds': data['durationSeconds'] as int? ?? 0,
+      'pace': pace,
+      'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
+      'planTitle': data['planTitle'] ?? "Free Run",
+      'elevation': 118.0, // Mock elevation - you can add this to your data
+    };
+  } catch (e) {
+    debugPrint("Error getting last activity: $e");
+    return null;
+  }
+}
+
+Future<List<Map<String, dynamic>>> getRunHistory() async {
+  final user = _auth.currentUser;
+  if (user == null) return [];
+
+  try {
+    final historySnapshot = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('training_history')
+        .orderBy('completedAt', descending: true)
+        .get();
+
+    return historySnapshot.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
+        'durationSeconds': data['durationSeconds'] as int? ?? 0,
+        'pace': data['pace']?.toString() ?? "8:00",
+        'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
+        'planTitle': data['planTitle'] ?? "Free Run",
+      };
+    }).toList();
+  } catch (e) {
+    debugPrint("Error getting run history: $e");
+    return [];
+  }
+ }
+ 
   Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
     _state = RunState.idle;
     _timer?.cancel();

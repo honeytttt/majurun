@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
-import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart'; // Add this import
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
-//import 'package:majurun/modules/run/services/voice_announcer.dart'; // ← FIXED: Added this import
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});
@@ -103,65 +102,85 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 }
 
   Widget _buildControlCenter(BuildContext context, RunController controller) {
-    return Column(
-      children: [
-        AnimatedBuilder(
-          animation: _pulseController,
-          builder: (_, child) {
-            return Transform.scale(
-              scale: 1.0 + (_pulseController.value * 0.25),
-              child: child,
-            );
-          },
-          child: Icon(
-            Icons.directions_run_rounded,
-            color: controller.state == RunState.running ? Colors.green.shade700 : Colors.grey.shade800,
-            size: 64,
-          ),
+  return Column(
+    children: [
+      AnimatedBuilder(
+        animation: _pulseController,
+        builder: (_, child) {
+          return Transform.scale(
+            scale: 1.0 + (_pulseController.value * 0.25),
+            child: child,
+          );
+        },
+        child: Icon(
+          Icons.directions_run_rounded,
+          color: controller.state == RunState.running ? Colors.green.shade700 : Colors.grey.shade800,
+          size: 64,
         ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: controller.state == RunState.running ? Colors.orange : Colors.green,
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                if (controller.state == RunState.idle) {
-                  controller.startRun();
-                } else if (controller.state == RunState.running) {
-                  controller.pauseRun();
-                } else {
-                  controller.resumeRun();
-                }
-              },
-              child: Text(
-                controller.state == RunState.running
-                    ? "PAUSE"
-                    : controller.state == RunState.paused
-                        ? "RESUME"
-                        : "START",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      const SizedBox(height: 24),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Primary button (START / PAUSE / RESUME)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: controller.state == RunState.running
+                  ? Colors.orange
+                  : controller.state == RunState.paused
+                      ? Colors.blue
+                      : Colors.green,
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              if (controller.state == RunState.idle) {
+                controller.startRun();
+              } else if (controller.state == RunState.running) {
+                controller.pauseRun();
+              } else if (controller.state == RunState.paused) {
+                controller.resumeRun();
+              }
+            },
+            child: Text(
+              controller.state == RunState.running
+                  ? "PAUSE"
+                  : controller.state == RunState.paused
+                      ? "RESUME"
+                      : "START",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(width: 24),
+          ),
+
+          const SizedBox(width: 20),
+
+          // STOP button – only visible when running or paused
+          if (controller.state != RunState.idle)
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade700,
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: controller.state == RunState.idle ? null : () => controller.stopRun(context),
-              child: const Text("STOP", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              onPressed: () => controller.stopRun(context),
+              child: const Text(
+                "STOP",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Colors.white,
+                ),
+              ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
+        ],
+      ),
+    ],
+  );
+}
 
   Widget _buildLiveMetrics(RunController controller) {
     return Row(
@@ -212,20 +231,72 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: SizedBox(
         width: double.infinity,
-        height: 50,
+        height: 55,
         child: ElevatedButton(
-          onPressed: controller.state == RunState.idle
-              ? null
-              : () {
+          onPressed: () async {
+            showDialog(
+              context: context,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+              barrierDismissible: false,
+            );
+            
+            try {
+              final lastRun = await controller.getLastActivity();
+              
+              if (context.mounted) {
+                Navigator.pop(context); // Remove loading
+                
+                if (lastRun != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => RunSummaryScreen(controller: controller),
+                      builder: (_) => LastActivityScreen(lastRun: lastRun),
                     ),
                   );
-                },
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-          child: const Text("VIEW SUMMARY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("No activities found yet!"),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            } catch (e) {
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Error: ${e.toString()}"),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.bolt, color: Colors.amber),
+              SizedBox(width: 8),
+              Text(
+                "VIEW LAST ACTIVITY",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
