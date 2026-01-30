@@ -140,13 +140,74 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // FIXED: Add these two missing methods back
+  Future<Map<String, dynamic>?> getLastActivity() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    try {
+      final historySnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('training_history')
+          .orderBy('completedAt', descending: true)
+          .limit(1)
+          .get();
+      if (historySnapshot.docs.isEmpty) return null;
+
+      final lastRun = historySnapshot.docs.first;
+      final data = lastRun.data();
+
+      String pace = data['pace']?.toString() ?? "8:15";
+
+      return {
+        'id': lastRun.id,
+        'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
+        'durationSeconds': data['durationSeconds'] as int? ?? 0,
+        'pace': pace,
+        'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
+        'planTitle': data['planTitle'] ?? "Free Run",
+        'elevation': 118.0, // Mock - add real data later if needed
+      };
+    } catch (e) {
+      debugPrint("Error getting last activity: $e");
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRunHistory() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+    try {
+      final historySnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('training_history')
+          .orderBy('completedAt', descending: true)
+          .get();
+      return historySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
+          'durationSeconds': data['durationSeconds'] as int? ?? 0,
+          'pace': data['pace']?.toString() ?? "8:00",
+          'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
+          'planTitle': data['planTitle'] ?? "Free Run",
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint("Error getting run history: $e");
+      return [];
+    }
+  }
+
   /* ================= RUN CONTROL ================= */
   Future<void> startRun() async {
     if (_state == RunState.running) return;
-
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
-
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -155,7 +216,6 @@ class RunController extends ChangeNotifier {
         permission == LocationPermission.deniedForever) {
       return;
     }
-
     _state = RunState.running;
     _secondsElapsed = 0;
     _totalDistance = 0.0;
@@ -164,14 +224,11 @@ class RunController extends ChangeNotifier {
     hrHistorySpots.clear();
     paceHistorySpots.clear();
     lastVideoUrl = null;
-
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
-
     if (isVoiceEnabled) {
       await _voice.speak("Run started! Good luck. I'll announce every kilometer.");
     }
-
     _startTimer();
     _startLocationUpdates();
     notifyListeners();
@@ -188,83 +245,11 @@ class RunController extends ChangeNotifier {
     _state = RunState.running;
     notifyListeners();
   }
-  
-  
-  // Add these methods to your existing RunController class in run_controller.dart:
 
-/* ================= LAST ACTIVITY METHODS ================= */
-Future<Map<String, dynamic>?> getLastActivity() async {
-  final user = _auth.currentUser;
-  if (user == null) return null;
-
-  try {
-    final historySnapshot = await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('training_history')
-        .orderBy('completedAt', descending: true)
-        .limit(1)
-        .get();
-
-    if (historySnapshot.docs.isEmpty) return null;
-    
-    final lastRun = historySnapshot.docs.first;
-    final data = lastRun.data();
-    
-    // Extract pace if available
-    String pace = data['pace']?.toString() ?? "8:15"; // Default pace
-    
-    return {
-      'id': lastRun.id,
-      'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
-      'durationSeconds': data['durationSeconds'] as int? ?? 0,
-      'pace': pace,
-      'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
-      'planTitle': data['planTitle'] ?? "Free Run",
-      'elevation': 118.0, // Mock elevation - you can add this to your data
-    };
-  } catch (e) {
-    debugPrint("Error getting last activity: $e");
-    return null;
-  }
-}
-
-Future<List<Map<String, dynamic>>> getRunHistory() async {
-  final user = _auth.currentUser;
-  if (user == null) return [];
-
-  try {
-    final historySnapshot = await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('training_history')
-        .orderBy('completedAt', descending: true)
-        .get();
-
-    return historySnapshot.docs.map((doc) {
-      final data = doc.data();
-      return {
-        'id': doc.id,
-        'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
-        'durationSeconds': data['durationSeconds'] as int? ?? 0,
-        'pace': data['pace']?.toString() ?? "8:00",
-        'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
-        'planTitle': data['planTitle'] ?? "Free Run",
-      };
-    }).toList();
-  } catch (e) {
-    debugPrint("Error getting run history: $e");
-    return [];
-  }
- }
- 
   Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
     _state = RunState.idle;
     _timer?.cancel();
     _positionStream?.cancel();
-
     final user = _auth.currentUser;
     if (user == null) {
       if (context.mounted) {
@@ -274,7 +259,6 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
       }
       return;
     }
-
     try {
       await _firestore
           .collection('users')
@@ -287,16 +271,12 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
         'pace': paceString,
         'completedAt': FieldValue.serverTimestamp(),
       });
-
       historyDistance += _totalDistance / 1000;
       runStreak += 1;
       await refreshHistoryStats();
-
       final aiPost = _generateAIPost(planTitle);
       final gifUrl = _getRandomMotivationalGif();
-
       await finalizeProPost(aiPost, gifUrl, planTitle: planTitle);
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -313,7 +293,6 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
         );
       }
     }
-
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
     notifyListeners();
@@ -325,7 +304,6 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
     final time = durationString;
     final pace = paceString;
     final calories = totalCalories;
-
     final templates = [
       "Crushed $distance KM in $time at $pace pace! Torched $calories kcal 🔥 Beast mode activated.",
       "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪",
@@ -333,16 +311,12 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
       "From start to finish — $distance KM smashed! Time $time, pace $pace. The grind continues 🏃‍♂️✨",
       "Logged $distance KM today at $pace pace in $time. $calories kcal down. Keep stacking wins!",
     ];
-
     final index = DateTime.now().millisecond % templates.length;
     String post = templates[index];
-
     if (planTitle != "Free Run") {
       post += "\nCrushed the $planTitle session!";
     }
-
     post += "\n\n#MajurunPro #RunStrong #FitnessJourney #${distance.replaceAll('.', '')}KM";
-
     return post;
   }
 
@@ -363,12 +337,10 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (_state == RunState.running) {
         _secondsElapsed++;
-
         final currentKm = (_totalDistance / 1000).floor();
         if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
           await Future.delayed(const Duration(milliseconds: 300));
           await _voice.announceKm(currentKm);
-
           final currentPaceMinKm = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
           if (_previousKmPace > 0) {
             String advice;
@@ -386,7 +358,6 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
           _previousKmPace = currentPaceMinKm;
           _lastAnnouncedKm = currentKm;
         }
-
         totalCalories = ((_totalDistance / 1000) * 65).round();
         if (_secondsElapsed % 10 == 0) _recordPerformanceSnapshot();
         notifyListeners();
@@ -410,7 +381,6 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
       ),
     ).listen((position) {
       if (_state != RunState.running) return;
-
       if (_currentPosition != null) {
         _totalDistance += Geolocator.distanceBetween(
           _currentPosition!.latitude,
@@ -419,7 +389,6 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
           position.longitude,
         );
       }
-
       _currentPosition = position;
       _routePoints.add(LatLng(position.latitude, position.longitude));
       _updatePolylines();
@@ -434,7 +403,7 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
         Polyline(
           polylineId: const PolylineId('run_route'),
           points: List.from(_routePoints),
-          color: Colors.blueAccent,  // FIXED: Replaced deprecated withOpacity(1.0)
+          color: Colors.blueAccent,
           width: 6,
         ),
       );
@@ -448,48 +417,26 @@ Future<List<Map<String, dynamic>>> getRunHistory() async {
   }
 
   Future<void> finalizeProPost(
-  String aiContent,
-  String videoUrl, {
-  String? planTitle,
-}) async {
-  final user = _auth.currentUser;
-  if (user == null) {
-    debugPrint("finalizeProPost: No authenticated user");
-    return;
+    String aiContent,
+    String videoUrl, {
+    String? planTitle,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final data = {
+      'userId': user.uid,
+      'content': aiContent,
+      'videoUrl': videoUrl,
+      'planTitle': planTitle ?? "Free Run",
+      'timestamp': FieldValue.serverTimestamp(),
+    };
+    try {
+      await postRepo.add(data);
+    } catch (e) {
+      debugPrint("finalizeProPost error: $e");
+      rethrow;
+    }
   }
-
-  // FIXED: Write full structure that matches PostRepositoryImpl mapper
-  final data = {
-    'userId': user.uid,
-    'username': user.displayName ?? 'Runner',  // Required for display
-    'content': aiContent,
-    'media': [
-      {
-        'url': videoUrl,
-        'type': 'image',  // GIF/video treated as image
-      }
-    ],
-    'createdAt': FieldValue.serverTimestamp(),  // Mapper looks for this
-    'likes': [],  // Required field
-    'planTitle': planTitle ?? "Free Run",
-    // Optional but helpful for future feed display
-    'distance': double.tryParse(distanceString) ?? 0.0,
-    'avgBpm': currentBpm,
-    // 'timestamp' can stay if you want it, but 'createdAt' is what mapper uses
-    'timestamp': FieldValue.serverTimestamp(),
-  };
-
-  debugPrint("finalizeProPost writing full post data: $data");
-
-  try {
-    await postRepo.add(data);
-    debugPrint("Auto-post SUCCESS to 'posts' collection");
-  } catch (e, stack) {
-    debugPrint("Auto-post FAILED: $e");
-    debugPrint("Stack: $stack");
-    rethrow;
-  }
-}
 
   void toggleVoice() {
     isVoiceEnabled = !isVoiceEnabled;

@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 class RunHistoryScreen extends StatelessWidget {
   final VoidCallback onBack;
-
   const RunHistoryScreen({super.key, required this.onBack});
 
   @override
@@ -55,14 +54,14 @@ class RunHistoryScreen extends StatelessWidget {
               ),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: controller.getRunHistory(),
+                  // FIXED: Use Provider.of instead of Consumer local variable
+                  future: Provider.of<RunController>(context, listen: false).getRunHistory(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
                         child: CircularProgressIndicator(color: Colors.black),
                       );
                     }
-
                     if (snapshot.hasError) {
                       return Center(
                         child: Column(
@@ -83,9 +82,8 @@ class RunHistoryScreen extends StatelessWidget {
                         ),
                       );
                     }
-
                     final runs = snapshot.data ?? [];
-                    
+
                     if (runs.isEmpty) {
                       return const Center(
                         child: Column(
@@ -103,12 +101,11 @@ class RunHistoryScreen extends StatelessWidget {
                       );
                     }
 
-                    // Group runs by month
                     final Map<String, List<Map<String, dynamic>>> groupedRuns = {};
                     for (final run in runs) {
                       final date = run['date'] as DateTime;
                       final monthKey = DateFormat('MMM yyyy').format(date);
-                      
+
                       if (!groupedRuns.containsKey(monthKey)) {
                         groupedRuns[monthKey] = [];
                       }
@@ -122,7 +119,7 @@ class RunHistoryScreen extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final monthKey = groupedRuns.keys.elementAt(index);
                         final monthRuns = groupedRuns[monthKey]!;
-                        
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -137,7 +134,7 @@ class RunHistoryScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            ...monthRuns.map((run) => _buildRunCard(run)), // FIXED: Removed .toList()
+                            ...monthRuns.map((run) => _buildRunCard(run)),
                             const SizedBox(height: 10),
                           ],
                         );
@@ -153,6 +150,9 @@ class RunHistoryScreen extends StatelessWidget {
     );
   }
 
+  // ... rest of your methods (_buildSummaryHeader, _headerStat, _buildRunCard, _historyStat, _getMonth, _getDayOfWeek) remain exactly the same ...
+
+
   Widget _buildSummaryHeader(RunController controller) {
     return Container(
       padding: const EdgeInsets.all(25),
@@ -162,7 +162,7 @@ class RunHistoryScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.05), // FIXED: Replaced withValues
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -275,7 +275,7 @@ class RunHistoryScreen extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.05), // FIXED: Replaced withValues
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -329,7 +329,7 @@ class RunHistoryScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.blueAccent.withValues(alpha: 0.1),
+                          color: Colors.blueAccent.withValues(alpha: 0.1), // FIXED: Replaced withValues
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Row(
@@ -386,7 +386,7 @@ class RunHistoryScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.chevron_right, color: Colors.grey),
             onPressed: () {
-              // TODO: Navigate to run detail view
+              // TODO: Navigate to run detail view if needed
             },
           ),
         ],
