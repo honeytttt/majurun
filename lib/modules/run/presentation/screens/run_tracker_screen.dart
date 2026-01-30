@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
+import 'package:majurun/modules/run/controllers/voice_controller.dart';
+import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
@@ -34,10 +36,11 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<RunController>(
-      builder: (context, controller, child) {
-        if (controller.state == RunState.running) {
-          double speedFactor = (controller.currentBpm / 80).clamp(0.8, 2.5);
+    return Consumer<RunStateController>(
+      builder: (context, stateController, child) {
+        // Faster pulse when running + higher BPM
+        if (stateController.state == RunState.running) {
+          double speedFactor = (stateController.currentBpm / 80).clamp(0.8, 2.5);
           _pulseController.duration = Duration(milliseconds: (1200 / speedFactor).round());
         } else {
           _pulseController.duration = const Duration(milliseconds: 1200);
@@ -50,13 +53,13 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           body: SafeArea(
             child: Column(
               children: [
-                _buildHeader(controller),
+                _buildHeader(context),
                 const Spacer(flex: 1),
-                _buildControlCenter(context, controller),
+                _buildControlCenter(context, stateController),
                 const Spacer(flex: 1),
-                _buildLiveMetrics(controller),
+                _buildLiveMetrics(stateController),
                 const Spacer(flex: 1),
-                _buildStatsGrid(controller),
+                _buildStatsGrid(stateController),
                 const Spacer(flex: 2),
                 _buildFooter(context),
               ],
@@ -67,7 +70,9 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Widget _buildHeader(RunController controller) {
+  Widget _buildHeader(BuildContext context) {
+    final voiceController = Provider.of<VoiceController>(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
@@ -79,11 +84,11 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           const Spacer(),
           IconButton(
             icon: Icon(
-              controller.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              color: controller.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+              voiceController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: voiceController.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
             ),
-            tooltip: controller.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
-            onPressed: controller.toggleVoice,
+            tooltip: voiceController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
+            onPressed: voiceController.toggleVoice,
           ),
           const SizedBox(width: 8),
           IconButton(
@@ -100,7 +105,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Widget _buildControlCenter(BuildContext context, RunController controller) {
+  Widget _buildControlCenter(BuildContext context, RunStateController stateController) {
     return Column(
       children: [
         AnimatedBuilder(
@@ -113,7 +118,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           },
           child: Icon(
             Icons.directions_run_rounded,
-            color: controller.state == RunState.running ? Colors.green.shade700 : Colors.grey.shade800,
+            color: stateController.state == RunState.running ? Colors.green.shade700 : Colors.grey.shade800,
             size: 64,
           ),
         ),
@@ -121,29 +126,30 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Primary button (START / PAUSE / RESUME)
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: controller.state == RunState.running
+                backgroundColor: stateController.state == RunState.running
                     ? Colors.orange
-                    : controller.state == RunState.paused
+                    : stateController.state == RunState.paused
                         ? Colors.blue
                         : Colors.green,
                 padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
-                if (controller.state == RunState.idle) {
-                  controller.startRun();
-                } else if (controller.state == RunState.running) {
-                  controller.pauseRun();
-                } else if (controller.state == RunState.paused) {
-                  controller.resumeRun();
+                if (stateController.state == RunState.idle) {
+                  stateController.startRun();
+                } else if (stateController.state == RunState.running) {
+                  stateController.pauseRun();
+                } else if (stateController.state == RunState.paused) {
+                  stateController.resumeRun();
                 }
               },
               child: Text(
-                controller.state == RunState.running
+                stateController.state == RunState.running
                     ? "PAUSE"
-                    : controller.state == RunState.paused
+                    : stateController.state == RunState.paused
                         ? "RESUME"
                         : "START",
                 style: const TextStyle(
@@ -154,14 +160,15 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               ),
             ),
             const SizedBox(width: 20),
-            if (controller.state != RunState.idle)
+            // STOP button – only visible when running or paused
+            if (stateController.state != RunState.idle)
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade700,
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () => controller.stopRun(context),
+                onPressed: () => stateController.stopRun(context),
                 child: const Text(
                   "STOP",
                   style: TextStyle(
@@ -177,14 +184,14 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Widget _buildLiveMetrics(RunController controller) {
+  Widget _buildLiveMetrics(RunStateController stateController) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _metricItem("DISTANCE", "${controller.distanceString} KM"),
-        _metricItem("PACE", controller.paceString),
-        _metricItem("TIME", controller.durationString),
-        _metricItem("BPM", "${controller.currentBpm}"),
+        _metricItem("DISTANCE", "${stateController.distanceString} KM"),
+        _metricItem("PACE", stateController.paceString),
+        _metricItem("TIME", stateController.durationString),
+        _metricItem("BPM", "${stateController.currentBpm}"),
       ],
     );
   }
@@ -198,15 +205,15 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Widget _buildStatsGrid(RunController controller) {
+  Widget _buildStatsGrid(RunStateController stateController) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _smallStat("TOTAL KM", controller.historyDistance.toStringAsFixed(1)),
-          _smallStat("STREAK", "${controller.runStreak}D"),
-          _smallStat("CALORIES", "${controller.totalCalories}"),
+          _smallStat("TOTAL KM", stateController.historyDistance.toStringAsFixed(1)),
+          _smallStat("STREAK", "${stateController.runStreak}D"),
+          _smallStat("CALORIES", "${stateController.totalCalories}"),
         ],
       ),
     );
@@ -236,8 +243,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             );
 
             try {
-              final runController = Provider.of<RunController>(context, listen: false);
-              final lastRun = await runController.getLastActivity();
+              final statsController = Provider.of<StatsController>(context, listen: false);
+              final lastRun = await statsController.getLastActivity();
 
               if (context.mounted) {
                 Navigator.pop(context);
@@ -274,7 +281,9 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             backgroundColor: Colors.black,
             foregroundColor: Colors.white,
             elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
           ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
