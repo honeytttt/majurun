@@ -236,7 +236,6 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             );
 
             try {
-              // FIXED: Use Provider.of instead of Consumer local variable
               final runController = Provider.of<RunController>(context, listen: false);
               final lastRun = await runController.getLastActivity();
 

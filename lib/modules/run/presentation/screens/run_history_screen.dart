@@ -54,7 +54,6 @@ class RunHistoryScreen extends StatelessWidget {
               ),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
-                  // FIXED: Use Provider.of instead of Consumer local variable
                   future: Provider.of<RunController>(context, listen: false).getRunHistory(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -150,9 +149,6 @@ class RunHistoryScreen extends StatelessWidget {
     );
   }
 
-  // ... rest of your methods (_buildSummaryHeader, _headerStat, _buildRunCard, _historyStat, _getMonth, _getDayOfWeek) remain exactly the same ...
-
-
   Widget _buildSummaryHeader(RunController controller) {
     return Container(
       padding: const EdgeInsets.all(25),
@@ -162,7 +158,7 @@ class RunHistoryScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05), // FIXED: Replaced withValues
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -275,7 +271,7 @@ class RunHistoryScreen extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05), // FIXED: Replaced withValues
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -329,7 +325,7 @@ class RunHistoryScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.blueAccent.withValues(alpha: 0.1), // FIXED: Replaced withValues
+                          color: Colors.blueAccent.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Row(
@@ -386,7 +382,7 @@ class RunHistoryScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.chevron_right, color: Colors.grey),
             onPressed: () {
-              // TODO: Navigate to run detail view if needed
+              // TODO: Navigate to run detail view
             },
           ),
         ],

@@ -140,10 +140,14 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // FIXED: Add these two missing methods back
+  // ======================================
+  //  MISSING METHODS - ADDED BACK HERE
+  // ======================================
+
   Future<Map<String, dynamic>?> getLastActivity() async {
     final user = _auth.currentUser;
     if (user == null) return null;
+
     try {
       final historySnapshot = await _firestore
           .collection('users')
@@ -152,6 +156,7 @@ class RunController extends ChangeNotifier {
           .orderBy('completedAt', descending: true)
           .limit(1)
           .get();
+
       if (historySnapshot.docs.isEmpty) return null;
 
       final lastRun = historySnapshot.docs.first;
@@ -167,7 +172,7 @@ class RunController extends ChangeNotifier {
         'pace': pace,
         'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
         'planTitle': data['planTitle'] ?? "Free Run",
-        'elevation': 118.0, // Mock - add real data later if needed
+        'elevation': 118.0, // mock - can be real later
       };
     } catch (e) {
       debugPrint("Error getting last activity: $e");
@@ -178,6 +183,7 @@ class RunController extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getRunHistory() async {
     final user = _auth.currentUser;
     if (user == null) return [];
+
     try {
       final historySnapshot = await _firestore
           .collection('users')
@@ -185,6 +191,7 @@ class RunController extends ChangeNotifier {
           .collection('training_history')
           .orderBy('completedAt', descending: true)
           .get();
+
       return historySnapshot.docs.map((doc) {
         final data = doc.data();
         return {
@@ -206,8 +213,10 @@ class RunController extends ChangeNotifier {
   /* ================= RUN CONTROL ================= */
   Future<void> startRun() async {
     if (_state == RunState.running) return;
+
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
+
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -216,6 +225,7 @@ class RunController extends ChangeNotifier {
         permission == LocationPermission.deniedForever) {
       return;
     }
+
     _state = RunState.running;
     _secondsElapsed = 0;
     _totalDistance = 0.0;
@@ -224,11 +234,15 @@ class RunController extends ChangeNotifier {
     hrHistorySpots.clear();
     paceHistorySpots.clear();
     lastVideoUrl = null;
+
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
+
     if (isVoiceEnabled) {
-      await _voice.speak("Run started! Good luck. I'll announce every kilometer.");
+      debugPrint("Voice: Run started");
+      await _voice.runStarted();
     }
+
     _startTimer();
     _startLocationUpdates();
     notifyListeners();
@@ -237,12 +251,24 @@ class RunController extends ChangeNotifier {
   void pauseRun() {
     if (_state != RunState.running) return;
     _state = RunState.paused;
+
+    if (isVoiceEnabled) {
+      debugPrint("Voice: Run paused");
+      _voice.runPaused();
+    }
+
     notifyListeners();
   }
 
   void resumeRun() {
     if (_state != RunState.paused) return;
     _state = RunState.running;
+
+    if (isVoiceEnabled) {
+      debugPrint("Voice: Run resumed");
+      _voice.runResumed();
+    }
+
     notifyListeners();
   }
 
@@ -250,6 +276,7 @@ class RunController extends ChangeNotifier {
     _state = RunState.idle;
     _timer?.cancel();
     _positionStream?.cancel();
+
     final user = _auth.currentUser;
     if (user == null) {
       if (context.mounted) {
@@ -259,6 +286,7 @@ class RunController extends ChangeNotifier {
       }
       return;
     }
+
     try {
       await _firestore
           .collection('users')
@@ -271,12 +299,21 @@ class RunController extends ChangeNotifier {
         'pace': paceString,
         'completedAt': FieldValue.serverTimestamp(),
       });
+
       historyDistance += _totalDistance / 1000;
       runStreak += 1;
       await refreshHistoryStats();
+
       final aiPost = _generateAIPost(planTitle);
       final gifUrl = _getRandomMotivationalGif();
+
       await finalizeProPost(aiPost, gifUrl, planTitle: planTitle);
+
+      if (isVoiceEnabled) {
+        debugPrint("Voice: Run stopped");
+        await _voice.runStopped();
+      }
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -293,6 +330,7 @@ class RunController extends ChangeNotifier {
         );
       }
     }
+
     _lastAnnouncedKm = 0;
     _previousKmPace = 0.0;
     notifyListeners();
@@ -304,6 +342,7 @@ class RunController extends ChangeNotifier {
     final time = durationString;
     final pace = paceString;
     final calories = totalCalories;
+
     final templates = [
       "Crushed $distance KM in $time at $pace pace! Torched $calories kcal 🔥 Beast mode activated.",
       "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪",
@@ -311,12 +350,16 @@ class RunController extends ChangeNotifier {
       "From start to finish — $distance KM smashed! Time $time, pace $pace. The grind continues 🏃‍♂️✨",
       "Logged $distance KM today at $pace pace in $time. $calories kcal down. Keep stacking wins!",
     ];
+
     final index = DateTime.now().millisecond % templates.length;
     String post = templates[index];
+
     if (planTitle != "Free Run") {
       post += "\nCrushed the $planTitle session!";
     }
+
     post += "\n\n#MajurunPro #RunStrong #FitnessJourney #${distance.replaceAll('.', '')}KM";
+
     return post;
   }
 
@@ -337,10 +380,12 @@ class RunController extends ChangeNotifier {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (_state == RunState.running) {
         _secondsElapsed++;
+
         final currentKm = (_totalDistance / 1000).floor();
         if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
           await Future.delayed(const Duration(milliseconds: 300));
           await _voice.announceKm(currentKm);
+
           final currentPaceMinKm = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
           if (_previousKmPace > 0) {
             String advice;
@@ -358,6 +403,7 @@ class RunController extends ChangeNotifier {
           _previousKmPace = currentPaceMinKm;
           _lastAnnouncedKm = currentKm;
         }
+
         totalCalories = ((_totalDistance / 1000) * 65).round();
         if (_secondsElapsed % 10 == 0) _recordPerformanceSnapshot();
         notifyListeners();
@@ -381,6 +427,7 @@ class RunController extends ChangeNotifier {
       ),
     ).listen((position) {
       if (_state != RunState.running) return;
+
       if (_currentPosition != null) {
         _totalDistance += Geolocator.distanceBetween(
           _currentPosition!.latitude,
@@ -389,6 +436,7 @@ class RunController extends ChangeNotifier {
           position.longitude,
         );
       }
+
       _currentPosition = position;
       _routePoints.add(LatLng(position.latitude, position.longitude));
       _updatePolylines();
@@ -423,15 +471,28 @@ class RunController extends ChangeNotifier {
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
+
     final data = {
       'userId': user.uid,
+      'username': user.displayName ?? 'Runner',
       'content': aiContent,
-      'videoUrl': videoUrl,
+      'media': [
+        {
+          'url': videoUrl,
+          'type': 'image',
+        }
+      ],
+      'createdAt': FieldValue.serverTimestamp(),
+      'likes': [],
       'planTitle': planTitle ?? "Free Run",
+      'distance': double.tryParse(distanceString) ?? 0.0,
+      'avgBpm': currentBpm,
       'timestamp': FieldValue.serverTimestamp(),
     };
+
     try {
       await postRepo.add(data);
+      debugPrint("Auto-post SUCCESS to 'posts'");
     } catch (e) {
       debugPrint("finalizeProPost error: $e");
       rethrow;
