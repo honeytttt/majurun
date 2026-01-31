@@ -107,6 +107,7 @@ class RunController extends ChangeNotifier {
   }) async {
     try {
       debugPrint("🎬 RunController: Stopping run");
+      debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
       
       // Stop the run first (this keeps the data)
       stateController.stopRun();
@@ -121,6 +122,7 @@ class RunController extends ChangeNotifier {
       final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
 
       debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");
+      debugPrint("📍 Route points: ${finalRoutePoints.length}");
 
       // Save to history
       await statsController.saveRunHistory(
@@ -139,9 +141,10 @@ class RunController extends ChangeNotifier {
         finalPace,
         finalCalories,
       );
-      debugPrint("✅ AI post generated");
+      debugPrint("✅ AI post generated: $aiPost");
 
-      // Create auto post
+      // Create auto post WITH map image
+      debugPrint("📝 Creating auto post with map image...");
       await postController.createAutoPost(
         aiContent: aiPost,
         routePoints: finalRoutePoints,
@@ -149,7 +152,7 @@ class RunController extends ChangeNotifier {
         pace: finalPace,
         bpm: stateController.currentBpm,
         planTitle: planTitle,
-        mapImageBytes: mapImageBytes,
+        mapImageBytes: mapImageBytes, // Pass the map image bytes
       );
       debugPrint("✅ Auto post created");
 
@@ -161,6 +164,7 @@ class RunController extends ChangeNotifier {
       debugPrint("✅ RunController: Stop complete");
     } catch (e) {
       debugPrint("❌ RunController: Error stopping run: $e");
+      debugPrint("Stack trace: ${StackTrace.current}");
       // Still reset even if there's an error
       stateController.resetRun();
       notifyListeners();

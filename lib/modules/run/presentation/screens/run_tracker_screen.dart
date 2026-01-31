@@ -219,39 +219,12 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         await runController.startRun();
         
         if (context.mounted) {
-          Navigator.pop(context); // Dismiss loading
-          
-          // Show success feedback
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("🏃 Run started! GPS tracking active"),
-              duration: Duration(seconds: 2),
-              backgroundColor: Colors.green,
-            ),
-          );
+          Navigator.pop(context); // Dismiss loading - NO SUCCESS MESSAGE
         }
       } else if (currentState == RunState.running) {
         runController.pauseRun();
-        
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("⏸️ Run paused"),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
       } else if (currentState == RunState.paused) {
         runController.resumeRun();
-        
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("▶️ Run resumed"),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -274,18 +247,43 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Future<void> _handleStopRun(BuildContext context) async {
-    Uint8List? mapImageBytes;
-    await Future.delayed(const Duration(milliseconds: 400));
+    final runController = Provider.of<RunController>(context, listen: false);
     
-    if (_mapKey.currentContext != null) {
-      final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary != null) {
-        final image = await boundary.toImage(pixelRatio: 3.0);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData != null) {
-          mapImageBytes = byteData.buffer.asUint8List();
+    // Don't try to stop if not running or paused
+    if (runController.state == RunState.idle) return;
+
+    Uint8List? mapImageBytes;
+    
+    // Try to capture map image if we have route points
+    if (runController.routePoints.isNotEmpty) {
+      debugPrint("📸 Attempting to capture map image with ${runController.routePoints.length} points");
+      
+      try {
+        // Give a moment for the map to render
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (_mapKey.currentContext != null) {
+          final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
+          if (boundary != null) {
+            final image = await boundary.toImage(pixelRatio: 3.0);
+            final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+            if (byteData != null) {
+              mapImageBytes = byteData.buffer.asUint8List();
+              debugPrint("✅ Map image captured: ${mapImageBytes.length} bytes");
+            } else {
+              debugPrint("⚠️ Failed to convert image to bytes");
+            }
+          } else {
+            debugPrint("⚠️ Boundary is null");
+          }
+        } else {
+          debugPrint("⚠️ Map context is null");
         }
+      } catch (e) {
+        debugPrint("❌ Error capturing map: $e");
       }
+    } else {
+      debugPrint("⚠️ No route points to capture");
     }
     
     if (!context.mounted) return;
@@ -310,7 +308,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
 
     try {
-      await Provider.of<RunController>(context, listen: false).stopRun(
+      await runController.stopRun(
         context,
         planTitle: "Free Run",
         mapImageBytes: mapImageBytes,
