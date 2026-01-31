@@ -18,7 +18,7 @@ class RunActivity {
   });
 
   String get formattedPace {
-    if (distanceKm == 0) return "0:00";
+    if (distanceKm <= 0) return "0:00";
     double paceDecimal = duration.inMinutes / distanceKm;
     int minutes = paceDecimal.floor();
     int seconds = ((paceDecimal - minutes) * 60).round();

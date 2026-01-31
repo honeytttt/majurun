@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_summary_screen.dart'; // Added
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
 class RunTrackerScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   Widget build(BuildContext context) {
     return Consumer<RunController>(
       builder: (context, controller, child) {
+        // Dynamic pulse speed based on BPM
         if (controller.state == RunState.running) {
           double speedFactor = (controller.currentBpm / 80).clamp(0.8, 2.5);
           _pulseController.duration = Duration(milliseconds: (1200 / speedFactor).round());
@@ -101,6 +103,9 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildControlCenter(BuildContext context, RunController controller) {
+    bool isIdle = controller.state == RunState.idle;
+    bool isStopped = controller.state == RunState.stopped;
+
     return Column(
       children: [
         AnimatedBuilder(
@@ -121,56 +126,60 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: controller.state == RunState.running
-                    ? Colors.orange
-                    : controller.state == RunState.paused
-                        ? Colors.blue
-                        : Colors.green,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                if (controller.state == RunState.idle) {
-                  controller.startRun();
-                } else if (controller.state == RunState.running) {
-                  controller.pauseRun();
-                } else if (controller.state == RunState.paused) {
-                  controller.resumeRun();
-                }
-              },
-              child: Text(
-                controller.state == RunState.running
-                    ? "PAUSE"
-                    : controller.state == RunState.paused
-                        ? "RESUME"
-                        : "START",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
-            if (controller.state != RunState.idle)
+            // PRIMARY BUTTON: Start / Pause / Resume
+            if (!isStopped) 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: controller.state == RunState.running
+                      ? Colors.orange
+                      : controller.state == RunState.paused
+                          ? Colors.blue
+                          : Colors.green,
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () => controller.stopRun(context),
-                child: const Text(
-                  "STOP",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Colors.white,
-                  ),
+                onPressed: () {
+                  if (isIdle) {
+                    controller.startRun();
+                  } else if (controller.state == RunState.running) {
+                    controller.pauseRun();
+                  } else if (controller.state == RunState.paused) {
+                    controller.resumeRun();
+                  }
+                },
+                child: Text(
+                  controller.state == RunState.running ? "PAUSE" : (isIdle ? "START" : "RESUME"),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
                 ),
               ),
+            
+            // SECONDARY BUTTON: Stop or View Summary
+            if (!isIdle) ...[
+              const SizedBox(width: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isStopped ? Colors.black : Colors.red.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  if (isStopped) {
+                    // Navigate to Summary manually if auto-nav fails
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => RunSummaryScreen(controller: controller)));
+                  } else {
+                    await controller.stopRun(context);
+                    // Automatic transition to summary
+                    if (context.mounted) {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => RunSummaryScreen(controller: controller)));
+                    }
+                  }
+                },
+                child: Text(
+                  isStopped ? "SUMMARY" : "STOP",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                ),
+              ),
+            ],
           ],
         ),
       ],
@@ -228,48 +237,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         width: double.infinity,
         height: 55,
         child: ElevatedButton(
-          onPressed: () async {
-            showDialog(
-              context: context,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
-              barrierDismissible: false,
-            );
-
-            try {
-              final runController = Provider.of<RunController>(context, listen: false);
-              final lastRun = await runController.getLastActivity();
-
-              if (context.mounted) {
-                Navigator.pop(context);
-
-                if (lastRun != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LastActivityScreen(lastRun: lastRun),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("No activities found yet!"),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                }
-              }
-            } catch (e) {
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Error: ${e.toString()}"),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            }
-          },
+          onPressed: () => _handleLastActivity(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.black,
             foregroundColor: Colors.white,
@@ -281,18 +249,29 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             children: [
               Icon(Icons.bolt, color: Colors.amber),
               SizedBox(width: 8),
-              Text(
-                "VIEW LAST ACTIVITY",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              Text("VIEW LAST ACTIVITY", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5)),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleLastActivity(BuildContext context) async {
+    showDialog(context: context, builder: (_) => const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+    try {
+      final runController = Provider.of<RunController>(context, listen: false);
+      final lastRun = await runController.getLastActivity();
+      if (context.mounted) {
+        Navigator.pop(context);
+        if (lastRun != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => LastActivityScreen(lastRun: lastRun)));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No activities found yet!")));
+        }
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+    }
   }
 }

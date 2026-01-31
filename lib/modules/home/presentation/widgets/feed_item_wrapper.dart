@@ -20,16 +20,18 @@ class FeedItemWrapper extends StatelessWidget {
     final isOwnPost = currentUserId != null && post.userId == currentUserId;
     final isLiked = currentUserId != null && post.likes.contains(currentUserId);
     final isRepost = post.quotedPostId != null && post.content.trim().isEmpty;
+    
+    final bool isRunPost = post.routePoints != null && post.routePoints!.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0.5,
       color: Colors.white,
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- Header Section ---
           ListTile(
             leading: const CircleAvatar(
               backgroundColor: Colors.blueGrey,
@@ -68,7 +70,6 @@ class FeedItemWrapper extends StatelessWidget {
                 : null,
           ),
 
-          // --- Post Text Content ---
           if (post.content.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -78,28 +79,20 @@ class FeedItemWrapper extends StatelessWidget {
               ),
             ),
 
-          // --- NEW: Run Map Preview (If it's a Run Activity) ---
-          if (post.routePoints != null && post.routePoints!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: RunMapPreview(points: post.routePoints!),
-            ),
-
-          // --- Media / Images Section ---
-          if (post.media.isNotEmpty)
+          if (isRunPost)
+            _buildRunActivityDisplay(context)
+          else if (post.media.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
               child: _buildMedia(context, post.media.first),
             ),
 
-          // --- Quoted Post Section ---
           if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: QuotedPostPreview(postId: post.quotedPostId!),
             ),
 
-          // --- Actions Bar (Like, Comment, Share) ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -107,7 +100,6 @@ class FeedItemWrapper extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    // Like Button
                     IconButton(
                       icon: Icon(
                         isLiked ? Icons.favorite : Icons.favorite_border,
@@ -124,7 +116,6 @@ class FeedItemWrapper extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     
-                    // Comment Button
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_outline, size: 20),
                       onPressed: () {
@@ -150,7 +141,6 @@ class FeedItemWrapper extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    // Repost Button
                     IconButton(
                       icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
                       onPressed: currentUserId != null
@@ -166,7 +156,6 @@ class FeedItemWrapper extends StatelessWidget {
                             }
                           : () => _showLoginSnack(context),
                     ),
-                    // Share Button
                     IconButton(
                       icon: const Icon(Icons.share_outlined, size: 22),
                       onPressed: () => _sharePost(context),
@@ -182,6 +171,61 @@ class FeedItemWrapper extends StatelessWidget {
     );
   }
 
+  Widget _buildRunActivityDisplay(BuildContext context) {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            SizedBox(
+              height: 250,
+              width: double.infinity,
+              child: RunMapPreview(points: post.routePoints!),
+            ),
+            // FIXED: Using .withValues instead of .withOpacity
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
+                border: const Border(top: BorderSide(color: Color(0xFF00E676), width: 3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _miniStat("KM", _extractStat(post.content, "KM")),
+                  _miniStat("TIME", _extractStat(post.content, "@", isTime: true)),
+                  _miniStat("PACE", _extractStat(post.content, "pace")),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _miniStat(String label, String value) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  String _extractStat(String content, String key, {bool isTime = false}) {
+    try {
+      if (key == "KM") return content.split("KM")[0].split(":").last.trim();
+      if (key == "pace") return content.split("pace")[0].split("@").last.trim();
+      return "--";
+    } catch (e) {
+      return "--";
+    }
+  }
+
+  // --- Utility Methods (Existing) ---
   void _showLoginSnack(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Please login to perform this action")),

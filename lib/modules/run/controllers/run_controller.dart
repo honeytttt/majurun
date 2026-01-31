@@ -2,512 +2,218 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/modules/run/services/voice_announcer.dart';
+import '../../home/data/repositories/post_repository_impl.dart';
+import '../../home/domain/entities/post.dart';
+import 'voice_announcer.dart';
+import 'stats_controller.dart';
+import 'package:uuid/uuid.dart';
 
-enum RunState { idle, running, paused }
-
-class ChartDataSpot {
-  final double x;
-  final double y;
-  const ChartDataSpot(this.x, this.y);
-}
-
-class RunAppPost {
-  final String id;
-  final String content;
-  final String? videoUrl;
-  final Timestamp timestamp;
-
-  RunAppPost({
-    required this.id,
-    required this.content,
-    this.videoUrl,
-    required this.timestamp,
-  });
-
-  factory RunAppPost.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return RunAppPost(
-      id: doc.id,
-      content: data['content'] ?? '',
-      videoUrl: data['videoUrl'],
-      timestamp: data['timestamp'] ?? Timestamp.now(),
-    );
-  }
-}
+enum RunState { idle, running, paused, stopped }
 
 class RunController extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final VoiceAnnouncer _announcer = VoiceAnnouncer();
+  final StatsController _stats = StatsController();
+  final PostRepositoryImpl _postRepo = PostRepositoryImpl();
 
-  CollectionReference<Map<String, dynamic>> get postRepo =>
-      _firestore.collection('posts');
+  RunState state = RunState.idle;
+  bool isVoiceEnabled = true;
 
-  /* ================= STATE ================= */
-  RunState _state = RunState.idle;
-  RunState get state => _state;
-
-  Position? _currentPosition;
-  LatLng? get currentLatLng => _currentPosition == null
-      ? null
-      : LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
-
-  double _totalDistance = 0.0;
-  int _secondsElapsed = 0;
+  double distance = 0.0;
+  int durationSeconds = 0;
+  int currentBpm = 0;
+  int totalCalories = 0;
+  List<LatLng> routePoints = [];
 
   Timer? _timer;
   StreamSubscription<Position>? _positionStream;
+  Position? _lastPosition;
 
-  final List<LatLng> _routePoints = [];
-  List<LatLng> get routePoints => List.unmodifiable(_routePoints);
-
-  final Set<Polyline> _polylines = {};
-  Set<Polyline> get polylines => _polylines;
-
-  final List<ChartDataSpot> hrHistorySpots = [];
-  final List<ChartDataSpot> paceHistorySpots = [];
-
+  List<ChartSpot> hrHistorySpots = [];
+  List<ChartSpot> paceHistorySpots = [];
   String? lastVideoUrl;
-  int currentBpm = 145;
-  int totalCalories = 0;
-  bool isVoiceEnabled = true;
 
-  double historyDistance = 0.0;
-  int runStreak = 0;
-
-  // Voice
-  final VoiceAnnouncer _voice = VoiceAnnouncer();
-  int _lastAnnouncedKm = 0;
-  double _previousKmPace = 0.0;
-
-  /* ================= GETTERS ================= */
-  String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
-
+  // --- UI Getters ---
+  String get distanceString => distance.toStringAsFixed(2);
   String get durationString {
-    final mins = _secondsElapsed ~/ 60;
-    final secs = _secondsElapsed % 60;
-    return "${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
+    int h = durationSeconds ~/ 3600;
+    int m = (durationSeconds % 3600) ~/ 60;
+    int s = durationSeconds % 60;
+    return h > 0 
+      ? "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}"
+      : "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
   }
-
-  double get averageSpeedMs =>
-      _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
-
   String get paceString {
-    if (averageSpeedMs < 0.5) return "0:00";
-    final paceMinKm = 16.666666 / averageSpeedMs;
-    final minutes = paceMinKm.floor();
-    final seconds = ((paceMinKm - minutes) * 60).round();
+    if (distance <= 0.05) return "0:00";
+    double pace = (durationSeconds / 60) / distance;
+    int minutes = pace.toInt();
+    int seconds = ((pace - minutes) * 60).toInt();
     return "$minutes:${seconds.toString().padLeft(2, '0')}";
   }
 
-  int totalRuns = 0;
-  String totalHistoryTimeStr = "00:00:00";
-
-  /* ================= FIRESTORE HELPERS ================= */
-  Stream<List<RunAppPost>> getPostStream() {
-    return postRepo.orderBy('timestamp', descending: true).snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => RunAppPost.fromFirestore(doc))
-              .toList(),
-        );
-  }
-
-  Future<void> refreshHistoryStats() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    final history = await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('training_history')
-        .get();
-
-    totalRuns = history.docs.length;
-
-    int totalSec = history.docs.fold<int>(
-        0,
-        (prev, doc) => prev + (doc.data()['durationSeconds'] as int? ?? 0));
-
-    final hours = totalSec ~/ 3600;
-    final minutes = (totalSec % 3600) ~/ 60;
-    final seconds = totalSec % 60;
-
-    totalHistoryTimeStr =
-        "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
-
-    notifyListeners();
-  }
-
-  // ======================================
-  //  MISSING METHODS - ADDED BACK HERE
-  // ======================================
-
-  Future<Map<String, dynamic>?> getLastActivity() async {
-    final user = _auth.currentUser;
-    if (user == null) return null;
-
-    try {
-      final historySnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('training_history')
-          .orderBy('completedAt', descending: true)
-          .limit(1)
-          .get();
-
-      if (historySnapshot.docs.isEmpty) return null;
-
-      final lastRun = historySnapshot.docs.first;
-      final data = lastRun.data();
-
-      String pace = data['pace']?.toString() ?? "8:15";
-
-      return {
-        'id': lastRun.id,
-        'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
-        'durationSeconds': data['durationSeconds'] as int? ?? 0,
-        'pace': pace,
-        'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
-        'planTitle': data['planTitle'] ?? "Free Run",
-        'elevation': 118.0, // mock - can be real later
-      };
-    } catch (e) {
-      debugPrint("Error getting last activity: $e");
-      return null;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getRunHistory() async {
-    final user = _auth.currentUser;
-    if (user == null) return [];
-
-    try {
-      final historySnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('training_history')
-          .orderBy('completedAt', descending: true)
-          .get();
-
-      return historySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
-          'durationSeconds': data['durationSeconds'] as int? ?? 0,
-          'pace': data['pace']?.toString() ?? "8:00",
-          'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
-          'planTitle': data['planTitle'] ?? "Free Run",
-        };
-      }).toList();
-    } catch (e) {
-      debugPrint("Error getting run history: $e");
-      return [];
-    }
-  }
-
-  /* ================= RUN CONTROL ================= */
-  Future<void> startRun() async {
-    if (_state == RunState.running) return;
-
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return;
-    }
-
-    _state = RunState.running;
-    _secondsElapsed = 0;
-    _totalDistance = 0.0;
-    _routePoints.clear();
-    _polylines.clear();
-    hrHistorySpots.clear();
-    paceHistorySpots.clear();
-    lastVideoUrl = null;
-
-    _lastAnnouncedKm = 0;
-    _previousKmPace = 0.0;
-
-    if (isVoiceEnabled) {
-      debugPrint("Voice: Run started");
-      await _voice.runStarted();
-    }
-
-    _startTimer();
-    _startLocationUpdates();
-    notifyListeners();
-  }
-
-  void pauseRun() {
-    if (_state != RunState.running) return;
-    _state = RunState.paused;
-
-    if (isVoiceEnabled) {
-      debugPrint("Voice: Run paused");
-      _voice.runPaused();
-    }
-
-    notifyListeners();
-  }
-
-  void resumeRun() {
-    if (_state != RunState.paused) return;
-    _state = RunState.running;
-
-    if (isVoiceEnabled) {
-      debugPrint("Voice: Run resumed");
-      _voice.runResumed();
-    }
-
-    notifyListeners();
-  }
-
-  Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
-    _state = RunState.idle;
-    _timer?.cancel();
-    _positionStream?.cancel();
-
-    final user = _auth.currentUser;
-    if (user == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Not signed in – run not saved")),
-        );
-      }
-      return;
-    }
-
-    try {
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('training_history')
-          .add({
-        'planTitle': planTitle,
-        'distanceKm': _totalDistance / 1000,
-        'durationSeconds': _secondsElapsed,
-        'pace': paceString,
-        'completedAt': FieldValue.serverTimestamp(),
-      });
-
-      historyDistance += _totalDistance / 1000;
-      runStreak += 1;
-      await refreshHistoryStats();
-
-      final aiPost = _generateAIPost(planTitle);
-      final gifUrl = _getRandomMotivationalGif();
-
-      await finalizeProPost(aiPost, gifUrl, planTitle: planTitle);
-
-      if (isVoiceEnabled) {
-        debugPrint("Voice: Run stopped");
-        await _voice.runStopped();
-      }
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Run complete & auto-shared! $distanceString KM posted 🔥"),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    } catch (e, stack) {
-      debugPrint("Error in stopRun: $e\n$stack");
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving/posting run: $e")),
-        );
-      }
-    }
-
-    _lastAnnouncedKm = 0;
-    _previousKmPace = 0.0;
-    notifyListeners();
-  }
-
-  /* ================= AI POST GENERATION ================= */
-  String _generateAIPost(String planTitle) {
-    final distance = distanceString;
-    final time = durationString;
-    final pace = paceString;
-    final calories = totalCalories;
-
-    final templates = [
-      "Crushed $distance KM in $time at $pace pace! Torched $calories kcal 🔥 Beast mode activated.",
-      "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪",
-      "Another solid session: $distance KM done in $time with $pace pace. $calories kcal burned. Progress never stops!",
-      "From start to finish — $distance KM smashed! Time $time, pace $pace. The grind continues 🏃‍♂️✨",
-      "Logged $distance KM today at $pace pace in $time. $calories kcal down. Keep stacking wins!",
-    ];
-
-    final index = DateTime.now().millisecond % templates.length;
-    String post = templates[index];
-
-    if (planTitle != "Free Run") {
-      post += "\nCrushed the $planTitle session!";
-    }
-
-    post += "\n\n#MajurunPro #RunStrong #FitnessJourney #${distance.replaceAll('.', '')}KM";
-
-    return post;
-  }
-
-  String _getRandomMotivationalGif() {
-    final gifs = [
-      "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
-      "https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif",
-      "https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif",
-      "https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif",
-      "https://media.giphy.com/media/l41lLuYtK4J8tXb8Q/giphy.gif",
-    ];
-    return gifs[DateTime.now().millisecond % gifs.length];
-  }
-
-  /* ================= INTERNAL ================= */
-  void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_state == RunState.running) {
-        _secondsElapsed++;
-
-        final currentKm = (_totalDistance / 1000).floor();
-        if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
-          await Future.delayed(const Duration(milliseconds: 300));
-          await _voice.announceKm(currentKm);
-
-          final currentPaceMinKm = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
-          if (_previousKmPace > 0) {
-            String advice;
-            final diff = currentPaceMinKm - _previousKmPace;
-            if (diff < -0.15) {
-              advice = "You're getting faster! Excellent work!";
-            } else if (diff > 0.15) {
-              advice = "Try to pick up the pace a little.";
-            } else {
-              advice = "Solid steady pace. Keep it up!";
-            }
-            await Future.delayed(const Duration(milliseconds: 300));
-            await _voice.speak(advice);
-          }
-          _previousKmPace = currentPaceMinKm;
-          _lastAnnouncedKm = currentKm;
-        }
-
-        totalCalories = ((_totalDistance / 1000) * 65).round();
-        if (_secondsElapsed % 10 == 0) _recordPerformanceSnapshot();
-        notifyListeners();
-      }
-    });
-  }
-
-  void _recordPerformanceSnapshot() {
-    final x = _secondsElapsed / 60.0;
-    hrHistorySpots.add(ChartDataSpot(x, currentBpm.toDouble()));
-    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
-    paceHistorySpots.add(ChartDataSpot(x, paceValue));
-  }
-
-  void _startLocationUpdates() {
-    _positionStream?.cancel();
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
-    ).listen((position) {
-      if (_state != RunState.running) return;
-
-      if (_currentPosition != null) {
-        _totalDistance += Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          position.latitude,
-          position.longitude,
-        );
-      }
-
-      _currentPosition = position;
-      _routePoints.add(LatLng(position.latitude, position.longitude));
-      _updatePolylines();
-      notifyListeners();
-    });
-  }
-
-  void _updatePolylines() {
-    _polylines
-      ..clear()
-      ..add(
-        Polyline(
-          polylineId: const PolylineId('run_route'),
-          points: List.from(_routePoints),
-          color: Colors.blueAccent,
-          width: 6,
-        ),
-      );
-  }
-
-  /* ================= MEDIA ================= */
-  Future<void> generateVeoVideo() async {
-    await Future.delayed(const Duration(seconds: 2));
-    lastVideoUrl = "https://example.com/replay.mp4";
-    notifyListeners();
-  }
-
-  Future<void> finalizeProPost(
-    String aiContent,
-    String videoUrl, {
-    String? planTitle,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    final data = {
-      'userId': user.uid,
-      'username': user.displayName ?? 'Runner',
-      'content': aiContent,
-      'media': [
-        {
-          'url': videoUrl,
-          'type': 'image',
-        }
-      ],
-      'createdAt': FieldValue.serverTimestamp(),
-      'likes': [],
-      'planTitle': planTitle ?? "Free Run",
-      'distance': double.tryParse(distanceString) ?? 0.0,
-      'avgBpm': currentBpm,
-      'timestamp': FieldValue.serverTimestamp(),
-    };
-
-    try {
-      await postRepo.add(data);
-      debugPrint("Auto-post SUCCESS to 'posts'");
-    } catch (e) {
-      debugPrint("finalizeProPost error: $e");
-      rethrow;
-    }
-  }
+  // --- Proxied Stats ---
+  double get historyDistance => _stats.historyDistance;
+  int get runStreak => _stats.runStreak;
+  int get totalRuns => _stats.totalRuns;
+  String get totalHistoryTimeStr => _stats.totalHistoryTimeStr;
 
   void toggleVoice() {
     isVoiceEnabled = !isVoiceEnabled;
     notifyListeners();
   }
 
-  @override
-  void dispose() {
+  Future<List<Map<String, dynamic>>> getRunHistory() => _stats.getRunHistory();
+  Future<Map<String, dynamic>?> getLastActivity() => _stats.getLastActivity();
+
+  Future<void> speakSummary() async {
+    if (isVoiceEnabled) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _announcer.announceSummary(distance, durationSeconds, "Run Completed");
+    }
+  }
+
+  Future<void> saveRunToHistory({String? planTitle}) async {
+    await _stats.saveRunHistory(
+      planTitle: planTitle ?? "Free Run",
+      distanceKm: distance,
+      durationSeconds: durationSeconds,
+      pace: paceString,
+    );
+    notifyListeners();
+  }
+
+  // FIXED: Only ONE definition now. Using interpolation for URL.
+  Future<void> postCurrentRunToFeed({required String caption}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    String mapImageUrl = "";
+    if (routePoints.isNotEmpty) {
+      final String path = "color:0x00E676ff|weight:5|${routePoints.take(20).map((p) => "${p.latitude},${p.longitude}").join("|")}";
+      const String apiKey = "YOUR_API_KEY"; 
+      mapImageUrl = "https://maps.googleapis.com/maps/api/staticmap?size=600x400&path=$path&key=$apiKey";
+    }
+
+    final post = AppPost(
+      id: const Uuid().v4(),
+      userId: user.uid,
+      username: user.displayName ?? "Runner",
+      content: caption,
+      media: mapImageUrl.isNotEmpty 
+          ? [PostMedia(url: mapImageUrl, type: MediaType.image)] 
+          : const [], // Optimized with const
+      createdAt: DateTime.now(),
+      likes: const [], // Optimized with const
+      comments: const [], // Optimized with const
+      routePoints: routePoints,
+    );
+
+    await _postRepo.createPost(
+      post, 
+      numericDistance: distance,
+      type: 'run_complete',
+    );
+    
+    notifyListeners(); 
+  }
+
+  void startRun() {
+    _resetData();
+    state = RunState.running;
+    _startTimer();
+    _startLocationTracking();
+    if (isVoiceEnabled) _announcer.runStarted();
+    notifyListeners();
+  }
+
+  void pauseRun() {
+    state = RunState.paused;
+    _timer?.cancel();
+    _positionStream?.pause();
+    if (isVoiceEnabled) _announcer.runPaused();
+    notifyListeners();
+  }
+
+  void resumeRun() {
+    state = RunState.running;
+    _startTimer();
+    _positionStream?.resume();
+    if (isVoiceEnabled) _announcer.runResumed();
+    notifyListeners();
+  }
+
+  Future<void> stopRun(BuildContext context) async {
     _timer?.cancel();
     _positionStream?.cancel();
-    super.dispose();
+    state = RunState.stopped;
+    if (isVoiceEnabled) {
+       _announcer.speak("Run complete. Total distance $distanceString kilometers.");
+    }
+    notifyListeners();
   }
+
+  void discardRun() {
+    _resetData();
+    state = RunState.idle;
+    notifyListeners();
+  }
+
+  void _resetData() {
+    distance = 0.0;
+    durationSeconds = 0;
+    totalCalories = 0;
+    currentBpm = 0;
+    routePoints.clear();
+    hrHistorySpots.clear();
+    paceHistorySpots.clear();
+    lastVideoUrl = null;
+    _lastPosition = null;
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      durationSeconds++;
+      totalCalories = (distance * 65).toInt();
+      currentBpm = 135 + (durationSeconds % 15);
+      if (durationSeconds % 5 == 0) {
+        hrHistorySpots.add(ChartSpot(durationSeconds.toDouble(), currentBpm.toDouble()));
+        paceHistorySpots.add(ChartSpot(durationSeconds.toDouble(), 5.0));
+      }
+      notifyListeners();
+    });
+  }
+
+  void _startLocationTracking() async {
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
+    ).listen((pos) {
+      if (state == RunState.running) {
+        if (_lastPosition != null) {
+          distance += Geolocator.distanceBetween(_lastPosition!.latitude, _lastPosition!.longitude, pos.latitude, pos.longitude) / 1000;
+        }
+        _lastPosition = pos;
+        routePoints.add(LatLng(pos.latitude, pos.longitude));
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<void> generateVeoVideo() async {
+    lastVideoUrl = "generating";
+    notifyListeners();
+    await Future.delayed(const Duration(seconds: 2));
+    lastVideoUrl = "ready";
+    notifyListeners();
+  }
+
+  Future<void> finalizeProPost(String content, String video, {String? planTitle}) async {
+    _resetData();
+    state = RunState.idle;
+    notifyListeners();
+  }
+}
+
+class ChartSpot {
+  final double x, y;
+  ChartSpot(this.x, this.y);
 }
