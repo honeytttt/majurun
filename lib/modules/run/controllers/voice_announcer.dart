@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 class VoiceAnnouncer {
@@ -14,7 +13,6 @@ class VoiceAnnouncer {
     await _tts!.setSpeechRate(0.5);
     await _tts!.setVolume(1.0);
     await _tts!.setPitch(1.0);
-    debugPrint("TTS initialized");
   }
 
   Future<void> runStarted() async {
@@ -42,11 +40,9 @@ class VoiceAnnouncer {
     await _tts!.speak(text);
   }
 
-  // This method MUST be here — it fixes the error
   Future<void> stopAllSpeech() async {
     if (_tts != null) {
       await _tts!.stop();
-      debugPrint("All TTS speech stopped");
     }
   }
 }

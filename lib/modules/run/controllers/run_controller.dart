@@ -1,18 +1,11 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/modules/run/services/voice_announcer.dart';
-
-enum RunState { idle, running, paused }
-
-class ChartDataSpot {
-  final double x;
-  final double y;
-  const ChartDataSpot(this.x, this.y);
-}
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
+import 'package:majurun/modules/run/controllers/voice_controller.dart';
+import 'package:majurun/modules/run/controllers/post_controller.dart';
+import 'package:majurun/modules/run/controllers/stats_controller.dart';
 
 class RunAppPost {
   final String id;
@@ -39,475 +32,155 @@ class RunAppPost {
 }
 
 class RunController extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final RunStateController stateController = RunStateController();
+  final VoiceController voiceController = VoiceController();
+  final PostController postController = PostController();
+  final StatsController statsController = StatsController();
 
-  CollectionReference<Map<String, dynamic>> get postRepo =>
-      _firestore.collection('posts');
-
-  /* ================= STATE ================= */
-  RunState _state = RunState.idle;
-  RunState get state => _state;
-
-  Position? _currentPosition;
-  LatLng? get currentLatLng => _currentPosition == null
-      ? null
-      : LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
-
-  double _totalDistance = 0.0;
-  int _secondsElapsed = 0;
-
-  Timer? _timer;
-  StreamSubscription<Position>? _positionStream;
-
-  final List<LatLng> _routePoints = [];
-  List<LatLng> get routePoints => List.unmodifiable(_routePoints);
-
-  final Set<Polyline> _polylines = {};
-  Set<Polyline> get polylines => _polylines;
-
-  final List<ChartDataSpot> hrHistorySpots = [];
-  final List<ChartDataSpot> paceHistorySpots = [];
-
-  String? lastVideoUrl;
-  int currentBpm = 145;
-  int totalCalories = 0;
-  bool isVoiceEnabled = true;
-
-  double historyDistance = 0.0;
-  int runStreak = 0;
-
-  // Voice
-  final VoiceAnnouncer _voice = VoiceAnnouncer();
-  int _lastAnnouncedKm = 0;
-  double _previousKmPace = 0.0;
-
-  /* ================= GETTERS ================= */
-  String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
-
-  String get durationString {
-    final mins = _secondsElapsed ~/ 60;
-    final secs = _secondsElapsed % 60;
-    return "${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
+  RunController() {
+    // Listen to state controller changes and propagate them
+    stateController.addListener(_onStateControllerChanged);
   }
 
-  double get averageSpeedMs =>
-      _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
-
-  String get paceString {
-    if (averageSpeedMs < 0.5) return "0:00";
-    final paceMinKm = 16.666666 / averageSpeedMs;
-    final minutes = paceMinKm.floor();
-    final seconds = ((paceMinKm - minutes) * 60).round();
-    return "$minutes:${seconds.toString().padLeft(2, '0')}";
-  }
-
-  int totalRuns = 0;
-  String totalHistoryTimeStr = "00:00:00";
-
-  /* ================= FIRESTORE HELPERS ================= */
-  Stream<List<RunAppPost>> getPostStream() {
-    return postRepo.orderBy('timestamp', descending: true).snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => RunAppPost.fromFirestore(doc))
-              .toList(),
-        );
-  }
-
-  Future<void> refreshHistoryStats() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    final history = await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('training_history')
-        .get();
-
-    totalRuns = history.docs.length;
-
-    int totalSec = history.docs.fold<int>(
-        0,
-        (prev, doc) => prev + (doc.data()['durationSeconds'] as int? ?? 0));
-
-    final hours = totalSec ~/ 3600;
-    final minutes = (totalSec % 3600) ~/ 60;
-    final seconds = totalSec % 60;
-
-    totalHistoryTimeStr =
-        "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
-
+  void _onStateControllerChanged() {
+    // When RunStateController changes, notify RunController listeners
     notifyListeners();
   }
 
-  // ======================================
-  //  MISSING METHODS - ADDED BACK HERE
-  // ======================================
+  RunState get state => stateController.state;
+  String get distanceString => stateController.distanceString;
+  String get durationString => stateController.durationString;
+  String get paceString => stateController.paceString;
+  int get currentBpm => stateController.currentBpm;
+  int get totalCalories => stateController.totalCalories;
+  double get totalDistance => stateController.totalDistance;
+  int get secondsElapsed => stateController.secondsElapsed;
+  List<LatLng> get routePoints => stateController.routePoints;
+  List<ChartDataSpot> get hrHistorySpots => stateController.hrHistorySpots;
+  List<ChartDataSpot> get paceHistorySpots => stateController.paceHistorySpots;
+  String? get lastVideoUrl => stateController.lastVideoUrl;
 
-  Future<Map<String, dynamic>?> getLastActivity() async {
-    final user = _auth.currentUser;
-    if (user == null) return null;
+  double get historyDistance => statsController.historyDistance;
+  int get runStreak => statsController.runStreak;
+  int get totalRuns => statsController.totalRuns;
+  String get totalHistoryTimeStr => statsController.totalHistoryTimeStr;
 
-    try {
-      final historySnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('training_history')
-          .orderBy('completedAt', descending: true)
-          .limit(1)
-          .get();
+  bool get isVoiceEnabled => voiceController.isVoiceEnabled;
+  void toggleVoice() => voiceController.toggleVoice();
 
-      if (historySnapshot.docs.isEmpty) return null;
+  Future<void> generateVeoVideo() async => await postController.generateVeoVideo();
 
-      final lastRun = historySnapshot.docs.first;
-      final data = lastRun.data();
-
-      String pace = data['pace']?.toString() ?? "8:15";
-
-      return {
-        'id': lastRun.id,
-        'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
-        'durationSeconds': data['durationSeconds'] as int? ?? 0,
-        'pace': pace,
-        'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
-        'planTitle': data['planTitle'] ?? "Free Run",
-        'elevation': 118.0, // mock - can be real later
-      };
-    } catch (e) {
-      debugPrint("Error getting last activity: $e");
-      return null;
-    }
+  Future<void> finalizeProPost(String aiContent, String videoUrl, {String? planTitle}) async {
+    await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
   }
 
-  Future<List<Map<String, dynamic>>> getRunHistory() async {
-    final user = _auth.currentUser;
-    if (user == null) return [];
-
-    try {
-      final historySnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('training_history')
-          .orderBy('completedAt', descending: true)
-          .get();
-
-      return historySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'date': (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          'distance': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
-          'durationSeconds': data['durationSeconds'] as int? ?? 0,
-          'pace': data['pace']?.toString() ?? "8:00",
-          'calories': ((data['distanceKm'] as num?)?.toDouble() ?? 0.0 * 65).round(),
-          'planTitle': data['planTitle'] ?? "Free Run",
-        };
-      }).toList();
-    } catch (e) {
-      debugPrint("Error getting run history: $e");
-      return [];
-    }
-  }
-
-  /* ================= RUN CONTROL ================= */
   Future<void> startRun() async {
-    if (_state == RunState.running) return;
-
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    try {
+      debugPrint("🎬 RunController: Starting run");
+      await stateController.startRun();
+      await voiceController.speakRunStarted();
+      notifyListeners(); // Ensure UI updates
+      debugPrint("✅ RunController: Run started successfully");
+    } catch (e) {
+      debugPrint("❌ RunController: Error starting run: $e");
+      rethrow; // Let the UI handle the error
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return;
-    }
-
-    _state = RunState.running;
-    _secondsElapsed = 0;
-    _totalDistance = 0.0;
-    _routePoints.clear();
-    _polylines.clear();
-    hrHistorySpots.clear();
-    paceHistorySpots.clear();
-    lastVideoUrl = null;
-
-    _lastAnnouncedKm = 0;
-    _previousKmPace = 0.0;
-
-    if (isVoiceEnabled) {
-      debugPrint("Voice: Run started");
-      await _voice.runStarted();
-    }
-
-    _startTimer();
-    _startLocationUpdates();
-    notifyListeners();
   }
 
   void pauseRun() {
-    if (_state != RunState.running) return;
-    _state = RunState.paused;
-
-    if (isVoiceEnabled) {
-      debugPrint("Voice: Run paused");
-      _voice.runPaused();
-    }
-
-    notifyListeners();
+    debugPrint("🎬 RunController: Pausing run");
+    stateController.pauseRun();
+    voiceController.speakRunPaused();
+    notifyListeners(); // Ensure UI updates
   }
 
   void resumeRun() {
-    if (_state != RunState.paused) return;
-    _state = RunState.running;
-
-    if (isVoiceEnabled) {
-      debugPrint("Voice: Run resumed");
-      _voice.runResumed();
-    }
-
-    notifyListeners();
+    debugPrint("🎬 RunController: Resuming run");
+    stateController.resumeRun();
+    voiceController.speakRunResumed();
+    notifyListeners(); // Ensure UI updates
   }
 
-  Future<void> stopRun(BuildContext context, {String planTitle = "Free Run"}) async {
-    _state = RunState.idle;
-    _timer?.cancel();
-    _positionStream?.cancel();
-
-    final user = _auth.currentUser;
-    if (user == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Not signed in – run not saved")),
-        );
-      }
-      return;
-    }
-
-    try {
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('training_history')
-          .add({
-        'planTitle': planTitle,
-        'distanceKm': _totalDistance / 1000,
-        'durationSeconds': _secondsElapsed,
-        'pace': paceString,
-        'completedAt': FieldValue.serverTimestamp(),
-      });
-
-      historyDistance += _totalDistance / 1000;
-      runStreak += 1;
-      await refreshHistoryStats();
-
-      final aiPost = _generateAIPost(planTitle);
-      final gifUrl = _getRandomMotivationalGif();
-
-      await finalizeProPost(aiPost, gifUrl, planTitle: planTitle);
-
-      if (isVoiceEnabled) {
-        debugPrint("Voice: Run stopped");
-        await _voice.runStopped();
-      }
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Run complete & auto-shared! $distanceString KM posted 🔥"),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    } catch (e, stack) {
-      debugPrint("Error in stopRun: $e\n$stack");
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving/posting run: $e")),
-        );
-      }
-    }
-
-    _lastAnnouncedKm = 0;
-    _previousKmPace = 0.0;
-    notifyListeners();
-  }
-
-  /* ================= AI POST GENERATION ================= */
-  String _generateAIPost(String planTitle) {
-    final distance = distanceString;
-    final time = durationString;
-    final pace = paceString;
-    final calories = totalCalories;
-
-    final templates = [
-      "Crushed $distance KM in $time at $pace pace! Torched $calories kcal 🔥 Beast mode activated.",
-      "Run complete: $distance KM conquered in $time. Avg pace $pace. Feeling unstoppable 💪",
-      "Another solid session: $distance KM done in $time with $pace pace. $calories kcal burned. Progress never stops!",
-      "From start to finish — $distance KM smashed! Time $time, pace $pace. The grind continues 🏃‍♂️✨",
-      "Logged $distance KM today at $pace pace in $time. $calories kcal down. Keep stacking wins!",
-    ];
-
-    final index = DateTime.now().millisecond % templates.length;
-    String post = templates[index];
-
-    if (planTitle != "Free Run") {
-      post += "\nCrushed the $planTitle session!";
-    }
-
-    post += "\n\n#MajurunPro #RunStrong #FitnessJourney #${distance.replaceAll('.', '')}KM";
-
-    return post;
-  }
-
-  String _getRandomMotivationalGif() {
-    final gifs = [
-      "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
-      "https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif",
-      "https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif",
-      "https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif",
-      "https://media.giphy.com/media/l41lLuYtK4J8tXb8Q/giphy.gif",
-    ];
-    return gifs[DateTime.now().millisecond % gifs.length];
-  }
-
-  /* ================= INTERNAL ================= */
-  void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_state == RunState.running) {
-        _secondsElapsed++;
-
-        final currentKm = (_totalDistance / 1000).floor();
-        if (currentKm > _lastAnnouncedKm && currentKm > 0 && isVoiceEnabled) {
-          await Future.delayed(const Duration(milliseconds: 300));
-          await _voice.announceKm(currentKm);
-
-          final currentPaceMinKm = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
-          if (_previousKmPace > 0) {
-            String advice;
-            final diff = currentPaceMinKm - _previousKmPace;
-            if (diff < -0.15) {
-              advice = "You're getting faster! Excellent work!";
-            } else if (diff > 0.15) {
-              advice = "Try to pick up the pace a little.";
-            } else {
-              advice = "Solid steady pace. Keep it up!";
-            }
-            await Future.delayed(const Duration(milliseconds: 300));
-            await _voice.speak(advice);
-          }
-          _previousKmPace = currentPaceMinKm;
-          _lastAnnouncedKm = currentKm;
-        }
-
-        totalCalories = ((_totalDistance / 1000) * 65).round();
-        if (_secondsElapsed % 10 == 0) _recordPerformanceSnapshot();
-        notifyListeners();
-      }
-    });
-  }
-
-  void _recordPerformanceSnapshot() {
-    final x = _secondsElapsed / 60.0;
-    hrHistorySpots.add(ChartDataSpot(x, currentBpm.toDouble()));
-    final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
-    paceHistorySpots.add(ChartDataSpot(x, paceValue));
-  }
-
-  void _startLocationUpdates() {
-    _positionStream?.cancel();
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
-    ).listen((position) {
-      if (_state != RunState.running) return;
-
-      if (_currentPosition != null) {
-        _totalDistance += Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          position.latitude,
-          position.longitude,
-        );
-      }
-
-      _currentPosition = position;
-      _routePoints.add(LatLng(position.latitude, position.longitude));
-      _updatePolylines();
-      notifyListeners();
-    });
-  }
-
-  void _updatePolylines() {
-    _polylines
-      ..clear()
-      ..add(
-        Polyline(
-          polylineId: const PolylineId('run_route'),
-          points: List.from(_routePoints),
-          color: Colors.blueAccent,
-          width: 6,
-        ),
-      );
-  }
-
-  /* ================= MEDIA ================= */
-  Future<void> generateVeoVideo() async {
-    await Future.delayed(const Duration(seconds: 2));
-    lastVideoUrl = "https://example.com/replay.mp4";
-    notifyListeners();
-  }
-
-  Future<void> finalizeProPost(
-    String aiContent,
-    String videoUrl, {
-    String? planTitle,
+  Future<void> stopRun(BuildContext context, {
+    String planTitle = "Free Run",
+    Uint8List? mapImageBytes,
   }) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    final data = {
-      'userId': user.uid,
-      'username': user.displayName ?? 'Runner',
-      'content': aiContent,
-      'media': [
-        {
-          'url': videoUrl,
-          'type': 'image',
-        }
-      ],
-      'createdAt': FieldValue.serverTimestamp(),
-      'likes': [],
-      'planTitle': planTitle ?? "Free Run",
-      'distance': double.tryParse(distanceString) ?? 0.0,
-      'avgBpm': currentBpm,
-      'timestamp': FieldValue.serverTimestamp(),
-    };
-
     try {
-      await postRepo.add(data);
-      debugPrint("Auto-post SUCCESS to 'posts'");
+      debugPrint("🎬 RunController: Stopping run");
+      
+      // Stop the run first (this keeps the data)
+      stateController.stopRun();
+      await voiceController.speakRunStopped();
+
+      // Get the final stats before resetting
+      final finalDistance = stateController.totalDistance / 1000; // in km
+      final finalDuration = stateController.secondsElapsed;
+      final finalPace = stateController.paceString;
+      final finalCalories = stateController.totalCalories;
+      final finalDistanceString = stateController.distanceString;
+      final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
+
+      debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");
+
+      // Save to history
+      await statsController.saveRunHistory(
+        planTitle: planTitle,
+        distanceKm: finalDistance,
+        durationSeconds: finalDuration,
+        pace: finalPace,
+      );
+      debugPrint("✅ Run saved to history");
+
+      // Generate AI post content
+      final aiPost = postController.generateAIPost(
+        planTitle,
+        finalDistanceString,
+        stateController.durationString,
+        finalPace,
+        finalCalories,
+      );
+      debugPrint("✅ AI post generated");
+
+      // Create auto post
+      await postController.createAutoPost(
+        aiContent: aiPost,
+        routePoints: finalRoutePoints,
+        distance: finalDistanceString,
+        pace: finalPace,
+        bpm: stateController.currentBpm,
+        planTitle: planTitle,
+        mapImageBytes: mapImageBytes,
+      );
+      debugPrint("✅ Auto post created");
+
+      // NOW reset the run data
+      stateController.resetRun();
+      debugPrint("✅ Run data reset");
+
+      notifyListeners(); // Ensure UI updates
+      debugPrint("✅ RunController: Stop complete");
     } catch (e) {
-      debugPrint("finalizeProPost error: $e");
+      debugPrint("❌ RunController: Error stopping run: $e");
+      // Still reset even if there's an error
+      stateController.resetRun();
+      notifyListeners();
       rethrow;
     }
   }
 
-  void toggleVoice() {
-    isVoiceEnabled = !isVoiceEnabled;
-    notifyListeners();
-  }
+  Stream<List<RunAppPost>> getPostStream() => statsController.getPostStream();
+
+  Future<void> refreshHistoryStats() async => await statsController.refreshHistoryStats();
+
+  Future<Map<String, dynamic>?> getLastActivity() async => await statsController.getLastActivity();
+
+  Future<List<Map<String, dynamic>>> getRunHistory() async => await statsController.getRunHistory();
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _positionStream?.cancel();
+    debugPrint("🗑️ Disposing RunController");
+    stateController.removeListener(_onStateControllerChanged);
+    stateController.dispose();
     super.dispose();
   }
 }
