@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class LastActivityScreen extends StatelessWidget {
   final Map<String, dynamic> lastRun;
+  static const String _apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
 
   const LastActivityScreen({super.key, required this.lastRun});
 
@@ -199,29 +201,8 @@ class LastActivityScreen extends StatelessWidget {
               ),
             ),
 
-            // Map Preview (Placeholder)
-            Container(
-              margin: const EdgeInsets.all(20),
-              height: 150,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.map, size: 40, color: Colors.grey),
-                    SizedBox(height: 10),
-                    Text(
-                      "Route Map",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // Map Preview
+            _buildRouteMap(),
           ],
         ),
       ),
@@ -336,5 +317,155 @@ class LastActivityScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildRouteMap() {
+    List<LatLng>? routePoints;
+    try {
+      if (lastRun.containsKey('routePoints') && lastRun['routePoints'] != null) {
+        final points = lastRun['routePoints'];
+        if (points is List<LatLng>) {
+          routePoints = points;
+        } else if (points is List) {
+          routePoints = points.whereType<LatLng>().toList();
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error parsing routePoints: $e');
+    }
+
+    if (routePoints != null && routePoints.length >= 2) {
+      final staticMapUrl = _buildStaticMapUrl(routePoints);
+
+      return Container(
+        margin: const EdgeInsets.all(20),
+        height: 150,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          staticMapUrl,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 150,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+                color: Colors.blue,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey.shade100,
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.map, size: 40, color: Colors.grey),
+                    SizedBox(height: 10),
+                    Text(
+                      "Map unavailable",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(20),
+      height: 150,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.map, size: 40, color: Colors.grey),
+            SizedBox(height: 10),
+            Text(
+              "No Route Data",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _buildStaticMapUrl(List<LatLng> routePoints) {
+    double minLat = routePoints.first.latitude;
+    double maxLat = routePoints.first.latitude;
+    double minLng = routePoints.first.longitude;
+    double maxLng = routePoints.first.longitude;
+
+    for (final point in routePoints) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+
+    final encodedPath = _encodePolyline(routePoints);
+
+    final url = StringBuffer('https://maps.googleapis.com/maps/api/staticmap?');
+    url.write('center=$centerLat,$centerLng');
+    url.write('&size=400x200');
+    url.write('&scale=2');
+    url.write('&maptype=roadmap');
+    url.write('&path=color:0x4285F4FF|weight:4|enc:$encodedPath');
+    url.write('&markers=color:green|size:small|${routePoints.first.latitude},${routePoints.first.longitude}');
+    url.write('&markers=color:red|size:small|${routePoints.last.latitude},${routePoints.last.longitude}');
+    url.write('&key=$_apiKey');
+
+    return url.toString();
+  }
+
+  String _encodePolyline(List<LatLng> points) {
+    final encoded = StringBuffer();
+    int prevLat = 0;
+    int prevLng = 0;
+
+    for (final point in points) {
+      final lat = (point.latitude * 1e5).round();
+      final lng = (point.longitude * 1e5).round();
+
+      _encodeValue(lat - prevLat, encoded);
+      _encodeValue(lng - prevLng, encoded);
+
+      prevLat = lat;
+      prevLng = lng;
+    }
+
+    return encoded.toString();
+  }
+
+  void _encodeValue(int value, StringBuffer encoded) {
+    int v = value < 0 ? ~(value << 1) : (value << 1);
+
+    while (v >= 0x20) {
+      encoded.writeCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    encoded.writeCharCode(v + 63);
   }
 }

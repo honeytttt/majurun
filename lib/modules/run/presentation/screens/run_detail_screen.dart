@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'dart:math' as math;
 
 class RunDetailScreen extends StatefulWidget {
   final Map<String, dynamic> runData;
-  
+  static const String _apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
+
   const RunDetailScreen({super.key, required this.runData});
 
   @override
@@ -14,9 +14,8 @@ class RunDetailScreen extends StatefulWidget {
 }
 
 class _RunDetailScreenState extends State<RunDetailScreen> {
-  String _mapVisualization = 'pace'; // 'pace' or 'elevation'
   String _splitDistance = '1km'; // '1km', '2km', '5km'
-  
+
   @override
   Widget build(BuildContext context) {
     final date = widget.runData['date'] as DateTime;
@@ -25,24 +24,38 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final hours = durationSeconds ~/ 3600;
     final minutes = (durationSeconds % 3600) ~/ 60;
     final seconds = durationSeconds % 60;
-    final timeString = hours > 0 
+    final timeString = hours > 0
         ? "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
         : "$minutes:${seconds.toString().padLeft(2, '0')}";
     final pace = widget.runData['pace'] ?? "0:00";
     final calories = widget.runData['calories'] ?? 0;
     final avgBpm = widget.runData['avgBpm'] ?? widget.runData['bpm'] ?? 0;
-    
+
     // Try different possible keys for route points
     List<LatLng>? routePoints;
-    
-    if (widget.runData.containsKey('routePoints') && widget.runData['routePoints'] != null) {
-      routePoints = widget.runData['routePoints'] as List<LatLng>?;
-    } else if (widget.runData.containsKey('route') && widget.runData['route'] != null) {
-      routePoints = widget.runData['route'] as List<LatLng>?;
-    } else if (widget.runData.containsKey('path') && widget.runData['path'] != null) {
-      routePoints = widget.runData['path'] as List<LatLng>?;
-    }
 
+    if (widget.runData.containsKey('routePoints') && widget.runData['routePoints'] != null) {
+      final points = widget.runData['routePoints'];
+      if (points is List<LatLng>) {
+        routePoints = points;
+      } else if (points is List) {
+        routePoints = points.whereType<LatLng>().toList();
+      }
+    } else if (widget.runData.containsKey('route') && widget.runData['route'] != null) {
+      final points = widget.runData['route'];
+      if (points is List<LatLng>) {
+        routePoints = points;
+      } else if (points is List) {
+        routePoints = points.whereType<LatLng>().toList();
+      }
+    } else if (widget.runData.containsKey('path') && widget.runData['path'] != null) {
+      final points = widget.runData['path'];
+      if (points is List<LatLng>) {
+        routePoints = points;
+      } else if (points is List) {
+        routePoints = points.whereType<LatLng>().toList();
+      }
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -153,32 +166,19 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
 
             const SizedBox(height: 30),
 
-            // Route Map with Visualization Toggle
+            // Route Map
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "ROUTE MAP",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      if (routePoints != null && routePoints.isNotEmpty)
-                        Row(
-                          children: [
-                            _buildMapToggle("Pace", "pace"),
-                            const SizedBox(width: 8),
-                            _buildMapToggle("Elevation", "elevation"),
-                          ],
-                        ),
-                    ],
+                  const Text(
+                    "ROUTE MAP",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                   ),
                   const SizedBox(height: 15),
                   if (routePoints != null && routePoints.isNotEmpty)
@@ -208,10 +208,6 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                         ),
                       ),
                     ),
-                  if (routePoints != null && routePoints.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildMapLegend(),
-                  ],
                 ],
               ),
             ),
@@ -304,96 +300,114 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     );
   }
 
-  Widget _buildMapToggle(String label, String value) {
-    final isSelected = _mapVisualization == value;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _mapVisualization = value;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildRouteMap(List<LatLng> routePoints) {
+    final staticMapUrl = _buildStaticMapUrl(routePoints);
+
     return Container(
       height: 300,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: CustomPaint(
-          painter: ColoredRoutePainter(
-            points: routePoints,
-            visualizationType: _mapVisualization,
-          ),
-          child: Container(),
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        staticMapUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 300,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+              color: Colors.blue,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade100,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.map_outlined, color: Colors.grey.shade400, size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Map unavailable',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildMapLegend() {
-    if (_mapVisualization == 'pace') {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildLegendItem(Colors.green, "Faster Pace"),
-          const SizedBox(width: 20),
-          _buildLegendItem(Colors.red, "Slower Pace"),
-        ],
-      );
-    } else {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildLegendItem(Colors.blue.shade800, "Higher Elevation"),
-          const SizedBox(width: 20),
-          _buildLegendItem(Colors.blue.shade200, "Lower Elevation"),
-        ],
-      );
+  String _buildStaticMapUrl(List<LatLng> routePoints) {
+    double minLat = routePoints.first.latitude;
+    double maxLat = routePoints.first.latitude;
+    double minLng = routePoints.first.longitude;
+    double maxLng = routePoints.first.longitude;
+
+    for (final point in routePoints) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
     }
+
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+
+    final encodedPath = _encodePolyline(routePoints);
+
+    final url = StringBuffer('https://maps.googleapis.com/maps/api/staticmap?');
+    url.write('center=$centerLat,$centerLng');
+    url.write('&size=600x400');
+    url.write('&scale=2');
+    url.write('&maptype=roadmap');
+    url.write('&path=color:0x4285F4FF|weight:4|enc:$encodedPath');
+    url.write('&markers=color:green|size:small|${routePoints.first.latitude},${routePoints.first.longitude}');
+    url.write('&markers=color:red|size:small|${routePoints.last.latitude},${routePoints.last.longitude}');
+    url.write('&key=${RunDetailScreen._apiKey}');
+
+    return url.toString();
   }
 
-  Widget _buildLegendItem(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-          width: 20,
-          height: 4,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
+  String _encodePolyline(List<LatLng> points) {
+    final encoded = StringBuffer();
+    int prevLat = 0;
+    int prevLng = 0;
+
+    for (final point in points) {
+      final lat = (point.latitude * 1e5).round();
+      final lng = (point.longitude * 1e5).round();
+
+      _encodeValue(lat - prevLat, encoded);
+      _encodeValue(lng - prevLng, encoded);
+
+      prevLat = lat;
+      prevLng = lng;
+    }
+
+    return encoded.toString();
+  }
+
+  void _encodeValue(int value, StringBuffer encoded) {
+    int v = value < 0 ? ~(value << 1) : (value << 1);
+
+    while (v >= 0x20) {
+      encoded.writeCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    encoded.writeCharCode(v + 63);
   }
 
   Widget _buildSplitSelector() {
@@ -444,30 +458,30 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final distance = widget.runData['distance'] ?? 0.0;
     final splitKm = _splitDistance == '1km' ? 1.0 : _splitDistance == '2km' ? 2.0 : 5.0;
     final numSplits = (distance / splitKm).ceil();
-    
+
     return Column(
       children: List.generate(numSplits, (index) {
         final splitNum = index + 1;
-        final actualDistance = (splitNum * splitKm > distance) 
-            ? (distance - (index * splitKm)) 
+        final actualDistance = (splitNum * splitKm > distance)
+            ? (distance - (index * splitKm))
             : splitKm;
-        
+
         // Generate sample pace and elevation data
         final basePace = 5 + (index % 3) * 0.5; // minutes per km
         final paceMinutes = basePace.floor();
         final paceSeconds = ((basePace - paceMinutes) * 60).floor();
         final paceString = "$paceMinutes:${paceSeconds.toString().padLeft(2, '0')}";
-        
+
         final elevationChange = (index % 5) * 10 - 20; // -20 to +30 meters
-        final elevationColor = elevationChange > 0 
-            ? Colors.orange.shade700 
-            : elevationChange < 0 
-                ? Colors.blue.shade700 
+        final elevationColor = elevationChange > 0
+            ? Colors.orange.shade700
+            : elevationChange < 0
+                ? Colors.blue.shade700
                 : Colors.grey;
-        
+
         // Pace color: faster = green, slower = red
         final paceColor = basePace < 5.5 ? Colors.green : Colors.red;
-        
+
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(16),
@@ -551,7 +565,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final hours = durationSeconds ~/ 3600;
     final minutes = (durationSeconds % 3600) ~/ 60;
     final seconds = durationSeconds % 60;
-    final timeString = hours > 0 
+    final timeString = hours > 0
         ? "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
         : "$minutes:${seconds.toString().padLeft(2, '0')}";
     final pace = widget.runData['pace'] ?? "0:00";
@@ -567,99 +581,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
 
 Keep running! 🚀
 ''';
-    
-    SharePlus.instance.share(ShareParams(text: shareText));
-  }
-}
 
-// Custom painter for colored route visualization
-class ColoredRoutePainter extends CustomPainter {
-  final List<LatLng> points;
-  final String visualizationType;
-
-  ColoredRoutePainter({
-    required this.points,
-    required this.visualizationType,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
-
-    // Find the bounds of the coordinates
-    double minLat = points.first.latitude;
-    double maxLat = points.first.latitude;
-    double minLng = points.first.longitude;
-    double maxLng = points.first.longitude;
-
-    for (var p in points) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-
-    // Map coordinates to the widget size
-    double latRange = maxLat - minLat;
-    double lngRange = maxLng - minLng;
-    
-    // Maintain aspect ratio
-    double range = latRange > lngRange ? latRange : lngRange;
-    if (range == 0) range = 1;
-
-    final paint = Paint()
-      ..strokeWidth = 5.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    // Draw segments with different colors
-    for (int i = 0; i < points.length - 1; i++) {
-      final progress = i / points.length;
-      
-      // Determine color based on visualization type
-      if (visualizationType == 'pace') {
-        // Pace visualization: green (fast) to red (slow)
-        final paceValue = math.sin(progress * math.pi * 3) * 0.5 + 0.5;
-        paint.color = Color.lerp(Colors.green, Colors.red, paceValue)!;
-      } else {
-        // Elevation visualization: light blue (low) to dark blue (high)
-        final elevationValue = math.sin(progress * math.pi * 2) * 0.5 + 0.5;
-        paint.color = Color.lerp(Colors.blue.shade200, Colors.blue.shade800, elevationValue)!;
-      }
-
-      // Scale points
-      double x1 = (points[i].longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
-      double y1 = (maxLat - points[i].latitude) / range * size.height * 0.9 + size.height * 0.05;
-      double x2 = (points[i + 1].longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
-      double y2 = (maxLat - points[i + 1].latitude) / range * size.height * 0.9 + size.height * 0.05;
-
-      canvas.drawLine(Offset(x1, y1), Offset(x2, y2), paint);
-    }
-
-    // Draw start and end markers
-    final markerPaint = Paint()..style = PaintingStyle.fill;
-    
-    // Start marker (green)
-    double startX = (points.first.longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
-    double startY = (maxLat - points.first.latitude) / range * size.height * 0.9 + size.height * 0.05;
-    markerPaint.color = Colors.green;
-    canvas.drawCircle(Offset(startX, startY), 10, markerPaint);
-    markerPaint.color = Colors.white;
-    canvas.drawCircle(Offset(startX, startY), 5, markerPaint);
-    
-    // End marker (red)
-    double endX = (points.last.longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
-    double endY = (maxLat - points.last.latitude) / range * size.height * 0.9 + size.height * 0.05;
-    markerPaint.color = Colors.red;
-    canvas.drawCircle(Offset(endX, endY), 10, markerPaint);
-    markerPaint.color = Colors.white;
-    canvas.drawCircle(Offset(endX, endY), 5, markerPaint);
-  }
-
-  @override
-  bool shouldRepaint(ColoredRoutePainter oldDelegate) {
-    return oldDelegate.visualizationType != visualizationType ||
-           oldDelegate.points != points;
+    Share.share(shareText);
   }
 }

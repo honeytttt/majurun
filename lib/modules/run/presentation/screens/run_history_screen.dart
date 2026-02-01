@@ -5,7 +5,6 @@ import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart'
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'dart:math' as math;
 
 class RunHistoryScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -16,76 +15,10 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
-  final ScrollController _scrollController = ScrollController();
-  double _scrollOffset = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(() {
-      setState(() {
-        _scrollOffset = _scrollController.offset;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Calculate header opacity based on scroll
-    final headerOpacity = (1 - (_scrollOffset / 200)).clamp(0.0, 1.0);
-    final isCollapsed = _scrollOffset > 100;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: AnimatedOpacity(
-          opacity: isCollapsed ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "MY ",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  fontSize: 16,
-                ),
-              ),
-              Icon(Icons.directions_run, color: Colors.black, size: 18),
-              Text(
-                " HISTORY",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: isCollapsed ? 2 : 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: widget.onBack,
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.black),
-            onPressed: () => _shareHistory(context),
-          ),
-        ],
-      ),
       body: Consumer<RunController>(
         builder: (context, controller, child) {
           return FutureBuilder<List<Map<String, dynamic>>>(
@@ -93,89 +26,92 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             builder: (context, snapshot) {
               final runs = snapshot.data ?? [];
 
-              return ListView(
-                controller: _scrollController,
-                padding: EdgeInsets.zero,
-                children: [
-                  // Animated header that fades out on scroll
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    height: headerOpacity > 0 ? null : 0,
-                    child: Opacity(
-                      opacity: headerOpacity,
-                      child: Container(
-                        color: Colors.white,
-                        child: Column(
-                          children: [
-                            // Title (only when not collapsed)
-                            if (headerOpacity > 0.5)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 16),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      "MY ",
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                    Icon(Icons.directions_run, color: Colors.black, size: 20),
-                                    Text(
-                                      " HISTORY",
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            // Stats header
-                            _buildSummaryHeader(controller),
-                          ],
-                        ),
-                      ),
+              return CustomScrollView(
+                slivers: [
+                  // App Bar
+                  SliverAppBar(
+                    pinned: true,
+                    floating: false,
+                    expandedHeight: 60,
+                    backgroundColor: Colors.white,
+                    elevation: 2,
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      onPressed: widget.onBack,
                     ),
-                  ),
-
-                  // Section divider
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                    child: const Row(
+                    title: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.history, size: 16, color: Colors.grey),
-                        SizedBox(width: 8),
                         Text(
-                          "RECENT ACTIVITIES",
+                          "MY ",
                           style: TextStyle(
-                            color: Colors.grey,
+                            color: Colors.black,
                             fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            letterSpacing: 0.5,
+                            letterSpacing: 1.2,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Icon(Icons.directions_run, color: Colors.black, size: 18),
+                        Text(
+                          " HISTORY",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                            fontSize: 16,
                           ),
                         ),
                       ],
                     ),
+                    centerTitle: true,
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.share, color: Colors.black),
+                        onPressed: () => _shareHistory(context),
+                      ),
+                    ],
                   ),
 
-                  // Run cards
+                  // Summary Header
+                  SliverToBoxAdapter(
+                    child: Container(
+                      color: Colors.white,
+                      child: _buildSummaryHeader(controller),
+                    ),
+                  ),
+
+                  // Section divider
+                  SliverToBoxAdapter(
+                    child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.history, size: 16, color: Colors.grey),
+                          SizedBox(width: 8),
+                          Text(
+                            "RECENT ACTIVITIES",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Content based on state
                   if (snapshot.connectionState == ConnectionState.waiting)
-                    const SizedBox(
-                      height: 400,
+                    const SliverFillRemaining(
                       child: Center(
                         child: CircularProgressIndicator(color: Colors.black),
                       ),
                     )
                   else if (snapshot.hasError)
-                    SizedBox(
-                      height: 400,
+                    SliverFillRemaining(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -191,8 +127,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       ),
                     )
                   else if (runs.isEmpty)
-                    const SizedBox(
-                      height: 400,
+                    const SliverFillRemaining(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -213,15 +148,25 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       ),
                     )
                   else
-                    Padding(
+                    SliverPadding(
                       padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: runs.map((run) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildRunCard(context, run),
-                        )).toList(),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _buildRunCard(context, runs[index]),
+                            );
+                          },
+                          childCount: runs.length,
+                        ),
                       ),
                     ),
+
+                  // Bottom padding
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 20),
+                  ),
                 ],
               );
             },
@@ -522,7 +467,7 @@ Keep running with MajuRun! 💪
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: isProRun 
+                        colors: isProRun
                             ? [Colors.blue.shade400, Colors.blue.shade600]
                             : [Colors.grey.shade700, Colors.grey.shade900],
                         begin: Alignment.topLeft,
@@ -702,6 +647,9 @@ Keep running with MajuRun! 💪
   }
 
   Widget _buildMiniRouteMap(List<LatLng> routePoints) {
+    // Use Google Maps Static API for actual map tiles
+    final staticMapUrl = _buildStaticMapUrl(routePoints);
+
     return Container(
       height: 120,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -710,11 +658,108 @@ Keep running with MajuRun! 💪
         border: Border.all(color: Colors.grey.shade300),
       ),
       clipBehavior: Clip.antiAlias,
-      child: CustomPaint(
-        painter: MiniRoutePainter(routePoints: routePoints),
-        child: Container(),
+      child: Image.network(
+        staticMapUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 120,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+              color: Colors.blue,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade100,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.map_outlined, color: Colors.grey.shade400, size: 32),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Map unavailable',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
+  }
+
+  String _buildStaticMapUrl(List<LatLng> routePoints) {
+    const apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
+
+    // Calculate center
+    double minLat = routePoints.first.latitude;
+    double maxLat = routePoints.first.latitude;
+    double minLng = routePoints.first.longitude;
+    double maxLng = routePoints.first.longitude;
+
+    for (final point in routePoints) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+
+    // Build encoded polyline
+    final encodedPath = _encodePolyline(routePoints);
+
+    final url = StringBuffer('https://maps.googleapis.com/maps/api/staticmap?');
+    url.write('center=$centerLat,$centerLng');
+    url.write('&size=400x150');
+    url.write('&scale=2');
+    url.write('&maptype=roadmap');
+    url.write('&path=color:0x4285F4FF|weight:3|enc:$encodedPath');
+    url.write('&markers=color:green|size:tiny|${routePoints.first.latitude},${routePoints.first.longitude}');
+    url.write('&markers=color:red|size:tiny|${routePoints.last.latitude},${routePoints.last.longitude}');
+    url.write('&key=$apiKey');
+
+    return url.toString();
+  }
+
+  String _encodePolyline(List<LatLng> points) {
+    final encoded = StringBuffer();
+    int prevLat = 0;
+    int prevLng = 0;
+
+    for (final point in points) {
+      final lat = (point.latitude * 1e5).round();
+      final lng = (point.longitude * 1e5).round();
+
+      _encodeValue(lat - prevLat, encoded);
+      _encodeValue(lng - prevLng, encoded);
+
+      prevLat = lat;
+      prevLng = lng;
+    }
+
+    return encoded.toString();
+  }
+
+  void _encodeValue(int value, StringBuffer encoded) {
+    int v = value < 0 ? ~(value << 1) : (value << 1);
+
+    while (v >= 0x20) {
+      encoded.writeCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    encoded.writeCharCode(v + 63);
   }
 
   String _getDayOfWeek(int weekday) {
@@ -726,68 +771,4 @@ Keep running with MajuRun! 💪
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
   }
-}
-
-class MiniRoutePainter extends CustomPainter {
-  final List<LatLng> routePoints;
-  MiniRoutePainter({required this.routePoints});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (routePoints.length < 2) return;
-
-    double minLat = routePoints.first.latitude;
-    double maxLat = routePoints.first.latitude;
-    double minLng = routePoints.first.longitude;
-    double maxLng = routePoints.first.longitude;
-
-    for (final point in routePoints) {
-      minLat = math.min(minLat, point.latitude);
-      maxLat = math.max(maxLat, point.latitude);
-      minLng = math.min(minLng, point.longitude);
-      maxLng = math.max(maxLng, point.longitude);
-    }
-
-    final latRange = maxLat - minLat;
-    final lngRange = maxLng - minLng;
-    if (latRange == 0 || lngRange == 0) return;
-
-    const padding = 0.05;
-    final paddedLatRange = latRange * (1 + 2 * padding);
-    final paddedLngRange = lngRange * (1 + 2 * padding);
-
-    Offset mapToCanvas(LatLng point) {
-      final x = ((point.longitude - minLng + lngRange * padding) / paddedLngRange) * size.width;
-      final y = size.height - ((point.latitude - minLat + latRange * padding) / paddedLatRange) * size.height;
-      return Offset(x, y);
-    }
-
-    for (int i = 0; i < routePoints.length - 1; i++) {
-      final start = mapToCanvas(routePoints[i]);
-      final end = mapToCanvas(routePoints[i + 1]);
-      final progress = i / (routePoints.length - 1);
-      final paceValue = 0.5 + 0.3 * math.sin(progress * math.pi * 3);
-      final color = Color.lerp(Colors.green, Colors.red, paceValue)!;
-
-      canvas.drawLine(
-        start,
-        end,
-        Paint()
-          ..color = color
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-
-    final startPos = mapToCanvas(routePoints.first);
-    canvas.drawCircle(startPos, 6, Paint()..color = Colors.green);
-    canvas.drawCircle(startPos, 3, Paint()..color = Colors.white);
-
-    final endPos = mapToCanvas(routePoints.last);
-    canvas.drawCircle(endPos, 6, Paint()..color = Colors.red);
-    canvas.drawCircle(endPos, 3, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(MiniRoutePainter oldDelegate) => oldDelegate.routePoints != routePoints;
 }
