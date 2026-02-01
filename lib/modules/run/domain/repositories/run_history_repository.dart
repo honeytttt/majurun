@@ -1,3 +1,4 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../entities/run_history.dart';
 
 /// Abstract repository for run history operations.
@@ -9,6 +10,9 @@ abstract class RunHistoryRepository {
     required double distanceKm,
     required int durationSeconds,
     required String pace,
+    List<LatLng>? routePoints,
+    int? avgBpm,
+    int? calories,
   });
 
   /// Get the most recent run, or null if no history.

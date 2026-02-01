@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/domain/repositories/run_history_repository.dart';
 import 'package:majurun/modules/run/data/repositories/firestore_run_history_impl.dart';
 import 'package:majurun/modules/run/domain/entities/run_post.dart';
@@ -33,12 +34,18 @@ class StatsController extends ChangeNotifier {
     required double distanceKm,
     required int durationSeconds,
     required String pace,
+    List<LatLng>? routePoints,
+    int? avgBpm,
+    int? calories,
   }) async {
     await _repository.saveRun(
       planTitle: planTitle,
       distanceKm: distanceKm,
       durationSeconds: durationSeconds,
       pace: pace,
+      routePoints: routePoints,
+      avgBpm: avgBpm,
+      calories: calories,
     );
 
     historyDistance += distanceKm;
@@ -59,6 +66,8 @@ class StatsController extends ChangeNotifier {
       'pace': lastRun.pace,
       'calories': lastRun.calories,
       'planTitle': lastRun.planTitle,
+      'avgBpm': lastRun.avgBpm,
+      'routePoints': lastRun.routePoints,
     };
   }
 
@@ -73,6 +82,8 @@ class StatsController extends ChangeNotifier {
       'pace': run.pace,
       'calories': run.calories,
       'planTitle': run.planTitle,
+      'avgBpm': run.avgBpm,
+      'routePoints': run.routePoints,
     }).toList();
   }
 

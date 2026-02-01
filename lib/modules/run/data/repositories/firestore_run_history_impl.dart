@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/constants/run_constants.dart';
 import '../../domain/entities/run_history.dart';
 import '../../domain/repositories/run_history_repository.dart';
@@ -27,17 +29,60 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     required double distanceKm,
     required int durationSeconds,
     required String pace,
+    List<LatLng>? routePoints,
+    int? avgBpm,
+    int? calories,
   }) async {
     final uid = _currentUid;
-    if (uid == null) return;
+    if (uid == null) {
+      debugPrint('❌ SaveRun: No user logged in');
+      return;
+    }
 
-    await _historyCollection(uid).add({
+    debugPrint('💾 SaveRun: Preparing to save run data');
+    debugPrint('📍 SaveRun: Route points received: ${routePoints?.length ?? 0}');
+
+    final data = <String, dynamic>{
       'planTitle': planTitle,
       'distanceKm': distanceKm,
       'durationSeconds': durationSeconds,
       'pace': pace,
       'completedAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    // Add optional fields if provided
+    if (avgBpm != null) {
+      data['avgBpm'] = avgBpm;
+      debugPrint('💓 SaveRun: BPM = $avgBpm');
+    }
+    
+    if (calories != null) {
+      data['calories'] = calories;
+      debugPrint('🔥 SaveRun: Calories = $calories');
+    }
+
+    // Save route points as an array of latitude/longitude maps
+    if (routePoints != null && routePoints.isNotEmpty) {
+      final routePointsData = routePoints.map((point) => {
+        'latitude': point.latitude,
+        'longitude': point.longitude,
+      }).toList();
+      
+      data['routePoints'] = routePointsData;
+      debugPrint('✅ SaveRun: Added ${routePointsData.length} route points to data');
+      debugPrint('📊 SaveRun: First point: lat=${routePoints.first.latitude}, lng=${routePoints.first.longitude}');
+      debugPrint('📊 SaveRun: Last point: lat=${routePoints.last.latitude}, lng=${routePoints.last.longitude}');
+    } else {
+      debugPrint('⚠️ SaveRun: No route points to save');
+    }
+
+    try {
+      await _historyCollection(uid).add(data);
+      debugPrint('✅ SaveRun: Successfully saved to Firestore');
+    } catch (e) {
+      debugPrint('❌ SaveRun: Error saving to Firestore: $e');
+      rethrow;
+    }
   }
 
   @override
@@ -108,14 +153,34 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     final data = doc.data()!;
     final distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
 
+    // Parse route points from Firestore
+    List<LatLng>? routePoints;
+    if (data['routePoints'] != null) {
+      try {
+        final pointsData = data['routePoints'] as List<dynamic>;
+        routePoints = pointsData.map((point) {
+          final pointMap = point as Map<String, dynamic>;
+          return LatLng(
+            (pointMap['latitude'] as num).toDouble(),
+            (pointMap['longitude'] as num).toDouble(),
+          );
+        }).toList();
+      } catch (e) {
+        // If parsing fails, just set to null
+        routePoints = null;
+      }
+    }
+
     return RunHistory(
       id: doc.id,
       planTitle: data['planTitle'] ?? RunConstants.defaultPlanTitle,
       distanceKm: distanceKm,
       durationSeconds: data['durationSeconds'] as int? ?? 0,
       pace: data['pace']?.toString() ?? RunConstants.defaultPace,
-      calories: (distanceKm * RunConstants.caloriesPerKm).round(),
+      calories: data['calories'] as int? ?? (distanceKm * RunConstants.caloriesPerKm).round(),
       completedAt: (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      avgBpm: data['avgBpm'] as int?,
+      routePoints: routePoints,
     );
   }
 }

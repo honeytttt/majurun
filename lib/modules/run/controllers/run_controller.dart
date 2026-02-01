@@ -110,16 +110,21 @@ class RunController extends ChangeNotifier {
       final finalCalories = stateController.totalCalories;
       final finalDistanceString = stateController.distanceString;
       final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
+      final finalBpm = stateController.currentBpm;
 
       debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");
+      debugPrint("📍 Route points: ${finalRoutePoints.length} points");
 
       await statsController.saveRunHistory(
         planTitle: planTitle,
         distanceKm: finalDistance,
         durationSeconds: finalDuration,
         pace: finalPace,
+        routePoints: finalRoutePoints,
+        avgBpm: finalBpm,
+        calories: finalCalories,
       );
-      debugPrint("✅ Run saved to history");
+      debugPrint("✅ Run saved to history with route points");
 
       final aiPost = postController.generateAIPost(
         planTitle,
