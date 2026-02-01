@@ -4,10 +4,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class HealthSyncService {
-  // Fixed: HealthFactory is replaced with Health() singleton in newer versions
-  final Health _health = Health();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final Health _health;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+
+  HealthSyncService({
+    Health? health,
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _health = health ?? Health(),
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   final List<HealthDataType> types = [
     HealthDataType.WORKOUT,

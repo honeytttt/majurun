@@ -5,6 +5,7 @@ class S3Service {
   final String _bucketName = 'majurun-media-prod';
   final String _region = 'ap-southeast-1';
 
+  /// Standard upload method for any Uint8List bytes
   Future<String?> uploadFile(
       Uint8List bytes, String fileName, String contentType) async {
     try {
@@ -34,13 +35,30 @@ class S3Service {
     }
   }
 
+  /// NEW: Specifically for Web to bypass the blank 107-byte snapshot issue.
+  /// This downloads the map from Google's servers and uploads it to S3.
+  Future<String?> downloadAndUploadMap(String staticMapUrl, String fileName) async {
+    try {
+      debugPrint("🌐 Fetching static map from Google...");
+      final response = await http.get(Uri.parse(staticMapUrl));
+      
+      if (response.statusCode == 200) {
+        debugPrint("✅ Map bytes received: ${response.bodyBytes.length} bytes");
+        return await uploadFile(response.bodyBytes, fileName, 'image/png');
+      } else {
+        debugPrint("❌ Failed to download static map: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("❌ Error in downloadAndUploadMap: $e");
+      return null;
+    }
+  }
+
   Future<void> deleteOldImage(String fileUrl) async {
-    // Basic validation: Don't try to delete if it's empty or doesn't belong to our bucket
     if (fileUrl.isEmpty || !fileUrl.contains(_bucketName)) return;
     
     try {
-      // 1. Extract the filename from the full URL
-      // Example: https://.../profile_123.png?t=456 -> profile_123.png
       String fileName = fileUrl.split('/').last;
       if (fileName.contains('?')) {
         fileName = fileName.split('?').first;

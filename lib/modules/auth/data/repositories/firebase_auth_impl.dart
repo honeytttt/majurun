@@ -5,8 +5,14 @@ import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class FirebaseAuthImpl implements AuthRepository {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _db;
+
+  FirebaseAuthImpl({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  })  : _auth = auth ?? FirebaseAuth.instance,
+        _db = firestore ?? FirebaseFirestore.instance;
 
   @override
   Stream<AppUser?> get onAuthStateChanged =>

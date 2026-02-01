@@ -6,7 +6,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../domain/entities/post.dart'; 
 
 class PostRepositoryImpl {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+
+  PostRepositoryImpl({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
 
   AppPost _mapDocToAppPost(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -47,11 +50,24 @@ class PostRepositoryImpl {
   Stream<List<AppPost>> getPostsStream() => getPostStream();
 
   Stream<List<AppPost>> getPostStream() {
+    debugPrint("📰 Fetching posts stream...");
     return _db
         .collection('posts')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => _mapDocToAppPost(doc)).toList());
+        .map((snapshot) {
+          debugPrint("📰 Received ${snapshot.docs.length} posts from Firestore");
+          final posts = <AppPost>[];
+          for (final doc in snapshot.docs) {
+            try {
+              posts.add(_mapDocToAppPost(doc));
+            } catch (e) {
+              debugPrint("❌ Error mapping post ${doc.id}: $e");
+            }
+          }
+          debugPrint("📰 Successfully mapped ${posts.length} posts");
+          return posts;
+        });
   }
 
   Future<void> createPost(

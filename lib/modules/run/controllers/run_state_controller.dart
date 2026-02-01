@@ -11,6 +11,18 @@ class ChartDataSpot {
   const ChartDataSpot(this.x, this.y);
 }
 
+class KmSplit {
+  final int kmNumber;
+  final int durationSeconds;
+  final String pace;
+  
+  KmSplit({
+    required this.kmNumber,
+    required this.durationSeconds,
+    required this.pace,
+  });
+}
+
 class RunStateController extends ChangeNotifier {
   RunState _state = RunState.idle;
   RunState get state => _state;
@@ -55,6 +67,8 @@ class RunStateController extends ChangeNotifier {
   int totalCalories = 0;
 
   int _lastAnnouncedKm = 0;
+  final List<KmSplit> _kmSplits = [];
+  int _lastKmTime = 0; // Seconds at last km
 
   Timer? _timer;
   StreamSubscription<Position>? _positionStream;
@@ -66,27 +80,32 @@ class RunStateController extends ChangeNotifier {
   int get secondsElapsed => _secondsElapsed;
   int get calories => totalCalories;
 
+  // Callback for km milestones
+  Function({
+    required int km,
+    required String totalTime,
+    required String lastKmPace,
+    required String averagePace,
+    String? comparison,
+  })? onKmMilestone;
+
   Future<void> startRun() async {
     debugPrint("🏃 startRun() called. Current state: $_state");
 
-    // Prevent duplicate starts
     if (_state == RunState.running || _isStopping) {
       debugPrint("⚠️ Already running or stopping — exiting");
       return;
     }
 
-    // Check location service
     debugPrint("📍 Checking if location service is enabled...");
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     debugPrint("📍 Location service enabled: $serviceEnabled");
 
     if (!serviceEnabled) {
       debugPrint("❌ Location services are DISABLED");
-      // You could throw an exception here or show a dialog to the user
       throw Exception("Please enable location services to track your run");
     }
 
-    // Check and request permission
     debugPrint("🔐 Checking location permission...");
     var permission = await Geolocator.checkPermission();
     debugPrint("🔐 Current permission status: $permission");
@@ -115,6 +134,8 @@ class RunStateController extends ChangeNotifier {
     lastVideoUrl = null;
     totalCalories = 0;
     _lastAnnouncedKm = 0;
+    _kmSplits.clear();
+    _lastKmTime = 0;
     _isInitialized = false;
 
     // Get initial position before starting
@@ -198,6 +219,8 @@ class RunStateController extends ChangeNotifier {
     lastVideoUrl = null;
     totalCalories = 0;
     _lastAnnouncedKm = 0;
+    _kmSplits.clear();
+    _lastKmTime = 0;
     _isInitialized = false;
     notifyListeners();
   }
@@ -212,8 +235,8 @@ class RunStateController extends ChangeNotifier {
         // Check for km milestones
         final currentKm = (_totalDistance / 1000).floor();
         if (currentKm > _lastAnnouncedKm && currentKm > 0) {
+          _handleKmMilestone(currentKm);
           _lastAnnouncedKm = currentKm;
-          debugPrint("🎯 Milestone: ${currentKm}km completed!");
         }
 
         // Calculate calories (rough estimate: 65 cal per km)
@@ -228,6 +251,57 @@ class RunStateController extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  void _handleKmMilestone(int km) {
+    debugPrint("🎯 Milestone: ${km}km completed!");
+
+    // Calculate last km time
+    final lastKmDuration = _secondsElapsed - _lastKmTime;
+    
+    // Calculate last km pace
+    final lastKmPaceValue = lastKmDuration / 60.0; // minutes per km
+    final lastKmPaceMin = lastKmPaceValue.floor();
+    final lastKmPaceSec = ((lastKmPaceValue - lastKmPaceMin) * 60).round();
+    final lastKmPaceString = "$lastKmPaceMin:${lastKmPaceSec.toString().padLeft(2, '0')}";
+
+    // Store this km split
+    _kmSplits.add(KmSplit(
+      kmNumber: km,
+      durationSeconds: lastKmDuration,
+      pace: lastKmPaceString,
+    ));
+
+    // Calculate comparison with previous km
+    String? comparison;
+    if (_kmSplits.length > 1) {
+      final previousKm = _kmSplits[_kmSplits.length - 2];
+      final timeDiff = lastKmDuration - previousKm.durationSeconds;
+      
+      if (timeDiff.abs() < 5) {
+        comparison = "Same pace as previous kilometer.";
+      } else if (timeDiff < 0) {
+        final diffSec = timeDiff.abs();
+        comparison = "Faster by $diffSec seconds. Great job!";
+      } else {
+        final diffSec = timeDiff;
+        comparison = "Slower by $diffSec seconds. Keep pushing!";
+      }
+    }
+
+    // Trigger voice announcement callback
+    if (onKmMilestone != null) {
+      onKmMilestone!(
+        km: km,
+        totalTime: durationString,
+        lastKmPace: lastKmPaceString,
+        averagePace: paceString,
+        comparison: comparison,
+      );
+    }
+
+    // Update last km time marker
+    _lastKmTime = _secondsElapsed;
   }
 
   void _recordPerformanceSnapshot() {

@@ -3,12 +3,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/core/services/s3_service.dart'; // Updated to use S3Service
 
 class PostController extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final StorageService _storageService = StorageService();
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+  final S3Service s3Service;
+
+  PostController({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+    S3Service? s3Service,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        s3Service = s3Service ?? S3Service();
 
   String? lastVideoUrl;
 
@@ -40,6 +48,7 @@ class PostController extends ChangeNotifier {
     required int bpm,
     required String planTitle,
     Uint8List? mapImageBytes,
+    String? mapImageUrlOverride, // Added override parameter for Web Static Maps
   }) async {
     try {
       final user = _auth.currentUser;
@@ -49,43 +58,39 @@ class PostController extends ChangeNotifier {
       }
 
       debugPrint("📝 Creating post for user: ${user.uid}");
-      debugPrint("📸 Map image bytes: ${mapImageBytes?.length ?? 0}");
+      
+      // Use the override URL (from S3) if provided, otherwise attempt upload
+      String? mapImageUrl = mapImageUrlOverride;
 
-      String? mapImageUrl;
-
-      // Upload map image to S3 Storage if available
-      if (mapImageBytes != null && mapImageBytes.isNotEmpty) {
+      // Upload map image to S3 Storage if bytes are available and no override exists
+      if (mapImageUrl == null && mapImageBytes != null && mapImageBytes.isNotEmpty) {
         try {
+          debugPrint("📸 Map image bytes: ${mapImageBytes.length}");
           debugPrint("⬆️ Uploading map image to S3...");
           
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final fileName = 'run_maps_${user.uid}_$timestamp.png';
           
-          // Upload to S3 using StorageService
-          mapImageUrl = await _storageService.uploadBytes(
+          // Upload to S3 using S3Service
+          mapImageUrl = await s3Service.uploadFile(
             mapImageBytes,
             fileName,
-            isVideo: false,
+            'image/png',
           );
           
           if (mapImageUrl != null) {
             debugPrint("✅ Map image uploaded successfully: $mapImageUrl");
-          } else {
-            debugPrint("❌ Failed to upload map image to S3");
           }
         } catch (e) {
           debugPrint("❌ Error uploading map image: $e");
-          // Continue without image if upload fails
         }
-      } else {
-        debugPrint("⚠️ No map image bytes provided");
       }
 
       // Create post document in Firestore
       final postData = {
         'userId': user.uid,
         'content': aiContent,
-        'timestamp': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
         'planTitle': planTitle,
         'distance': distance,
         'pace': pace,
@@ -96,33 +101,26 @@ class PostController extends ChangeNotifier {
                   'lng': point.longitude,
                 })
             .toList(),
-        'mapImageUrl': mapImageUrl, // S3 URL for the map image
-        'likes': 0,
+        'mapImageUrl': mapImageUrl,
+        'likes': [],
         'comments': 0,
         'type': 'run_activity',
       };
 
       debugPrint("💾 Saving post to Firestore...");
-      debugPrint("📊 Post data: ${postData.keys.toList()}");
-      
       await _firestore.collection('posts').add(postData);
       
-      debugPrint("✅ Post created successfully with ${mapImageUrl != null ? 'map image' : 'no map image'}");
-      
+      debugPrint("✅ Post created successfully");
       notifyListeners();
     } catch (e) {
       debugPrint("❌ Error creating auto post: $e");
-      debugPrint("Stack trace: ${StackTrace.current}");
       rethrow;
     }
   }
 
-  // Generate Veo video (placeholder for future implementation)
   Future<void> generateVeoVideo() async {
     try {
       debugPrint("🎬 Generating Veo video...");
-      // This would integrate with Google's Veo API
-      // For now, this is a placeholder
       await Future.delayed(const Duration(seconds: 2));
       lastVideoUrl = "https://placeholder-video-url.com/video.mp4";
       debugPrint("✅ Video generated: $lastVideoUrl");
@@ -133,7 +131,6 @@ class PostController extends ChangeNotifier {
     }
   }
 
-  // Finalize professional post with video
   Future<void> finalizeProPost(
     String aiContent,
     String videoUrl, {
@@ -148,8 +145,8 @@ class PostController extends ChangeNotifier {
         'content': aiContent,
         'videoUrl': videoUrl,
         'planTitle': planTitle ?? 'Free Run',
-        'timestamp': FieldValue.serverTimestamp(),
-        'likes': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'likes': [],
         'comments': 0,
         'type': 'run_video',
       });

@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
-import 'package:majurun/modules/run/controllers/voice_controller.dart';
-import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
@@ -22,7 +20,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final GlobalKey _mapKey = GlobalKey(); // for map capture
+  final GlobalKey _mapKey = GlobalKey();
 
   @override
   void initState() {
@@ -32,7 +30,6 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
 
-    // Listen to RunStateController changes to ensure UI updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final runController = Provider.of<RunController>(context, listen: false);
       runController.stateController.addListener(_onRunStateChanged);
@@ -41,9 +38,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   void _onRunStateChanged() {
     if (mounted) {
-      setState(() {
-        // Force UI rebuild when run state changes
-      });
+      setState(() {});
     }
   }
 
@@ -80,8 +75,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Consumer<VoiceController>(
-      builder: (context, voiceController, _) {
+    return Consumer<RunController>(
+      builder: (context, runController, _) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
@@ -93,11 +88,11 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               const Spacer(),
               IconButton(
                 icon: Icon(
-                  voiceController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                  color: voiceController.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+                  runController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                  color: runController.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
                 ),
-                tooltip: voiceController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
-                onPressed: voiceController.toggleVoice,
+                tooltip: runController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
+                onPressed: runController.toggleVoice,
               ),
               const SizedBox(width: 8),
               IconButton(
@@ -117,12 +112,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildControlCenter(BuildContext context) {
-    // Use Consumer to listen to RunController which wraps RunStateController
     return Consumer<RunController>(
       builder: (context, runController, _) {
         final state = runController.state;
         
-        // Pulse animation speed based on running state + BPM
         if (state == RunState.running) {
           double speedFactor = (runController.currentBpm / 80).clamp(0.8, 2.5);
           _pulseController.duration = Duration(milliseconds: (1200 / speedFactor).round());
@@ -207,19 +200,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     
     try {
       if (currentState == RunState.idle) {
-        // Show loading indicator while starting
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (_) => const Center(child: CircularProgressIndicator()),
         );
 
         await runController.startRun();
         
         if (context.mounted) {
-          Navigator.pop(context); // Dismiss loading - NO SUCCESS MESSAGE
+          Navigator.pop(context); // Just dismiss - NO notification
         }
       } else if (currentState == RunState.running) {
         runController.pauseRun();
@@ -228,18 +218,13 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.pop(context); // Dismiss loading if shown
+        Navigator.pop(context);
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("❌ Error: ${e.toString()}"),
             duration: const Duration(seconds: 3),
             backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: "OK",
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
           ),
         );
       }
@@ -249,17 +234,14 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   Future<void> _handleStopRun(BuildContext context) async {
     final runController = Provider.of<RunController>(context, listen: false);
     
-    // Don't try to stop if not running or paused
     if (runController.state == RunState.idle) return;
 
     Uint8List? mapImageBytes;
     
-    // Try to capture map image if we have route points
     if (runController.routePoints.isNotEmpty) {
       debugPrint("📸 Attempting to capture map image with ${runController.routePoints.length} points");
       
       try {
-        // Give a moment for the map to render
         await Future.delayed(const Duration(milliseconds: 500));
         
         if (_mapKey.currentContext != null) {
@@ -270,25 +252,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             if (byteData != null) {
               mapImageBytes = byteData.buffer.asUint8List();
               debugPrint("✅ Map image captured: ${mapImageBytes.length} bytes");
-            } else {
-              debugPrint("⚠️ Failed to convert image to bytes");
             }
-          } else {
-            debugPrint("⚠️ Boundary is null");
           }
-        } else {
-          debugPrint("⚠️ Map context is null");
         }
       } catch (e) {
         debugPrint("❌ Error capturing map: $e");
       }
-    } else {
-      debugPrint("⚠️ No route points to capture");
     }
     
     if (!context.mounted) return;
 
-    // Show loading while saving
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -315,24 +288,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       );
       
       if (context.mounted) {
-        Navigator.pop(context); // Dismiss loading
+        Navigator.pop(context); // Just dismiss - NO "Run saved successfully" notification
         setState(() {});
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("✅ Run saved successfully!"),
-            duration: Duration(seconds: 2),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.pop(context); // Dismiss loading
+        Navigator.pop(context);
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("⚠️ Run stopped but there was an error saving: ${e.toString()}"),
+            content: Text("⚠️ Error saving: ${e.toString()}"),
             duration: const Duration(seconds: 3),
             backgroundColor: Colors.orange,
           ),
@@ -342,7 +307,6 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildLiveMetrics() {
-    // Use Consumer<RunController> for better state management
     return Consumer<RunController>(
       builder: (context, runController, _) {
         return Row(
@@ -381,22 +345,18 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildStatsGrid(BuildContext context) {
-    return Consumer<StatsController>(
-      builder: (context, statsController, _) {
-        return Consumer<RunController>(
-          builder: (context, runController, _) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _smallStat("TOTAL KM", statsController.historyDistance.toStringAsFixed(1)),
-                  _smallStat("STREAK", "${statsController.runStreak}D"),
-                  _smallStat("CALORIES", "${runController.totalCalories}"),
-                ],
-              ),
-            );
-          },
+    return Consumer<RunController>(
+      builder: (context, runController, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _smallStat("TOTAL KM", runController.historyDistance.toStringAsFixed(1)),
+              _smallStat("STREAK", "${runController.runStreak}D"),
+              _smallStat("CALORIES", "${runController.totalCalories}"),
+            ],
+          ),
         );
       },
     );
@@ -438,8 +398,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               barrierDismissible: false,
             );
             try {
-              final statsController = Provider.of<StatsController>(context, listen: false);
-              final lastRun = await statsController.getLastActivity();
+              final runController = Provider.of<RunController>(context, listen: false);
+              final lastRun = await runController.getLastActivity();
               if (!context.mounted) return;
               Navigator.pop(context);
               if (lastRun != null) {

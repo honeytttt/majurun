@@ -3,7 +3,10 @@ import 'package:majurun/modules/profile/domain/entities/user_entity.dart';
 import 'package:majurun/modules/profile/domain/repositories/profile_repository.dart';
 
 class FirestoreProfileImpl implements ProfileRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
+
+  FirestoreProfileImpl({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
   @override
   Future<UserEntity?> getUser(String uid) async {

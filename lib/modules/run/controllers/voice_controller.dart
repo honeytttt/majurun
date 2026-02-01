@@ -1,63 +1,103 @@
-import 'package:flutter/material.dart';
-import 'package:majurun/modules/run/services/voice_announcer.dart'; // the TTS wrapper
+import 'package:flutter/foundation.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class VoiceController extends ChangeNotifier {
+  final FlutterTts _flutterTts = FlutterTts();
   bool _isVoiceEnabled = true;
+
   bool get isVoiceEnabled => _isVoiceEnabled;
 
-  final VoiceAnnouncer _voice = VoiceAnnouncer();
+  VoiceController() {
+    _initTts();
+  }
 
-  bool _isSpeaking = false;
+  Future<void> _initTts() async {
+    try {
+      await _flutterTts.setLanguage("en-US");
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+      debugPrint("TTS initialized");
+    } catch (e) {
+      debugPrint("TTS initialization error: $e");
+    }
+  }
 
   void toggleVoice() {
     _isVoiceEnabled = !_isVoiceEnabled;
     notifyListeners();
+    debugPrint("Voice ${_isVoiceEnabled ? 'enabled' : 'disabled'}");
   }
 
+  Future<void> _speak(String text) async {
+    if (!_isVoiceEnabled) return;
+    try {
+      debugPrint("🔊 Speaking: $text");
+      await _flutterTts.speak(text);
+    } catch (e) {
+      debugPrint("TTS speak error: $e");
+    }
+  }
+
+  // Basic announcements
   Future<void> speakRunStarted() async {
-    if (!_isVoiceEnabled || _isSpeaking) return;
-    _isSpeaking = true;
-    await _voice.runStarted();
-    _isSpeaking = false;
+    await _speak("Run started. Good luck!");
   }
 
   Future<void> speakRunPaused() async {
-    if (!_isVoiceEnabled || _isSpeaking) return;
-    _isSpeaking = true;
-    await _voice.runPaused();
-    _isSpeaking = false;
+    await _speak("Run paused");
   }
 
   Future<void> speakRunResumed() async {
-    if (!_isVoiceEnabled || _isSpeaking) return;
-    _isSpeaking = true;
-    await _voice.runResumed();
-    _isSpeaking = false;
+    await _speak("Run resumed");
   }
 
   Future<void> speakRunStopped() async {
-    if (!_isVoiceEnabled || _isSpeaking) return;
-    _isSpeaking = true;
-    await _voice.runStopped();
-    _isSpeaking = false;
+    await _speak("Run stopped");
   }
 
-  Future<void> announceKm(int km) async {
-    if (!_isVoiceEnabled || _isSpeaking) return;
-    _isSpeaking = true;
-    await _voice.announceKm(km);
-    _isSpeaking = false;
+  // Enhanced km milestone announcements
+  Future<void> speakKmMilestone({
+    required int km,
+    required String totalTime,
+    required String lastKmPace,
+    required String averagePace,
+    String? comparison,
+  }) async {
+    if (!_isVoiceEnabled) return;
+
+    // Build the announcement
+    String announcement = "";
+
+    // Milestone
+    announcement += "$km kilometer completed. ";
+
+    // Total time
+    announcement += "Total time: $totalTime. ";
+
+    // Last km pace
+    announcement += "Last kilometer pace: $lastKmPace. ";
+
+    // Average pace
+    announcement += "Average pace: $averagePace. ";
+
+    // Comparison with previous km (if available)
+    if (comparison != null && comparison.isNotEmpty) {
+      announcement += comparison;
+    }
+
+    debugPrint("🎯 KM Milestone: $announcement");
+    await _speak(announcement);
   }
 
+  // Custom announcement
   Future<void> speak(String text) async {
-    if (!_isVoiceEnabled || _isSpeaking) return;
-    _isSpeaking = true;
-    await _voice.speak(text);
-    _isSpeaking = false;
+    await _speak(text);
   }
 
-  Future<void> stopAllSpeech() async {
-    await _voice.stopAllSpeech();
-    _isSpeaking = false;
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
   }
 }

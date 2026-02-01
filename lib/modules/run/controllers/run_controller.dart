@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -6,30 +5,6 @@ import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
-
-class RunAppPost {
-  final String id;
-  final String content;
-  final String? videoUrl;
-  final Timestamp timestamp;
-
-  RunAppPost({
-    required this.id,
-    required this.content,
-    this.videoUrl,
-    required this.timestamp,
-  });
-
-  factory RunAppPost.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return RunAppPost(
-      id: doc.id,
-      content: data['content'] ?? '',
-      videoUrl: data['videoUrl'],
-      timestamp: data['timestamp'] ?? Timestamp.now(),
-    );
-  }
-}
 
 class RunController extends ChangeNotifier {
   final RunStateController stateController = RunStateController();
@@ -40,6 +15,23 @@ class RunController extends ChangeNotifier {
   RunController() {
     // Listen to state controller changes and propagate them
     stateController.addListener(_onStateControllerChanged);
+    
+    // Connect km milestone callback to voice announcements
+    stateController.onKmMilestone = ({
+      required int km,
+      required String totalTime,
+      required String lastKmPace,
+      required String averagePace,
+      String? comparison,
+    }) {
+      voiceController.speakKmMilestone(
+        km: km,
+        totalTime: totalTime,
+        lastKmPace: lastKmPace,
+        averagePace: averagePace,
+        comparison: comparison,
+      );
+    };
   }
 
   void _onStateControllerChanged() {
@@ -79,11 +71,11 @@ class RunController extends ChangeNotifier {
       debugPrint("🎬 RunController: Starting run");
       await stateController.startRun();
       await voiceController.speakRunStarted();
-      notifyListeners(); // Ensure UI updates
+      notifyListeners();
       debugPrint("✅ RunController: Run started successfully");
     } catch (e) {
       debugPrint("❌ RunController: Error starting run: $e");
-      rethrow; // Let the UI handle the error
+      rethrow;
     }
   }
 
@@ -91,14 +83,14 @@ class RunController extends ChangeNotifier {
     debugPrint("🎬 RunController: Pausing run");
     stateController.pauseRun();
     voiceController.speakRunPaused();
-    notifyListeners(); // Ensure UI updates
+    notifyListeners();
   }
 
   void resumeRun() {
     debugPrint("🎬 RunController: Resuming run");
     stateController.resumeRun();
     voiceController.speakRunResumed();
-    notifyListeners(); // Ensure UI updates
+    notifyListeners();
   }
 
   Future<void> stopRun(BuildContext context, {
@@ -109,12 +101,10 @@ class RunController extends ChangeNotifier {
       debugPrint("🎬 RunController: Stopping run");
       debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
       
-      // Stop the run first (this keeps the data)
       stateController.stopRun();
       await voiceController.speakRunStopped();
 
-      // Get the final stats before resetting
-      final finalDistance = stateController.totalDistance / 1000; // in km
+      final finalDistance = stateController.totalDistance / 1000;
       final finalDuration = stateController.secondsElapsed;
       final finalPace = stateController.paceString;
       final finalCalories = stateController.totalCalories;
@@ -122,9 +112,7 @@ class RunController extends ChangeNotifier {
       final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
 
       debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");
-      debugPrint("📍 Route points: ${finalRoutePoints.length}");
 
-      // Save to history
       await statsController.saveRunHistory(
         planTitle: planTitle,
         distanceKm: finalDistance,
@@ -133,7 +121,6 @@ class RunController extends ChangeNotifier {
       );
       debugPrint("✅ Run saved to history");
 
-      // Generate AI post content
       final aiPost = postController.generateAIPost(
         planTitle,
         finalDistanceString,
@@ -141,10 +128,8 @@ class RunController extends ChangeNotifier {
         finalPace,
         finalCalories,
       );
-      debugPrint("✅ AI post generated: $aiPost");
+      debugPrint("✅ AI post generated");
 
-      // Create auto post WITH map image
-      debugPrint("📝 Creating auto post with map image...");
       await postController.createAutoPost(
         aiContent: aiPost,
         routePoints: finalRoutePoints,
@@ -152,32 +137,26 @@ class RunController extends ChangeNotifier {
         pace: finalPace,
         bpm: stateController.currentBpm,
         planTitle: planTitle,
-        mapImageBytes: mapImageBytes, // Pass the map image bytes
+        mapImageBytes: mapImageBytes,
       );
       debugPrint("✅ Auto post created");
 
-      // NOW reset the run data
       stateController.resetRun();
       debugPrint("✅ Run data reset");
 
-      notifyListeners(); // Ensure UI updates
+      notifyListeners();
       debugPrint("✅ RunController: Stop complete");
     } catch (e) {
       debugPrint("❌ RunController: Error stopping run: $e");
-      debugPrint("Stack trace: ${StackTrace.current}");
-      // Still reset even if there's an error
       stateController.resetRun();
       notifyListeners();
       rethrow;
     }
   }
 
-  Stream<List<RunAppPost>> getPostStream() => statsController.getPostStream();
-
+  Stream<List<dynamic>> getPostStream() => statsController.getPostStream();
   Future<void> refreshHistoryStats() async => await statsController.refreshHistoryStats();
-
   Future<Map<String, dynamic>?> getLastActivity() async => await statsController.getLastActivity();
-
   Future<List<Map<String, dynamic>>> getRunHistory() async => await statsController.getRunHistory();
 
   @override

@@ -1,7 +1,8 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/modules/run/services/run_metrics.dart';
 
-enum RunState { idle, running, paused, finished }
-
+/// Represents a completed run activity with route and stats.
+/// Note: For current run state tracking, use RunState from run_state_controller.dart.
 class RunActivity {
   final String id;
   final List<LatLng> route;
@@ -9,7 +10,7 @@ class RunActivity {
   final Duration duration;
   final DateTime startTime;
 
-  RunActivity({
+  const RunActivity({
     required this.id,
     required this.route,
     required this.distanceKm,
@@ -17,11 +18,17 @@ class RunActivity {
     required this.startTime,
   });
 
-  String get formattedPace {
-    if (distanceKm == 0) return "0:00";
-    double paceDecimal = duration.inMinutes / distanceKm;
-    int minutes = paceDecimal.floor();
-    int seconds = ((paceDecimal - minutes) * 60).round();
-    return "$minutes:${seconds.toString().padLeft(2, '0')}";
-  }
+  /// Distance in meters for calculations.
+  double get distanceMeters => distanceKm * 1000;
+
+  /// Formatted pace as "M:SS" per kilometer.
+  String get formattedPace =>
+      RunMetrics.paceString(distanceMeters, duration.inSeconds);
+
+  /// Formatted duration as "MM:SS".
+  String get formattedDuration =>
+      RunMetrics.durationString(duration.inSeconds);
+
+  /// Estimated calories burned.
+  int get calories => RunMetrics.calories(distanceMeters);
 }

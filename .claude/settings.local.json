@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze:*)",
+      "Bash(flutter run:*)",
+      "Bash(timeout 5 cat:*)",
+      "Bash(flutter build:*)",
+      "Bash(aws s3 sync:*)",
+      "Bash(aws cloudfront create-invalidation:*)"
+    ]
+  }
+}
