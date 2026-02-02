@@ -647,8 +647,15 @@ Keep running with MajuRun! 💪
   }
 
   Widget _buildMiniRouteMap(List<LatLng> routePoints) {
-    // Use Google Maps Static API for actual map tiles
-    final staticMapUrl = _buildStaticMapUrl(routePoints);
+    final bounds = _calculateBounds(routePoints);
+
+    final initialPosition = CameraPosition(
+      target: LatLng(
+        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
+      ),
+      zoom: 13,
+    );
 
     return Container(
       height: 120,
@@ -658,108 +665,70 @@ Keep running with MajuRun! 💪
         border: Border.all(color: Colors.grey.shade300),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        staticMapUrl,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: 120,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-              color: Colors.blue,
-            ),
-          );
+      child: GoogleMap(
+        initialCameraPosition: initialPosition,
+        polylines: {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: routePoints,
+            color: const Color(0xFF4285F4),
+            width: 5,
+            patterns: [PatternItem.dash(20), PatternItem.gap(5)],
+          ),
         },
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.grey.shade100,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map_outlined, color: Colors.grey.shade400, size: 32),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Map unavailable',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
-                  ),
-                ],
-              ),
-            ),
-          );
+        markers: {
+          Marker(
+            markerId: const MarkerId('start'),
+            position: routePoints.first,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            infoWindow: const InfoWindow(title: 'Start'),
+          ),
+          Marker(
+            markerId: const MarkerId('end'),
+            position: routePoints.last,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            infoWindow: const InfoWindow(title: 'End'),
+          ),
+        },
+        zoomControlsEnabled: true,
+        zoomGesturesEnabled: true,
+        scrollGesturesEnabled: false,
+        mapToolbarEnabled: false,
+        rotateGesturesEnabled: false,
+        tiltGesturesEnabled: false,
+        mapType: MapType.normal,
+        myLocationEnabled: false,
+        myLocationButtonEnabled: false,
+        onMapCreated: (GoogleMapController controller) {
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) {
+              controller.animateCamera(
+                CameraUpdate.newLatLngBounds(bounds, 60),
+              );
+            }
+          });
         },
       ),
     );
   }
 
-  String _buildStaticMapUrl(List<LatLng> routePoints) {
-    const apiKey = 'AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY';
-
-    // Calculate center
-    double minLat = routePoints.first.latitude;
-    double maxLat = routePoints.first.latitude;
-    double minLng = routePoints.first.longitude;
-    double maxLng = routePoints.first.longitude;
-
-    for (final point in routePoints) {
-      if (point.latitude < minLat) minLat = point.latitude;
-      if (point.latitude > maxLat) maxLat = point.latitude;
-      if (point.longitude < minLng) minLng = point.longitude;
-      if (point.longitude > maxLng) maxLng = point.longitude;
-    }
-
-    final centerLat = (minLat + maxLat) / 2;
-    final centerLng = (minLng + maxLng) / 2;
-
-    // Build encoded polyline
-    final encodedPath = _encodePolyline(routePoints);
-
-    final url = StringBuffer('https://maps.googleapis.com/maps/api/staticmap?');
-    url.write('center=$centerLat,$centerLng');
-    url.write('&size=400x150');
-    url.write('&scale=2');
-    url.write('&maptype=roadmap');
-    url.write('&path=color:0x4285F4FF|weight:3|enc:$encodedPath');
-    url.write('&markers=color:green|size:tiny|${routePoints.first.latitude},${routePoints.first.longitude}');
-    url.write('&markers=color:red|size:tiny|${routePoints.last.latitude},${routePoints.last.longitude}');
-    url.write('&key=$apiKey');
-
-    return url.toString();
-  }
-
-  String _encodePolyline(List<LatLng> points) {
-    final encoded = StringBuffer();
-    int prevLat = 0;
-    int prevLng = 0;
+  LatLngBounds _calculateBounds(List<LatLng> points) {
+    double south = points.first.latitude;
+    double north = points.first.latitude;
+    double west = points.first.longitude;
+    double east = points.first.longitude;
 
     for (final point in points) {
-      final lat = (point.latitude * 1e5).round();
-      final lng = (point.longitude * 1e5).round();
-
-      _encodeValue(lat - prevLat, encoded);
-      _encodeValue(lng - prevLng, encoded);
-
-      prevLat = lat;
-      prevLng = lng;
+      if (point.latitude < south) south = point.latitude;
+      if (point.latitude > north) north = point.latitude;
+      if (point.longitude < west) west = point.longitude;
+      if (point.longitude > east) east = point.longitude;
     }
 
-    return encoded.toString();
-  }
-
-  void _encodeValue(int value, StringBuffer encoded) {
-    int v = value < 0 ? ~(value << 1) : (value << 1);
-
-    while (v >= 0x20) {
-      encoded.writeCharCode((0x20 | (v & 0x1f)) + 63);
-      v >>= 5;
-    }
-    encoded.writeCharCode(v + 63);
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
   }
 
   String _getDayOfWeek(int weekday) {
