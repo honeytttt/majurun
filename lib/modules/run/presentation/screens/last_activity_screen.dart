@@ -4,7 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class LastActivityScreen extends StatelessWidget {
   final Map<String, dynamic> lastRun;
-  static const String _apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
+  static const String _apiKey = 'AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY';
 
   const LastActivityScreen({super.key, required this.lastRun});
 

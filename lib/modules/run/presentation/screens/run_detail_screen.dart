@@ -5,7 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class RunDetailScreen extends StatefulWidget {
   final Map<String, dynamic> runData;
-  static const String _apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
+  static const String _apiKey = 'AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY';
 
   const RunDetailScreen({super.key, required this.runData});
 

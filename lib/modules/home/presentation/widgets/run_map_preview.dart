@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class RunMapPreview extends StatelessWidget {
+class RunMapPreview extends StatefulWidget {
   final List<dynamic> points;
-  static const String _apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
 
   const RunMapPreview({
     super.key,
@@ -11,12 +10,25 @@ class RunMapPreview extends StatelessWidget {
   });
 
   @override
+  State<RunMapPreview> createState() => _RunMapPreviewState();
+}
+
+class _RunMapPreviewState extends State<RunMapPreview> {
+  GoogleMapController? _mapController;
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (points.isEmpty) {
+    if (widget.points.isEmpty) {
       return _buildEmptyPlaceholder('No route data');
     }
 
-    final latLngPoints = _parseRoutePoints(points);
+    final latLngPoints = _parseRoutePoints(widget.points);
 
     if (latLngPoints.isEmpty) {
       return _buildEmptyPlaceholder('No valid GPS points');
@@ -26,117 +38,92 @@ class RunMapPreview extends StatelessWidget {
       return _buildEmptyPlaceholder('Not enough points for route');
     }
 
-    // Use Google Maps Static API for actual map tiles
-    final staticMapUrl = _buildStaticMapUrl(latLngPoints);
+    // Calculate bounds to fit the route nicely
+    final bounds = _calculateBounds(latLngPoints);
+
+    final initialPosition = CameraPosition(
+      target: LatLng(
+        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
+      ),
+      zoom: 13, // reasonable default zoom
+    );
 
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        staticMapUrl,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: 200,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-              color: Colors.blue,
-            ),
-          );
+      child: GoogleMap(
+        initialCameraPosition: initialPosition,
+        polylines: {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: latLngPoints,
+            color: const Color(0xFF4285F4),
+            width: 5,
+            patterns: [PatternItem.dash(20), PatternItem.gap(5)],
+          ),
         },
-        errorBuilder: (context, error, stackTrace) {
-          debugPrint('Static map error: $error');
-          return _buildEmptyPlaceholder('Map unavailable');
+        markers: {
+          Marker(
+            markerId: const MarkerId('start'),
+            position: latLngPoints.first,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            infoWindow: const InfoWindow(title: 'Start'),
+          ),
+          Marker(
+            markerId: const MarkerId('end'),
+            position: latLngPoints.last,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            infoWindow: const InfoWindow(title: 'End'),
+          ),
         },
+        zoomControlsEnabled: true,          // + / - buttons
+        zoomGesturesEnabled: true,          // pinch to zoom
+        scrollGesturesEnabled: false,       // disable panning (clean preview)
+        mapToolbarEnabled: false,
+        rotateGesturesEnabled: false,
+        tiltGesturesEnabled: false,
+        mapType: MapType.normal,
+        onMapCreated: (GoogleMapController controller) {
+          _mapController = controller;
+          // Auto-fit route with padding after map is created
+          Future.delayed(const Duration(milliseconds: 400), () {
+            _mapController?.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 60), // 60px padding
+            );
+          });
+        },
+        myLocationEnabled: false,
+        myLocationButtonEnabled: false,
       ),
     );
   }
 
-  String _buildStaticMapUrl(List<LatLng> routePoints) {
-    // Calculate center and bounds
-    double minLat = routePoints.first.latitude;
-    double maxLat = routePoints.first.latitude;
-    double minLng = routePoints.first.longitude;
-    double maxLng = routePoints.first.longitude;
-
-    for (final point in routePoints) {
-      if (point.latitude < minLat) minLat = point.latitude;
-      if (point.latitude > maxLat) maxLat = point.latitude;
-      if (point.longitude < minLng) minLng = point.longitude;
-      if (point.longitude > maxLng) maxLng = point.longitude;
-    }
-
-    final centerLat = (minLat + maxLat) / 2;
-    final centerLng = (minLng + maxLng) / 2;
-
-    // Build encoded polyline path
-    final encodedPath = _encodePolyline(routePoints);
-
-    // Build the Static Maps API URL
-    final url = StringBuffer('https://maps.googleapis.com/maps/api/staticmap?');
-    url.write('center=$centerLat,$centerLng');
-    url.write('&size=600x300');
-    url.write('&scale=2');
-    url.write('&maptype=roadmap');
-
-    // Add path with encoded polyline
-    url.write('&path=color:0x4285F4FF|weight:4|enc:$encodedPath');
-
-    // Add start marker (green)
-    url.write('&markers=color:green|size:small|${routePoints.first.latitude},${routePoints.first.longitude}');
-
-    // Add end marker (red)
-    url.write('&markers=color:red|size:small|${routePoints.last.latitude},${routePoints.last.longitude}');
-
-    url.write('&key=$_apiKey');
-
-    return url.toString();
-  }
-
-  /// Encode a list of LatLng points into Google's polyline encoding format
-  String _encodePolyline(List<LatLng> points) {
-    final encoded = StringBuffer();
-    int prevLat = 0;
-    int prevLng = 0;
+  LatLngBounds _calculateBounds(List<LatLng> points) {
+    double south = points.first.latitude;
+    double north = points.first.latitude;
+    double west = points.first.longitude;
+    double east = points.first.longitude;
 
     for (final point in points) {
-      final lat = (point.latitude * 1e5).round();
-      final lng = (point.longitude * 1e5).round();
-
-      _encodeValue(lat - prevLat, encoded);
-      _encodeValue(lng - prevLng, encoded);
-
-      prevLat = lat;
-      prevLng = lng;
+      if (point.latitude < south) south = point.latitude;
+      if (point.latitude > north) north = point.latitude;
+      if (point.longitude < west) west = point.longitude;
+      if (point.longitude > east) east = point.longitude;
     }
 
-    return encoded.toString();
-  }
-
-  void _encodeValue(int value, StringBuffer encoded) {
-    int v = value < 0 ? ~(value << 1) : (value << 1);
-
-    while (v >= 0x20) {
-      encoded.writeCharCode((0x20 | (v & 0x1f)) + 63);
-      v >>= 5;
-    }
-    encoded.writeCharCode(v + 63);
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
   }
 
   List<LatLng> _parseRoutePoints(List<dynamic> rawPoints) {
     final validPoints = <LatLng>[];
-
     for (final point in rawPoints) {
       try {
         double? lat;
@@ -159,10 +146,9 @@ class RunMapPreview extends StatelessWidget {
           }
         }
       } catch (e) {
-        // Skip invalid points silently
+        // Skip invalid points
       }
     }
-
     return validPoints;
   }
 

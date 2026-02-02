@@ -699,7 +699,7 @@ Keep running with MajuRun! 💪
   }
 
   String _buildStaticMapUrl(List<LatLng> routePoints) {
-    const apiKey = 'AIzaSyDwPvTw5MMolE6iEPnFNNQe0FtJ7465QG8';
+    const apiKey = 'AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY';
 
     // Calculate center
     double minLat = routePoints.first.latitude;
