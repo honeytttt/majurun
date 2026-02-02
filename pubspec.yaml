@@ -21,7 +21,7 @@ dependencies:
   intl: ^0.19.0
 
   # Auth / Social login ─────────────────────────────────────
-  google_sign_in: ^6.2.2
+  google_sign_in: ^6.3.0
   #flutter_facebook_auth: ^7.1.1     # ← updated (critical!)
   twitter_login: ^4.4.2             # still ok, but check if you still need it
 

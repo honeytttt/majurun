@@ -5,12 +5,18 @@ import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
+import 'package:majurun/core/services/run_recovery_service.dart';
+import 'dart:async';
 
 class RunController extends ChangeNotifier {
   final RunStateController stateController = RunStateController();
   final VoiceController voiceController = VoiceController();
   final PostController postController = PostController();
   final StatsController statsController = StatsController();
+
+  // NEW: Recovery properties
+  Timer? _autoSaveTimer;
+  bool _hasShownRecoveryDialog = false;
 
   RunController() {
     // Listen to state controller changes and propagate them
@@ -66,11 +72,229 @@ class RunController extends ChangeNotifier {
     await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
   }
 
-  Future<void> startRun() async {
+  // NEW: Check for recoverable run on app start
+  Future<void> checkForRecoverableRun(BuildContext context) async {
+    if (_hasShownRecoveryDialog) return;
+    
+    final hasRecoverable = await RunRecoveryService.hasRecoverableRun();
+    if (!hasRecoverable) return;
+
+    final runData = await RunRecoveryService.getRecoverableRun();
+    if (runData == null) return;
+
+    final timeSince = RunRecoveryService.timeSinceLastSave(runData);
+    if (timeSince == null || timeSince.inHours > 24) {
+      // Too old, discard
+      await RunRecoveryService.clearRecoverableRun();
+      return;
+    }
+
+    _hasShownRecoveryDialog = true;
+
+    // Check if widget is still mounted before showing dialog
+    if (!context.mounted) return;
+
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.restore, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Recover Run?'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'We found an incomplete run from your last session:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 16),
+              _buildRecoveryDetail('Distance', '${runData['distance']?.toStringAsFixed(2) ?? 0} km'),
+              _buildRecoveryDetail('Duration', _formatDuration(runData['durationSeconds'] ?? 0)),
+              _buildRecoveryDetail('Started', _formatStartTime(runData['startTime'])),
+              const SizedBox(height: 16),
+              const Text(
+                'Would you like to save this run to your history?',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                await RunRecoveryService.clearRecoverableRun();
+                navigator.pop();
+              },
+              child: const Text('Discard'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Store context references BEFORE async operations
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                
+                await _saveRecoveredRun(runData);
+                await RunRecoveryService.clearRecoverableRun();
+                
+                navigator.pop();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Run recovered and saved to history!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('Save Run'),
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildRecoveryDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  String _formatStartTime(String? isoString) {
+    if (isoString == null) return 'Unknown';
+    try {
+      final dateTime = DateTime.parse(isoString);
+      final now = DateTime.now();
+      final diff = now.difference(dateTime);
+      
+      if (diff.inMinutes < 60) {
+        return '${diff.inMinutes} minutes ago';
+      } else if (diff.inHours < 24) {
+        return '${diff.inHours} hours ago';
+      } else {
+        return '${diff.inDays} days ago';
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+
+  Future<void> _saveRecoveredRun(Map<String, dynamic> runData) async {
+    try {
+      final List<dynamic> rawPoints = runData['routePoints'] ?? [];
+      final routePoints = rawPoints.map((p) {
+        if (p is Map) {
+          return LatLng(
+            (p['lat'] ?? p['latitude'] ?? 0.0).toDouble(),
+            (p['lng'] ?? p['longitude'] ?? 0.0).toDouble(),
+          );
+        }
+        return null;
+      }).whereType<LatLng>().toList();
+
+      final distance = (runData['distance'] ?? 0.0).toDouble();
+      final durationSeconds = runData['durationSeconds'] ?? 0;
+      final pace = runData['pace'] ?? _calculatePace(distance, durationSeconds);
+      final calories = runData['calories'] ?? _estimateCalories(distance);
+      final planTitle = runData['planTitle'] ?? 'Free Run';
+      final avgBpm = runData['avgBpm'] ?? 145;
+
+      await statsController.saveRunHistory(
+        planTitle: planTitle,
+        distanceKm: distance,
+        durationSeconds: durationSeconds,
+        pace: pace,
+        routePoints: routePoints,
+        avgBpm: avgBpm,
+        calories: calories,
+      );
+
+      debugPrint('✅ Recovered run saved successfully');
+    } catch (e) {
+      debugPrint('❌ Error saving recovered run: $e');
+    }
+  }
+
+  String _calculatePace(double distanceKm, int durationSeconds) {
+    if (distanceKm <= 0) return '0:00';
+    final paceSeconds = durationSeconds / distanceKm;
+    final minutes = paceSeconds ~/ 60;
+    final seconds = (paceSeconds % 60).round();
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  int _estimateCalories(double distanceKm) {
+    // Rough estimate: ~60 calories per km
+    return (distanceKm * 60).round();
+  }
+
+  // NEW: Start auto-save when run begins
+  void startAutoSave(String planTitle) {
+    _autoSaveTimer?.cancel();
+    
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _saveCurrentRunState(planTitle);
+    });
+    
+    debugPrint('🔄 Auto-save started (every 10 seconds)');
+  }
+
+  // NEW: Stop auto-save when run ends
+  void stopAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    debugPrint('⏹️ Auto-save stopped');
+  }
+
+  // NEW: Save current run state to local storage
+  Future<void> _saveCurrentRunState(String planTitle) async {
+    try {
+      await RunRecoveryService.saveActiveRun(
+        distance: stateController.totalDistance / 1000, // Convert to km
+        durationSeconds: stateController.secondsElapsed,
+        routePoints: stateController.routePoints.map((p) => {
+          'lat': p.latitude,
+          'lng': p.longitude,
+        }).toList(),
+        startTime: DateTime.now().subtract(Duration(seconds: stateController.secondsElapsed)),
+        planTitle: planTitle,
+        additionalData: {
+          'pace': stateController.paceString,
+          'calories': stateController.totalCalories,
+          'avgBpm': stateController.currentBpm,
+        },
+      );
+      debugPrint('💾 Run state auto-saved');
+    } catch (e) {
+      debugPrint('⚠️ Error auto-saving run state: $e');
+    }
+  }
+
+  Future<void> startRun({String planTitle = "Free Run"}) async {
     try {
       debugPrint("🎬 RunController: Starting run");
       await stateController.startRun();
       await voiceController.speakRunStarted();
+      
+      // NEW: Start auto-save
+      startAutoSave(planTitle);
+      
       notifyListeners();
       debugPrint("✅ RunController: Run started successfully");
     } catch (e) {
@@ -146,6 +370,11 @@ class RunController extends ChangeNotifier {
       );
       debugPrint("✅ Auto post created");
 
+      // NEW: Clear recovery data on successful completion
+      await RunRecoveryService.clearRecoverableRun();
+      stopAutoSave();
+      debugPrint("✅ Recovery data cleared");
+
       stateController.resetRun();
       debugPrint("✅ Run data reset");
 
@@ -153,6 +382,10 @@ class RunController extends ChangeNotifier {
       debugPrint("✅ RunController: Stop complete");
     } catch (e) {
       debugPrint("❌ RunController: Error stopping run: $e");
+      
+      // NEW: Stop auto-save even on error
+      stopAutoSave();
+      
       stateController.resetRun();
       notifyListeners();
       rethrow;
@@ -167,6 +400,10 @@ class RunController extends ChangeNotifier {
   @override
   void dispose() {
     debugPrint("🗑️ Disposing RunController");
+    
+    // NEW: Clean up auto-save timer
+    stopAutoSave();
+    
     stateController.removeListener(_onStateControllerChanged);
     stateController.dispose();
     super.dispose();
