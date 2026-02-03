@@ -1,62 +1,54 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart';
 
 class VoiceController extends ChangeNotifier {
-  final FlutterTts _flutterTts = FlutterTts();
+  final FlutterTts _tts = FlutterTts();
   bool _isVoiceEnabled = true;
-
-  bool get isVoiceEnabled => _isVoiceEnabled;
 
   VoiceController() {
     _initTts();
   }
 
+  bool get isVoiceEnabled => _isVoiceEnabled;
+
   Future<void> _initTts() async {
     try {
-      await _flutterTts.setLanguage("en-US");
-      await _flutterTts.setSpeechRate(0.5);
-      await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(1.0);
-      debugPrint("TTS initialized");
+      // Configure for iOS with premium voice
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _tts.setVoice({"name": "Samantha", "locale": "en-US"}); // Premium female voice
+        // Alternatives: "Nicky" (also female), "Karen" (Australian)
+      } else if (kIsWeb) {
+        await _tts.setVoice({"name": "Google US English", "locale": "en-US"});
+      }
+
+      await _tts.setLanguage("en-US");
+      await _tts.setSpeechRate(0.5); // Slower = clearer (0.5 = normal pace)
+      await _tts.setPitch(1.1); // Slightly higher pitch for female voice
+      await _tts.setVolume(1.0);
+
+      debugPrint("✅ Voice initialized with premium female voice");
     } catch (e) {
-      debugPrint("TTS initialization error: $e");
+      debugPrint("⚠️ Error initializing voice: $e");
     }
   }
 
   void toggleVoice() {
     _isVoiceEnabled = !_isVoiceEnabled;
     notifyListeners();
-    debugPrint("Voice ${_isVoiceEnabled ? 'enabled' : 'disabled'}");
   }
 
   Future<void> _speak(String text) async {
     if (!_isVoiceEnabled) return;
+    
     try {
+      await _tts.speak(text);
       debugPrint("🔊 Speaking: $text");
-      await _flutterTts.speak(text);
     } catch (e) {
-      debugPrint("TTS speak error: $e");
+      debugPrint("⚠️ Error speaking: $e");
     }
   }
 
-  // Basic announcements
-  Future<void> speakRunStarted() async {
-    await _speak("Run started. Good luck!");
-  }
-
-  Future<void> speakRunPaused() async {
-    await _speak("Run paused");
-  }
-
-  Future<void> speakRunResumed() async {
-    await _speak("Run resumed");
-  }
-
-  Future<void> speakRunStopped() async {
-    await _speak("Run stopped");
-  }
-
-  // Enhanced km milestone announcements
+  // FIXED: Complete announcement with all details
   Future<void> speakKmMilestone({
     required int km,
     required String totalTime,
@@ -66,38 +58,83 @@ class VoiceController extends ChangeNotifier {
   }) async {
     if (!_isVoiceEnabled) return;
 
-    // Build the announcement
-    String announcement = "";
+    // Parse totalTime (format: "32:15" = 32 minutes 15 seconds)
+    final timeParts = totalTime.split(':');
+    final minutes = int.tryParse(timeParts[0]) ?? 0;
+    final seconds = int.tryParse(timeParts.length > 1 ? timeParts[1] : '0') ?? 0;
 
-    // Milestone
-    announcement += "$km kilometer completed. ";
-
-    // Total time
-    announcement += "Total time: $totalTime. ";
-
+    // FIXED: Build complete announcement
+    final announcement = StringBuffer();
+    
+    // Main milestone
+    announcement.write("You've completed $km ");
+    announcement.write(km == 1 ? "kilometer. " : "kilometers. ");
+    
+    // Time - FIXED: Say "minutes" not "hours"
+    announcement.write("Your total time is $minutes ");
+    announcement.write(minutes == 1 ? "minute " : "minutes ");
+    if (seconds > 0) {
+      announcement.write("and $seconds ");
+      announcement.write(seconds == 1 ? "second. " : "seconds. ");
+    } else {
+      announcement.write(". ");
+    }
+    
     // Last km pace
-    announcement += "Last kilometer pace: $lastKmPace. ";
-
-    // Average pace
-    announcement += "Average pace: $averagePace. ";
-
-    // Comparison with previous km (if available)
+    final paceParts = lastKmPace.split(':');
+    final paceMin = int.tryParse(paceParts[0]) ?? 0;
+    final paceSec = int.tryParse(paceParts.length > 1 ? paceParts[1] : '0') ?? 0;
+    
+    announcement.write("Your last kilometer pace was $paceMin ");
+    announcement.write(paceMin == 1 ? "minute " : "minutes ");
+    if (paceSec > 0) {
+      announcement.write("and $paceSec ");
+      announcement.write(paceSec == 1 ? "second " : "seconds ");
+    }
+    announcement.write("per kilometer. ");
+    
+    // Comparison if available
     if (comparison != null && comparison.isNotEmpty) {
-      announcement += comparison;
+      announcement.write(comparison);
+      announcement.write(". ");
+    }
+    
+    // Encouragement
+    if (km % 5 == 0) {
+      announcement.write("Amazing progress! Keep it up!");
+    } else if (km % 3 == 0) {
+      announcement.write("You're doing great!");
+    } else {
+      announcement.write("Keep going strong!");
     }
 
-    debugPrint("🎯 KM Milestone: $announcement");
-    await _speak(announcement);
+    await _speak(announcement.toString());
   }
 
-  // Custom announcement
-  Future<void> speak(String text) async {
-    await _speak(text);
+  Future<void> speakRunStarted() async {
+    await _speak("Run started. Stay safe and enjoy your run!");
+  }
+
+  Future<void> speakRunPaused() async {
+    await _speak("Run paused. Take a breath!");
+  }
+
+  Future<void> speakRunResumed() async {
+    await _speak("Run resumed. Let's go!");
+  }
+
+  Future<void> speakRunStopped() async {
+    await _speak("Great job! Run completed. Check your stats!");
+  }
+
+  // NEW: Test voice to let users hear it
+  Future<void> testVoice() async {
+    await _speak("Hi! I'm your running coach. Let's get moving!");
   }
 
   @override
   void dispose() {
-    _flutterTts.stop();
+    _tts.stop();
     super.dispose();
   }
 }

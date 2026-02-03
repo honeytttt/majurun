@@ -6,6 +6,7 @@ import 'package:majurun/modules/run/controllers/voice_controller.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
+import 'package:majurun/core/services/wake_lock_service.dart'; // NEW: Added
 import 'dart:async';
 
 class RunController extends ChangeNotifier {
@@ -14,7 +15,7 @@ class RunController extends ChangeNotifier {
   final PostController postController = PostController();
   final StatsController statsController = StatsController();
 
-  // NEW: Recovery properties
+  // Recovery properties
   Timer? _autoSaveTimer;
   bool _hasShownRecoveryDialog = false;
 
@@ -72,7 +73,7 @@ class RunController extends ChangeNotifier {
     await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
   }
 
-  // NEW: Check for recoverable run on app start
+  // Check for recoverable run on app start
   Future<void> checkForRecoverableRun(BuildContext context) async {
     if (_hasShownRecoveryDialog) return;
     
@@ -244,7 +245,7 @@ class RunController extends ChangeNotifier {
     return (distanceKm * 60).round();
   }
 
-  // NEW: Start auto-save when run begins
+  // Start auto-save when run begins
   void startAutoSave(String planTitle) {
     _autoSaveTimer?.cancel();
     
@@ -255,14 +256,14 @@ class RunController extends ChangeNotifier {
     debugPrint('🔄 Auto-save started (every 10 seconds)');
   }
 
-  // NEW: Stop auto-save when run ends
+  // Stop auto-save when run ends
   void stopAutoSave() {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = null;
     debugPrint('⏹️ Auto-save stopped');
   }
 
-  // NEW: Save current run state to local storage
+  // Save current run state to local storage
   Future<void> _saveCurrentRunState(String planTitle) async {
     try {
       await RunRecoveryService.saveActiveRun(
@@ -289,16 +290,23 @@ class RunController extends ChangeNotifier {
   Future<void> startRun({String planTitle = "Free Run"}) async {
     try {
       debugPrint("🎬 RunController: Starting run");
+      
+      // NEW: Enable wake lock to keep screen awake
+      await WakeLockService.enable();
+      debugPrint("🔒 Screen wake lock enabled");
+      
       await stateController.startRun();
       await voiceController.speakRunStarted();
       
-      // NEW: Start auto-save
+      // Start auto-save
       startAutoSave(planTitle);
       
       notifyListeners();
       debugPrint("✅ RunController: Run started successfully");
     } catch (e) {
       debugPrint("❌ RunController: Error starting run: $e");
+      // Release wake lock on error
+      await WakeLockService.disable();
       rethrow;
     }
   }
@@ -370,10 +378,14 @@ class RunController extends ChangeNotifier {
       );
       debugPrint("✅ Auto post created");
 
-      // NEW: Clear recovery data on successful completion
+      // Clear recovery data on successful completion
       await RunRecoveryService.clearRecoverableRun();
       stopAutoSave();
       debugPrint("✅ Recovery data cleared");
+
+      // NEW: Disable wake lock when run completes
+      await WakeLockService.disable();
+      debugPrint("🔓 Screen wake lock disabled");
 
       stateController.resetRun();
       debugPrint("✅ Run data reset");
@@ -383,8 +395,9 @@ class RunController extends ChangeNotifier {
     } catch (e) {
       debugPrint("❌ RunController: Error stopping run: $e");
       
-      // NEW: Stop auto-save even on error
+      // Stop auto-save and disable wake lock even on error
       stopAutoSave();
+      await WakeLockService.disable();
       
       stateController.resetRun();
       notifyListeners();
@@ -401,8 +414,9 @@ class RunController extends ChangeNotifier {
   void dispose() {
     debugPrint("🗑️ Disposing RunController");
     
-    // NEW: Clean up auto-save timer
+    // Clean up auto-save timer and wake lock
     stopAutoSave();
+    WakeLockService.disable(); // Ensure wake lock is released
     
     stateController.removeListener(_onStateControllerChanged);
     stateController.dispose();
