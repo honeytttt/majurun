@@ -93,12 +93,47 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                 onPressed: runController.toggleVoice,
               ),
               const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.history, color: Colors.black),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+              // Last Run button
+              TextButton(
+                onPressed: () async {
+                  try {
+                    final lastRun = await runController.getLastActivity();
+                    if (!context.mounted) return;
+                    
+                    if (lastRun != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LastActivityScreen(lastRun: lastRun),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("No activities found yet!"),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Error: ${e.toString()}"),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: const Text(
+                  'LAST RUN',
+                  style: TextStyle(
+                    color: Color(0xFF2D7A3E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -203,9 +238,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _smallStat("TOTAL KM", runController.historyDistance.toStringAsFixed(1)),
+              _smallStat("TIME", runController.totalHistoryTimeStr),
               _smallStat("STREAK", "${runController.runStreak}D"),
               _smallStat("CALORIES", "${runController.totalCalories}"),
             ],
@@ -239,43 +275,19 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   Widget _buildFooterLink(BuildContext context) {
     return TextButton(
-      onPressed: () async {
-        try {
-          final runController = Provider.of<RunController>(context, listen: false);
-          final lastRun = await runController.getLastActivity();
-          if (!context.mounted) return;
-          
-          if (lastRun != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => LastActivityScreen(lastRun: lastRun),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("No activities found yet!"),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        } catch (e) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Error: ${e.toString()}"),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      },
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+        ),
+      ),
       child: const Text(
-        "VIEW LAST ACTIVITY →",
+        'HISTORY',
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 14,
           color: Color(0xFF2D7A3E),
+          letterSpacing: 1,
         ),
       ),
     );
