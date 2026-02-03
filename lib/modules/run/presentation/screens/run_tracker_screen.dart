@@ -1,12 +1,9 @@
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
-import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
 class RunTrackerScreen extends StatefulWidget {
@@ -20,7 +17,6 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final GlobalKey _mapKey = GlobalKey();
 
   @override
   void initState() {
@@ -29,23 +25,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final runController = Provider.of<RunController>(context, listen: false);
-      runController.stateController.addListener(_onRunStateChanged);
-    });
-  }
-
-  void _onRunStateChanged() {
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   @override
   void dispose() {
-    final runController = Provider.of<RunController>(context, listen: false);
-    runController.stateController.removeListener(_onRunStateChanged);
     _pulseController.dispose();
     super.dispose();
   }
@@ -60,14 +43,13 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         child: Column(
           children: [
             _buildHeader(context),
-            const Spacer(flex: 1),
-            _buildControlCenter(context),
-            const Spacer(flex: 1),
-            _buildLiveMetrics(),
-            const Spacer(flex: 1),
-            _buildStatsGrid(context),
             const Spacer(flex: 2),
-            _buildFooter(context),
+            _buildControlCenter(context),
+            const Spacer(flex: 2),
+            _buildStatsGrid(context),
+            const Spacer(flex: 1),
+            _buildFooterLink(context),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -81,15 +63,31 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.menu, color: Colors.black),
+              // TRAINING text button instead of menu
+              TextButton(
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  backgroundColor: const Color(0xFF2D7A3E).withValues(alpha: 0.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'TRAINING',
+                  style: TextStyle(
+                    color: Color(0xFF2D7A3E),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
               const Spacer(),
               IconButton(
                 icon: Icon(
                   runController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                  color: runController.isVoiceEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+                  color: runController.isVoiceEnabled ? const Color(0xFF2D7A3E) : Colors.grey.shade600,
                 ),
                 tooltip: runController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
                 onPressed: runController.toggleVoice,
@@ -114,15 +112,6 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   Widget _buildControlCenter(BuildContext context) {
     return Consumer<RunController>(
       builder: (context, runController, _) {
-        final state = runController.state;
-        
-        if (state == RunState.running) {
-          double speedFactor = (runController.currentBpm / 80).clamp(0.8, 2.5);
-          _pulseController.duration = Duration(milliseconds: (1200 / speedFactor).round());
-        } else {
-          _pulseController.duration = const Duration(milliseconds: 1200);
-        }
-
         return Column(
           children: [
             AnimatedBuilder(
@@ -133,61 +122,30 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                   child: child,
                 );
               },
-              child: Icon(
+              child: const Icon(
                 Icons.directions_run_rounded,
-                color: state == RunState.running 
-                    ? Colors.green.shade700 
-                    : Colors.grey.shade800,
-                size: 64,
+                color: Color(0xFF2D7A3E),
+                size: 80,
               ),
             ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: state == RunState.running
-                        ? Colors.orange
-                        : state == RunState.paused
-                            ? Colors.blue
-                            : Colors.green,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => _handleStartPauseResume(context, state),
-                  child: Text(
-                    state == RunState.running
-                        ? "PAUSE"
-                        : state == RunState.paused
-                            ? "RESUME"
-                            : "START",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
-                  ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2D7A3E),
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 22),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 8,
+              ),
+              onPressed: () => _handleStartRun(context),
+              child: const Text(
+                "START RUN",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: Colors.white,
+                  letterSpacing: 1.5,
                 ),
-                const SizedBox(width: 20),
-                if (state != RunState.idle)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => _handleStopRun(context),
-                    child: const Text(
-                      "STOP",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ],
         );
@@ -195,31 +153,39 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Future<void> _handleStartPauseResume(BuildContext context, RunState currentState) async {
+  Future<void> _handleStartRun(BuildContext context) async {
     final runController = Provider.of<RunController>(context, listen: false);
-    
-    try {
-      if (currentState == RunState.idle) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
-        );
 
-        await runController.startRun();
-        
-        if (context.mounted) {
-          Navigator.pop(context); // Just dismiss - NO notification
-        }
-      } else if (currentState == RunState.running) {
-        runController.pauseRun();
-      } else if (currentState == RunState.paused) {
-        runController.resumeRun();
+    // Show 5-second warmup countdown
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const _WarmupCountdownDialog(),
+    );
+
+    // Wait for countdown
+    await Future.delayed(const Duration(seconds: 5));
+
+    if (!context.mounted) return;
+
+    // Close countdown dialog
+    Navigator.pop(context);
+
+    try {
+      // Start the run
+      await runController.startRun(planTitle: "Free Run");
+
+      if (context.mounted) {
+        // Navigate to active run screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ActiveRunScreen(),
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.pop(context);
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("❌ Error: ${e.toString()}"),
@@ -229,119 +195,6 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         );
       }
     }
-  }
-
-  Future<void> _handleStopRun(BuildContext context) async {
-    final runController = Provider.of<RunController>(context, listen: false);
-    
-    if (runController.state == RunState.idle) return;
-
-    Uint8List? mapImageBytes;
-    
-    if (runController.routePoints.isNotEmpty) {
-      debugPrint("📸 Attempting to capture map image with ${runController.routePoints.length} points");
-      
-      try {
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        if (_mapKey.currentContext != null) {
-          final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
-          if (boundary != null) {
-            final image = await boundary.toImage(pixelRatio: 3.0);
-            final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-            if (byteData != null) {
-              mapImageBytes = byteData.buffer.asUint8List();
-              debugPrint("✅ Map image captured: ${mapImageBytes.length} bytes");
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint("❌ Error capturing map: $e");
-      }
-    }
-    
-    if (!context.mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              "Saving your run...",
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      await runController.stopRun(
-        context,
-        planTitle: "Free Run",
-        mapImageBytes: mapImageBytes,
-      );
-      
-      if (context.mounted) {
-        Navigator.pop(context); // Just dismiss - NO "Run saved successfully" notification
-        setState(() {});
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("⚠️ Error saving: ${e.toString()}"),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildLiveMetrics() {
-    return Consumer<RunController>(
-      builder: (context, runController, _) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _metricItem("DISTANCE", "${runController.distanceString} KM"),
-            _metricItem("PACE", runController.paceString),
-            _metricItem("TIME", runController.durationString),
-            _metricItem("BPM", "${runController.currentBpm}"),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _metricItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildStatsGrid(BuildContext context) {
@@ -384,71 +237,113 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Widget _buildFooter(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SizedBox(
-        width: double.infinity,
-        height: 55,
-        child: ElevatedButton(
-          onPressed: () async {
-            showDialog(
-              context: context,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
-              barrierDismissible: false,
-            );
-            try {
-              final runController = Provider.of<RunController>(context, listen: false);
-              final lastRun = await runController.getLastActivity();
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              if (lastRun != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LastActivityScreen(lastRun: lastRun),
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("No activities found yet!"),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            } catch (e) {
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("Error: ${e.toString()}"),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.bolt, color: Colors.amber),
-              SizedBox(width: 8),
-              Text(
-                "VIEW LAST ACTIVITY",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  letterSpacing: 0.5,
-                ),
+  Widget _buildFooterLink(BuildContext context) {
+    return TextButton(
+      onPressed: () async {
+        try {
+          final runController = Provider.of<RunController>(context, listen: false);
+          final lastRun = await runController.getLastActivity();
+          if (!context.mounted) return;
+          
+          if (lastRun != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LastActivityScreen(lastRun: lastRun),
               ),
-            ],
-          ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("No activities found yet!"),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Error: ${e.toString()}"),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: const Text(
+        "VIEW LAST ACTIVITY →",
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: Color(0xFF2D7A3E),
+        ),
+      ),
+    );
+  }
+}
+
+// Warmup Countdown Dialog
+class _WarmupCountdownDialog extends StatefulWidget {
+  const _WarmupCountdownDialog();
+
+  @override
+  State<_WarmupCountdownDialog> createState() => _WarmupCountdownDialogState();
+}
+
+class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog> {
+  int _countdown = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() async {
+    for (int i = 5; i > 0; i--) {
+      if (!mounted) return;
+      setState(() => _countdown = i);
+      await Future.delayed(const Duration(seconds: 1));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1B4D2C), // Deep green
+            Colors.black,
+            Colors.black,
+            Color(0xFF0D2818), // Very dark green
+          ],
+          stops: [0.0, 0.3, 0.7, 1.0],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$_countdown',
+              style: const TextStyle(
+                fontSize: 120,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF7ED957),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Get Ready!',
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.white70,
+              ),
+            ),
+          ],
         ),
       ),
     );
