@@ -67,7 +67,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     actions: [
                       IconButton(
                         icon: const Icon(Icons.share, color: Colors.black),
-                        onPressed: () => _shareHistory(context),
+                        onPressed: () => _shareHistory(context, runs),
                       ),
                     ],
                   ),
@@ -76,7 +76,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   SliverToBoxAdapter(
                     child: Container(
                       color: Colors.white,
-                      child: _buildSummaryHeader(controller),
+                      child: _buildSummaryHeader(runs),
                     ),
                   ),
 
@@ -176,8 +176,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     );
   }
 
-  Widget _buildSummaryHeader(RunController controller) {
-    final records = _getPersonalRecords();
+  Widget _buildSummaryHeader(List<Map<String, dynamic>> runs) {
+    final stats = _calculateStatsFromRuns(runs);
+    final records = _getPersonalRecords(runs);
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -203,11 +204,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ),
             child: Row(
               children: [
-                Expanded(child: _buildStatWhite("Total KM", "${controller.historyDistance.toStringAsFixed(1)} km")),
+                Expanded(child: _buildStatWhite("Total KM", "${stats['totalKm'].toStringAsFixed(1)} km")),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
-                Expanded(child: _buildStatWhite("Total Time", controller.totalHistoryTimeStr)),
+                Expanded(child: _buildStatWhite("Total Time", stats['totalTime'])),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
-                Expanded(child: _buildStatWhite("Avg Pace", _calculateAveragePace(controller))),
+                Expanded(child: _buildStatWhite("Avg Pace", stats['avgPace'])),
               ],
             ),
           ),
@@ -215,13 +216,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           // Second row
           Row(
             children: [
-              Expanded(child: _buildStatCard("Avg BPM", "145", Icons.favorite, Colors.red)),
+              Expanded(child: _buildStatCard("Avg BPM", "${stats['avgBpm']}", Icons.favorite, Colors.red)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Streak", "${controller.runStreak}", Icons.local_fire_department, Colors.orange)),
+              Expanded(child: _buildStatCard("Streak", "${stats['streak']}", Icons.local_fire_department, Colors.orange)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Runs", "${controller.totalRuns}", Icons.check_circle, Colors.green)),
+              Expanded(child: _buildStatCard("Runs", "${stats['totalRuns']}", Icons.check_circle, Colors.green)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Cal", "2.4k", Icons.whatshot, Colors.deepOrange)),
+              Expanded(child: _buildStatCard("Cal", "${stats['totalCalories']}", Icons.whatshot, Colors.deepOrange)),
             ],
           ),
           const SizedBox(height: 12),
@@ -252,6 +253,137 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         ],
       ),
     );
+  }
+
+  Map<String, dynamic> _calculateStatsFromRuns(List<Map<String, dynamic>> runs) {
+    if (runs.isEmpty) {
+      return {
+        'totalKm': 0.0,
+        'totalTime': '0:00',
+        'avgPace': '0:00',
+        'avgBpm': 0,
+        'streak': 0,
+        'totalRuns': 0,
+        'totalCalories': 0,
+      };
+    }
+
+    double totalKm = 0.0;
+    int totalSeconds = 0;
+    int totalBpm = 0;
+    int totalCalories = 0;
+    int bpmCount = 0;
+
+    for (final run in runs) {
+      totalKm += (run['distance'] ?? 0.0) as double;
+      totalSeconds += (run['durationSeconds'] ?? 0) as int;
+      totalCalories += (run['calories'] ?? 0) as int;
+      
+      final bpm = run['avgBpm'] ?? run['bpm'];
+      if (bpm != null && bpm > 0) {
+        totalBpm += bpm as int;
+        bpmCount++;
+      }
+    }
+
+    // Format total time
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    
+    String totalTime;
+    if (hours > 0) {
+      totalTime = "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+    } else {
+      totalTime = "$minutes:${seconds.toString().padLeft(2, '0')}";
+    }
+
+    // Calculate average pace
+    String avgPace = '0:00';
+    if (totalKm > 0 && totalSeconds > 0) {
+      final avgPaceSeconds = totalSeconds / totalKm;
+      final paceMinutes = avgPaceSeconds ~/ 60;
+      final paceSeconds = (avgPaceSeconds % 60).round();
+      avgPace = "$paceMinutes:${paceSeconds.toString().padLeft(2, '0')}";
+    }
+
+    // Calculate average BPM
+    int avgBpm = bpmCount > 0 ? (totalBpm / bpmCount).round() : 0;
+
+    // Calculate streak
+    final now = DateTime.now();
+    int streak = 0;
+    final sortedRuns = List<Map<String, dynamic>>.from(runs)
+      ..sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+    
+    for (int i = 0; i < sortedRuns.length; i++) {
+      final runDate = sortedRuns[i]['date'] as DateTime;
+      final daysDiff = now.difference(runDate).inDays;
+      
+      if (daysDiff <= i + 1) {
+        streak = i + 1;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      'totalKm': totalKm,
+      'totalTime': totalTime,
+      'avgPace': avgPace,
+      'avgBpm': avgBpm,
+      'streak': streak,
+      'totalRuns': runs.length,
+      'totalCalories': totalCalories,
+    };
+  }
+
+  Map<String, String> _getPersonalRecords(List<Map<String, dynamic>> runs) {
+    if (runs.isEmpty) {
+      return {
+        'bestPace': '--:--',
+        'bestPaceDate': '',
+        'longestDistance': '-- km',
+        'longestDate': '',
+      };
+    }
+
+    // Find best pace (lowest pace value)
+    Map<String, dynamic>? bestPaceRun;
+    double bestPaceValue = double.infinity;
+    
+    for (final run in runs) {
+      final paceStr = run['pace'] as String?;
+      if (paceStr != null) {
+        final parts = paceStr.split(':');
+        if (parts.length == 2) {
+          final paceSeconds = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+          if (paceSeconds < bestPaceValue && paceSeconds > 0) {
+            bestPaceValue = paceSeconds.toDouble();
+            bestPaceRun = run;
+          }
+        }
+      }
+    }
+
+    // Find longest run
+    Map<String, dynamic>? longestRun;
+    double longestDistance = 0.0;
+    
+    for (final run in runs) {
+      final distance = (run['distance'] ?? 0.0) as double;
+      if (distance > longestDistance) {
+        longestDistance = distance;
+        longestRun = run;
+      }
+    }
+
+    return {
+      'bestPace': bestPaceRun?['pace'] ?? '--:--',
+      'bestPaceDate': bestPaceRun != null ? DateFormat('MMM d').format(bestPaceRun['date'] as DateTime) : '',
+      'longestDistance': longestDistance > 0 ? '${longestDistance.toStringAsFixed(1)} km' : '-- km',
+      'longestDate': longestRun != null ? DateFormat('MMM d').format(longestRun['date'] as DateTime) : '',
+    };
   }
 
   Widget _buildStatWhite(String label, String value) {
@@ -376,29 +508,15 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     );
   }
 
-  Map<String, String> _getPersonalRecords() {
-    return {
-      'bestPace': '4:32',
-      'bestPaceDate': 'Jan 15',
-      'longestDistance': '21.1 km',
-      'longestDate': 'Dec 20',
-    };
-  }
-
-  String _calculateAveragePace(RunController controller) {
-    if (controller.totalRuns == 0) return "0:00";
-    return "5:30";
-  }
-
-  void _shareHistory(BuildContext context) {
-    final controller = Provider.of<RunController>(context, listen: false);
+  void _shareHistory(BuildContext context, List<Map<String, dynamic>> runs) {
+    final stats = _calculateStatsFromRuns(runs);
     final message = """
 🏃 My Running Stats
 
-📊 Total Distance: ${controller.historyDistance.toStringAsFixed(1)} km
-⏱️ Total Time: ${controller.totalHistoryTimeStr}
-🔥 Total Runs: ${controller.totalRuns}
-⚡ Streak: ${controller.runStreak} days
+📊 Total Distance: ${stats['totalKm'].toStringAsFixed(1)} km
+⏱️ Total Time: ${stats['totalTime']}
+🔥 Total Runs: ${stats['totalRuns']}
+⚡ Streak: ${stats['streak']} days
 
 Keep running with MajuRun! 💪
 """;
