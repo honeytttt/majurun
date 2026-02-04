@@ -48,6 +48,11 @@ class VoiceController extends ChangeNotifier {
     }
   }
 
+  // NEW: Public method for training announcements
+  Future<void> speakTraining(String text) async {
+    await _speak(text);
+  }
+
   // FIXED: Complete announcement with all details
   Future<void> speakKmMilestone({
     required int km,

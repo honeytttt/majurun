@@ -1,219 +1,712 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:majurun/modules/training/services/training_service.dart';
+import 'package:majurun/modules/run/controllers/voice_controller.dart';
 
 class ActiveWorkoutScreen extends StatefulWidget {
   final String planTitle;
-  final VoidCallback? onCancel;
+  final VoidCallback onCancel;
+  final int currentWeek;
+  final int currentDay;
+  final String planImageUrl;
+  final Map<String, dynamic> workoutData;
 
   const ActiveWorkoutScreen({
     super.key,
     required this.planTitle,
-    this.onCancel,
+    required this.onCancel,
+    this.currentWeek = 1,
+    this.currentDay = 1,
+    this.planImageUrl = '',
+    required this.workoutData,
   });
 
   @override
   State<ActiveWorkoutScreen> createState() => _ActiveWorkoutScreenState();
 }
 
-class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
-  bool isRunning = false;
-  bool canPause = false;
-  bool canStop = false;
+class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
+    with SingleTickerProviderStateMixin {
+  Timer? _timer;
+  Timer? _pauseTimer;
+  int _secondsRemaining = 0;
+  bool _isRunning = false; // true = run, false = walk
+  int _currentSet = 1;
+  int _totalSets = 0;
+  int _runDuration = 0; // seconds
+  int _walkDuration = 0; // seconds
+  bool _isPaused = false;
+  bool _hasStarted = false;
+  int _pausedSeconds = 0;
+  late AnimationController _pulseController;
+  VoiceController? _voiceController;
 
-  StreamSubscription<Position>? _positionStream;
-  final List<LatLng> workoutPoints = [];
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _loadWorkoutData();
+
+    // Get voice controller from RunController
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final runController = Provider.of<dynamic>(context, listen: false);
+        _voiceController = runController.voiceController as VoiceController?;
+      } catch (e) {
+        debugPrint('⚠️ Voice controller not available: $e');
+      }
+    });
+  }
+
+  void _loadWorkoutData() {
+    _totalSets = widget.workoutData['sets'] ?? 1;
+    _runDuration = widget.workoutData['runDuration'] ?? 60;
+    _walkDuration = widget.workoutData['walkDuration'] ?? 90;
+  }
+
+  void _startWorkout() {
+    if (_hasStarted) return;
+    setState(() {
+      _hasStarted = true;
+      _isRunning = true;
+      _secondsRemaining = _runDuration;
+    });
+    _announcePhase('run');
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!_isPaused) {
+        setState(() {
+          if (_secondsRemaining > 0) {
+            _secondsRemaining--;
+          } else {
+            _switchPhase();
+          }
+        });
+      }
+    });
+  }
+
+  void _switchPhase() {
+    if (_isRunning) {
+      // Switch to walk phase
+      if (_walkDuration > 0) {
+        setState(() {
+          _isRunning = false;
+          _secondsRemaining = _walkDuration;
+        });
+        _announcePhase('walk');
+      } else {
+        // No walk phase, move to next set
+        _moveToNextSet();
+      }
+    } else {
+      // Walk phase ended, move to next set
+      _moveToNextSet();
+    }
+  }
+
+  void _moveToNextSet() {
+    if (_currentSet < _totalSets) {
+      setState(() {
+        _currentSet++;
+        _isRunning = true;
+        _secondsRemaining = _runDuration;
+      });
+      _announcePhase('run');
+    } else {
+      // Workout complete!
+      _completeWorkout();
+    }
+  }
+
+  void _togglePause() {
+    setState(() {
+      _isPaused = !_isPaused;
+    });
+    if (_isPaused) {
+      _pausedSeconds = 0;
+      _startPauseTimer();
+      _speak('Workout paused');
+    } else {
+      _pauseTimer?.cancel();
+      _speak('Resuming workout');
+    }
+  }
+
+  void _startPauseTimer() {
+    _pauseTimer?.cancel();
+    _pauseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _pausedSeconds++;
+      // Show notification after 5 minutes of pause
+      if (_pausedSeconds == 300) {
+        _showPauseWarning();
+      }
+    });
+  }
+
+  void _showPauseWarning() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Still there?'),
+        content: const Text(
+            'You\'ve been paused for 5 minutes. Continue your workout or end session?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _togglePause(); // Resume
+            },
+            child: const Text('Continue'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _stopWorkout();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('End Session'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _stopWorkout() {
+    _timer?.cancel();
+    _pauseTimer?.cancel();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Incomplete Session'),
+        content: const Text(
+          'You didn\'t complete this workout. When you return, you\'ll start this session fresh from the beginning.\n\nWant to try again tomorrow?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              widget.onCancel(); // Go back
+            },
+            child: const Text('End for Today'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              // Restart the workout fresh
+              setState(() {
+                _currentSet = 1;
+                _isRunning = true;
+                _secondsRemaining = _runDuration;
+                _isPaused = false;
+                _hasStarted = true;
+              });
+              _announcePhase('run');
+              _startTimer();
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2D7A3E)),
+            child: const Text('Start Fresh Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _completeWorkout() {
+    _timer?.cancel();
+    _pauseTimer?.cancel();
+    // Mark workout as complete in training service
+    final trainingService =
+        Provider.of<TrainingService>(context, listen: false);
+    trainingService.completeWorkout();
+    _speak('Workout complete! Great job!');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('🎉 Workout Complete!'),
+        content: Text(
+          'Excellent work! You completed Week ${widget.currentWeek}, Day ${widget.currentDay} of ${widget.planTitle}!\n\nNext workout: Week ${trainingService.currentWeek}, Day ${trainingService.currentDay}',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onCancel();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2D7A3E),
+            ),
+            child: const Text('Finish'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _announcePhase(String phase) {
+    if (phase == 'run') {
+      _speak('Start running');
+    } else {
+      _speak('Start walking');
+    }
+  }
+
+  void _speak(String text) {
+    if (_voiceController != null) {
+      _voiceController!.speakTraining(text);
+    }
+    debugPrint('🔊 Training Announcement: $text');
+  }
 
   @override
   void dispose() {
-    _positionStream?.cancel();
+    _timer?.cancel();
+    _pauseTimer?.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 
+  String _formatTime(int seconds) {
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Text(widget.planTitle),
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        onPressed: () {
-          widget.onCancel?.call();
-          Navigator.pop(context);
-        },
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1B4D2C),
+              Colors.black,
+              Colors.black,
+              Color(0xFF0D2818),
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              _buildHeader(),
+              // Main content - Scrollable
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      if (!_hasStarted)
+                        _buildStartButton()
+                      else ...[
+                        _buildPhaseIndicator(),
+                        const SizedBox(height: 40),
+                        _buildTimerDisplay(),
+                        const SizedBox(height: 40),
+                        _buildSetProgress(),
+                        const SizedBox(height: 60),
+                        _buildControls(),
+                      ],
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    ),
-    body: Column(
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          // Plan Image
+          if (widget.planImageUrl.isNotEmpty)
+            GestureDetector(
+              onTap: () => _showPlanImage(),
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF7ED957),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7ED957).withValues(alpha: 0.3),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    widget.planImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.image, color: Color(0xFF7ED957)),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(width: 16),
+          // Title and Week/Day
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.planTitle,
+                  style: const TextStyle(
+                    color: Color(0xFF7ED957),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2D7A3E).withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF7ED957).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    'WEEK ${widget.currentWeek} • DAY ${widget.currentDay}',
+                    style: const TextStyle(
+                      color: Color(0xFF7ED957),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Close button
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 28),
+            onPressed: () => _hasStarted ? _confirmExit() : widget.onCancel(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStartButton() {
+    return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // RUNNING STATUS
-        if (isRunning)
-          const Icon(
-            Icons.directions_run,
-            size: 64,
-            color: Colors.green,
-          )
-        else
-          const Icon(
-            Icons.pause_circle_outline,
-            size: 64,
-            color: Colors.grey,
+        const SizedBox(height: 60),
+        const Icon(
+          Icons.play_circle_outline,
+          size: 120,
+          color: Color(0xFF7ED957),
+        ),
+        const SizedBox(height: 40),
+        ElevatedButton(
+          onPressed: _startWorkout,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2D7A3E),
+            padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 8,
           ),
+          child: const Text(
+            'START WORKOUT',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          '$_totalSets sets • ${_runDuration ~/ 60} min run • $_walkDuration sec walk',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
 
-        const SizedBox(height: 24),
+  Widget _buildPhaseIndicator() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        final scale = _isPaused ? 1.0 : 1.0 + (_pulseController.value * 0.1);
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _isRunning
+                    ? const [
+                        Color(0xFF2D7A3E),
+                        Color(0xFF7ED957),
+                      ]
+                    : const [
+                        Color(0xFF404040),
+                        Color(0xFF808080),
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: (_isRunning
+                          ? const Color(0xFF7ED957)
+                          : Colors.grey)
+                      .withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isRunning ? Icons.directions_run : Icons.directions_walk,
+                  color: Colors.white,
+                  size: 40,
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  _isRunning ? 'RUN' : 'WALK',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-        // CONTROL BUTTONS
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildTimerDisplay() {
+    return Column(
+      children: [
+        Text(
+          _formatTime(_secondsRemaining),
+          style: const TextStyle(
+            color: Color(0xFF7ED957),
+            fontSize: 80,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'TIME REMAINING',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 14,
+            letterSpacing: 2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSetProgress() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'SET $_currentSet',
+                style: const TextStyle(
+                  color: Color(0xFF7ED957),
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' / $_totalSets',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(
+            value: _currentSet / _totalSets,
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7ED957)),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Pause/Resume button
+        ElevatedButton(
+          onPressed: _togglePause,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2D7A3E),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 8,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _isPaused ? Icons.play_arrow : Icons.pause,
+                color: Colors.white,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _isPaused ? 'RESUME' : 'PAUSE',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        // Stop button
+        ElevatedButton(
+          onPressed: _stopWorkout,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 8,
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.stop,
+                color: Colors.white,
+                size: 28,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'STOP',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showPlanImage() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // RUN
-            IconButton(
-              iconSize: 48,
-              color: Colors.green,
-              icon: const Icon(Icons.play_arrow),
-              onPressed: isRunning ? null : startRun,
+            ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(20)),
+              child: Image.network(
+                widget.planImageUrl,
+                fit: BoxFit.contain,
+              ),
             ),
-
-            const SizedBox(width: 24),
-
-            // PAUSE
-            IconButton(
-              iconSize: 48,
-              color: Colors.orange,
-              icon: const Icon(Icons.pause),
-              onPressed: canPause ? pauseWorkout : null,
-            ),
-
-            const SizedBox(width: 24),
-
-            // STOP
-            IconButton(
-              iconSize: 48,
-              color: Colors.red,
-              icon: const Icon(Icons.stop),
-              onPressed: canStop ? stopWorkout : null,
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
             ),
           ],
         ),
+      ),
+    );
+  }
 
-        const SizedBox(height: 32),
-
-        Text(
-          'GPS points: ${workoutPoints.length}',
-          style: const TextStyle(fontSize: 14),
+  void _confirmExit() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('End Workout?'),
+        content: const Text(
+          'Your progress will not be saved if you exit now. This session will need to be completed from the beginning next time.',
         ),
-      ],
-    ),
-  );
-}
-
-
-  // =========================
-  // START RUN
-  // =========================
-  Future<void> startRun() async {
-    final hasPermission = await _handleLocationPermission();
-    if (!hasPermission) {
-      if (!mounted) return;
-      _showMessage('Location permission required');
-      return;
-    }
-
-    setState(() {
-      isRunning = true;
-      canPause = true;
-      canStop = true;
-    });
-
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 5,
-    );
-
-    _positionStream =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen(
-      (position) {
-        workoutPoints.add(
-          LatLng(position.latitude, position.longitude),
-        );
-      },
-      onError: (_) {
-        _showMessage('GPS error occurred');
-      },
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onCancel();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('End Workout'),
+          ),
+        ],
+      ),
     );
   }
-
-  // =========================
-  // PAUSE
-  // =========================
-  void pauseWorkout() {
-    _positionStream?.pause();
-
-    setState(() {
-      isRunning = false;
-      canPause = false;
-    });
-
-    _showMessage('Workout paused');
-  }
-
-  // =========================
-  // STOP
-  // =========================
-  Future<void> stopWorkout() async {
-    await _positionStream?.cancel();
-    _positionStream = null;
-
-    setState(() {
-      isRunning = false;
-      canPause = false;
-      canStop = false;
-    });
-
-    _showMessage('Workout stopped');
-    workoutPoints.clear();
-  }
-
-  // =========================
-  // PERMISSIONS
-  // =========================
-  Future<bool> _handleLocationPermission() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return false;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return false;
-    }
-
-    return true;
-  }
-
-  // =========================
-  // UI MESSAGE
-  // =========================
-  void _showMessage(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-}
-
-// =========================
-// LAT LNG MODEL
-// =========================
-class LatLng {
-  final double latitude;
-  final double longitude;
-
-  const LatLng(this.latitude, this.longitude);
 }

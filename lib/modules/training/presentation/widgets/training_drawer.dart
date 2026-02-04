@@ -20,22 +20,38 @@ class TrainingDrawer extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildSectionHeader("POPULAR PROGRAMS"),
+                _buildSectionHeader("TRAINING PROGRAMS"),
                 _planTile(
                   context,
-                  title: "Couch to 5K",
-                  subtitle: "9 Weeks • 3 Days/Week",
+                  title: "Train 0 to 5K",
+                  subtitle: "8 Weeks • 3 Days/Week",
                   icon: Icons.directions_run,
-                  color: Colors.orange,
-                  onTap: () => _startPlan(context, "Couch to 5K"),
+                  color: const Color(0xFF4CAF50), // Green
+                  onTap: () => _startPlan(context, "Train 0 to 5K"),
                 ),
                 _planTile(
                   context,
-                  title: "10K Finisher",
-                  subtitle: "12 Weeks • 4 Days/Week",
-                  icon: Icons.speed,
-                  color: Colors.blue,
-                  onTap: () => _startPlan(context, "10K Finisher"),
+                  title: "5K to 10K",
+                  subtitle: "8 Weeks • 3 Days/Week",
+                  icon: Icons.whatshot,
+                  color: const Color(0xFF2196F3), // Blue
+                  onTap: () => _startPlan(context, "5K to 10K"),
+                ),
+                _planTile(
+                  context,
+                  title: "10K to Half Marathon",
+                  subtitle: "8 Weeks • 3 Days/Week",
+                  icon: Icons.bolt,
+                  color: const Color(0xFFFF9800), // Orange
+                  onTap: () => _startPlan(context, "10K to Half Marathon"),
+                ),
+                _planTile(
+                  context,
+                  title: "Half to Full Marathon",
+                  subtitle: "8 Weeks • 3 Days/Week",
+                  icon: Icons.emoji_events,
+                  color: const Color(0xFF9C27B0), // Purple
+                  onTap: () => _startPlan(context, "Half to Full Marathon"),
                 ),
                 _buildSectionHeader("AI CHALLENGES"),
                 _planTile(
@@ -124,10 +140,31 @@ class TrainingDrawer extends StatelessWidget {
   void _startPlan(BuildContext context, String planName) {
     Navigator.pop(context); // Close the drawer
 
-    context.read<TrainingService>().startC25K();
+    // Get plan ID from name
+    final planId = _getPlanId(planName);
+    
+    // Start the plan in training service
+    final trainingService = context.read<TrainingService>();
+    trainingService.startPlan(planId);
+    
+    // Get current workout data
+    final workoutData = trainingService.getCurrentWorkout();
+    
+    if (workoutData.isEmpty) {
+      // Plan not found or error
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error loading training plan')),
+      );
+      return;
+    }
 
+    // Create active workout screen with data
     final activeWorkout = ActiveWorkoutScreen(
-      planTitle: planName,
+      planTitle: workoutData['planTitle'],
+      currentWeek: workoutData['currentWeek'],
+      currentDay: workoutData['currentDay'],
+      planImageUrl: workoutData['imageUrl'],
+      workoutData: workoutData['workoutData'],
       onCancel: () {
         if (onSubPageSelected != null) {
           onSubPageSelected!(null); // Safe way to clear the sub-page
@@ -142,6 +179,23 @@ class TrainingDrawer extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (context) => activeWorkout),
       );
+    }
+  }
+  
+  String _getPlanId(String planName) {
+    switch (planName) {
+      case 'Train 0 to 5K':
+        return 'train_0_to_5k';
+      case '5K to 10K':
+        return '5k_to_10k';
+      case '10K to Half Marathon':
+        return '10k_to_half';
+      case 'Half to Full Marathon':
+        return 'half_to_full';
+      case 'Morning Burn':
+        return 'train_0_to_5k'; // Default to 0-5K for now
+      default:
+        return 'train_0_to_5k';
     }
   }
 }
