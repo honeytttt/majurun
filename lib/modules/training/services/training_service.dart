@@ -63,32 +63,72 @@ class TrainingService extends ChangeNotifier {
       return {};
     }
   }
+
+
+  // Get specific workout data
+  Map<String, dynamic> getWorkoutData(int week, int day) {
+    if (_activePlan == null) return {};
+
+    try {
+      final weeks = _activePlan!['weeks'] as List;
+      // Validate week index
+      if (week < 1 || week > weeks.length) return {};
+      
+      final weekData = weeks[week - 1] as Map<String, dynamic>;
+      final workouts = weekData['workouts'] as List;
+      
+      // Validate day index
+      if (day < 1 || day > workouts.length) return {};
+      
+      final workout = workouts[day - 1] as Map<String, dynamic>;
+
+      return {
+        'planTitle': _activePlan!['title'],
+        'planId': _activePlan!['planId'],
+        'imageUrl': _activePlan!['imageUrl'],
+        'currentWeek': week,
+        'currentDay': day,
+        'totalWeeks': _activePlan!['totalWeeks'],
+        'daysPerWeek': _activePlan!['daysPerWeek'],
+        'workoutData': workout,
+      };
+    } catch (e) {
+      debugPrint('❌ Error getting workout data for W$week D$day: $e');
+      return {};
+    }
+  }
   
-  // Complete current workout and move to next
-  void completeWorkout() {
+  // Complete workout and move to next if it matches current progress
+  void completeWorkout(int completedWeek, int completedDay) {
     if (_activePlan == null || !_isActive) return;
     
-    final totalWeeks = _activePlan!['totalWeeks'] as int;
-    final daysPerWeek = _activePlan!['daysPerWeek'] as int;
-    
-    // Move to next day
-    if (_currentDay < daysPerWeek) {
-      _currentDay++;
-      debugPrint('✅ Completed! Moving to Week $_currentWeek, Day $_currentDay');
-    } 
-    // Move to next week
-    else if (_currentWeek < totalWeeks) {
-      _currentWeek++;
-      _currentDay = 1;
-      debugPrint('✅ Week complete! Moving to Week $_currentWeek, Day $_currentDay');
-    } 
-    // Program complete!
-    else {
-      _isActive = false;
-      debugPrint('🎉 Training plan complete! Congratulations!');
+    // Only advance progress if the completed workout is the one we were stuck on
+    // AND it's not the very last workout already
+    if (completedWeek == _currentWeek && completedDay == _currentDay) {
+      final totalWeeks = _activePlan!['totalWeeks'] as int;
+      final daysPerWeek = _activePlan!['daysPerWeek'] as int;
+      
+      // Move to next day
+      if (_currentDay < daysPerWeek) {
+        _currentDay++;
+        debugPrint('✅ Completed W$completedWeek D$completedDay! Moving to Week $_currentWeek, Day $_currentDay');
+      } 
+      // Move to next week
+      else if (_currentWeek < totalWeeks) {
+        _currentWeek++;
+        _currentDay = 1;
+        debugPrint('✅ Week $completedWeek complete! Moving to Week $_currentWeek, Day $_currentDay');
+      } 
+      // Program complete!
+      else {
+        _isActive = false;
+        debugPrint('🎉 Training plan complete at W$completedWeek D$completedDay! Congratulations!');
+      }
+      notifyListeners();
+    } else {
+      debugPrint('📝 Completed W$completedWeek D$completedDay, but progress pointer stays at W$_currentWeek D$_currentDay');
+      // We don't advance _currentWeek/_currentDay, but we still "completed" the run (stats are saved elsewhere)
     }
-    
-    notifyListeners();
   }
   
   // Reset current plan

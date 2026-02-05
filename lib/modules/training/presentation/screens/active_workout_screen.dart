@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:majurun/modules/training/presentation/widgets/training_session_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
 
 class ActiveWorkoutScreen extends StatefulWidget {
   final String planTitle;
@@ -42,6 +44,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   bool _hasStarted = false;
   int _pausedSeconds = 0;
   late AnimationController _pulseController;
+  int _activeWeek = 1;
+  int _activeDay = 1;
+  late Map<String, dynamic> _activeWorkoutData;
   VoiceController? _voiceController;
 
   @override
@@ -52,23 +57,27 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
     
+    
+    
+    _activeWeek = widget.currentWeek;
+    _activeDay = widget.currentDay;
+    _activeWorkoutData = widget.workoutData;
     _loadWorkoutData();
     
-    // Get voice controller from RunController
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        final runController = Provider.of<dynamic>(context, listen: false);
-        _voiceController = runController.voiceController as VoiceController?;
-      } catch (e) {
-        debugPrint('⚠️ Voice controller not available: $e');
+      if (mounted) {
+        final runController = Provider.of<RunController>(context, listen: false);
+        _voiceController = runController.voiceController;
       }
     });
   }
 
+
+
   void _loadWorkoutData() {
-    _totalSets = widget.workoutData['sets'] ?? 1;
-    _runDuration = widget.workoutData['runDuration'] ?? 60;
-    _walkDuration = widget.workoutData['walkDuration'] ?? 90;
+    _totalSets = _activeWorkoutData['sets'] ?? 1;
+    _runDuration = _activeWorkoutData['runDuration'] ?? 60;
+    _walkDuration = _activeWorkoutData['walkDuration'] ?? 90;
   }
 
   void _startWorkout() {
@@ -204,7 +213,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
-              widget.onCancel(); // Go back
+              _exitScreen();
             },
             child: const Text('End for Today'),
           ),
@@ -259,8 +268,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       'timestamp': FieldValue.serverTimestamp(),
       'type': 'training',
       'planTitle': widget.planTitle,
-      'weekDay': 'Week ${widget.currentWeek}, Day ${widget.currentDay}',
-      'description': widget.workoutData['description'] ?? '',
+      'weekDay': 'Week $_activeWeek, Day $_activeDay',
+      'description': _activeWorkoutData['description'] ?? '',
       'avgPace': avgPace,
       'avgBpm': 0, // No heart rate monitoring in training
       'calories': (estimatedKm * 60).round(), // Approx 60 cal/km
@@ -287,8 +296,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     await _saveWorkoutToHistory();
     
     // Mark workout as complete in training service
+    if (!mounted) return;
     final trainingService = Provider.of<TrainingService>(context, listen: false);
-    trainingService.completeWorkout();
+    trainingService.completeWorkout(_activeWeek, _activeDay);
     
     _speak('Workout complete! Great job!');
     
@@ -298,13 +308,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       builder: (context) => AlertDialog(
         title: const Text('🎉 Workout Complete!'),
         content: Text(
-          'Excellent work! You completed Week ${widget.currentWeek}, Day ${widget.currentDay} of ${widget.planTitle}!\n\nNext workout: Week ${trainingService.currentWeek}, Day ${trainingService.currentDay}',
+          'Excellent work! You completed Week $_activeWeek, Day $_activeDay of ${widget.planTitle}!\n\nNext workout: Week ${trainingService.currentWeek}, Day ${trainingService.currentDay}',
         ),
         actions: [
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              widget.onCancel();
+              _exitScreen();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2D7A3E),
@@ -347,59 +357,63 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1B4D2C),
-              Colors.black,
-              Colors.black,
-              Color(0xFF0D2818),
-            ],
-            stops: [0.0, 0.3, 0.7, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              _buildHeader(),
-              
-              // Main content - Scrollable
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                      
-                      if (!_hasStarted)
-                        _buildStartButton()
-                      else ...[
-                        _buildPhaseIndicator(),
-                        const SizedBox(height: 40),
-                        _buildTimerDisplay(),
-                        const SizedBox(height: 40),
-                        _buildSetProgress(),
-                        const SizedBox(height: 60),
-                        _buildControls(),
-                      ],
-                      
-                      const SizedBox(height: 40),
-                    ],
-                  ),
-                ),
+    return Consumer<RunController>(
+      builder: (context, runController, _) {
+        return Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1B4D2C),
+                  Colors.black,
+                  Colors.black,
+                  Color(0xFF0D2818),
+                ],
+                stops: [0.0, 0.3, 0.7, 1.0],
               ),
-            ],
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Header
+                  _buildHeader(runController),
+                  
+                  // Main content - Scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20),
+                          
+                          if (!_hasStarted)
+                            _buildStartButton()
+                          else ...[
+                            _buildPhaseIndicator(),
+                            const SizedBox(height: 40),
+                            _buildTimerDisplay(),
+                            const SizedBox(height: 40),
+                            _buildSetProgress(),
+                            const SizedBox(height: 60),
+                            _buildControls(),
+                          ],
+                          
+                          const SizedBox(height: 40),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(RunController runController) {
     return Container(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -465,7 +479,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     ),
                   ),
                   child: Text(
-                    'WEEK ${widget.currentWeek} • DAY ${widget.currentDay}',
+                    'WEEK $_activeWeek • DAY $_activeDay',
                     style: const TextStyle(
                       color: Color(0xFF7ED957),
                       fontSize: 12,
@@ -478,14 +492,128 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ),
           ),
           
+          // List icon (Session Selector)
+          GestureDetector(
+            onTap: _openSessionSelector,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.list,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Voice icon
+          GestureDetector(
+            onTap: runController.toggleVoice,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: runController.isVoiceEnabled 
+                    ? const Color(0xFF2D7A3E)
+                    : Colors.white.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
           // Close button
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white, size: 28),
-            onPressed: () => _hasStarted ? _confirmExit() : widget.onCancel(),
+            onPressed: () => _hasStarted ? _confirmExit() : _exitScreen(),
           ),
         ],
       ),
     );
+  }
+
+  void _exitScreen() {
+    // Only pop if we can, to avoid popping root
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    // Always call onCancel to handle embedded cases
+    widget.onCancel();
+  }
+
+  void _openSessionSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+          child:
+              // We need to import the TrainingSessionSelector widget first, 
+              // but since it's already in the codebase, we'll assume it's available or fix imports.
+              // Ideally we'd move the selector class to its own file if not already.
+              // Using dynamic dispatch for now or assume it's imported.
+              // Actually we know it's imported in the project structure, 
+              // so we just need to use it.
+              TrainingSessionSelector(
+            onBack: () => Navigator.pop(context),
+            onSubPageSelected: (_) {}, // Not used in picker mode
+            onSessionSelected: (week, day) {
+              Navigator.pop(context); // Close sheet
+              _loadSpecificWorkout(week, day);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _loadSpecificWorkout(int week, int day) {
+    if (_hasStarted) {
+      // If already started, confirm before switching?
+      // For now just switch and reset
+    }
+
+    final trainingService = Provider.of<TrainingService>(context, listen: false);
+    final sessionData = trainingService.getWorkoutData(week, day);
+
+    if (sessionData.isNotEmpty) {
+      setState(() {
+        _activeWeek = week;
+        _activeDay = day;
+        _activeWorkoutData = sessionData['workoutData'];
+        
+        // Reset workout state
+        _hasStarted = false;
+        _isRunning = false;
+        _isPaused = false;
+        
+        // Reload timers/durations
+        _loadWorkoutData();
+      });
+    }
   }
 
   Widget _buildStartButton() {
@@ -694,15 +822,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ),
             elevation: 8,
           ),
-          child: Row(
+          child: const Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.stop,
                 color: Colors.white,
                 size: 28,
               ),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'STOP',
                 style: TextStyle(
                   color: Colors.white,
@@ -722,22 +850,29 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.all(Radius.circular(20)),
-              child: Image.network(
-                widget.planImageUrl,
-                fit: BoxFit.contain,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(20)),
+                  child: Image.network(
+                    widget.planImageUrl,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -758,8 +893,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              widget.onCancel();
+              Navigator.pop(context); // Close dialog
+              _exitScreen();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
