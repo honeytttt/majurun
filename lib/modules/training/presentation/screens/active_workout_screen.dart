@@ -45,6 +45,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   int _walkDuration = 0; // seconds
   bool _isPaused = false;
   bool _hasStarted = false;
+  bool _isCompleted = false; // NEW: Track if workout was completed
   int _pausedSeconds = 0;
   late AnimationController _pulseController;
   int _activeWeek = 1;
@@ -241,6 +242,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     _pauseTimer?.cancel();
     _autoSaveTimer?.cancel(); // Stop auto-save
 
+    _speak('Workout stopped'); // NEW: Add voice for stop
     
     showDialog(
       context: context,
@@ -321,6 +323,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       'calories': (estimatedKm * 60).round(), // Approx 60 cal/km
       'routePoints': [], // No GPS route for training
       'mapImageUrl': '', // No map for training
+      'completed': true, // NEW: Mark as completed
     };
 
     try {
@@ -334,14 +337,58 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     }
   }
 
+  // NEW: Save partial workout to history
+  Future<void> _savePartialToHistory() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      debugPrint('❌ No user logged in, cannot save partial workout');
+      return;
+    }
+
+    final totalRunSeconds = _runDuration * (_currentSet - 1) + 
+        (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
+    final totalWalkSeconds = _walkDuration * (_currentSet - 1) +
+        (_isRunning ? 0 : (_walkDuration - _secondsRemaining));
+    final totalDuration = totalRunSeconds + totalWalkSeconds;
+    
+    final estimatedKm = totalRunSeconds / 360.0;
+    
+    final avgPaceSeconds = totalDuration / estimatedKm;
+    final paceMin = avgPaceSeconds ~/ 60;
+    final paceSec = (avgPaceSeconds % 60).round();
+    final avgPace = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
+
+    final workoutData = {
+      'userId': userId,
+      'distance': estimatedKm,
+      'durationSeconds': totalDuration,
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'training',
+      'planTitle': widget.planTitle,
+      'weekDay': 'Week $_activeWeek, Day $_activeDay',
+      'description': _activeWorkoutData['description'] ?? '',
+      'avgPace': avgPace,
+      'avgBpm': 0,
+      'calories': (estimatedKm * 60).round(),
+      'routePoints': [],
+      'mapImageUrl': '',
+      'completed': false, // NEW: Mark as incomplete
+    };
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('runs')
+          .add(workoutData);
+      
+      debugPrint('✅ Partial training workout saved to history: ${estimatedKm.toStringAsFixed(2)} km');
+    } catch (e) {
+      debugPrint('❌ Error saving partial workout to history: $e');
+    }
+  }
+
   // NEW: Handle incomplete finish (manual stop)
   Future<void> _handleIncompleteFinish() async {
-    // Reuse save logic but for partial
-    // For now we'll just auto-post what we have if it's significant (> 1 min)
-    // But since `_saveWorkoutToHistory` assumes full completion, we need a partial version or modify it.
-    // For simplicity, let's just trigger the auto-post with partial stats manually here.
-    
-    // Calculate partial stats
+    // Calculate partial progress
     final totalRunSeconds = _runDuration * (_currentSet - 1) + 
         (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
     final totalWalkSeconds = _walkDuration * (_currentSet - 1) +
@@ -358,6 +405,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final paceMin = (currentDuration / estimatedKm) ~/ 60;
     final paceSec = ((currentDuration / estimatedKm) % 60).round();
     final paceStr = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
+
+    // NEW: Save partial to history
+    await _savePartialToHistory();
 
     // Auto post
     await _autoPost(
@@ -450,6 +500,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     // Clear recovery since we finished
     await RunRecoveryService.clearRecoverableRun();
     
+    setState(() {
+      _isCompleted = true; // NEW: Mark as completed
+    });
+    
     // REMOVED voice speak('Workout complete! Great job!'); as per user request
     // _speak('Workout complete! Great job!');
     
@@ -500,6 +554,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     _pauseTimer?.cancel();
     _pulseController.dispose();
     _autoSaveTimer?.cancel(); // Cancel auto-save
+
+    // NEW: Handle incomplete if left mid-session
+    if (_hasStarted && !_isCompleted) {
+      _handleIncompleteFinish();
+    }
     super.dispose();
   }
 
@@ -511,61 +570,61 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<RunController>(
-      builder: (context, runController, _) {
-        return Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1B4D2C),
-                  Colors.black,
-                  Colors.black,
-                  Color(0xFF0D2818),
-                ],
-                stops: [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Header
-                  _buildHeader(runController),
-                  
-                  // Main content - Scrollable
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 20),
-                          
-                          if (!_hasStarted)
-                            _buildStartButton()
-                          else ...[
-                            _buildPhaseIndicator(),
-                            const SizedBox(height: 40),
-                            _buildTimerDisplay(),
-                            const SizedBox(height: 40),
-                            _buildSetProgress(),
-                            const SizedBox(height: 60),
-                            _buildControls(),
-                          ],
-                          
-                          const SizedBox(height: 40),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+  return Consumer<RunController>(
+    builder: (context, runController, _) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1B4D2C),
+                Colors.black,
+                Colors.black,
+                Color(0xFF0D2818),
+              ],
+              stops: [0.0, 0.3, 0.7, 1.0],
             ),
           ),
-        );
-      },
-    );
-  }
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                _buildHeader(runController),
+
+                // Main content - Scrollable
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+
+                        if (!_hasStarted)
+                          _buildStartButton()
+                        else ...[
+                          _buildPhaseIndicator(),
+                          const SizedBox(height: 40),
+                          _buildTimerDisplay(),
+                          const SizedBox(height: 40),
+                          _buildSetProgress(),
+                          const SizedBox(height: 60),
+                          _buildControls(),
+                        ],
+
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildHeader(RunController runController) {
     return Container(
@@ -697,12 +756,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   }
 
   void _exitScreen() {
-    // Only pop if we can, to avoid popping root
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    // NEW: Handle incomplete if applicable
+    if (_hasStarted && !_isCompleted) {
+      _handleIncompleteFinish();
     }
-    // Always call onCancel to handle embedded cases
+
     widget.onCancel();
+    Navigator.pop(context); // NEW: Always pop the screen
   }
 
   void _openSessionSelector() {
@@ -814,57 +874,55 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   }
 
   Widget _buildPhaseIndicator() {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        final scale = _isPaused ? 1.0 : 1.0 + (_pulseController.value * 0.1);
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isRunning
-                    ? [const Color(0xFF2D7A3E), const Color(0xFF7ED957)]
-                    : [const Color(0xFF404040), const Color(0xFF808080)],
+  return AnimatedBuilder(
+    animation: _pulseController,
+    builder: (context, child) {
+      final scale = _isPaused ? 1.0 : 1.0 + (_pulseController.value * 0.1);
+      return Transform.scale(
+        scale: scale,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _isRunning
+                  ? const [Color(0xFF2D7A3E), Color(0xFF7ED957)]
+                  : const [Color(0xFF404040), Color(0xFF808080)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: (_isRunning ? const Color(0xFF7ED957) : Colors.grey)
+                    .withValues(alpha: 0.5),
+                blurRadius: 20,
+                spreadRadius: 2,
               ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: (_isRunning
-                          ? const Color(0xFF7ED957)
-                          : Colors.grey)
-                      .withValues(alpha: 0.5),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isRunning ? Icons.directions_run : Icons.directions_walk,
-                  color: Colors.white,
-                  size: 40,
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  _isRunning ? 'RUN' : 'WALK',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-        );
-      },
-    );
-  }
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isRunning ? Icons.directions_run : Icons.directions_walk,
+                color: Colors.white,
+                size: 40,
+              ),
+              const SizedBox(width: 16),
+              Text(
+                _isRunning ? 'RUN' : 'WALK',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildTimerDisplay() {
     return Column(
@@ -1048,7 +1106,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
-              _exitScreen();
+              _exitScreen(); // NEW: Use _exitScreen to handle incomplete if needed
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
