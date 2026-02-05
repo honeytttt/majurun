@@ -90,6 +90,59 @@ class RunController extends ChangeNotifier {
       return;
     }
 
+    // NEW: Auto-recover training runs (no dialog)
+    if (runData['type'] == 'training') {
+       debugPrint('🔄 Auto-recovering training run...');
+       
+       // Save to history
+       await _saveRecoveredRun(runData);
+
+       // Auto-post
+       try {
+         final distance = (runData['distance'] ?? 0.0).toDouble();
+         final duration = runData['durationSeconds'] ?? 0;
+         final planTitle = runData['planTitle'] ?? 'Training';
+         
+         // Calculate stats if missing (training doesn't save them in base data)
+         final pace = runData['pace'] ?? _calculatePace(distance, duration);
+         final calories = runData['calories'] ?? _estimateCalories(distance);
+         final planImageUrl = runData['planImageUrl']; // Added in ActiveWorkoutScreen
+
+         final aiContent = postController.generateAIPost(
+           planTitle,
+           distance.toStringAsFixed(2),
+           _formatDuration(duration),
+           pace,
+           calories,
+         );
+         
+         await postController.createAutoPost(
+           aiContent: "$aiContent\nRecovered session: $planTitle",
+           routePoints: [],
+           distance: distance.toStringAsFixed(2),
+           pace: pace,
+           bpm: 0,
+           planTitle: planTitle,
+           mapImageUrlOverride: planImageUrl,
+         );
+         debugPrint('✅ Auto-posted recovered training run');
+       } catch (e) {
+         debugPrint('⚠️ Error auto-posting recovered run: $e');
+       }
+
+       await RunRecoveryService.clearRecoverableRun();
+
+       if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(
+             content: Text('✅ Recovered and posted your interrupted training run!'),
+             backgroundColor: Colors.green,
+           ),
+         );
+       }
+       return;
+    }
+
     _hasShownRecoveryDialog = true;
 
     // Check if widget is still mounted before showing dialog

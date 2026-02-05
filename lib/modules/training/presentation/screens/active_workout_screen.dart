@@ -7,6 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/post_controller.dart';
+import 'package:majurun/core/services/run_recovery_service.dart';
 
 class ActiveWorkoutScreen extends StatefulWidget {
   final String planTitle;
@@ -34,6 +36,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     with SingleTickerProviderStateMixin {
   Timer? _timer;
   Timer? _pauseTimer;
+  Timer? _autoSaveTimer; // NEW: Auto-save timer
   int _secondsRemaining = 0;
   bool _isRunning = false; // true = run, false = walk
   int _currentSet = 1;
@@ -95,6 +98,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   void _startTimer() {
     _timer?.cancel();
+    _startAutoSave(); // NEW: Start auto-saving
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!_isPaused) {
         setState(() {
@@ -106,6 +110,41 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         });
       }
     });
+  }
+
+  // NEW: Auto-save logic
+  void _startAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _saveCurrentState();
+    });
+  }
+
+  Future<void> _saveCurrentState() async {
+    // Calculate current progress
+    final totalRunSeconds = _runDuration * (_currentSet - 1) + 
+        (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
+    final totalWalkSeconds = _walkDuration * (_currentSet - 1) +
+        (_isRunning ? 0 : (_walkDuration - _secondsRemaining));
+    final currentDuration = totalRunSeconds + totalWalkSeconds;
+    
+    // Estimate distance (approx)
+    final estimatedKm = totalRunSeconds / 360.0; // ~6 min/km pace for run parts
+
+    await RunRecoveryService.saveActiveRun(
+      distance: estimatedKm,
+      durationSeconds: currentDuration,
+      routePoints: [], // No GPS for training
+      startTime: DateTime.now().subtract(Duration(seconds: currentDuration)),
+      planTitle: widget.planTitle,
+      additionalData: {
+        'type': 'training', // Mark as training run
+        'week': _activeWeek,
+        'day': _activeDay,
+        'workoutData': _activeWorkoutData,
+        'planImageUrl': widget.planImageUrl,
+      },
+    );
   }
 
   void _switchPhase() {
@@ -200,6 +239,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _stopWorkout() {
     _timer?.cancel();
     _pauseTimer?.cancel();
+    _autoSaveTimer?.cancel(); // Stop auto-save
+
     
     showDialog(
       context: context,
@@ -211,9 +252,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context); // Close dialog
-              _exitScreen();
+              
+              // NEW: Save partial progress and auto-post
+              await _handleIncompleteFinish();
+              
+              if (context.mounted) {
+                _exitScreen();
+              }
             },
             child: const Text('End for Today'),
           ),
@@ -247,7 +294,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     }
 
     // Calculate estimated distance based on run time
-    // Assume average pace of 6 min/km for beginners
     final totalRunSeconds = _runDuration * _totalSets;
     final totalWalkSeconds = _walkDuration * _totalSets;
     final totalDuration = totalRunSeconds + totalWalkSeconds;
@@ -288,6 +334,104 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     }
   }
 
+  // NEW: Handle incomplete finish (manual stop)
+  Future<void> _handleIncompleteFinish() async {
+    // Reuse save logic but for partial
+    // For now we'll just auto-post what we have if it's significant (> 1 min)
+    // But since `_saveWorkoutToHistory` assumes full completion, we need a partial version or modify it.
+    // For simplicity, let's just trigger the auto-post with partial stats manually here.
+    
+    // Calculate partial stats
+    final totalRunSeconds = _runDuration * (_currentSet - 1) + 
+        (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
+    final totalWalkSeconds = _walkDuration * (_currentSet - 1) +
+        (_isRunning ? 0 : (_walkDuration - _secondsRemaining));
+    final currentDuration = totalRunSeconds + totalWalkSeconds;
+    
+    // Nothing to save if barely started
+    if (currentDuration < 60) {
+      await RunRecoveryService.clearRecoverableRun();
+      return;
+    }
+
+    final estimatedKm = totalRunSeconds / 360.0;
+    final paceMin = (currentDuration / estimatedKm) ~/ 60;
+    final paceSec = ((currentDuration / estimatedKm) % 60).round();
+    final paceStr = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
+
+    // Auto post
+    await _autoPost(
+      completed: false, 
+      distance: estimatedKm,
+      duration: currentDuration,
+      pace: paceStr,
+      calories: (estimatedKm * 60).round()
+    );
+
+    // Clear recovery
+    await RunRecoveryService.clearRecoverableRun();
+  }
+
+  // NEW: Auto-post logic
+  Future<void> _autoPost({
+    required bool completed,
+    double? distance,
+    int? duration,
+    String? pace,
+    int? calories,
+  }) async {
+    if (!mounted) return;
+    final postController = Provider.of<PostController>(context, listen: false);
+    
+    // Use provided values or calculate full workout values for completion
+    double finalDist;
+    int finalDur;
+    String finalPace;
+    int finalCals;
+
+    if (completed) {
+      final totalRunSec = _runDuration * _totalSets;
+      final totalWalkSec = _walkDuration * _totalSets;
+      finalDur = totalRunSec + totalWalkSec;
+      finalDist = totalRunSec / 360.0;
+      final pMin = (finalDur / finalDist) ~/ 60;
+      final pSec = ((finalDur / finalDist) % 60).round();
+      finalPace = '$pMin:${pSec.toString().padLeft(2, '0')}';
+      finalCals = (finalDist * 60).round();
+    } else {
+      finalDist = distance ?? 0;
+      finalDur = duration ?? 0;
+      finalPace = pace ?? '0:00';
+      finalCals = calories ?? 0;
+    }
+
+    final distStr = finalDist.toStringAsFixed(2);
+    final durStr = _formatTime(finalDur);
+
+    final aiContent = postController.generateAIPost(
+      widget.planTitle, 
+      distStr, 
+      durStr, 
+      finalPace, 
+      finalCals
+    );
+    
+    // Append training specific context
+    final trainingContent = completed 
+        ? "$aiContent\nCompleted Week $_activeWeek Day $_activeDay of ${widget.planTitle}! 🎉"
+        : "$aiContent\nTraining session: Week $_activeWeek Day $_activeDay of ${widget.planTitle}.";
+
+    await postController.createAutoPost(
+      aiContent: trainingContent,
+      routePoints: [],
+      distance: distStr,
+      pace: finalPace,
+      bpm: 0,
+      planTitle: widget.planTitle,
+      mapImageUrlOverride: widget.planImageUrl.isNotEmpty ? widget.planImageUrl : null, // Use plan image as map image
+    );
+  }
+
   void _completeWorkout() async {
     _timer?.cancel();
     _pauseTimer?.cancel();
@@ -300,8 +444,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final trainingService = Provider.of<TrainingService>(context, listen: false);
     trainingService.completeWorkout(_activeWeek, _activeDay);
     
-    _speak('Workout complete! Great job!');
+    // Auto post to feed
+    await _autoPost(completed: true);
     
+    // Clear recovery since we finished
+    await RunRecoveryService.clearRecoverableRun();
+    
+    // REMOVED voice speak('Workout complete! Great job!'); as per user request
+    // _speak('Workout complete! Great job!');
+    
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -346,6 +499,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     _timer?.cancel();
     _pauseTimer?.cancel();
     _pulseController.dispose();
+    _autoSaveTimer?.cancel(); // Cancel auto-save
     super.dispose();
   }
 
