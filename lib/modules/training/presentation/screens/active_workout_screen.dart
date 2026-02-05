@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
 
@@ -49,8 +51,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+    
     _loadWorkoutData();
-
+    
     // Get voice controller from RunController
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -70,11 +73,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   void _startWorkout() {
     if (_hasStarted) return;
+    
     setState(() {
       _hasStarted = true;
       _isRunning = true;
       _secondsRemaining = _runDuration;
     });
+    
     _announcePhase('run');
     _startTimer();
   }
@@ -131,6 +136,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     setState(() {
       _isPaused = !_isPaused;
     });
+    
     if (_isPaused) {
       _pausedSeconds = 0;
       _startPauseTimer();
@@ -145,6 +151,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     _pauseTimer?.cancel();
     _pauseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _pausedSeconds++;
+      
       // Show notification after 5 minutes of pause
       if (_pausedSeconds == 300) {
         _showPauseWarning();
@@ -154,12 +161,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   void _showPauseWarning() {
     if (!mounted) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Still there?'),
-        content: const Text(
-            'You\'ve been paused for 5 minutes. Continue your workout or end session?'),
+        content: const Text('You\'ve been paused for 5 minutes. Continue your workout or end session?'),
         actions: [
           TextButton(
             onPressed: () {
@@ -184,13 +191,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _stopWorkout() {
     _timer?.cancel();
     _pauseTimer?.cancel();
+    
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Incomplete Session'),
         content: const Text(
-          'You didn\'t complete this workout. When you return, you\'ll start this session fresh from the beginning.\n\nWant to try again tomorrow?',
+          'You didn\'t complete this workout. When you return, you\'ll start this session fresh from the beginning.\n\nWant to try again tomorrow?'
         ),
         actions: [
           TextButton(
@@ -214,8 +222,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               _announcePhase('run');
               _startTimer();
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2D7A3E)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D7A3E)),
             child: const Text('Start Fresh Now'),
           ),
         ],
@@ -223,14 +230,68 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
   }
 
-  void _completeWorkout() {
+  Future<void> _saveWorkoutToHistory() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      debugPrint('❌ No user logged in, cannot save workout');
+      return;
+    }
+
+    // Calculate estimated distance based on run time
+    // Assume average pace of 6 min/km for beginners
+    final totalRunSeconds = _runDuration * _totalSets;
+    final totalWalkSeconds = _walkDuration * _totalSets;
+    final totalDuration = totalRunSeconds + totalWalkSeconds;
+    
+    // Estimated distance: running time / 360 seconds (6 min/km pace)
+    final estimatedKm = totalRunSeconds / 360.0;
+    
+    // Calculate average pace (total time / distance)
+    final avgPaceSeconds = totalDuration / estimatedKm;
+    final paceMin = avgPaceSeconds ~/ 60;
+    final paceSec = (avgPaceSeconds % 60).round();
+    final avgPace = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
+
+    final workoutData = {
+      'userId': userId,
+      'distance': estimatedKm,
+      'durationSeconds': totalDuration,
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'training',
+      'planTitle': widget.planTitle,
+      'weekDay': 'Week ${widget.currentWeek}, Day ${widget.currentDay}',
+      'description': widget.workoutData['description'] ?? '',
+      'avgPace': avgPace,
+      'avgBpm': 0, // No heart rate monitoring in training
+      'calories': (estimatedKm * 60).round(), // Approx 60 cal/km
+      'routePoints': [], // No GPS route for training
+      'mapImageUrl': '', // No map for training
+    };
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('runs')
+          .add(workoutData);
+      
+      debugPrint('✅ Training workout saved to history: ${estimatedKm.toStringAsFixed(2)} km');
+    } catch (e) {
+      debugPrint('❌ Error saving workout to history: $e');
+    }
+  }
+
+  void _completeWorkout() async {
     _timer?.cancel();
     _pauseTimer?.cancel();
+    
+    // Save workout to history FIRST
+    await _saveWorkoutToHistory();
+    
     // Mark workout as complete in training service
-    final trainingService =
-        Provider.of<TrainingService>(context, listen: false);
+    final trainingService = Provider.of<TrainingService>(context, listen: false);
     trainingService.completeWorkout();
+    
     _speak('Workout complete! Great job!');
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -306,12 +367,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             children: [
               // Header
               _buildHeader(),
+              
               // Main content - Scrollable
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
                       const SizedBox(height: 20),
+                      
                       if (!_hasStarted)
                         _buildStartButton()
                       else ...[
@@ -323,6 +386,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                         const SizedBox(height: 60),
                         _buildControls(),
                       ],
+                      
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -371,7 +435,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 ),
               ),
             ),
+          
           const SizedBox(width: 16),
+          
           // Title and Week/Day
           Expanded(
             child: Column(
@@ -411,6 +477,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ],
             ),
           ),
+          
           // Close button
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white, size: 28),
@@ -476,14 +543,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: _isRunning
-                    ? const [
-                        Color(0xFF2D7A3E),
-                        Color(0xFF7ED957),
-                      ]
-                    : const [
-                        Color(0xFF404040),
-                        Color(0xFF808080),
-                      ],
+                    ? [const Color(0xFF2D7A3E), const Color(0xFF7ED957)]
+                    : [const Color(0xFF404040), const Color(0xFF808080)],
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
@@ -633,15 +694,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ),
             elevation: 8,
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.stop,
                 color: Colors.white,
                 size: 28,
               ),
-              SizedBox(width: 8),
-              Text(
+              const SizedBox(width: 8),
+              const Text(
                 'STOP',
                 style: TextStyle(
                   color: Colors.white,
@@ -688,7 +749,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       builder: (context) => AlertDialog(
         title: const Text('End Workout?'),
         content: const Text(
-          'Your progress will not be saved if you exit now. This session will need to be completed from the beginning next time.',
+          'Your progress will not be saved if you exit now. This session will need to be completed from the beginning next time.'
         ),
         actions: [
           TextButton(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart';
@@ -14,13 +15,16 @@ class RunTrackerScreen extends StatefulWidget {
 }
 
 class _RunTrackerScreenState extends State<RunTrackerScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _pulseController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
+    // Add lifecycle observer for auto-save
+    WidgetsBinding.instance.addObserver(this);
+    
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -28,11 +32,48 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Auto-save when app goes to background or is closed
+    if (state == AppLifecycleState.paused || 
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      
+      final runController = Provider.of<RunController>(context, listen: false);
+      // Check if run is active (not idle)
+      if (runController.state != RunState.idle) {
+        _autoSaveRun();
+      }
+    }
+  }
+
+  Future<void> _autoSaveRun() async {
+    try {
+      final runController = Provider.of<RunController>(context, listen: false);
+      
+      // If running, pause it first
+      if (runController.state == RunState.running) {
+        runController.pauseRun();
+      }
+      
+      // The auto-save is already handled by RunController's _autoSaveTimer
+      // It saves every 10 seconds automatically when run is active
+      // So when app closes, the most recent state (within 10 seconds) is saved
+      
+      debugPrint('✅ Run state preserved (auto-saved by RunController)');
+    } catch (e) {
+      debugPrint('❌ Auto-save check failed: $e');
+    }
+  }
+
+  @override
   void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
     _pulseController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
