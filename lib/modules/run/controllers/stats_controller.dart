@@ -37,6 +37,12 @@ class StatsController extends ChangeNotifier {
     List<LatLng>? routePoints,
     int? avgBpm,
     int? calories,
+    String? type,
+    int? week,
+    int? day,
+    bool? completed,
+    String? mapImageUrl,
+    Map<String, dynamic>? extra,
   }) async {
     await _repository.saveRun(
       planTitle: planTitle,
@@ -46,10 +52,17 @@ class StatsController extends ChangeNotifier {
       routePoints: routePoints,
       avgBpm: avgBpm,
       calories: calories,
+      type: type,
+      week: week,
+      day: day,
+      completed: completed,
+      mapImageUrl: mapImageUrl,
+      extra: extra,
     );
 
     historyDistance += distanceKm;
     runStreak += 1;
+
     await refreshHistoryStats();
     notifyListeners();
   }
@@ -68,30 +81,47 @@ class StatsController extends ChangeNotifier {
       'planTitle': lastRun.planTitle,
       'avgBpm': lastRun.avgBpm,
       'routePoints': lastRun.routePoints,
+
+      // optional training metadata
+      'type': lastRun.type,
+      'week': lastRun.week,
+      'day': lastRun.day,
+      'completed': lastRun.completed,
+      'mapImageUrl': lastRun.mapImageUrl,
+      'extra': lastRun.extra,
     };
   }
 
   Future<List<Map<String, dynamic>>> getRunHistory() async {
     final runs = await _repository.getAllRuns();
+    return runs
+        .map((run) => {
+              'id': run.id,
+              'date': run.completedAt,
+              'distance': run.distanceKm,
+              'durationSeconds': run.durationSeconds,
+              'pace': run.pace,
+              'calories': run.calories,
+              'planTitle': run.planTitle,
+              'avgBpm': run.avgBpm,
+              'routePoints': run.routePoints,
 
-    return runs.map((run) => {
-      'id': run.id,
-      'date': run.completedAt,
-      'distance': run.distanceKm,
-      'durationSeconds': run.durationSeconds,
-      'pace': run.pace,
-      'calories': run.calories,
-      'planTitle': run.planTitle,
-      'avgBpm': run.avgBpm,
-      'routePoints': run.routePoints,
-    }).toList();
+              // optional training metadata
+              'type': run.type,
+              'week': run.week,
+              'day': run.day,
+              'completed': run.completed,
+              'mapImageUrl': run.mapImageUrl,
+              'extra': run.extra,
+            })
+        .toList();
   }
 
   Stream<List<RunPost>> getPostStream() {
-    return _firestore.collection('posts').orderBy('createdAt', descending: true).snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => RunPost.fromFirestore(doc))
-              .toList(),
-        );
+    return _firestore
+        .collection('posts')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => RunPost.fromFirestore(doc)).toList());
   }
 }

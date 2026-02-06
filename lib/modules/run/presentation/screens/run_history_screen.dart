@@ -5,6 +5,7 @@ import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart'
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Safe Timestamp parsing
 
 class RunHistoryScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -15,159 +16,183 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
+  Future<List<Map<String, dynamic>>>? _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = Provider.of<RunController>(context, listen: false);
+      setState(() {
+        _historyFuture = controller.getRunHistory();
+      });
+    });
+  }
+
+  Future<void> _refreshHistory() async {
+    final controller = Provider.of<RunController>(context, listen: false);
+    setState(() {
+      _historyFuture = controller.getRunHistory();
+    });
+    await _historyFuture;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: Consumer<RunController>(
         builder: (context, controller, child) {
+          final future = _historyFuture ?? controller.getRunHistory();
           return FutureBuilder<List<Map<String, dynamic>>>(
-            future: controller.getRunHistory(),
+            future: future,
             builder: (context, snapshot) {
               final runs = snapshot.data ?? [];
 
-              return CustomScrollView(
-                slivers: [
-                  // App Bar
-                  SliverAppBar(
-                    pinned: true,
-                    floating: false,
-                    expandedHeight: 60,
-                    backgroundColor: Colors.white,
-                    elevation: 2,
-                    leading: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      onPressed: widget.onBack,
-                    ),
-                    title: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "MY ",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Icon(Icons.directions_run, color: Colors.black, size: 18),
-                        Text(
-                          " HISTORY",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    centerTitle: true,
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.share, color: Colors.black),
-                        onPressed: () => _shareHistory(context, runs),
+              return RefreshIndicator(
+                onRefresh: _refreshHistory,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverAppBar(
+                      pinned: true,
+                      floating: false,
+                      expandedHeight: 60,
+                      backgroundColor: Colors.white,
+                      elevation: 2,
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.black),
+                        onPressed: widget.onBack,
                       ),
-                    ],
-                  ),
-
-                  // Summary Header
-                  SliverToBoxAdapter(
-                    child: Container(
-                      color: Colors.white,
-                      child: _buildSummaryHeader(runs),
-                    ),
-                  ),
-
-                  // Section divider
-                  SliverToBoxAdapter(
-                    child: Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                      child: const Row(
+                      title: const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.history, size: 16, color: Colors.grey),
-                          SizedBox(width: 8),
                           Text(
-                            "RECENT ACTIVITIES",
+                            "MY ",
                             style: TextStyle(
-                              color: Colors.grey,
+                              color: Colors.black,
                               fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              letterSpacing: 0.5,
+                              letterSpacing: 1.2,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Icon(Icons.directions_run, color: Colors.black, size: 18),
+                          Text(
+                            " HISTORY",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              fontSize: 16,
                             ),
                           ),
                         ],
                       ),
+                      centerTitle: true,
+                      actions: [
+                        IconButton(
+                          icon: const Icon(Icons.share, color: Colors.black),
+                          onPressed: () => _shareHistory(context, runs),
+                        ),
+                      ],
                     ),
-                  ),
 
-                  // Content based on state
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const SliverFillRemaining(
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.black),
+                    SliverToBoxAdapter(
+                      child: Container(
+                        color: Colors.white,
+                        child: _buildSummaryHeader(runs),
                       ),
-                    )
-                  else if (snapshot.hasError)
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                    ),
+
+                    SliverToBoxAdapter(
+                      child: Container(
+                        color: Colors.white,
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                        child: const Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                            const SizedBox(height: 16),
+                            Icon(Icons.history, size: 16, color: Colors.grey),
+                            SizedBox(width: 8),
                             Text(
-                              "Error loading history",
-                              style: TextStyle(color: Colors.grey.shade600),
+                              "RECENT SESSIONS",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    )
-                  else if (runs.isEmpty)
-                    const SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.directions_run, size: 48, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text(
-                              "No runs yet",
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              "Start your first run!",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
+                    ),
+
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const SliverFillRemaining(
+                        child: Center(
+                          child: CircularProgressIndicator(color: Colors.black),
                         ),
-                      ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.all(16),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            return Padding(
+                      )
+                    else if (snapshot.hasError)
+                      SliverFillRemaining(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                "Unable to load history",
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                "Pull to refresh",
+                                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (runs.isEmpty)
+                      const SliverFillRemaining(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.directions_run, size: 48, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                "No sessions yet",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                "Start your first session.",
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.all(16),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _buildRunCard(context, runs[index]),
-                            );
-                          },
-                          childCount: runs.length,
+                            ),
+                            childCount: runs.length,
+                          ),
                         ),
                       ),
-                    ),
 
-                  // Bottom padding
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 20),
-                  ),
-                ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  ],
+                ),
               );
             },
           );
@@ -176,6 +201,47 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     );
   }
 
+  bool _isTrainingRun(Map<String, dynamic> run) {
+    final type = run['type']?.toString().toLowerCase();
+    if (type == 'training') return true;
+    if (run['week'] != null && run['day'] != null) return true;
+    final weekDay = run['weekDay']?.toString().toLowerCase();
+    if (weekDay != null && weekDay.contains('week') && weekDay.contains('day')) return true;
+    return false;
+  }
+
+  String _weekDayLabel(Map<String, dynamic> run) {
+    final week = run['week'];
+    final day = run['day'];
+    if (week != null && day != null) return "Week $week • Day $day";
+    final weekDay = run['weekDay']?.toString();
+    if (weekDay != null && weekDay.isNotEmpty) return weekDay.replaceAll(',', ' •');
+    return "";
+  }
+
+  bool? _completedFlag(Map<String, dynamic> run) {
+    final v = run['completed'];
+    if (v is bool) return v;
+    if (v is String) {
+      if (v.toLowerCase() == 'true') return true;
+      if (v.toLowerCase() == 'false') return false;
+    }
+    return null;
+  }
+
+  DateTime _parseDate(dynamic raw) {
+    if (raw is DateTime) return raw;
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is String) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
+  }
+
+  // -----------------------------
+  // Summary + stats (kept)
+  // -----------------------------
   Widget _buildSummaryHeader(List<Map<String, dynamic>> runs) {
     final stats = _calculateStatsFromRuns(runs);
     final records = _getPersonalRecords(runs);
@@ -184,7 +250,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // First row with gradient background
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -204,34 +269,32 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ),
             child: Row(
               children: [
-                Expanded(child: _buildStatWhite("Total KM", "${stats['totalKm'].toStringAsFixed(1)} km")),
+                Expanded(child: _buildStatWhite("Distance", "${stats['totalKm'].toStringAsFixed(1)} km")),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
-                Expanded(child: _buildStatWhite("Total Time", stats['totalTime'])),
+                Expanded(child: _buildStatWhite("Time", stats['totalTime'])),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
                 Expanded(child: _buildStatWhite("Avg Pace", stats['avgPace'])),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          // Second row
           Row(
             children: [
-              Expanded(child: _buildStatCard("Avg BPM", "${stats['avgBpm']}", Icons.favorite, Colors.red)),
+              Expanded(child: _buildStatCard("Avg HR", "${stats['avgBpm']}", Icons.favorite, Colors.red)),
               const SizedBox(width: 8),
               Expanded(child: _buildStatCard("Streak", "${stats['streak']}", Icons.local_fire_department, Colors.orange)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Runs", "${stats['totalRuns']}", Icons.check_circle, Colors.green)),
+              Expanded(child: _buildStatCard("Sessions", "${stats['totalRuns']}", Icons.check_circle, Colors.green)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Cal", "${stats['totalCalories']}", Icons.whatshot, Colors.deepOrange)),
+              Expanded(child: _buildStatCard("Calories", "${stats['totalCalories']}", Icons.whatshot, Colors.deepOrange)),
             ],
           ),
           const SizedBox(height: 12),
-          // Personal records
           Row(
             children: [
               Expanded(
                 child: _buildRecordCard(
-                  "Best Pace",
+                  "Top Pace",
                   records['bestPace'] ?? '--:--',
                   records['bestPaceDate'] ?? '',
                   Icons.flash_on,
@@ -241,7 +304,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildRecordCard(
-                  "Longest Run",
+                  "Longest Distance",
                   records['longestDistance'] ?? '-- km',
                   records['longestDate'] ?? '',
                   Icons.star,
@@ -275,30 +338,27 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     int bpmCount = 0;
 
     for (final run in runs) {
-      totalKm += (run['distance'] ?? 0.0) as double;
+      final distVal = run['distance'] ?? 0.0;
+      totalKm += (distVal is num) ? distVal.toDouble() : 0.0;
+
       totalSeconds += (run['durationSeconds'] ?? 0) as int;
       totalCalories += (run['calories'] ?? 0) as int;
-      
+
       final bpm = run['avgBpm'] ?? run['bpm'];
-      if (bpm != null && bpm > 0) {
-        totalBpm += bpm as int;
+      if (bpm != null && bpm is int && bpm > 0) {
+        totalBpm += bpm;
         bpmCount++;
       }
     }
 
-    // Format total time
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
-    
-    String totalTime;
-    if (hours > 0) {
-      totalTime = "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
-    } else {
-      totalTime = "$minutes:${seconds.toString().padLeft(2, '0')}";
-    }
 
-    // Calculate average pace
+    final totalTime = hours > 0
+        ? "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
+        : "$minutes:${seconds.toString().padLeft(2, '0')}";
+
     String avgPace = '0:00';
     if (totalKm > 0 && totalSeconds > 0) {
       final avgPaceSeconds = totalSeconds / totalKm;
@@ -307,19 +367,17 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       avgPace = "$paceMinutes:${paceSeconds.toString().padLeft(2, '0')}";
     }
 
-    // Calculate average BPM
-    int avgBpm = bpmCount > 0 ? (totalBpm / bpmCount).round() : 0;
+    final avgBpm = bpmCount > 0 ? (totalBpm / bpmCount).round() : 0;
 
-    // Calculate streak
     final now = DateTime.now();
     int streak = 0;
+
     final sortedRuns = List<Map<String, dynamic>>.from(runs)
-      ..sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
-    
+      ..sort((a, b) => _parseDate(b['date']).compareTo(_parseDate(a['date'])));
+
     for (int i = 0; i < sortedRuns.length; i++) {
-      final runDate = sortedRuns[i]['date'] as DateTime;
+      final runDate = _parseDate(sortedRuns[i]['date']);
       final daysDiff = now.difference(runDate).inDays;
-      
       if (daysDiff <= i + 1) {
         streak = i + 1;
       } else {
@@ -348,16 +406,17 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       };
     }
 
-    // Find best pace (lowest pace value)
     Map<String, dynamic>? bestPaceRun;
     double bestPaceValue = double.infinity;
-    
+
     for (final run in runs) {
       final paceStr = run['pace'] as String?;
       if (paceStr != null) {
         final parts = paceStr.split(':');
         if (parts.length == 2) {
-          final paceSeconds = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+          final p0 = int.tryParse(parts[0]);
+          final p1 = int.tryParse(parts[1]);
+          final paceSeconds = (p0 != null && p1 != null) ? p0 * 60 + p1 : 0;
           if (paceSeconds < bestPaceValue && paceSeconds > 0) {
             bestPaceValue = paceSeconds.toDouble();
             bestPaceRun = run;
@@ -366,45 +425,34 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       }
     }
 
-    // Find longest run
     Map<String, dynamic>? longestRun;
     double longestDistance = 0.0;
-    
+
     for (final run in runs) {
-      final distance = (run['distance'] ?? 0.0) as double;
-      if (distance > longestDistance) {
-        longestDistance = distance;
+      final distance = (run['distance'] ?? 0.0);
+      final dist = (distance is num) ? distance.toDouble() : 0.0;
+      if (dist > longestDistance) {
+        longestDistance = dist;
         longestRun = run;
       }
     }
 
     return {
       'bestPace': bestPaceRun?['pace'] ?? '--:--',
-      'bestPaceDate': bestPaceRun != null ? DateFormat('MMM d').format(bestPaceRun['date'] as DateTime) : '',
+      'bestPaceDate': bestPaceRun != null ? DateFormat('MMM d').format(_parseDate(bestPaceRun['date'])) : '',
       'longestDistance': longestDistance > 0 ? '${longestDistance.toStringAsFixed(1)} km' : '-- km',
-      'longestDate': longestRun != null ? DateFormat('MMM d').format(longestRun['date'] as DateTime) : '',
+      'longestDate': longestRun != null ? DateFormat('MMM d').format(_parseDate(longestRun['date'])) : '',
     };
   }
 
   Widget _buildStatWhite(String label, String value) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.white.withValues(alpha: 0.9),
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -418,32 +466,15 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.3)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: Colors.grey,
-            ),
-          ),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
         ],
       ),
     );
@@ -465,10 +496,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 10),
@@ -476,30 +504,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: color.withValues(alpha: 0.8),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                if (date.isNotEmpty)
-                  Text(
-                    date,
-                    style: const TextStyle(
-                      fontSize: 8,
-                      color: Colors.grey,
-                    ),
-                  ),
+                Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+                if (date.isNotEmpty) Text(date, style: const TextStyle(fontSize: 8, color: Colors.grey)),
               ],
             ),
           ),
@@ -511,32 +518,40 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   void _shareHistory(BuildContext context, List<Map<String, dynamic>> runs) {
     final stats = _calculateStatsFromRuns(runs);
     final message = """
-🏃 My Running Stats
-
-📊 Total Distance: ${stats['totalKm'].toStringAsFixed(1)} km
-⏱️ Total Time: ${stats['totalTime']}
-🔥 Total Runs: ${stats['totalRuns']}
+🏃 Session Summary
+📏 Distance: ${stats['totalKm'].toStringAsFixed(1)} km
+⏱️ Time: ${stats['totalTime']}
+🔥 Sessions: ${stats['totalRuns']}
 ⚡ Streak: ${stats['streak']} days
-
-Keep running with MajuRun! 💪
+Built with MajuRun 💪
 """;
     Share.share(message);
   }
 
   Widget _buildRunCard(BuildContext context, Map<String, dynamic> run) {
-    final date = run['date'] as DateTime;
-    final distance = run['distance']?.toStringAsFixed(1) ?? "0.0";
+    final date = _parseDate(run['date']);
+    final distance = (run['distance'] is num) ? (run['distance'] as num).toDouble() : 0.0;
     final durationSeconds = run['durationSeconds'] ?? 0;
+
     final minutes = durationSeconds ~/ 60;
     final seconds = durationSeconds % 60;
     final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
+
     final pace = run['pace'] ?? "8:00";
     final calories = run['calories'] ?? 0;
     final avgBpm = run['avgBpm'] ?? run['bpm'] ?? 145;
-    final isProRun = run['planTitle'] != "Free Run";
+
+    final isTraining = _isTrainingRun(run);
+    final isProRun = !isTraining && (run['planTitle'] != "Free Run");
+    final status = _completedFlag(run);
+
+    final weekDayLabel = _weekDayLabel(run);
+    final statusLabel = status == null ? null : (status ? "Completed" : "Partial");
+
     final dayOfMonth = date.day;
     final dayOfWeek = _getDayOfWeek(date.weekday);
     final month = _getMonth(date.month);
+
     final startTime = DateFormat('HH:mm').format(date);
     final endTime = DateFormat('HH:mm').format(date.add(Duration(seconds: durationSeconds)));
 
@@ -550,30 +565,20 @@ Keep running with MajuRun! 💪
           routePoints = points.whereType<LatLng>().toList();
         }
       }
-    } catch (e) {
-      debugPrint('⚠️ Error parsing routePoints: $e');
-    }
+    } catch (_) {}
+
+    final mapImageUrl = run['mapImageUrl']?.toString();
+    final hasMapImage = mapImageUrl != null && mapImageUrl.isNotEmpty;
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => RunDetailScreen(runData: run),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(runData: run)));
       },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 2))],
         ),
         child: Column(
           children: [
@@ -585,38 +590,20 @@ Keep running with MajuRun! 💪
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: isProRun
-                            ? [Colors.blue.shade400, Colors.blue.shade600]
-                            : [Colors.grey.shade700, Colors.grey.shade900],
+                        colors: isTraining
+                            ? [Colors.green.shade400, Colors.green.shade700]
+                            : isProRun
+                                ? [Colors.blue.shade400, Colors.blue.shade600]
+                                : [Colors.grey.shade700, Colors.grey.shade900],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isProRun ? Colors.blue : Colors.grey).withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          dayOfMonth.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          month,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                          ),
-                        ),
+                        Text(dayOfMonth.toString(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(month, style: const TextStyle(color: Colors.white, fontSize: 10)),
                       ],
                     ),
                   ),
@@ -627,50 +614,42 @@ Keep running with MajuRun! 💪
                       children: [
                         Row(
                           children: [
-                            Text(
-                              "$dayOfWeek at $startTime - $endTime",
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            Text("$dayOfWeek • $startTime – $endTime",
+                                style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                             const Spacer(),
-                            if (isProRun)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Colors.blue.shade400, Colors.blue.shade600],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.auto_awesome, size: 10, color: Colors.white),
-                                    SizedBox(width: 3),
-                                    Text(
-                                      "PRO",
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            if (isTraining)
+                              _badge(
+                                label: "SESSION", // ✅ requested label
+                                icon: Icons.fitness_center,
+                                colors: [Colors.green.shade400, Colors.green.shade700],
+                              )
+                            else if (isProRun)
+                              _badge(
+                                label: "PRO",
+                                icon: Icons.auto_awesome,
+                                colors: [Colors.blue.shade400, Colors.blue.shade600],
                               ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          "$distance km",
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                        Text("${distance.toStringAsFixed(1)} km",
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        if (isTraining && (weekDayLabel.isNotEmpty || statusLabel != null)) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (weekDayLabel.isNotEmpty) _chip(text: weekDayLabel, icon: Icons.calendar_today, color: Colors.green),
+                              if (statusLabel != null)
+                                _chip(
+                                  text: statusLabel,
+                                  icon: statusLabel == "Completed" ? Icons.check_circle : Icons.timelapse,
+                                  color: statusLabel == "Completed" ? Colors.green : Colors.orange,
+                                ),
+                            ],
                           ),
-                        ),
+                        ],
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -678,7 +657,7 @@ Keep running with MajuRun! 💪
                             const SizedBox(width: 15),
                             _historyStat("Pace", "$pace /km", Icons.speed, Colors.green),
                             const SizedBox(width: 15),
-                            _historyStat("Cal", "$calories", Icons.whatshot, Colors.orange),
+                            _historyStat("Cals", "$calories", Icons.whatshot, Colors.orange),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -686,14 +665,8 @@ Keep running with MajuRun! 💪
                           children: [
                             Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
                             const SizedBox(width: 4),
-                            Text(
-                              "Avg BPM: $avgBpm",
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            Text("Avg HR: $avgBpm",
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ],
@@ -704,7 +677,9 @@ Keep running with MajuRun! 💪
                 ],
               ),
             ),
-            if (routePoints != null && routePoints.isNotEmpty)
+            if (hasMapImage)
+              _buildNetworkPreview(mapImageUrl)
+            else if (routePoints != null && routePoints.isNotEmpty)
               _buildMiniRouteMap(routePoints)
             else
               Container(
@@ -721,19 +696,80 @@ Keep running with MajuRun! 💪
                     children: [
                       Icon(Icons.map_outlined, color: Colors.grey.shade300, size: 32),
                       const SizedBox(height: 8),
-                      Text(
-                        'No route data',
-                        style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 11,
-                        ),
-                      ),
+                      Text('No map preview', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
                     ],
                   ),
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _badge({required String label, required IconData icon, required List<Color> colors}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 10, color: Colors.white),
+          const SizedBox(width: 3),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({required String text, required IconData icon, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkPreview(String url) {
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade50,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.grey.shade300, size: 32),
+                  const SizedBox(height: 8),
+                  Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -746,27 +782,17 @@ Keep running with MajuRun! 💪
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(fontSize: 8, color: Colors.grey.shade600),
-            ),
+            Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
           ],
         ),
       ],
     );
   }
 
+  // Mini map helpers (unchanged)
   Widget _buildMiniRouteMap(List<LatLng> routePoints) {
     final bounds = _calculateBounds(routePoints);
-
     final initialPosition = CameraPosition(
       target: LatLng(
         (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
@@ -820,9 +846,7 @@ Keep running with MajuRun! 💪
         onMapCreated: (GoogleMapController controller) {
           Future.delayed(const Duration(milliseconds: 400), () {
             if (mounted) {
-              controller.animateCamera(
-                CameraUpdate.newLatLngBounds(bounds, 60),
-              );
+              controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
             }
           });
         },

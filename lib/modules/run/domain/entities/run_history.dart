@@ -12,6 +12,14 @@ class RunHistory {
   final int? avgBpm;
   final List<LatLng>? routePoints;
 
+  // ✅ NEW (optional) metadata fields (backward compatible)
+  final String? type; // e.g. 'run' or 'training'
+  final int? week; // training week
+  final int? day; // training day
+  final bool? completed; // true/false for training completion
+  final String? mapImageUrl; // optional image (plan image or map)
+  final Map<String, dynamic>? extra; // any extra custom fields
+
   const RunHistory({
     required this.id,
     required this.planTitle,
@@ -22,6 +30,14 @@ class RunHistory {
     required this.completedAt,
     this.avgBpm,
     this.routePoints,
+
+    // ✅ NEW optional params added at end (won't break existing calls)
+    this.type,
+    this.week,
+    this.day,
+    this.completed,
+    this.mapImageUrl,
+    this.extra,
   });
 
   /// Format duration as HH:MM:SS
@@ -55,6 +71,14 @@ class RunHistory {
     DateTime? completedAt,
     int? avgBpm,
     List<LatLng>? routePoints,
+
+    // ✅ NEW optional fields supported in copyWith
+    String? type,
+    int? week,
+    int? day,
+    bool? completed,
+    String? mapImageUrl,
+    Map<String, dynamic>? extra,
   }) {
     return RunHistory(
       id: id ?? this.id,
@@ -66,6 +90,14 @@ class RunHistory {
       completedAt: completedAt ?? this.completedAt,
       avgBpm: avgBpm ?? this.avgBpm,
       routePoints: routePoints ?? this.routePoints,
+
+      // ✅ NEW fields
+      type: type ?? this.type,
+      week: week ?? this.week,
+      day: day ?? this.day,
+      completed: completed ?? this.completed,
+      mapImageUrl: mapImageUrl ?? this.mapImageUrl,
+      extra: extra ?? this.extra,
     );
   }
 }

@@ -6,7 +6,6 @@ import 'package:majurun/modules/run/constants/run_constants.dart';
 import '../../domain/entities/run_history.dart';
 import '../../domain/repositories/run_history_repository.dart';
 
-/// Firestore implementation of [RunHistoryRepository].
 class FirestoreRunHistoryImpl implements RunHistoryRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -18,6 +17,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
         _auth = auth ?? FirebaseAuth.instance;
 
   CollectionReference<Map<String, dynamic>> _historyCollection(String uid) {
+    // History source used by StatsController + HistoryScreen
     return _firestore.collection('users').doc(uid).collection('training_history');
   }
 
@@ -32,15 +32,20 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     List<LatLng>? routePoints,
     int? avgBpm,
     int? calories,
+
+    // optional
+    String? type,
+    int? week,
+    int? day,
+    bool? completed,
+    String? mapImageUrl,
+    Map<String, dynamic>? extra,
   }) async {
     final uid = _currentUid;
     if (uid == null) {
       debugPrint('❌ SaveRun: No user logged in');
       return;
     }
-
-    debugPrint('💾 SaveRun: Preparing to save run data');
-    debugPrint('📍 SaveRun: Route points received: ${routePoints?.length ?? 0}');
 
     final data = <String, dynamic>{
       'planTitle': planTitle,
@@ -50,39 +55,27 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       'completedAt': FieldValue.serverTimestamp(),
     };
 
-    // Add optional fields if provided
-    if (avgBpm != null) {
-      data['avgBpm'] = avgBpm;
-      debugPrint('💓 SaveRun: BPM = $avgBpm');
-    }
-    
-    if (calories != null) {
-      data['calories'] = calories;
-      debugPrint('🔥 SaveRun: Calories = $calories');
+    if (avgBpm != null) data['avgBpm'] = avgBpm;
+    if (calories != null) data['calories'] = calories;
+
+    // ✅ training metadata (optional)
+    if (type != null) data['type'] = type;
+    if (week != null) data['week'] = week;
+    if (day != null) data['day'] = day;
+    if (completed != null) data['completed'] = completed;
+    if (mapImageUrl != null) data['mapImageUrl'] = mapImageUrl;
+    if (extra != null && extra.isNotEmpty) {
+      data.addAll(extra);
     }
 
-    // Save route points as an array of latitude/longitude maps
+    // route points
     if (routePoints != null && routePoints.isNotEmpty) {
-      final routePointsData = routePoints.map((point) => {
-        'latitude': point.latitude,
-        'longitude': point.longitude,
-      }).toList();
-      
-      data['routePoints'] = routePointsData;
-      debugPrint('✅ SaveRun: Added ${routePointsData.length} route points to data');
-      debugPrint('📊 SaveRun: First point: lat=${routePoints.first.latitude}, lng=${routePoints.first.longitude}');
-      debugPrint('📊 SaveRun: Last point: lat=${routePoints.last.latitude}, lng=${routePoints.last.longitude}');
-    } else {
-      debugPrint('⚠️ SaveRun: No route points to save');
+      data['routePoints'] = routePoints
+          .map((p) => {'latitude': p.latitude, 'longitude': p.longitude})
+          .toList();
     }
 
-    try {
-      await _historyCollection(uid).add(data);
-      debugPrint('✅ SaveRun: Successfully saved to Firestore');
-    } catch (e) {
-      debugPrint('❌ SaveRun: Error saving to Firestore: $e');
-      rethrow;
-    }
+    await _historyCollection(uid).add(data);
   }
 
   @override
@@ -96,7 +89,6 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
         .get();
 
     if (snapshot.docs.isEmpty) return null;
-
     return _mapDoc(snapshot.docs.first);
   }
 
@@ -118,7 +110,6 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     if (uid == null) return RunHistoryStats.empty;
 
     final snapshot = await _historyCollection(uid).get();
-
     if (snapshot.docs.isEmpty) return RunHistoryStats.empty;
 
     int totalDuration = 0;
@@ -134,7 +125,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       totalRuns: snapshot.docs.length,
       totalDistanceKm: totalDistance,
       totalDurationSeconds: totalDuration,
-      runStreak: snapshot.docs.length, // Simplified - could calculate actual streak
+      runStreak: snapshot.docs.length,
     );
   }
 
@@ -153,20 +144,18 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     final data = doc.data()!;
     final distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
 
-    // Parse route points from Firestore
     List<LatLng>? routePoints;
     if (data['routePoints'] != null) {
       try {
         final pointsData = data['routePoints'] as List<dynamic>;
         routePoints = pointsData.map((point) {
-          final pointMap = point as Map<String, dynamic>;
+          final m = point as Map<String, dynamic>;
           return LatLng(
-            (pointMap['latitude'] as num).toDouble(),
-            (pointMap['longitude'] as num).toDouble(),
+            (m['latitude'] as num).toDouble(),
+            (m['longitude'] as num).toDouble(),
           );
         }).toList();
-      } catch (e) {
-        // If parsing fails, just set to null
+      } catch (_) {
         routePoints = null;
       }
     }
@@ -177,10 +166,19 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       distanceKm: distanceKm,
       durationSeconds: data['durationSeconds'] as int? ?? 0,
       pace: data['pace']?.toString() ?? RunConstants.defaultPace,
-      calories: data['calories'] as int? ?? (distanceKm * RunConstants.caloriesPerKm).round(),
+      calories: data['calories'] as int? ??
+          (distanceKm * RunConstants.caloriesPerKm).round(),
       completedAt: (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       avgBpm: data['avgBpm'] as int?,
       routePoints: routePoints,
+
+      // ✅ map optional training metadata
+      type: data['type']?.toString(),
+      week: data['week'] as int?,
+      day: data['day'] as int?,
+      completed: data['completed'] as bool?,
+      mapImageUrl: data['mapImageUrl']?.toString(),
+      extra: null,
     );
   }
 }
