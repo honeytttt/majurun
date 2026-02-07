@@ -1,13 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-
-import '../widgets/static_map_url.dart';
-import '../widgets/static_map_key.dart';
 
 class LastActivityScreen extends StatefulWidget {
   final Map<String, dynamic> lastRun;
@@ -18,10 +14,6 @@ class LastActivityScreen extends StatefulWidget {
 }
 
 class _LastActivityScreenState extends State<LastActivityScreen> {
-  // Optional fallback if you run with:
-  // flutter run -d chrome --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
-  static const String _envKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
-
   @override
   Widget build(BuildContext context) {
     final distVal = widget.lastRun['distance'] ?? 0.0;
@@ -190,20 +182,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       return _noPreview();
     }
 
-    if (kIsWeb) {
-      final apiKey = resolveGoogleMapsApiKey(fallback: _envKey);
-      final url = StaticMapUrl.build(
-        points: points,
-        apiKey: apiKey,
-        width: 900,
-        height: 360,
-        scale: 2,
-        mapType: 'hybrid',
-      );
-      return _staticMapOrFallback(url, points);
-    }
-
-    // Mobile mini preview (kept)
+    // Interactive map for all platforms
     final bounds = _calculateBounds(points);
     final initialPosition = CameraPosition(
       target: LatLng(
@@ -215,7 +194,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
 
     return Container(
       margin: const EdgeInsets.all(20),
-      height: 180,
+      height: 250,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.shade300),
@@ -223,6 +202,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
         initialCameraPosition: initialPosition,
+        mapType: MapType.normal,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
@@ -243,33 +223,21 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
             icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           ),
         },
-        scrollGesturesEnabled: false,
-        rotateGesturesEnabled: false,
-        tiltGesturesEnabled: false,
+        zoomControlsEnabled: true,
+        zoomGesturesEnabled: true,
+        scrollGesturesEnabled: true,
+        rotateGesturesEnabled: true,
+        tiltGesturesEnabled: true,
         mapToolbarEnabled: false,
         myLocationEnabled: false,
         myLocationButtonEnabled: false,
-      ),
-    );
-  }
-
-  Widget _staticMapOrFallback(String url, List<LatLng> points) {
-    if (url.isEmpty) {
-      return _sketchContainer(points);
-    }
-
-    return Container(
-      margin: const EdgeInsets.all(20),
-      height: 180,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (c, e, s) => _sketchContainer(points),
+        onMapCreated: (GoogleMapController controller) {
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) {
+              controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+            }
+          });
+        },
       ),
     );
   }
@@ -342,29 +310,10 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
     return <LatLng>[];
   }
 
-  Widget _sketchContainer(List<LatLng> pts) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      height: 180,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: CustomPaint(
-          painter: _RouteSketchPainter(points: pts),
-          child: const SizedBox.expand(),
-        ),
-      ),
-    );
-  }
-
   Widget _noPreview() {
     return Container(
       margin: const EdgeInsets.all(20),
-      height: 180,
+      height: 250,
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(20),
@@ -376,7 +325,6 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
     );
   }
 
-  // ✅ Brace-only change here to satisfy the lint info warnings.
   LatLngBounds _calculateBounds(List<LatLng> points) {
     double south = points.first.latitude;
     double north = points.first.latitude;
@@ -403,51 +351,4 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       northeast: LatLng(north, east),
     );
   }
-}
-
-class _RouteSketchPainter extends CustomPainter {
-  final List<LatLng> points;
-  _RouteSketchPainter({required this.points});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-
-    double minLat = points.first.latitude, maxLat = points.first.latitude;
-    double minLng = points.first.longitude, maxLng = points.first.longitude;
-
-    for (final p in points) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-
-    final latRange = (maxLat - minLat).abs();
-    final lngRange = (maxLng - minLng).abs();
-    double range = math.max(latRange, lngRange);
-    if (range == 0) range = 1;
-
-    Offset mapPoint(LatLng p) {
-      final x = (p.longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
-      final y = (maxLat - p.latitude) / range * size.height * 0.9 + size.height * 0.05;
-      return Offset(x, y);
-    }
-
-    final paint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    for (int i = 0; i < points.length - 1; i++) {
-      canvas.drawLine(mapPoint(points[i]), mapPoint(points[i + 1]), paint);
-    }
-    canvas.drawCircle(mapPoint(points.first), 6, Paint()..color = Colors.green);
-    canvas.drawCircle(mapPoint(points.last), 6, Paint()..color = Colors.red);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RouteSketchPainter oldDelegate) => oldDelegate.points != points;
 }

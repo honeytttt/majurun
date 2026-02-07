@@ -923,7 +923,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: 40),
-        const Icon(Icons.play_circle_outline, size: 120, color: Color(0xFF7ED957)),
+        GestureDetector(
+          onTap: _startWorkout,
+          child: const Icon(Icons.play_circle_outline, size: 120, color: Color(0xFF7ED957)),
+        ),
         const SizedBox(height: 30),
         ElevatedButton(
           onPressed: _startWorkout,

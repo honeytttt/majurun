@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -10,8 +9,6 @@ import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart'
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../widgets/static_map_url.dart';
-import '../widgets/static_map_key.dart';
 
 class RunHistoryScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -22,10 +19,6 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
-  // Optional fallback if you run with:
-  // flutter run -d chrome --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
-  static const String _envKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
-
   Future<List<Map<String, dynamic>>>? _historyFuture;
 
   @override
@@ -660,41 +653,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   }
 
   // Web: Static map image (tiles); Mobile: GoogleMap (original behavior)
+  // Interactive map for all platforms
   Widget _buildRoutePreviewSmart(List<LatLng> routePoints) {
-    if (kIsWeb) {
-      final apiKey = resolveGoogleMapsApiKey(fallback: _envKey);
-      final url = StaticMapUrl.build(
-        points: routePoints,
-        apiKey: apiKey,
-        width: 900,
-        height: 260,
-        scale: 2,
-        mapType: 'hybrid', // satellite + labels [3](https://weboutloud.io/bulletin/speech_synthesis_in_safari/)
-      );
-
-      return Container(
-        height: 120,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: url.isNotEmpty
-            ? Image.network(
-                url,
-                fit: BoxFit.cover,
-                // ✅ if static fails, show sketch fallback
-                errorBuilder: (c, e, s) => CustomPaint(
-                  painter: _RouteSketchPainter(points: routePoints),
-                  child: const SizedBox.expand(),
-                ),
-              )
-            : CustomPaint(painter: _RouteSketchPainter(points: routePoints), child: const SizedBox.expand()),
-      );
-    }
-
-    // Mobile mini-map kept
     return _buildMiniRouteMap(routePoints);
   }
 
@@ -941,53 +901,4 @@ Built with MajuRun 💪
       ),
     );
   }
-}
-
-// Web fallback painter remains (kept)
-class _RouteSketchPainter extends CustomPainter {
-  final List<LatLng> points;
-  _RouteSketchPainter({required this.points});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-
-    double minLat = points.first.latitude, maxLat = points.first.latitude;
-    double minLng = points.first.longitude, maxLng = points.first.longitude;
-
-    for (final p in points) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-
-    final latRange = (maxLat - minLat).abs();
-    final lngRange = (maxLng - minLng).abs();
-    double range = math.max(latRange, lngRange);
-    if (range == 0) range = 1;
-
-    Offset mapPoint(LatLng p) {
-      final x = (p.longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
-      final y = (maxLat - p.latitude) / range * size.height * 0.9 + size.height * 0.05;
-      return Offset(x, y);
-    }
-
-    final paint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    for (int i = 0; i < points.length - 1; i++) {
-      canvas.drawLine(mapPoint(points[i]), mapPoint(points[i + 1]), paint);
-    }
-
-    canvas.drawCircle(mapPoint(points.first), 5, Paint()..color = Colors.green);
-    canvas.drawCircle(mapPoint(points.last), 5, Paint()..color = Colors.red);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RouteSketchPainter oldDelegate) => oldDelegate.points != points;
 }

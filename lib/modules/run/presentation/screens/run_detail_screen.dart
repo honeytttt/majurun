@@ -425,21 +425,90 @@ Keep moving 💪
     );
   }
 
+
   Widget _buildRouteMap(List<LatLng> routePoints) {
+    final bounds = _calculateBounds(routePoints);
+    final initialPosition = CameraPosition(
+      target: LatLng(
+        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
+      ),
+      zoom: 13,
+    );
+
     return Container(
       height: 300,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: CustomPaint(
-          painter: ColoredRoutePainter(points: routePoints, visualizationType: _mapVisualization),
-          child: Container(),
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: GoogleMap(
+        initialCameraPosition: initialPosition,
+        mapType: MapType.normal,
+        polylines: {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: routePoints,
+            color: const Color(0xFF4285F4),
+            width: 5,
+          ),
+        },
+        markers: {
+          Marker(
+            markerId: const MarkerId('start'),
+            position: routePoints.first,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          ),
+          Marker(
+            markerId: const MarkerId('end'),
+            position: routePoints.last,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          ),
+        },
+        zoomControlsEnabled: true,
+        zoomGesturesEnabled: true,
+        scrollGesturesEnabled: true,
+        rotateGesturesEnabled: true,
+        tiltGesturesEnabled: true,
+        mapToolbarEnabled: false,
+        myLocationEnabled: false,
+        myLocationButtonEnabled: false,
+        onMapCreated: (GoogleMapController controller) {
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) {
+              controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+            }
+          });
+        },
       ),
+    );
+  }
+
+  LatLngBounds _calculateBounds(List<LatLng> points) {
+    double south = points.first.latitude;
+    double north = points.first.latitude;
+    double west = points.first.longitude;
+    double east = points.first.longitude;
+
+    for (final p in points) {
+      if (p.latitude < south) {
+        south = p.latitude;
+      }
+      if (p.latitude > north) {
+        north = p.latitude;
+      }
+      if (p.longitude < west) {
+        west = p.longitude;
+      }
+      if (p.longitude > east) {
+        east = p.longitude;
+      }
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
     );
   }
 
