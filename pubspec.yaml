@@ -58,6 +58,7 @@ dependencies:
   timeago: ^3.7.0
   uuid: ^4.5.0
   flutter_tts: ^4.2.2
+  web: ^1.1.1
 
   # Remove or conditionalize ────────────────────────────────
   # js: ^0.6.7                  # ← REMOVE (only for web)

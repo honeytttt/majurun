@@ -1,11 +1,17 @@
+import 'dart:math' as math;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Safe Timestamp parsing
+
+import '../widgets/static_map_url.dart';
+import '../widgets/static_map_key.dart';
 
 class RunHistoryScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -16,12 +22,15 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
+  // Optional fallback if you run with:
+  // flutter run -d chrome --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
+  static const String _envKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+
   Future<List<Map<String, dynamic>>>? _historyFuture;
 
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final controller = Provider.of<RunController>(context, listen: false);
@@ -50,7 +59,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             future: future,
             builder: (context, snapshot) {
               final runs = snapshot.data ?? [];
-
               return RefreshIndicator(
                 onRefresh: _refreshHistory,
                 child: CustomScrollView(
@@ -130,9 +138,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
                     if (snapshot.connectionState == ConnectionState.waiting)
                       const SliverFillRemaining(
-                        child: Center(
-                          child: CircularProgressIndicator(color: Colors.black),
-                        ),
+                        child: Center(child: CircularProgressIndicator(color: Colors.black)),
                       )
                     else if (snapshot.hasError)
                       SliverFillRemaining(
@@ -142,15 +148,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             children: [
                               const Icon(Icons.error_outline, color: Colors.red, size: 48),
                               const SizedBox(height: 16),
-                              Text(
-                                "Unable to load history",
-                                style: TextStyle(color: Colors.grey.shade600),
-                              ),
+                              Text("Unable to load history", style: TextStyle(color: Colors.grey.shade600)),
                               const SizedBox(height: 10),
-                              Text(
-                                "Pull to refresh",
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                              ),
+                              Text("Pull to refresh", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -163,15 +163,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             children: [
                               Icon(Icons.directions_run, size: 48, color: Colors.grey),
                               SizedBox(height: 16),
-                              Text(
-                                "No sessions yet",
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                              ),
+                              Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                               SizedBox(height: 8),
-                              Text(
-                                "Start your first session.",
-                                style: TextStyle(color: Colors.grey),
-                              ),
+                              Text("Start your first session.", style: TextStyle(color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -201,6 +195,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     );
   }
 
+  // ---------------- helpers ----------------
   bool _isTrainingRun(Map<String, dynamic> run) {
     final type = run['type']?.toString().toLowerCase();
     if (type == 'training') return true;
@@ -213,9 +208,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   String _weekDayLabel(Map<String, dynamic> run) {
     final week = run['week'];
     final day = run['day'];
-    if (week != null && day != null) return "Week $week • Day $day";
+    if (week != null && day != null) return "Wk $week • Day $day";
     final weekDay = run['weekDay']?.toString();
-    if (weekDay != null && weekDay.isNotEmpty) return weekDay.replaceAll(',', ' •');
+    if (weekDay != null && weekDay.isNotEmpty) {
+      return weekDay.replaceAll("Week", "Wk").replaceAll(",", " •");
+    }
     return "";
   }
 
@@ -239,9 +236,65 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return DateTime.now();
   }
 
-  // -----------------------------
-  // Summary + stats (kept)
-  // -----------------------------
+  // Robust parsing for points: LatLng, GeoPoint, Map(lat/lng), Map(latitude/longitude)
+  List<LatLng> _extractLatLngList(dynamic raw) {
+    if (raw == null) return <LatLng>[];
+    if (raw is List<LatLng>) return raw;
+    if (raw is List) {
+      final out = <LatLng>[];
+      for (final p in raw) {
+        if (p is LatLng) {
+          out.add(p);
+        } else if (p is GeoPoint) {
+          out.add(LatLng(p.latitude, p.longitude));
+        } else if (p is Map) {
+          final lat = (p['lat'] ?? p['latitude']);
+          final lng = (p['lng'] ?? p['longitude']);
+          if (lat is num && lng is num) out.add(LatLng(lat.toDouble(), lng.toDouble()));
+        }
+      }
+      return out;
+    }
+    return <LatLng>[];
+  }
+
+  // ✅ Preview-only sanitization: removes GPS jump spikes + downsample for web/static map URL size.
+  List<LatLng> _sanitizeAndDownsample(List<LatLng> points, {double maxJumpMeters = 120, int maxPoints = 220}) {
+    if (points.length < 2) return points;
+
+    final filtered = <LatLng>[points.first];
+    for (int i = 1; i < points.length; i++) {
+      final d = _haversineMeters(filtered.last, points[i]);
+      if (d <= maxJumpMeters) filtered.add(points[i]);
+    }
+
+    if (filtered.length <= maxPoints) return filtered;
+
+    final step = (filtered.length / maxPoints).ceil();
+    final out = <LatLng>[];
+    for (int i = 0; i < filtered.length; i += step) {
+      out.add(filtered[i]);
+    }
+    if (out.last != filtered.last) out.add(filtered.last);
+    return out;
+  }
+
+  double _haversineMeters(LatLng a, LatLng b) {
+    const r = 6371000.0;
+    final dLat = _degToRad(b.latitude - a.latitude);
+    final dLng = _degToRad(b.longitude - a.longitude);
+    final la1 = _degToRad(a.latitude);
+    final la2 = _degToRad(b.latitude);
+
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(la1) * math.cos(la2) * math.sin(dLng / 2) * math.sin(dLng / 2);
+
+    return 2 * r * math.asin(math.min(1, math.sqrt(h)));
+  }
+
+  double _degToRad(double deg) => deg * (math.pi / 180);
+
+  // ---------------- summary (kept) ----------------
   Widget _buildSummaryHeader(List<Map<String, dynamic>> runs) {
     final stats = _calculateStatsFromRuns(runs);
     final records = _getPersonalRecords(runs);
@@ -253,11 +306,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade400, Colors.blue.shade600],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: LinearGradient(colors: [Colors.blue.shade400, Colors.blue.shade600]),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -341,8 +390,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       final distVal = run['distance'] ?? 0.0;
       totalKm += (distVal is num) ? distVal.toDouble() : 0.0;
 
-      totalSeconds += (run['durationSeconds'] ?? 0) as int;
-      totalCalories += (run['calories'] ?? 0) as int;
+      final durVal = run['durationSeconds'] ?? 0;
+      totalSeconds += (durVal is num) ? durVal.toInt() : 0;
+
+      final calVal = run['calories'] ?? 0;
+      totalCalories += (calVal is num) ? calVal.toInt() : 0;
 
       final bpm = run['avgBpm'] ?? run['bpm'];
       if (bpm != null && bpm is int && bpm > 0) {
@@ -398,12 +450,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   Map<String, String> _getPersonalRecords(List<Map<String, dynamic>> runs) {
     if (runs.isEmpty) {
-      return {
-        'bestPace': '--:--',
-        'bestPaceDate': '',
-        'longestDistance': '-- km',
-        'longestDate': '',
-      };
+      return {'bestPace': '--:--', 'bestPaceDate': '', 'longestDistance': '-- km', 'longestDate': ''};
     }
 
     Map<String, dynamic>? bestPaceRun;
@@ -445,15 +492,395 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     };
   }
 
+  // ---------------- cards ----------------
+  Widget _buildRunCard(BuildContext context, Map<String, dynamic> run) {
+    final date = _parseDate(run['date']);
+
+    final durationSecondsVal = run['durationSeconds'] ?? 0;
+    final durationSeconds = (durationSecondsVal is num) ? durationSecondsVal.toInt() : 0;
+
+    final distanceVal = run['distance'] ?? 0.0;
+    final distance = (distanceVal is num) ? distanceVal.toDouble() : 0.0;
+
+    final startTime = DateFormat('HH:mm').format(date);
+    final endTime = DateFormat('HH:mm').format(date.add(Duration(seconds: durationSeconds)));
+
+    final pace = run['pace'] ?? "0:00";
+
+    final caloriesVal = run['calories'] ?? 0;
+    final calories = (caloriesVal is num) ? caloriesVal.toInt() : 0;
+
+    final avgBpmRaw = run['avgBpm'] ?? run['bpm'] ?? 0;
+    final avgBpm = (avgBpmRaw is num) ? avgBpmRaw.toInt() : 0;
+
+    final isTraining = _isTrainingRun(run);
+    final isProRun = !isTraining && (run['planTitle'] != "Free Run");
+
+    final status = _completedFlag(run);
+    final weekDayLabel = _weekDayLabel(run);
+    final statusLabel = status == null ? null : (status ? "Completed" : "In Progress");
+
+    // We still keep mapImageUrl for non-web fallback or legacy, but on Web we prefer route
+    final mapImageUrl = (run['mapImageUrl'] ?? '').toString();
+    final hasMapImage = mapImageUrl.isNotEmpty;
+
+    final raw = _extractLatLngList(run['routePoints']);
+    final routePoints = _sanitizeAndDownsample(raw);
+    final hasRoute = routePoints.length >= 2;
+
+    final minutes = durationSeconds ~/ 60;
+    final seconds = durationSeconds % 60;
+    final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(runData: run)));
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isTraining
+                            ? [Colors.green.shade400, Colors.green.shade700]
+                            : isProRun
+                                ? [Colors.blue.shade400, Colors.blue.shade600]
+                                : [Colors.grey.shade700, Colors.grey.shade900],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          date.day.toString(),
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(DateFormat('MMM').format(date), style: const TextStyle(color: Colors.white, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              "${DateFormat('EEE').format(date)} • $startTime–$endTime",
+                              style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            const Spacer(),
+                            if (isTraining)
+                              _badge(label: "SESSION", icon: Icons.fitness_center, colors: [Colors.green.shade400, Colors.green.shade700])
+                            else if (isProRun)
+                              _badge(label: "PRO", icon: Icons.auto_awesome, colors: [Colors.blue.shade400, Colors.blue.shade600]),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "${distance.toStringAsFixed(1)} km",
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                        ),
+
+                        // ✅ FIX: correct OR condition (was broken by newline in your file) [1](https://necms-my.sharepoint.com/personal/hanumaiah_ta_nec_com_sg/Documents/Microsoft%20Copilot%20Chat%20Files/run_history_screen.dart)
+                        if (isTraining && (weekDayLabel.isNotEmpty || statusLabel != null)) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (weekDayLabel.isNotEmpty) _chip(text: weekDayLabel, icon: Icons.calendar_today, color: Colors.green),
+                              if (statusLabel != null)
+                                _chip(
+                                  text: statusLabel,
+                                  icon: statusLabel == "Completed" ? Icons.check_circle : Icons.timelapse,
+                                  color: statusLabel == "Completed" ? Colors.green : Colors.orange,
+                                ),
+                            ],
+                          ),
+                        ],
+
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _historyStat("Time", timeString, Icons.timer_outlined, Colors.blue),
+                            const SizedBox(width: 15),
+                            _historyStat("Pace", "$pace /km", Icons.speed, Colors.green),
+                            const SizedBox(width: 15),
+                            _historyStat("Cals", "$calories", Icons.whatshot, Colors.orange),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
+                            const SizedBox(width: 4),
+                            Text(
+                              "Avg HR: $avgBpm",
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+
+            // ✅ ALWAYS prefer route on Web when route exists
+            if (hasRoute)
+              _buildRoutePreviewSmart(routePoints)
+            else if (hasMapImage)
+              _buildNetworkPreview(mapImageUrl)
+            else
+              _noRoutePlaceholder(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Web: Static map image (tiles); Mobile: GoogleMap (original behavior)
+  Widget _buildRoutePreviewSmart(List<LatLng> routePoints) {
+    if (kIsWeb) {
+      final apiKey = resolveGoogleMapsApiKey(fallback: _envKey);
+      final url = StaticMapUrl.build(
+        points: routePoints,
+        apiKey: apiKey,
+        width: 900,
+        height: 260,
+        scale: 2,
+        mapType: 'hybrid', // satellite + labels [3](https://weboutloud.io/bulletin/speech_synthesis_in_safari/)
+      );
+
+      return Container(
+        height: 120,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: url.isNotEmpty
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                // ✅ if static fails, show sketch fallback
+                errorBuilder: (c, e, s) => CustomPaint(
+                  painter: _RouteSketchPainter(points: routePoints),
+                  child: const SizedBox.expand(),
+                ),
+              )
+            : CustomPaint(painter: _RouteSketchPainter(points: routePoints), child: const SizedBox.expand()),
+      );
+    }
+
+    // Mobile mini-map kept
+    return _buildMiniRouteMap(routePoints);
+  }
+
+  Widget _noRoutePlaceholder() {
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.map_outlined, color: Colors.grey.shade300, size: 32),
+            const SizedBox(height: 8),
+            Text('No map preview', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------- UI atoms ----------------
+  Widget _badge({required String label, required IconData icon, required List<Color> colors}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 10, color: Colors.white),
+          const SizedBox(width: 3),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({required String text, required IconData icon, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkPreview(String url) {
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(url, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _noRoutePlaceholder()),
+    );
+  }
+
+  Widget _historyStat(String label, String value, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ---------------- share ----------------
+  void _shareHistory(BuildContext context, List<Map<String, dynamic>> runs) {
+    final stats = _calculateStatsFromRuns(runs);
+    final message = """
+🏃 Session Summary
+📏 Distance: ${stats['totalKm'].toStringAsFixed(1)} km
+⏱️ Time: ${stats['totalTime']}
+🔥 Sessions: ${stats['totalRuns']}
+⚡ Streak: ${stats['streak']} days
+Built with MajuRun 💪
+""";
+    Share.share(message);
+  }
+
+  // ---------------- existing mini map (mobile only) ----------------
+  Widget _buildMiniRouteMap(List<LatLng> routePoints) {
+    final bounds = _calculateBounds(routePoints);
+    final initialPosition = CameraPosition(
+      target: LatLng(
+        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
+      ),
+      zoom: 13,
+    );
+
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: GoogleMap(
+        initialCameraPosition: initialPosition,
+        polylines: {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: routePoints,
+            color: const Color(0xFF4285F4),
+            width: 5,
+          ),
+        },
+        markers: {
+          Marker(
+            markerId: const MarkerId('start'),
+            position: routePoints.first,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          ),
+          Marker(
+            markerId: const MarkerId('end'),
+            position: routePoints.last,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          ),
+        },
+        zoomControlsEnabled: true,
+        zoomGesturesEnabled: true,
+        scrollGesturesEnabled: false,
+        mapToolbarEnabled: false,
+        rotateGesturesEnabled: false,
+        tiltGesturesEnabled: false,
+        mapType: MapType.normal,
+        myLocationEnabled: false,
+        myLocationButtonEnabled: false,
+        onMapCreated: (GoogleMapController controller) {
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
+          });
+        },
+      ),
+    );
+  }
+
+  LatLngBounds _calculateBounds(List<LatLng> points) {
+    double south = points.first.latitude;
+    double north = points.first.latitude;
+    double west = points.first.longitude;
+    double east = points.first.longitude;
+
+    for (final point in points) {
+      if (point.latitude < south) south = point.latitude;
+      if (point.latitude > north) north = point.latitude;
+      if (point.longitude < west) west = point.longitude;
+      if (point.longitude > east) east = point.longitude;
+    }
+    return LatLngBounds(southwest: LatLng(south, west), northeast: LatLng(north, east));
+  }
+
+  // ---------------- stat widgets (kept) ----------------
   Widget _buildStatWhite(String label, String value) {
     return Column(
       children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w600),
-        ),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -514,372 +941,53 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       ),
     );
   }
+}
 
-  void _shareHistory(BuildContext context, List<Map<String, dynamic>> runs) {
-    final stats = _calculateStatsFromRuns(runs);
-    final message = """
-🏃 Session Summary
-📏 Distance: ${stats['totalKm'].toStringAsFixed(1)} km
-⏱️ Time: ${stats['totalTime']}
-🔥 Sessions: ${stats['totalRuns']}
-⚡ Streak: ${stats['streak']} days
-Built with MajuRun 💪
-""";
-    Share.share(message);
-  }
+// Web fallback painter remains (kept)
+class _RouteSketchPainter extends CustomPainter {
+  final List<LatLng> points;
+  _RouteSketchPainter({required this.points});
 
-  Widget _buildRunCard(BuildContext context, Map<String, dynamic> run) {
-    final date = _parseDate(run['date']);
-    final distance = (run['distance'] is num) ? (run['distance'] as num).toDouble() : 0.0;
-    final durationSeconds = run['durationSeconds'] ?? 0;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
 
-    final minutes = durationSeconds ~/ 60;
-    final seconds = durationSeconds % 60;
-    final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
+    double minLat = points.first.latitude, maxLat = points.first.latitude;
+    double minLng = points.first.longitude, maxLng = points.first.longitude;
 
-    final pace = run['pace'] ?? "8:00";
-    final calories = run['calories'] ?? 0;
-    final avgBpm = run['avgBpm'] ?? run['bpm'] ?? 145;
-
-    final isTraining = _isTrainingRun(run);
-    final isProRun = !isTraining && (run['planTitle'] != "Free Run");
-    final status = _completedFlag(run);
-
-    final weekDayLabel = _weekDayLabel(run);
-    final statusLabel = status == null ? null : (status ? "Completed" : "Partial");
-
-    final dayOfMonth = date.day;
-    final dayOfWeek = _getDayOfWeek(date.weekday);
-    final month = _getMonth(date.month);
-
-    final startTime = DateFormat('HH:mm').format(date);
-    final endTime = DateFormat('HH:mm').format(date.add(Duration(seconds: durationSeconds)));
-
-    List<LatLng>? routePoints;
-    try {
-      if (run.containsKey('routePoints') && run['routePoints'] != null) {
-        final points = run['routePoints'];
-        if (points is List<LatLng>) {
-          routePoints = points;
-        } else if (points is List) {
-          routePoints = points.whereType<LatLng>().toList();
-        }
-      }
-    } catch (_) {}
-
-    final mapImageUrl = run['mapImageUrl']?.toString();
-    final hasMapImage = mapImageUrl != null && mapImageUrl.isNotEmpty;
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(runData: run)));
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 2))],
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isTraining
-                            ? [Colors.green.shade400, Colors.green.shade700]
-                            : isProRun
-                                ? [Colors.blue.shade400, Colors.blue.shade600]
-                                : [Colors.grey.shade700, Colors.grey.shade900],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(dayOfMonth.toString(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text(month, style: const TextStyle(color: Colors.white, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text("$dayOfWeek • $startTime – $endTime",
-                                style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
-                            const Spacer(),
-                            if (isTraining)
-                              _badge(
-                                label: "SESSION", // ✅ requested label
-                                icon: Icons.fitness_center,
-                                colors: [Colors.green.shade400, Colors.green.shade700],
-                              )
-                            else if (isProRun)
-                              _badge(
-                                label: "PRO",
-                                icon: Icons.auto_awesome,
-                                colors: [Colors.blue.shade400, Colors.blue.shade600],
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text("${distance.toStringAsFixed(1)} km",
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        if (isTraining && (weekDayLabel.isNotEmpty || statusLabel != null)) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              if (weekDayLabel.isNotEmpty) _chip(text: weekDayLabel, icon: Icons.calendar_today, color: Colors.green),
-                              if (statusLabel != null)
-                                _chip(
-                                  text: statusLabel,
-                                  icon: statusLabel == "Completed" ? Icons.check_circle : Icons.timelapse,
-                                  color: statusLabel == "Completed" ? Colors.green : Colors.orange,
-                                ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _historyStat("Time", timeString, Icons.timer_outlined, Colors.blue),
-                            const SizedBox(width: 15),
-                            _historyStat("Pace", "$pace /km", Icons.speed, Colors.green),
-                            const SizedBox(width: 15),
-                            _historyStat("Cals", "$calories", Icons.whatshot, Colors.orange),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
-                            const SizedBox(width: 4),
-                            Text("Avg HR: $avgBpm",
-                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
-                ],
-              ),
-            ),
-            if (hasMapImage)
-              _buildNetworkPreview(mapImageUrl)
-            else if (routePoints != null && routePoints.isNotEmpty)
-              _buildMiniRouteMap(routePoints)
-            else
-              Container(
-                height: 120,
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.map_outlined, color: Colors.grey.shade300, size: 32),
-                      const SizedBox(height: 8),
-                      Text('No map preview', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _badge({required String label, required IconData icon, required List<Color> colors}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 10, color: Colors.white),
-          const SizedBox(width: 3),
-          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip({required String text, required IconData icon, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNetworkPreview(String url) {
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.grey.shade50,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image, color: Colors.grey.shade300, size: 32),
-                  const SizedBox(height: 8),
-                  Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _historyStat(String label, String value, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // Mini map helpers (unchanged)
-  Widget _buildMiniRouteMap(List<LatLng> routePoints) {
-    final bounds = _calculateBounds(routePoints);
-    final initialPosition = CameraPosition(
-      target: LatLng(
-        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
-        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
-      ),
-      zoom: 13,
-    );
-
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: GoogleMap(
-        initialCameraPosition: initialPosition,
-        polylines: {
-          Polyline(
-            polylineId: const PolylineId('route'),
-            points: routePoints,
-            color: const Color(0xFF4285F4),
-            width: 5,
-            patterns: [PatternItem.dash(20), PatternItem.gap(5)],
-          ),
-        },
-        markers: {
-          Marker(
-            markerId: const MarkerId('start'),
-            position: routePoints.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-            infoWindow: const InfoWindow(title: 'Start'),
-          ),
-          Marker(
-            markerId: const MarkerId('end'),
-            position: routePoints.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-            infoWindow: const InfoWindow(title: 'End'),
-          ),
-        },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
-        scrollGesturesEnabled: false,
-        mapToolbarEnabled: false,
-        rotateGesturesEnabled: false,
-        tiltGesturesEnabled: false,
-        mapType: MapType.normal,
-        myLocationEnabled: false,
-        myLocationButtonEnabled: false,
-        onMapCreated: (GoogleMapController controller) {
-          Future.delayed(const Duration(milliseconds: 400), () {
-            if (mounted) {
-              controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
-            }
-          });
-        },
-      ),
-    );
-  }
-
-  LatLngBounds _calculateBounds(List<LatLng> points) {
-    double south = points.first.latitude;
-    double north = points.first.latitude;
-    double west = points.first.longitude;
-    double east = points.first.longitude;
-
-    for (final point in points) {
-      if (point.latitude < south) south = point.latitude;
-      if (point.latitude > north) north = point.latitude;
-      if (point.longitude < west) west = point.longitude;
-      if (point.longitude > east) east = point.longitude;
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
     }
 
-    return LatLngBounds(
-      southwest: LatLng(south, west),
-      northeast: LatLng(north, east),
-    );
+    final latRange = (maxLat - minLat).abs();
+    final lngRange = (maxLng - minLng).abs();
+    double range = math.max(latRange, lngRange);
+    if (range == 0) range = 1;
+
+    Offset mapPoint(LatLng p) {
+      final x = (p.longitude - minLng) / range * size.width * 0.9 + size.width * 0.05;
+      final y = (maxLat - p.latitude) / range * size.height * 0.9 + size.height * 0.05;
+      return Offset(x, y);
+    }
+
+    final paint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      canvas.drawLine(mapPoint(points[i]), mapPoint(points[i + 1]), paint);
+    }
+
+    canvas.drawCircle(mapPoint(points.first), 5, Paint()..color = Colors.green);
+    canvas.drawCircle(mapPoint(points.last), 5, Paint()..color = Colors.red);
   }
 
-  String _getDayOfWeek(int weekday) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[weekday - 1];
-  }
-
-  String _getMonth(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[month - 1];
-  }
+  @override
+  bool shouldRepaint(covariant _RouteSketchPainter oldDelegate) => oldDelegate.points != points;
 }

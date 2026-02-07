@@ -1,35 +1,46 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
-// Ensure these entities are defined in your project
-import '../../domain/entities/post.dart'; 
+import '../../domain/entities/post.dart';
 
 class PostRepositoryImpl {
   final FirebaseFirestore _db;
-
   PostRepositoryImpl({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
   AppPost _mapDocToAppPost(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
-    
+
     List<PostMedia> mediaList = [];
     if (data['media'] is List) {
       final List<dynamic> mediaData = data['media'];
-      mediaList = mediaData.map((m) => PostMedia(
-            url: m['url'] ?? '',
-            type: m['type'] == 'video' ? MediaType.video : MediaType.image,
-          )).toList();
+      mediaList = mediaData.map((m) {
+        final url = (m is Map) ? (m['url'] ?? '') : '';
+        final typeStr = (m is Map) ? (m['type'] ?? 'image') : 'image';
+        return PostMedia(
+          url: url,
+          type: typeStr == 'video' ? MediaType.video : MediaType.image,
+        );
+      }).toList();
+    }
+
+    // ✅ NEW: fallback to mapImageUrl when media is empty
+    final mapImageUrl = data['mapImageUrl']?.toString();
+    if (mediaList.isEmpty && mapImageUrl != null && mapImageUrl.isNotEmpty) {
+      mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.image));
     }
 
     List<LatLng>? routePoints;
     if (data['routePoints'] != null && data['routePoints'] is List) {
       final List<dynamic> pts = data['routePoints'];
-      routePoints = pts.map((p) => LatLng(
-            (p['lat'] as num).toDouble(),
-            (p['lng'] as num).toDouble(),
-          )).toList();
+      routePoints = pts.map((p) {
+        if (p is Map) {
+          final lat = (p['lat'] as num).toDouble();
+          final lng = (p['lng'] as num).toDouble();
+          return LatLng(lat, lng);
+        }
+        return null;
+      }).whereType<LatLng>().toList();
     }
 
     return AppPost(
@@ -46,7 +57,6 @@ class PostRepositoryImpl {
     );
   }
 
-  /// Alias for HomeScreen compatibility
   Stream<List<AppPost>> getPostsStream() => getPostStream();
 
   Stream<List<AppPost>> getPostStream() {
@@ -56,18 +66,18 @@ class PostRepositoryImpl {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          debugPrint("📰 Received ${snapshot.docs.length} posts from Firestore");
-          final posts = <AppPost>[];
-          for (final doc in snapshot.docs) {
-            try {
-              posts.add(_mapDocToAppPost(doc));
-            } catch (e) {
-              debugPrint("❌ Error mapping post ${doc.id}: $e");
-            }
-          }
-          debugPrint("📰 Successfully mapped ${posts.length} posts");
-          return posts;
-        });
+      debugPrint("📰 Received ${snapshot.docs.length} posts from Firestore");
+      final posts = <AppPost>[];
+      for (final doc in snapshot.docs) {
+        try {
+          posts.add(_mapDocToAppPost(doc));
+        } catch (e) {
+          debugPrint("❌ Error mapping post ${doc.id}: $e");
+        }
+      }
+      debugPrint("📰 Successfully mapped ${posts.length} posts");
+      return posts;
+    });
   }
 
   Future<void> createPost(
@@ -86,18 +96,16 @@ class PostRepositoryImpl {
         'avgBpm': avgBpm,
         'splits': splits,
         'type': type,
-        'media': post.media.map((m) => {
-              'url': m.url,
-              'type': m.type == MediaType.video ? 'video' : 'image',
-            }).toList(),
+        'media': post.media
+            .map((m) => {'url': m.url, 'type': m.type == MediaType.video ? 'video' : 'image'})
+            .toList(),
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
         if (post.quotedPostId != null) 'quotedPostId': post.quotedPostId,
         if (post.routePoints != null)
-          'routePoints': post.routePoints!.map((p) => {
-                'lat': p.latitude,
-                'lng': p.longitude,
-          }).toList(),
+          'routePoints': post.routePoints!
+              .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+              .toList(),
       });
     } catch (e) {
       debugPrint("Error creating post: $e");
@@ -140,8 +148,7 @@ class PostRepositoryImpl {
 
   Future<void> repost(AppPost originalPost, String userId, String username) async {
     try {
-      final String targetId = originalPost.quotedPostId != null &&
-              originalPost.quotedPostId!.isNotEmpty
+      final String targetId = originalPost.quotedPostId != null && originalPost.quotedPostId!.isNotEmpty
           ? originalPost.quotedPostId!
           : originalPost.id;
 

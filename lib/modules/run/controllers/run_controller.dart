@@ -1,13 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:majurun/modules/run/controllers/run_state_controller.dart';
-import 'package:majurun/modules/run/controllers/voice_controller.dart';
-import 'package:majurun/modules/run/controllers/post_controller.dart';
-import 'package:majurun/modules/run/controllers/stats_controller.dart';
+
 import 'package:majurun/core/services/run_recovery_service.dart';
-import 'package:majurun/core/services/wake_lock_service.dart'; // NEW: Added
-import 'dart:async';
+import 'package:majurun/core/services/wake_lock_service.dart';
+import 'package:majurun/modules/run/controllers/post_controller.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
+import 'package:majurun/modules/run/controllers/stats_controller.dart';
+import 'package:majurun/modules/run/controllers/voice_controller.dart';
 
 class RunController extends ChangeNotifier {
   final RunStateController stateController = RunStateController();
@@ -18,6 +20,12 @@ class RunController extends ChangeNotifier {
   // Recovery properties
   Timer? _autoSaveTimer;
   bool _hasShownRecoveryDialog = false;
+
+  // ✅ NEW: store a context for showing SnackBars (optional, safe)
+  BuildContext? _uiContext;
+
+  // ✅ NEW: prevent spamming the UI with repeated milestone SnackBars
+  int _lastMilestoneSnackKm = 0;
 
   RunController() {
     // Listen to state controller changes and propagate them
@@ -31,6 +39,20 @@ class RunController extends ChangeNotifier {
       required String averagePace,
       String? comparison,
     }) {
+      // ✅ iOS WebKit: speech from timers can be blocked unless triggered by user gesture
+      // Workaround: show SnackBar with action button to trigger speech by tap. [2](https://community.flutterflow.io/ask-the-community/post/tts-audio-tested-on-web-laptop-browser-is-good-but-no-sound-on-mobile-2EborMncDWqyt92)[3](https://necms-my.sharepoint.com/personal/hanumaiah_ta_nec_com_sg/Documents/Microsoft%20Copilot%20Chat%20Files/feb6.txt)
+      if (_shouldUseTapToSpeakForMilestone()) {
+        _showMilestoneSnackBar(
+          km: km,
+          totalTime: totalTime,
+          lastKmPace: lastKmPace,
+          averagePace: averagePace,
+          comparison: comparison,
+        );
+        return;
+      }
+
+      // Default behavior (native + non-iOS web): speak immediately
       voiceController.speakKmMilestone(
         km: km,
         totalTime: totalTime,
@@ -42,23 +64,25 @@ class RunController extends ChangeNotifier {
   }
 
   void _onStateControllerChanged() {
-    // When RunStateController changes, notify RunController listeners
     notifyListeners();
   }
 
+  // ---- Getters (unchanged) ----
   RunState get state => stateController.state;
 
   String get distanceString => stateController.distanceString;
   String get durationString => stateController.durationString;
   String get paceString => stateController.paceString;
+
   int get currentBpm => stateController.currentBpm;
   int get totalCalories => stateController.totalCalories;
   double get totalDistance => stateController.totalDistance;
   int get secondsElapsed => stateController.secondsElapsed;
-  List<LatLng> get routePoints => stateController.routePoints;
 
+  List<LatLng> get routePoints => stateController.routePoints;
   List<ChartDataSpot> get hrHistorySpots => stateController.hrHistorySpots;
   List<ChartDataSpot> get paceHistorySpots => stateController.paceHistorySpots;
+
   String? get lastVideoUrl => stateController.lastVideoUrl;
 
   double get historyDistance => statsController.historyDistance;
@@ -75,9 +99,89 @@ class RunController extends ChangeNotifier {
     await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
   }
 
-  // Check for recoverable run on app start
+  // ✅ NEW: set context safely for SnackBars (optional)
+  // You can call this from any screen build/init (e.g., ActiveRunScreen build)
+  void setUiContext(BuildContext context) {
+    _uiContext = context;
+  }
+
+  // ✅ Use tap-to-speak strategy only on Flutter Web + iOS platform
+  bool _shouldUseTapToSpeakForMilestone() {
+    if (!kIsWeb) return false;
+    // On web, defaultTargetPlatform indicates the browser's platform.
+    return defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  void _showMilestoneSnackBar({
+    required int km,
+    required String totalTime,
+    required String lastKmPace,
+    required String averagePace,
+    String? comparison,
+  }) {
+    if (!voiceController.isVoiceEnabled) return;
+
+    // Avoid duplicates if the callback is triggered multiple times quickly
+    if (km <= _lastMilestoneSnackKm) return;
+    _lastMilestoneSnackKm = km;
+
+    final ctx = _uiContext;
+    if (ctx == null) {
+      // If we have no context, fallback to best-effort immediate speak (may be blocked on iOS web)
+      voiceController.speakKmMilestone(
+        km: km,
+        totalTime: totalTime,
+        lastKmPace: lastKmPace,
+        averagePace: averagePace,
+        comparison: comparison,
+      );
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.maybeOf(ctx);
+    if (messenger == null) {
+      // Same fallback as above
+      voiceController.speakKmMilestone(
+        km: km,
+        totalTime: totalTime,
+        lastKmPace: lastKmPace,
+        averagePace: averagePace,
+        comparison: comparison,
+      );
+      return;
+    }
+
+    // Clear any prior snack to keep the UX clean
+    messenger.hideCurrentSnackBar();
+
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        content: Text("🎯 ${km}km reached • Tap PLAY to hear update"),
+        action: SnackBarAction(
+          label: "PLAY",
+          onPressed: () {
+            // ✅ User gesture triggers speech (works better on iOS WebKit). [2](https://community.flutterflow.io/ask-the-community/post/tts-audio-tested-on-web-laptop-browser-is-good-but-no-sound-on-mobile-2EborMncDWqyt92)[3](https://necms-my.sharepoint.com/personal/hanumaiah_ta_nec_com_sg/Documents/Microsoft%20Copilot%20Chat%20Files/feb6.txt)
+            voiceController.speakKmMilestone(
+              km: km,
+              totalTime: totalTime,
+              lastKmPace: lastKmPace,
+              averagePace: averagePace,
+              comparison: comparison,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ---- Recovery (mostly unchanged) ----
   Future<void> checkForRecoverableRun(BuildContext context) async {
     if (_hasShownRecoveryDialog) return;
+
+    // ✅ store context so iOS web milestone snackbars can show
+    setUiContext(context);
 
     final hasRecoverable = await RunRecoveryService.hasRecoverableRun();
     if (!hasRecoverable) return;
@@ -87,31 +191,25 @@ class RunController extends ChangeNotifier {
 
     final timeSince = RunRecoveryService.timeSinceLastSave(runData);
 
-    // ✅ FIXED compile issue: use OR
+    // ✅ FIX: keep your original intention (discard if missing or too old)
     if (timeSince == null || timeSince.inHours > 24) {
-      // Too old, discard
       await RunRecoveryService.clearRecoverableRun();
       return;
     }
 
-    // NEW: Auto-recover training runs (no dialog)
+    // Auto-recover training runs (no dialog)
     if (runData['type'] == 'training') {
       debugPrint('🔄 Auto-recovering training run...');
-
-      // Save to history
       await _saveRecoveredRun(runData);
 
-      // Auto-post
       try {
         final distance = (runData['distance'] ?? 0.0).toDouble();
         final duration = runData['durationSeconds'] ?? 0;
         final planTitle = runData['planTitle'] ?? 'Training';
 
-        // Calculate stats if missing
         final pace = runData['pace'] ?? _calculatePace(distance, duration);
         final calories = runData['calories'] ?? _estimateCalories(distance);
-
-        final planImageUrl = runData['planImageUrl']; // Added in ActiveWorkoutScreen
+        final planImageUrl = runData['planImageUrl'];
 
         final aiContent = postController.generateAIPost(
           planTitle,
@@ -123,7 +221,7 @@ class RunController extends ChangeNotifier {
 
         await postController.createAutoPost(
           aiContent: "$aiContent\nRecovered session: $planTitle",
-          routePoints: [],
+          routePoints: const [],
           distance: distance.toStringAsFixed(2),
           pace: pace,
           bpm: 0,
@@ -150,7 +248,6 @@ class RunController extends ChangeNotifier {
     }
 
     _hasShownRecoveryDialog = true;
-
     if (!context.mounted) return;
 
     showDialog(
@@ -241,14 +338,10 @@ class RunController extends ChangeNotifier {
       final now = DateTime.now();
       final diff = now.difference(dateTime);
 
-      if (diff.inMinutes < 60) {
-        return '${diff.inMinutes} minutes ago';
-      } else if (diff.inHours < 24) {
-        return '${diff.inHours} hours ago';
-      } else {
-        return '${diff.inDays} days ago';
-      }
-    } catch (e) {
+      if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
+      if (diff.inHours < 24) return '${diff.inHours} hours ago';
+      return '${diff.inDays} days ago';
+    } catch (_) {
       return 'Unknown';
     }
   }
@@ -256,15 +349,18 @@ class RunController extends ChangeNotifier {
   Future<void> _saveRecoveredRun(Map<String, dynamic> runData) async {
     try {
       final List<dynamic> rawPoints = runData['routePoints'] ?? [];
-      final routePoints = rawPoints.map((p) {
-        if (p is Map) {
-          return LatLng(
-            (p['lat'] ?? p['latitude'] ?? 0.0).toDouble(),
-            (p['lng'] ?? p['longitude'] ?? 0.0).toDouble(),
-          );
-        }
-        return null;
-      }).whereType<LatLng>().toList();
+      final routePoints = rawPoints
+          .map((p) {
+            if (p is Map) {
+              return LatLng(
+                (p['lat'] ?? p['latitude'] ?? 0.0).toDouble(),
+                (p['lng'] ?? p['longitude'] ?? 0.0).toDouble(),
+              );
+            }
+            return null;
+          })
+          .whereType<LatLng>()
+          .toList();
 
       final distance = (runData['distance'] ?? 0.0).toDouble();
       final durationSeconds = runData['durationSeconds'] ?? 0;
@@ -301,6 +397,7 @@ class RunController extends ChangeNotifier {
     return (distanceKm * 60).round();
   }
 
+  // ---- Auto-save (unchanged) ----
   void startAutoSave(String planTitle) {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
@@ -320,10 +417,12 @@ class RunController extends ChangeNotifier {
       await RunRecoveryService.saveActiveRun(
         distance: stateController.totalDistance / 1000,
         durationSeconds: stateController.secondsElapsed,
-        routePoints: stateController.routePoints.map((p) => {
-          'lat': p.latitude,
-          'lng': p.longitude,
-        }).toList(),
+        routePoints: stateController.routePoints
+            .map((p) => {
+                  'lat': p.latitude,
+                  'lng': p.longitude,
+                })
+            .toList(),
         startTime: DateTime.now().subtract(Duration(seconds: stateController.secondsElapsed)),
         planTitle: planTitle,
         additionalData: {
@@ -338,9 +437,15 @@ class RunController extends ChangeNotifier {
     }
   }
 
-  Future<void> startRun({String planTitle = "Free Run"}) async {
+  // ✅ UPDATED signature: optional context does NOT break existing calls
+  Future<void> startRun({String planTitle = "Free Run", BuildContext? context}) async {
     try {
       debugPrint("🎬 RunController: Starting run");
+
+      if (context != null) {
+        setUiContext(context);
+      }
+
       await WakeLockService.enable();
       debugPrint("🔒 Screen wake lock enabled");
 
@@ -348,8 +453,8 @@ class RunController extends ChangeNotifier {
       await voiceController.speakRunStarted();
 
       startAutoSave(planTitle);
-
       notifyListeners();
+
       debugPrint("✅ RunController: Run started successfully");
     } catch (e) {
       debugPrint("❌ RunController: Error starting run: $e");
@@ -372,11 +477,15 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> stopRun(BuildContext context, {
+  Future<void> stopRun(
+    BuildContext context, {
     String planTitle = "Free Run",
     Uint8List? mapImageBytes,
   }) async {
     try {
+      // ✅ store context for snackbars
+      setUiContext(context);
+
       debugPrint("🎬 RunController: Stopping run");
       debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
 
@@ -421,7 +530,7 @@ class RunController extends ChangeNotifier {
         routePoints: finalRoutePoints,
         distance: finalDistanceString,
         pace: finalPace,
-        bpm: stateController.currentBpm,
+        bpm: finalBpm,
         planTitle: planTitle,
         mapImageBytes: mapImageBytes,
       );
@@ -437,14 +546,18 @@ class RunController extends ChangeNotifier {
 
       stateController.resetRun();
       debugPrint("✅ Run data reset");
+
+      // reset snack guard for next run
+      _lastMilestoneSnackKm = 0;
+
       notifyListeners();
       debugPrint("✅ RunController: Stop complete");
     } catch (e) {
       debugPrint("❌ RunController: Error stopping run: $e");
-
       stopAutoSave();
       await WakeLockService.disable();
       stateController.resetRun();
+      _lastMilestoneSnackKm = 0;
       notifyListeners();
       rethrow;
     }
@@ -460,7 +573,6 @@ class RunController extends ChangeNotifier {
     debugPrint("🗑️ Disposing RunController");
     stopAutoSave();
     WakeLockService.disable();
-
     stateController.removeListener(_onStateControllerChanged);
     stateController.dispose();
     super.dispose();

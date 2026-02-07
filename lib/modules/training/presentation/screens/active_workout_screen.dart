@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:majurun/modules/training/presentation/widgets/training_session_selector.dart';
-import 'package:provider/provider.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/modules/training/services/training_service.dart';
-import 'package:majurun/modules/run/controllers/voice_controller.dart';
-import 'package:majurun/modules/run/controllers/run_controller.dart';
-import 'package:majurun/modules/run/controllers/post_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'; // ✅ for LatLng
 import 'package:majurun/core/services/run_recovery_service.dart';
+import 'package:majurun/modules/run/controllers/post_controller.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/voice_controller.dart';
+import 'package:majurun/modules/training/presentation/widgets/training_session_selector.dart';
+import 'package:majurun/modules/training/services/training_service.dart';
+import 'package:provider/provider.dart';
 
 class ActiveWorkoutScreen extends StatefulWidget {
   final String planTitle;
@@ -32,8 +34,7 @@ class ActiveWorkoutScreen extends StatefulWidget {
   State<ActiveWorkoutScreen> createState() => _ActiveWorkoutScreenState();
 }
 
-class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
-    with SingleTickerProviderStateMixin {
+class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTickerProviderStateMixin {
   Timer? _timer;
   Timer? _pauseTimer;
   Timer? _autoSaveTimer;
@@ -70,6 +71,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   // cache controller immediately
   RunController? _runController;
 
+  // ✅ NEW: GPS tracking state for training
+  bool _gpsTrackingStarted = false;
+  List<LatLng> _gpsRoutePoints = const [];
+  double _gpsDistanceKm = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +88,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     _activeWeek = widget.currentWeek;
     _activeDay = widget.currentDay;
     _activeWorkoutData = widget.workoutData;
+
     _loadWorkoutData();
 
     // cache controller now
@@ -95,9 +102,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     _walkDuration = _activeWorkoutData['walkDuration'] ?? 90;
   }
 
-  // -----------------------------
+  // ------------------------------------------------------------
   // Session time calculations (UI)
-  // -----------------------------
+  // ------------------------------------------------------------
   int _totalSessionSeconds() {
     final perSet = _runDuration + _walkDuration;
     return _totalSets * perSet;
@@ -105,12 +112,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   int _completedSessionSeconds() {
     // warmup excluded by design
-    final completedRun = _runDuration * (_currentSet - 1) +
-        (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
-
-    final completedWalk = _walkDuration * (_currentSet - 1) +
-        (_isRunning ? 0 : (_walkDuration - _secondsRemaining));
-
+    final completedRun = _runDuration * (_currentSet - 1) + (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
+    final completedWalk = _walkDuration * (_currentSet - 1) + (_isRunning ? 0 : (_walkDuration - _secondsRemaining));
     final total = completedRun + completedWalk;
     return total.clamp(0, _totalSessionSeconds());
   }
@@ -120,9 +123,63 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     return pending < 0 ? 0 : pending;
   }
 
-  // -----------------------------
+  // ------------------------------------------------------------
+  // ✅ GPS tracking helpers (added, no UI changes)
+  // ------------------------------------------------------------
+  Future<void> _startGpsTrackingIfNeeded() async {
+    if (_gpsTrackingStarted) return;
+    if (_runController == null) return;
+
+    try {
+      // Start the same run engine used by Free Run, but we will not call RunController.stopRun().
+      await _runController!.stateController.startRun();
+      _gpsTrackingStarted = true;
+      debugPrint('📍 Training GPS tracking started');
+    } catch (e) {
+      debugPrint('⚠️ Training GPS tracking could not start: $e');
+    }
+  }
+
+  void _pauseGpsTrackingIfNeeded() {
+    if (!_gpsTrackingStarted || _runController == null) return;
+    try {
+      _runController!.stateController.pauseRun();
+    } catch (_) {}
+  }
+
+  void _resumeGpsTrackingIfNeeded() {
+    if (!_gpsTrackingStarted || _runController == null) return;
+    try {
+      _runController!.stateController.resumeRun();
+    } catch (_) {}
+  }
+
+  void _stopGpsTrackingAndCollect() {
+    if (!_gpsTrackingStarted || _runController == null) return;
+
+    try {
+      _runController!.stateController.stopRun();
+
+      final pts = List<LatLng>.from(_runController!.stateController.routePoints);
+      final distKm = _runController!.stateController.totalDistance / 1000.0;
+
+      _gpsRoutePoints = pts;
+      _gpsDistanceKm = distKm;
+
+      // Reset the run engine so it doesn't affect future Free Runs
+      _runController!.stateController.resetRun();
+
+      debugPrint('📍 Training GPS tracking stopped. Points=${pts.length}, dist=${distKm.toStringAsFixed(3)}km');
+    } catch (e) {
+      debugPrint('⚠️ Training GPS tracking stop/collect failed: $e');
+    } finally {
+      _gpsTrackingStarted = false;
+    }
+  }
+
+  // ------------------------------------------------------------
   // Start workout with warmup
-  // -----------------------------
+  // ------------------------------------------------------------
   void _startWorkout() {
     if (_hasStarted) return;
 
@@ -132,7 +189,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       _warmupSecondsRemaining = 5;
     });
 
-    // professional + cool voice copy
     _speak('Get ready. Starting in 5 seconds');
 
     _warmupTimer?.cancel();
@@ -151,13 +207,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     });
   }
 
-  void _beginMainSession() {
+  void _beginMainSession() async {
     if (!mounted) return;
+
+    // ✅ Start GPS tracking when the actual session begins (after warmup)
+    await _startGpsTrackingIfNeeded();
+
     setState(() {
       _isWarmup = false;
       _isRunning = true;
       _secondsRemaining = _runDuration;
     });
+
     _announcePhase('run');
     _startTimer();
   }
@@ -165,6 +226,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _startTimer() {
     _timer?.cancel();
     _startAutoSave();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!_isPaused) {
         setState(() {
@@ -189,15 +251,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     if (!_hasStarted || _isWarmup) return;
 
     final currentDuration = _completedSessionSeconds();
-    final totalRunSeconds = _runDuration * (_currentSet - 1) +
-        (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
 
+    // For training we estimate distance from running seconds (existing behavior)
+    final totalRunSeconds = _runDuration * (_currentSet - 1) + (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration);
     final estimatedKm = totalRunSeconds / 360.0;
+
+    // ✅ NEW: include routePoints for recovery when GPS tracking is running
+    final List<Map<String, dynamic>> recoveryPoints = _gpsTrackingStarted && _runController != null
+        ? _runController!.stateController.routePoints
+            .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+            .toList()
+        : const [];
 
     await RunRecoveryService.saveActiveRun(
       distance: estimatedKm,
       durationSeconds: currentDuration,
-      routePoints: const [],
+      routePoints: recoveryPoints,
       startTime: DateTime.now().subtract(Duration(seconds: currentDuration)),
       planTitle: widget.planTitle,
       additionalData: {
@@ -247,9 +316,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     if (_isPaused) {
       _pausedSeconds = 0;
       _startPauseTimer();
+      _pauseGpsTrackingIfNeeded();
       _speak('Paused');
     } else {
       _pauseTimer?.cancel();
+      _resumeGpsTrackingIfNeeded();
       _speak('Resuming');
     }
   }
@@ -270,8 +341,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Still there?'),
-        content: const Text(
-            'You\'ve been paused for a while. Continue your session or end it for today?'),
+        content: const Text('You\'ve been paused for a while. Continue your session or end it for today?'),
         actions: [
           TextButton(
             onPressed: () {
@@ -339,14 +409,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
   }
 
-  // -----------------------------
+  // ------------------------------------------------------------
   // Finalize session ONCE (history + post)
-  // -----------------------------
+  // ------------------------------------------------------------
   Future<void> _finalizeSession({required bool completed}) async {
     if (_finalizeInProgress) return;
     _finalizeInProgress = true;
 
     try {
+      // ✅ stop GPS tracking and collect routePoints (no UI changes)
+      _stopGpsTrackingAndCollect();
+
       final totalRunSeconds = _runDuration * (completed ? _totalSets : (_currentSet - 1)) +
           (completed ? 0 : (_isRunning ? (_runDuration - _secondsRemaining) : _runDuration));
 
@@ -358,7 +431,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         return;
       }
 
-      final estimatedKm = finalRunSeconds / 360.0;
+      // Existing estimate (time-based)
+      double estimatedKm = finalRunSeconds / 360.0;
+
+      // ✅ If we captured meaningful GPS distance, prefer it for accuracy (keeps behavior but improves)
+      if (_gpsRoutePoints.length >= 2 && _gpsDistanceKm > 0.01) {
+        estimatedKm = _gpsDistanceKm;
+      }
+
       if (estimatedKm <= 0) {
         await RunRecoveryService.clearRecoverableRun();
         return;
@@ -369,6 +449,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       final paceStr = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
       final calories = (estimatedKm * 60).round();
 
+      // ✅ Use captured GPS routePoints for history/post (this enables map preview)
+      final finalRoutePoints = _gpsRoutePoints;
+
       // Save to stats/repository history (ONE TIME)
       if (!_historySaved) {
         _historySaved = true;
@@ -377,14 +460,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           distanceKm: estimatedKm,
           durationSeconds: finalDurationSeconds,
           pace: paceStr,
-          routePoints: const [],
+          routePoints: finalRoutePoints,
           avgBpm: 0,
           calories: calories,
           type: 'training',
           week: _activeWeek,
           day: _activeDay,
           completed: completed,
-          mapImageUrl: widget.planImageUrl,
+          mapImageUrl: widget.planImageUrl, // keep existing training history image behavior
         );
       }
 
@@ -407,7 +490,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             'avgPace': paceStr,
             'avgBpm': 0,
             'calories': calories,
-            'routePoints': const [],
+            // ✅ save routePoints to Firestore too (same format your PostController uses)
+            'routePoints': finalRoutePoints
+                .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+                .toList(),
             'mapImageUrl': widget.planImageUrl,
             'completed': completed,
           });
@@ -419,7 +505,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         _postCreated = true;
 
         final PostController postController = _runController!.postController;
-
         final distStr = estimatedKm.toStringAsFixed(2);
         final durStr = _formatTime(finalDurationSeconds);
 
@@ -435,14 +520,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ? "$aiContent\nCompleted Week $_activeWeek Day $_activeDay of ${widget.planTitle}! 🎉"
             : "$aiContent\nTraining session: Week $_activeWeek Day $_activeDay of ${widget.planTitle}.";
 
+        // ✅ IMPORTANT:
+        // - pass routePoints so feed can render map (like main runs)
+        // - DO NOT override mapImageUrl with plan image (that prevents showing a route map)
         await postController.createAutoPost(
           aiContent: trainingContent,
-          routePoints: const [],
+          routePoints: finalRoutePoints,
           distance: distStr,
           pace: paceStr,
           bpm: 0,
           planTitle: widget.planTitle,
-          mapImageUrlOverride: widget.planImageUrl.isNotEmpty ? widget.planImageUrl : null,
+          mapImageUrlOverride: null,
         );
       }
 
@@ -461,6 +549,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     await _finalizeSession(completed: true);
 
     if (!mounted) return;
+
     final trainingService = Provider.of<TrainingService>(context, listen: false);
     trainingService.completeWorkout(_activeWeek, _activeDay);
 
@@ -469,6 +558,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     });
 
     if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -524,9 +614,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
-  // -----------------------------
-  // UI
-  // -----------------------------
+  // ------------------------------------------------------------
+  // UI (unchanged)
+  // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Consumer<RunController>(
@@ -555,27 +645,19 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       child: Column(
                         children: [
                           const SizedBox(height: 14),
-
-                          // ✅ Professional + cool labels
                           _buildSessionTimePanel(),
-
                           const SizedBox(height: 20),
-
                           if (!_hasStarted)
                             _buildStartButton()
                           else ...[
                             _buildPhaseIndicator(),
                             const SizedBox(height: 22),
-
-                            // Warmup timer display or main timer
                             if (_isWarmup) _buildWarmupDisplay() else _buildTimerDisplay(),
-
                             const SizedBox(height: 22),
                             _buildSetProgress(),
                             const SizedBox(height: 40),
                             _buildControls(),
                           ],
-
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -590,7 +672,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
   }
 
-  // ✅ Wording updated here
   Widget _buildSessionTimePanel() {
     final total = _formatTime(_totalSessionSeconds());
     final done = _formatTime(_completedSessionSeconds());
@@ -628,10 +709,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       ),
       child: Column(
         children: [
-          Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
             label,
@@ -648,7 +726,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
   }
 
-  // ✅ Wording updated here
   Widget _buildWarmupDisplay() {
     return Column(
       children: [
@@ -674,8 +751,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       ],
     );
   }
-
-  // ---- Existing header & UI methods below (kept) ----
 
   Widget _buildHeader(RunController runController) {
     return Container(
@@ -762,9 +837,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: runController.isVoiceEnabled
-                    ? const Color(0xFF2D7A3E)
-                    : Colors.white.withValues(alpha: 0.1),
+                color: runController.isVoiceEnabled ? const Color(0xFF2D7A3E) : Colors.white.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -785,9 +858,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   }
 
   void _exitScreen() {
-    widget.onCancel();
-    Navigator.pop(context);
+  widget.onCancel();
+  final nav = Navigator.of(context);
+  if (nav.canPop()) {
+    nav.pop();
   }
+}
 
   void _openSessionSelector() {
     showModalBottomSheet(
@@ -798,16 +874,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
         ),
         child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
           child: TrainingSessionSelector(
             onBack: () => Navigator.pop(context),
             onSubPageSelected: (_) {},
@@ -824,20 +894,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _loadSpecificWorkout(int week, int day) {
     final trainingService = Provider.of<TrainingService>(context, listen: false);
     final sessionData = trainingService.getWorkoutData(week, day);
+
     if (sessionData.isNotEmpty) {
       setState(() {
         _activeWeek = week;
         _activeDay = day;
         _activeWorkoutData = sessionData['workoutData'];
-
         _hasStarted = false;
         _isRunning = false;
         _isPaused = false;
         _isWarmup = false;
-
         _finalizeInProgress = false;
         _historySaved = false;
         _postCreated = false;
+
+        // reset GPS session variables
+        _gpsTrackingStarted = false;
+        _gpsRoutePoints = const [];
+        _gpsDistanceKm = 0.0;
 
         _loadWorkoutData();
       });
@@ -943,10 +1017,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('SET $_currentSet',
-                  style: const TextStyle(color: Color(0xFF7ED957), fontSize: 28, fontWeight: FontWeight.bold)),
-              Text(' / $_totalSets',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 28, fontWeight: FontWeight.bold)),
+              Text('SET $_currentSet', style: const TextStyle(color: Color(0xFF7ED957), fontSize: 28, fontWeight: FontWeight.bold)),
+              Text(' / $_totalSets', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 28, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 16),
@@ -978,8 +1050,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             children: [
               Icon(_isPaused ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 28),
               const SizedBox(width: 8),
-              Text(_isPaused ? 'RESUME' : 'PAUSE',
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                _isPaused ? 'RESUME' : 'PAUSE',
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),
@@ -1034,9 +1108,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('End Session?'),
-        content: const Text(
-          'If you exit now, this session will be saved as incomplete.',
-        ),
+        content: const Text('If you exit now, this session will be saved as incomplete.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(

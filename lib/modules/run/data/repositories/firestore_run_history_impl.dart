@@ -6,6 +6,7 @@ import 'package:majurun/modules/run/constants/run_constants.dart';
 import '../../domain/entities/run_history.dart';
 import '../../domain/repositories/run_history_repository.dart';
 
+/// Firestore implementation of [RunHistoryRepository].
 class FirestoreRunHistoryImpl implements RunHistoryRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -17,7 +18,6 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
         _auth = auth ?? FirebaseAuth.instance;
 
   CollectionReference<Map<String, dynamic>> _historyCollection(String uid) {
-    // History source used by StatsController + HistoryScreen
     return _firestore.collection('users').doc(uid).collection('training_history');
   }
 
@@ -33,7 +33,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     int? avgBpm,
     int? calories,
 
-    // optional
+    // ✅ Optional metadata (matches RunHistoryRepository)
     String? type,
     int? week,
     int? day,
@@ -47,6 +47,9 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       return;
     }
 
+    debugPrint('💾 SaveRun: Preparing to save run data');
+    debugPrint('📍 SaveRun: Route points received: ${routePoints?.length ?? 0}');
+
     final data = <String, dynamic>{
       'planTitle': planTitle,
       'distanceKm': distanceKm,
@@ -55,27 +58,47 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       'completedAt': FieldValue.serverTimestamp(),
     };
 
-    if (avgBpm != null) data['avgBpm'] = avgBpm;
-    if (calories != null) data['calories'] = calories;
+    if (avgBpm != null) {
+      data['avgBpm'] = avgBpm;
+      debugPrint('💓 SaveRun: BPM = $avgBpm');
+    }
+    if (calories != null) {
+      data['calories'] = calories;
+      debugPrint('🔥 SaveRun: Calories = $calories');
+    }
 
-    // ✅ training metadata (optional)
+    // ✅ Save optional metadata so History can show SESSION details + image
     if (type != null) data['type'] = type;
     if (week != null) data['week'] = week;
     if (day != null) data['day'] = day;
     if (completed != null) data['completed'] = completed;
-    if (mapImageUrl != null) data['mapImageUrl'] = mapImageUrl;
+    if (mapImageUrl != null && mapImageUrl.isNotEmpty) data['mapImageUrl'] = mapImageUrl;
+
     if (extra != null && extra.isNotEmpty) {
       data.addAll(extra);
     }
 
-    // route points
+    // Save route points as [{latitude, longitude}]
     if (routePoints != null && routePoints.isNotEmpty) {
-      data['routePoints'] = routePoints
-          .map((p) => {'latitude': p.latitude, 'longitude': p.longitude})
+      final routePointsData = routePoints
+          .map((point) => {
+                'latitude': point.latitude,
+                'longitude': point.longitude,
+              })
           .toList();
+      data['routePoints'] = routePointsData;
+      debugPrint('✅ SaveRun: Added ${routePointsData.length} route points to data');
+    } else {
+      debugPrint('⚠️ SaveRun: No route points to save');
     }
 
-    await _historyCollection(uid).add(data);
+    try {
+      await _historyCollection(uid).add(data);
+      debugPrint('✅ SaveRun: Successfully saved to Firestore');
+    } catch (e) {
+      debugPrint('❌ SaveRun: Error saving to Firestore: $e');
+      rethrow;
+    }
   }
 
   @override
@@ -144,15 +167,16 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
     final data = doc.data()!;
     final distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
 
+    // Parse routePoints from Firestore
     List<LatLng>? routePoints;
     if (data['routePoints'] != null) {
       try {
         final pointsData = data['routePoints'] as List<dynamic>;
         routePoints = pointsData.map((point) {
-          final m = point as Map<String, dynamic>;
+          final pointMap = point as Map<String, dynamic>;
           return LatLng(
-            (m['latitude'] as num).toDouble(),
-            (m['longitude'] as num).toDouble(),
+            (pointMap['latitude'] as num).toDouble(),
+            (pointMap['longitude'] as num).toDouble(),
           );
         }).toList();
       } catch (_) {
@@ -172,7 +196,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       avgBpm: data['avgBpm'] as int?,
       routePoints: routePoints,
 
-      // ✅ map optional training metadata
+      // ✅ Optional fields read back
       type: data['type']?.toString(),
       week: data['week'] as int?,
       day: data['day'] as int?,
