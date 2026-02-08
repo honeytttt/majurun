@@ -6,6 +6,7 @@ import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart
 import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
 import 'package:majurun/modules/home/presentation/widgets/quoted_post_preview.dart';
 import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
+import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class FeedItemWrapper extends StatelessWidget {
@@ -257,33 +258,132 @@ class FeedItemWrapper extends StatelessWidget {
 
   Widget _buildMedia(BuildContext context, PostMedia media) {
     if (media.type == MediaType.image) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          media.url,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: 320,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              height: 320,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+      return GestureDetector(
+        onTap: () => _showFullImage(context, media.url),
+        child: Container(
+          constraints: const BoxConstraints(
+            maxHeight: 500, // Max height to prevent extremely tall images
+            minHeight: 200, // Min height for very wide images
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.grey[100],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              media.url,
+              fit: BoxFit.contain, // Maintains aspect ratio
+              width: double.infinity,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 300,
+                  color: Colors.grey[200],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: const Color(0xFF00E676),
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (_, __, ___) => Container(
+                height: 300,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text(
+                        'Failed to load image',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
     } else {
-      return Container(
+      return PostVideoPlayer(
+        videoUrl: media.url,
         height: 320,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Center(child: Icon(Icons.videocam, color: Colors.white, size: 60)),
+        borderRadius: BorderRadius.circular(12),
       );
     }
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          children: [
+            // Dismiss on tap outside
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+            // Image viewer
+            Center(
+              child: GestureDetector(
+                onTap: () {}, // Prevent dismissal when tapping image
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image,
+                        size: 100,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Close button
+            Positioned(
+              top: 40,
+              right: 20,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

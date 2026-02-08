@@ -181,28 +181,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader(String name, String imageUrl) {
-    ImageProvider imageProvider;
-    if (imageUrl.isEmpty) {
-      imageProvider = const NetworkImage(
-        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400'
-      );
-    } else {
-      // Added a timestamp to force refresh on image update
-      imageProvider = NetworkImage('$imageUrl?t=${DateTime.now().millisecondsSinceEpoch}');
-    }
-
     return Column(
       children: [
         CircleAvatar(
           radius: 55,
           backgroundColor: Colors.grey[200],
-          backgroundImage: imageProvider,
+          child: imageUrl.isEmpty
+              ? const Icon(Icons.person, size: 55, color: Colors.grey)
+              : ClipOval(
+                  child: Image.network(
+                    '$imageUrl?t=${DateTime.now().millisecondsSinceEpoch}',
+                    fit: BoxFit.cover,
+                    width: 110,
+                    height: 110,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF00E676),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to default icon on 403 or any error
+                      debugPrint('Profile image load error: $error');
+                      return const Icon(Icons.person, size: 55, color: Colors.grey);
+                    },
+                  ),
+                ),
         ),
         const SizedBox(height: 15),
         Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const Text(
-          "Elite Runner • Level 12", 
-          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)
+          "Elite Runner • Level 12",
+          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
         ),
       ],
     );

@@ -87,20 +87,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Widget build(BuildContext context) {
     final brandGreen = Theme.of(context).colorScheme.primary;
 
-    final ImageProvider avatarImage = kIsWeb
-        ? (_webImage != null
-            ? MemoryImage(_webImage!) as ImageProvider
-            : (widget.currentImageUrl.isNotEmpty
-                ? NetworkImage(widget.currentImageUrl)
-                : const NetworkImage(
-                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400')))
-        : (_imageFile != null
-            ? FileImage(_imageFile!) as ImageProvider
-            : (widget.currentImageUrl.isNotEmpty
-                ? NetworkImage(widget.currentImageUrl)
-                : const NetworkImage(
-                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400')));
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -123,7 +109,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               onTap: _pickImage,
               child: Stack(
                 children: [
-                  CircleAvatar(radius: 55, backgroundColor: Colors.grey[200], backgroundImage: avatarImage),
+                  CircleAvatar(
+                    radius: 55,
+                    backgroundColor: Colors.grey[200],
+                    child: _buildAvatarImage(),
+                  ),
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -152,11 +142,71 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
+  Widget _buildAvatarImage() {
+    // Priority: picked image > current URL > default icon
+    if (_webImage != null) {
+      return ClipOval(
+        child: Image.memory(
+          _webImage!,
+          fit: BoxFit.cover,
+          width: 110,
+          height: 110,
+        ),
+      );
+    }
+    
+    if (_imageFile != null) {
+      return ClipOval(
+        child: Image.file(
+          _imageFile!,
+          fit: BoxFit.cover,
+          width: 110,
+          height: 110,
+        ),
+      );
+    }
+    
+    if (widget.currentImageUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          widget.currentImageUrl,
+          fit: BoxFit.cover,
+          width: 110,
+          height: 110,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF00E676),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('Settings avatar load error: $error');
+            return const Icon(Icons.person, size: 55, color: Colors.grey);
+          },
+        ),
+      );
+    }
+    
+    // Default icon
+    return const Icon(Icons.person, size: 55, color: Colors.grey);
+  }
+
   Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1.2)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey,
+            letterSpacing: 1.2,
+          ),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -164,8 +214,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.grey[50],
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey[200]!)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: Colors.black)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: Colors.grey[200]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Colors.black),
+            ),
           ),
         ),
       ],
