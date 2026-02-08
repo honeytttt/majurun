@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:majurun/core/services/s3_service.dart'; // Updated to use S3Service
+import 'package:majurun/core/services/s3_service.dart';
+import 'package:majurun/core/utils/route_utils.dart';
 
 class PostController extends ChangeNotifier {
   final FirebaseFirestore _firestore;
@@ -86,6 +87,10 @@ class PostController extends ChangeNotifier {
         }
       }
 
+      // Sample route points to limit document size (max 200 points)
+      final sampledPoints = RouteUtils.sampleRoutePoints(routePoints);
+      debugPrint("📍 Route points: ${routePoints.length} -> ${sampledPoints.length} (sampled)");
+
       // Create post document in Firestore
       final postData = {
         'userId': user.uid,
@@ -95,12 +100,7 @@ class PostController extends ChangeNotifier {
         'distance': distance,
         'pace': pace,
         'bpm': bpm,
-        'routePoints': routePoints
-            .map((point) => {
-                  'lat': point.latitude,
-                  'lng': point.longitude,
-                })
-            .toList(),
+        'routePoints': RouteUtils.toFirestoreFormat(sampledPoints),
         'mapImageUrl': mapImageUrl,
         'likes': [],
         'comments': 0,

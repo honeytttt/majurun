@@ -135,7 +135,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 25),
             _buildInputField("BIO", _bioController, maxLines: 4),
             const SizedBox(height: 25),
-            _buildInputField("EMAIL", _emailController),
+            _buildInputField("EMAIL", _emailController, enabled: false),
           ],
         ),
       ),
@@ -194,7 +194,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return const Icon(Icons.person, size: 55, color: Colors.grey);
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1}) {
+  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1, bool enabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -211,9 +211,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         TextField(
           controller: controller,
           maxLines: maxLines,
+          enabled: enabled,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
               borderSide: BorderSide(color: Colors.grey[200]!),
@@ -221,6 +222,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
               borderSide: const BorderSide(color: Colors.black),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: Colors.grey[300]!),
             ),
           ),
         ),

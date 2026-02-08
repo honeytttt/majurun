@@ -3,8 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:majurun/modules/profile/presentation/screens/profile_settings_screen.dart';
 import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/followers_following_screen.dart';
+import 'package:majurun/core/widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String currentName;
@@ -29,332 +32,387 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  
-  /// Fetches real document counts from Firestore
-  Future<Map<String, int>> _getProfileStats() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return {'followers': 0, 'following': 0, 'workouts': 0};
-
-    try {
-      // Fetch Followers count from subcollection
-      final followersQuery = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('followers')
-          .count()
-          .get();
-
-      // Fetch Following count from subcollection
-      final followingQuery = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('following')
-          .count()
-          .get();
-
-      // Fetch Workouts/Posts count
-      final workoutsQuery = FirebaseFirestore.instance
-          .collection('posts')
-          .where('userId', isEqualTo: uid)
-          .count()
-          .get();
-
-      final results = await Future.wait([followersQuery, followingQuery, workoutsQuery]);
-
-      return {
-        'followers': results[0].count ?? 0,
-        'following': results[1].count ?? 0,
-        'workouts': results[2].count ?? 0,
-      };
-    } catch (e) {
-      debugPrint("Error fetching stats: $e");
-      return {'followers': 0, 'following': 0, 'workouts': 0};
-    }
-  }
-
-  void _navigateToSettings() {
+  void _navigateToSettings({
+    required String name,
+    required String bio,
+    required String imageUrl,
+    required String email,
+  }) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProfileSettingsScreen(
-          currentName: widget.currentName,
-          currentBio: widget.currentBio,
-          currentImageUrl: widget.currentImageUrl,
-          currentEmail: widget.currentEmail,
-          onSave: (name, bio, imageData, email) async {
-            dynamic uploadedImageUrl = widget.currentImageUrl;
+          currentName: name,
+          currentBio: bio,
+          currentImageUrl: imageUrl,
+          currentEmail: email,
+          onSave: (newName, newBio, imageData, newEmail) async {
+            dynamic uploadedImageUrl = imageUrl;
 
             if (imageData != null) {
               final storageService = StorageService();
-              
+
               if (!kIsWeb && imageData is File) {
-                // Mobile upload
                 uploadedImageUrl = await storageService.uploadFile(imageData, false);
               } else if (imageData is Uint8List) {
-                // Web upload - using a unique timestamped name
-                final String webFileName = "web_profile_${DateTime.now().millisecondsSinceEpoch}.png";
-                uploadedImageUrl = await storageService.uploadMedia(imageData, webFileName, false);
+                final String webFileName =
+                    "web_profile_${DateTime.now().millisecondsSinceEpoch}.png";
+                uploadedImageUrl =
+                    await storageService.uploadMedia(imageData, webFileName, false);
               }
             }
 
-            await widget.onSave(name, bio, uploadedImageUrl, email);
-            // Refresh stats after returning
-            setState(() {});
+            await widget.onSave(newName, newBio, uploadedImageUrl, newEmail);
+            if (mounted) setState(() {});
           },
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  String _fmtDuration(int sec) {
+    if (sec <= 0) return '--';
+    final h = sec ~/ 3600;
+    final m = (sec % 3600) ~/ 60;
+    final s = sec % 60;
+    if (h > 0) return '${h}h ${m}m';
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _fmtPace(int paceSecPerKm) {
+    if (paceSecPerKm <= 0) return '--';
+    final m = paceSecPerKm ~/ 60;
+    final s = paceSecPerKm % 60;
+    return '$m:${s.toString().padLeft(2, '0')}/km';
+  }
+
+  String _formatCompactInt(int n) {
+    if (n >= 1000000) return "${(n / 1000000).toStringAsFixed(1)}M";
+    if (n >= 1000) return "${(n / 1000).toStringAsFixed(1)}k";
+    return "$n";
+  }
+
+  String _tierFromCount(int n) {
+    if (n >= 25) return 'PLATINUM';
+    if (n >= 10) return 'GOLD';
+    if (n >= 5) return 'SILVER';
+    if (n >= 1) return 'BRONZE';
+    return '—';
+  }
+
+  Widget _stat(String value, String label) {
     return Column(
       children: [
-        /// HEADER
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _badgeTile(String label, int count, String icon) {
+    return Container(
+      width: 82,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 24)),
+          const SizedBox(height: 6),
+          Text("$count", style: const TextStyle(fontWeight: FontWeight.w900)),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Text(_tierFromCount(count),
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54)),
+        ],
+      ),
+    );
+  }
+
+  Widget _pbRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(value, style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w700)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const Center(child: Text("Not logged in"));
+
+    return Column(
+      children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20), 
-                onPressed: widget.onBack
+                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                onPressed: widget.onBack,
               ),
               const Text(
                 "MY PROFILE",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                  fontSize: 14,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 14),
               ),
-              IconButton(
-                icon: const Icon(Icons.settings_outlined), 
-                onPressed: _navigateToSettings
-              ),
+              const SizedBox(width: 48),
             ],
           ),
         ),
-        
-        /// BODY
+
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: FutureBuilder<Map<String, int>>(
-              future: _getProfileStats(),
-              builder: (context, snapshot) {
-                final stats = snapshot.data ?? {'followers': 0, 'following': 0, 'workouts': 0};
-                
-                return Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    _buildProfileHeader(widget.currentName, widget.currentImageUrl),
-                    _buildSocialStats(stats['followers']!, stats['following']!),
-                    _buildBioSection(widget.currentBio),
-                    const SizedBox(height: 25),
-                    _buildStatGrid(stats['workouts']!),
-                    const SizedBox(height: 30),
-                    _buildSectionHeader("TROPHY CASE", "View All"),
-                    const SizedBox(height: 15),
-                    _buildTrophyCase(),
-                    const SizedBox(height: 30),
-                    _buildSectionHeader("ACCOUNT SETTINGS", "Manage"),
-                    const SizedBox(height: 15),
-                    _buildAccountGrid(),
-                    const SizedBox(height: 30),
-                    TextButton(
-                      onPressed: () => _showLogoutDialog(context),
-                      child: const Text(
-                        "LOGOUT", 
-                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFF00E676)));
+              }
+
+              final data = (snap.data!.data() as Map<String, dynamic>?) ?? {};
+
+              final name = (data['displayName'] ?? widget.currentName) as String;
+              final bio = (data['bio'] ?? widget.currentBio) as String;
+              final imageUrl = (data['photoUrl'] ?? widget.currentImageUrl) as String;
+              final email = (data['email'] ?? widget.currentEmail) as String;
+
+              final followers = (data['followersCount'] as int?) ?? 0;
+              final following = (data['followingCount'] as int?) ?? 0;
+
+              // ✅ Real stats from Firestore
+              final totalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
+              final totalCalories = (data['totalCalories'] as int?) ?? 0;
+              final totalRunSeconds = (data['totalRunSeconds'] as int?) ?? 0;
+              final workoutsCount = (data['workoutsCount'] as int?) ?? 0;
+              final postsCount = (data['postsCount'] as int?) ?? 0;
+              final hours = totalRunSeconds / 3600.0;
+
+              // ✅ Badges
+              final badge5k = (data['badge5k'] as int?) ?? 0;
+              final badge10k = (data['badge10k'] as int?) ?? 0;
+              final badgeHalf = (data['badgeHalf'] as int?) ?? 0;
+              final badgeFull = (data['badgeFull'] as int?) ?? 0;
+
+              // ✅ PBs
+              final bestPace = (data['bestPaceSecPerKm'] as int?) ?? 0;
+              final best5k = (data['best5kSeconds'] as int?) ?? 0;
+              final best10k = (data['best10kSeconds'] as int?) ?? 0;
+              final bestHalf = (data['bestHalfSeconds'] as int?) ?? 0;
+              final bestFull = (data['bestFullSeconds'] as int?) ?? 0;
+
+              return Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+
+                        // Avatar + name
+                        Column(
+                          children: [
+                            UserAvatar(photoUrl: imageUrl, radius: 55),
+                            const SizedBox(height: 15),
+                            Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                            const Text("Elite Runner • Level 12",
+                                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Edit
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: ElevatedButton.icon(
+                            onPressed: () => _navigateToSettings(
+                              name: name,
+                              bio: bio,
+                              imageUrl: imageUrl,
+                              email: email,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              side: const BorderSide(color: Colors.black, width: 1.5),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.edit, size: 18),
+                            label: const Text('Edit Profile',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
+                          ),
+                        ),
+
+                        // Followers / Following
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _socialCount(followers.toString(), "FOLLOWERS", onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FollowersFollowingScreen(
+                                      userId: uid,
+                                      userName: name,
+                                      initialTab: 0,
+                                    ),
+                                  ),
+                                );
+                              }),
+                              const SizedBox(width: 40),
+                              _socialCount(following.toString(), "FOLLOWING", onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FollowersFollowingScreen(
+                                      userId: uid,
+                                      userName: name,
+                                      initialTab: 1,
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+
+                        // Goal/Bio
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("CURRENT GOAL",
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                              const SizedBox(height: 5),
+                              Text(bio.isEmpty ? "No goal set yet." : bio,
+                                  style: const TextStyle(fontSize: 13, height: 1.4)),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 25),
+
+                        // ✅ Pro stats (real)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _stat(totalKm.toStringAsFixed(1), "KM RUN"),
+                            _stat(workoutsCount.toString(), "WORKOUTS"),
+                            _stat(_formatCompactInt(totalCalories), "CALORIES"),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _stat(hours.toStringAsFixed(1), "HOURS"),
+                            _stat(postsCount.toString(), "POSTS"),
+                            _stat("", ""),
+                          ],
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        // ✅ Badges + tier
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _badgeTile("5K", badge5k, "🥈"),
+                            _badgeTile("10K", badge10k, "🥇"),
+                            _badgeTile("HALF", badgeHalf, "🏅"),
+                            _badgeTile("FULL", badgeFull, "🎖️"),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // ✅ PBs
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("PERSONAL BESTS",
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                              const SizedBox(height: 10),
+                              _pbRow("Best Pace", _fmtPace(bestPace)),
+                              const SizedBox(height: 8),
+                              _pbRow("Best 5K", _fmtDuration(best5k)),
+                              const SizedBox(height: 8),
+                              _pbRow("Best 10K", _fmtDuration(best10k)),
+                              const SizedBox(height: 8),
+                              _pbRow("Best Half", _fmtDuration(bestHalf)),
+                              const SizedBox(height: 8),
+                              _pbRow("Best Full", _fmtDuration(bestFull)),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        TextButton(
+                          onPressed: () => _showLogoutDialog(context),
+                          child: const Text("LOGOUT",
+                              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+
+                  Positioned(
+                    top: 2,
+                    right: 6,
+                    child: IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: () => _navigateToSettings(
+                        name: name,
+                        bio: bio,
+                        imageUrl: imageUrl,
+                        email: email,
                       ),
                     ),
-                    const SizedBox(height: 40),
-                  ],
-                );
-              }
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfileHeader(String name, String imageUrl) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 55,
-          backgroundColor: Colors.grey[200],
-          child: imageUrl.isEmpty
-              ? const Icon(Icons.person, size: 55, color: Colors.grey)
-              : ClipOval(
-                  child: Image.network(
-                    '$imageUrl?t=${DateTime.now().millisecondsSinceEpoch}',
-                    fit: BoxFit.cover,
-                    width: 110,
-                    height: 110,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF00E676),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      // Fallback to default icon on 403 or any error
-                      debugPrint('Profile image load error: $error');
-                      return const Icon(Icons.person, size: 55, color: Colors.grey);
-                    },
                   ),
-                ),
-        ),
-        const SizedBox(height: 15),
-        Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-        const Text(
-          "Elite Runner • Level 12",
-          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildSocialStats(int followers, int following) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildSocialCount(followers.toString(), "FOLLOWERS"),
-          const SizedBox(width: 40),
-          _buildSocialCount(following.toString(), "FOLLOWING"),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSocialCount(String count, String label) {
-    return Column(
-      children: [
-        Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1)),
-      ],
-    );
-  }
-
-  Widget _buildBioSection(String bio) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(15),
-      ),
+  Widget _socialCount(String count, String label, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "CURRENT GOAL", 
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)
-          ),
-          const SizedBox(height: 5),
-          Text(bio.isEmpty ? "No goal set yet." : bio, style: const TextStyle(fontSize: 13, height: 1.4)),
+          Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatGrid(int workoutCount) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildStatItem("124.5", "KM RUN"), // Placeholder for GPS logic
-        _buildStatItem(workoutCount.toString(), "WORKOUTS"),
-        _buildStatItem("8.2k", "CALORIES"), // Placeholder
-      ],
-    );
-  }
-
-  Widget _buildStatItem(String val, String label) {
-    return Column(
-      children: [
-        Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        Text(
-          label, 
-          style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title, String action) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title, 
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)
-        ),
-        Text(action, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildTrophyCase() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: ["🌅", "🎖️", "🏔️", "🔥"]
-          .map((e) => Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Text(e, style: const TextStyle(fontSize: 24)),
-              ))
-          .toList(),
-    );
-  }
-
-  Widget _buildAccountGrid() {
-    final items = [
-      {"icon": Icons.person_outline, "label": "Edit Profile", "onTap": _navigateToSettings},
-      {"icon": Icons.notifications_none, "label": "Notifications", "onTap": null},
-      {"icon": Icons.privacy_tip_outlined, "label": "Privacy", "onTap": null},
-      {"icon": Icons.help_outline, "label": "Support", "onTap": null},
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 2.8,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, i) => InkWell(
-        onTap: items[i]["onTap"] as void Function()?,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[200]!),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(items[i]["icon"] as IconData, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                items[i]["label"] as String,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -373,7 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               await FirebaseAuth.instance.signOut();
               navigator.pushNamedAndRemoveUntil('/', (r) => false);
             },
-            child: const Text("Yes", style: TextStyle(color: Colors.red))
+            child: const Text("Yes", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+import 'package:majurun/core/services/user_stats_service.dart';
 import '../../domain/entities/post.dart';
 
 class PostRepositoryImpl {
@@ -24,7 +26,7 @@ class PostRepositoryImpl {
       }).toList();
     }
 
-    // ✅ NEW: fallback to mapImageUrl when media is empty
+    // fallback to mapImageUrl when media is empty
     final mapImageUrl = data['mapImageUrl']?.toString();
     if (mediaList.isEmpty && mapImageUrl != null && mapImageUrl.isNotEmpty) {
       mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.image));
@@ -33,14 +35,17 @@ class PostRepositoryImpl {
     List<LatLng>? routePoints;
     if (data['routePoints'] != null && data['routePoints'] is List) {
       final List<dynamic> pts = data['routePoints'];
-      routePoints = pts.map((p) {
-        if (p is Map) {
-          final lat = (p['lat'] as num).toDouble();
-          final lng = (p['lng'] as num).toDouble();
-          return LatLng(lat, lng);
-        }
-        return null;
-      }).whereType<LatLng>().toList();
+      routePoints = pts
+          .map((p) {
+            if (p is Map) {
+              final lat = (p['lat'] as num).toDouble();
+              final lng = (p['lng'] as num).toDouble();
+              return LatLng(lat, lng);
+            }
+            return null;
+          })
+          .whereType<LatLng>()
+          .toList();
     }
 
     return AppPost(
@@ -86,6 +91,7 @@ class PostRepositoryImpl {
     int? avgBpm,
     List<int>? splits,
     String type = 'regular',
+    bool updateUserStats = true, // new optional (won't break callers)
   }) async {
     try {
       await _db.collection('posts').doc(post.id).set({
@@ -97,7 +103,10 @@ class PostRepositoryImpl {
         'splits': splits,
         'type': type,
         'media': post.media
-            .map((m) => {'url': m.url, 'type': m.type == MediaType.video ? 'video' : 'image'})
+            .map((m) => {
+                  'url': m.url,
+                  'type': m.type == MediaType.video ? 'video' : 'image'
+                })
             .toList(),
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
@@ -107,6 +116,11 @@ class PostRepositoryImpl {
               .map((p) => {'lat': p.latitude, 'lng': p.longitude})
               .toList(),
       });
+
+      // ✅ centralized postsCount increment
+      if (updateUserStats) {
+        await UserStatsService().incrementPosts(post.userId);
+      }
     } catch (e) {
       debugPrint("Error creating post: $e");
     }
@@ -148,7 +162,8 @@ class PostRepositoryImpl {
 
   Future<void> repost(AppPost originalPost, String userId, String username) async {
     try {
-      final String targetId = originalPost.quotedPostId != null && originalPost.quotedPostId!.isNotEmpty
+      final String targetId = originalPost.quotedPostId != null &&
+              originalPost.quotedPostId!.isNotEmpty
           ? originalPost.quotedPostId!
           : originalPost.id;
 
@@ -161,6 +176,8 @@ class PostRepositoryImpl {
         'likes': [],
         'quotedPostId': targetId,
       });
+
+      // NOTE: If you want reposts to count as posts, add incrementPosts(userId) here.
     } catch (e) {
       debugPrint("Error during reposting: $e");
     }
@@ -173,7 +190,9 @@ class PostRepositoryImpl {
         .collection('comments')
         .orderBy('createdAt', descending: false)
         .snapshots()
-        .map((snap) => snap.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+        .map((snap) => snap.docs
+            .map((doc) => {...doc.data(), 'id': doc.id})
+            .toList());
   }
 
   Future<void> addComment({
@@ -196,7 +215,11 @@ class PostRepositoryImpl {
   }
 
   Future<void> toggleCommentLike(String postId, String commentId, String userId) async {
-    final docRef = _db.collection('posts').doc(postId).collection('comments').doc(commentId);
+    final docRef = _db
+        .collection('posts')
+        .doc(postId)
+        .collection('comments')
+        .doc(commentId);
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;

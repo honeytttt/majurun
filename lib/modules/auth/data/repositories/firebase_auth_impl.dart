@@ -61,16 +61,30 @@ class FirebaseAuthImpl implements AuthRepository {
         // 1. Send Verification Email
         await cred.user!.sendEmailVerification();
 
-        // 2. Save to Firestore
+        // 2. Save to Firestore with initialized stats
         await _db.collection('users').doc(cred.user!.uid).set({
           'firstName': firstName,
           'lastName': lastName,
+          'displayName': '$firstName $lastName',
           'email': email,
           'dob': dob.toIso8601String(),
           'gender': gender,
           'phoneNumber': phoneNumber,
           'createdAt': FieldValue.serverTimestamp(),
           'isEmailVerified': false,
+          // Initialize stats fields
+          'workoutsCount': 0,
+          'totalKm': 0.0,
+          'totalRunSeconds': 0,
+          'totalCalories': 0,
+          'postsCount': 0,
+          'followersCount': 0,
+          'followingCount': 0,
+          // Initialize badge fields
+          'badge5k': 0,
+          'badge10k': 0,
+          'badgeHalf': 0,
+          'badgeFull': 0,
         });
         
         await cred.user!.updateDisplayName("$firstName $lastName");
@@ -90,6 +104,42 @@ class FirebaseAuthImpl implements AuthRepository {
       accessToken: googleAuth.accessToken, idToken: googleAuth.idToken,
     );
     final UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+    // Create/update user document for Google sign-in users
+    if (userCredential.user != null) {
+      final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
+      if (!userDoc.exists) {
+        // Create new user document with initialized stats
+        await _db.collection('users').doc(userCredential.user!.uid).set({
+          'displayName': userCredential.user!.displayName ?? 'Runner',
+          'email': userCredential.user!.email ?? '',
+          'photoUrl': userCredential.user!.photoURL ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+          // Initialize stats fields
+          'workoutsCount': 0,
+          'totalKm': 0.0,
+          'totalRunSeconds': 0,
+          'totalCalories': 0,
+          'postsCount': 0,
+          'followersCount': 0,
+          'followingCount': 0,
+          // Initialize badge fields
+          'badge5k': 0,
+          'badge10k': 0,
+          'badgeHalf': 0,
+          'badgeFull': 0,
+        });
+      } else {
+        // Update existing doc with photo if missing
+        final data = userDoc.data() ?? {};
+        if (data['photoUrl'] == null || (data['photoUrl'] as String).isEmpty) {
+          await _db.collection('users').doc(userCredential.user!.uid).set({
+            'photoUrl': userCredential.user!.photoURL ?? '',
+          }, SetOptions(merge: true));
+        }
+      }
+    }
+
     return _mapUser(userCredential.user);
   }
 

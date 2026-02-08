@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:majurun/modules/run/domain/repositories/run_history_repository.dart';
 import 'package:majurun/modules/run/data/repositories/firestore_run_history_impl.dart';
 import 'package:majurun/modules/run/domain/entities/run_post.dart';
+import 'package:majurun/core/services/user_stats_service.dart';
 
 class StatsController extends ChangeNotifier {
   final RunHistoryRepository _repository;
@@ -44,6 +47,7 @@ class StatsController extends ChangeNotifier {
     String? mapImageUrl,
     Map<String, dynamic>? extra,
   }) async {
+    // 1) Save the run using your existing repository
     await _repository.saveRun(
       planTitle: planTitle,
       distanceKm: distanceKm,
@@ -60,6 +64,19 @@ class StatsController extends ChangeNotifier {
       extra: extra,
     );
 
+    // 2) Centralized aggregate stats update on user doc
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await UserStatsService().addRun(
+        uid: uid,
+        distanceKm: distanceKm,
+        durationSeconds: durationSeconds,
+        calories: calories ?? 0,
+        completed: completed ?? true,
+      );
+    }
+
+    // Keep your existing in-memory updates
     historyDistance += distanceKm;
     runStreak += 1;
 
@@ -81,8 +98,6 @@ class StatsController extends ChangeNotifier {
       'planTitle': lastRun.planTitle,
       'avgBpm': lastRun.avgBpm,
       'routePoints': lastRun.routePoints,
-
-      // optional training metadata
       'type': lastRun.type,
       'week': lastRun.week,
       'day': lastRun.day,
@@ -105,8 +120,6 @@ class StatsController extends ChangeNotifier {
               'planTitle': run.planTitle,
               'avgBpm': run.avgBpm,
               'routePoints': run.routePoints,
-
-              // optional training metadata
               'type': run.type,
               'week': run.week,
               'day': run.day,
@@ -122,6 +135,7 @@ class StatsController extends ChangeNotifier {
         .collection('posts')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => RunPost.fromFirestore(doc)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => RunPost.fromFirestore(doc)).toList());
   }
 }

@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // ✅ for LatLng
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
+import 'package:majurun/core/utils/route_utils.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
@@ -449,8 +450,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
       final paceStr = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
       final calories = (estimatedKm * 60).round();
 
-      // ✅ Use captured GPS routePoints for history/post (this enables map preview)
-      final finalRoutePoints = _gpsRoutePoints;
+      // Sample route points to limit document size (max 200 points)
+      final finalRoutePoints = RouteUtils.sampleRoutePoints(_gpsRoutePoints);
+      debugPrint("📍 Training route points: ${_gpsRoutePoints.length} -> ${finalRoutePoints.length} (sampled)");
 
       // Save to stats/repository history (ONE TIME)
       if (!_historySaved) {
@@ -467,7 +469,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
           week: _activeWeek,
           day: _activeDay,
           completed: completed,
-          mapImageUrl: widget.planImageUrl, // keep existing training history image behavior
+          mapImageUrl: widget.planImageUrl,
         );
       }
 
@@ -490,10 +492,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
             'avgPace': paceStr,
             'avgBpm': 0,
             'calories': calories,
-            // ✅ save routePoints to Firestore too (same format your PostController uses)
-            'routePoints': finalRoutePoints
-                .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-                .toList(),
+            'routePoints': RouteUtils.toFirestoreFormat(finalRoutePoints),
             'mapImageUrl': widget.planImageUrl,
             'completed': completed,
           });

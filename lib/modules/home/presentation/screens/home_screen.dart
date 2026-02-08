@@ -11,11 +11,12 @@ import 'package:majurun/modules/home/presentation/widgets/app_bar_leading.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
-import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';  // Direct import
+import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
 import 'package:majurun/core/services/storage_service.dart';
+//import 'package:majurun/core/utils/live_diagnostic_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -141,8 +142,25 @@ class _HomeScreenState extends State<HomeScreen> {
         leading: AppBarLeading(onProfilePressed: _showProfile),
         title: _buildBranding(brandGreen),
         actions: [
-          IconButton(icon: const Icon(Icons.search, color: Colors.black), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.notifications_none_outlined, color: Colors.black), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_outlined, color: Colors.black),
+            onPressed: () {},
+          ),
+          // DIAGNOSTIC BUTTON - Remove after fixing issues
+//          IconButton(
+//            icon: const Icon(Icons.bug_report, color: Colors.orange),
+//            onPressed: () {
+//              Navigator.push(
+//                context,
+//                MaterialPageRoute(builder: (_) => const LiveDiagnosticScreen()),
+//              );
+//            },
+//            tooltip: 'Diagnostic Tool',
+//          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -154,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const WorkoutScreen(),
               const CreatePostScreen(),
               const EventsScreen(),
-              const RunTrackerScreen(),  // Direct widget, no wrapper or navigation here
+              const RunTrackerScreen(),
             ],
           ),
       bottomNavigationBar: BottomNavigationBar(
@@ -162,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: _onItemTapped,
         selectedItemColor: brandGreen,
         type: BottomNavigationBarType.fixed,
-        items: const [  // Added const for performance
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
@@ -213,8 +231,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
-
 }
 
 class RunHistoryScreenWrapper extends StatelessWidget {

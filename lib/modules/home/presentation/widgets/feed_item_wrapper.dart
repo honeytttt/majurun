@@ -7,12 +7,24 @@ import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
 import 'package:majurun/modules/home/presentation/widgets/quoted_post_preview.dart';
 import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
+import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class FeedItemWrapper extends StatelessWidget {
   final AppPost post;
 
   const FeedItemWrapper({super.key, required this.post});
+
+  void _navigateToUserProfile(BuildContext context, String userId, bool isOwnPost) {
+    if (!isOwnPost) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => UserProfileScreen(userId: userId),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,33 +44,39 @@ class FeedItemWrapper extends StatelessWidget {
         children: [
           // --- Header Section ---
           ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.blueGrey,
-              child: Icon(Icons.person, color: Colors.white),
+            leading: GestureDetector(
+              onTap: () => _navigateToUserProfile(context, post.userId, isOwnPost),
+              child: const CircleAvatar(
+                backgroundColor: Colors.blueGrey,
+                child: Icon(Icons.person, color: Colors.white),
+              ),
             ),
-            title: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    post.username,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                if (isRepost) ...[
-                  const SizedBox(width: 6),
-                  const Icon(Icons.repeat, size: 16, color: Colors.green),
-                  const SizedBox(width: 4),
-                  Text(
-                    "reposted",
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 13,
+            title: GestureDetector(
+              onTap: () => _navigateToUserProfile(context, post.userId, isOwnPost),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      post.username,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
+                  if (isRepost) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.repeat, size: 16, color: Colors.green),
+                    const SizedBox(width: 4),
+                    Text(
+                      "reposted",
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
             subtitle: Text(timeago.format(post.createdAt)),
             trailing: isOwnPost
@@ -262,8 +280,8 @@ class FeedItemWrapper extends StatelessWidget {
         onTap: () => _showFullImage(context, media.url),
         child: Container(
           constraints: const BoxConstraints(
-            maxHeight: 500, // Max height to prevent extremely tall images
-            minHeight: 200, // Min height for very wide images
+            maxHeight: 500,
+            minHeight: 200,
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -273,7 +291,7 @@ class FeedItemWrapper extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
               media.url,
-              fit: BoxFit.contain, // Maintains aspect ratio
+              fit: BoxFit.contain,
               width: double.infinity,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
@@ -332,17 +350,15 @@ class FeedItemWrapper extends StatelessWidget {
         insetPadding: const EdgeInsets.all(10),
         child: Stack(
           children: [
-            // Dismiss on tap outside
             GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
                 color: Colors.transparent,
               ),
             ),
-            // Image viewer
             Center(
               child: GestureDetector(
-                onTap: () {}, // Prevent dismissal when tapping image
+                onTap: () {},
                 child: InteractiveViewer(
                   minScale: 0.5,
                   maxScale: 4.0,
@@ -361,7 +377,6 @@ class FeedItemWrapper extends StatelessWidget {
                 ),
               ),
             ),
-            // Close button
             Positioned(
               top: 40,
               right: 20,

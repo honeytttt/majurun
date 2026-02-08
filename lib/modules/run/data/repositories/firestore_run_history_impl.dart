@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/core/utils/route_utils.dart';
 import 'package:majurun/modules/run/constants/run_constants.dart';
 import '../../domain/entities/run_history.dart';
 import '../../domain/repositories/run_history_repository.dart';
@@ -78,16 +79,12 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       data.addAll(extra);
     }
 
-    // Save route points as [{latitude, longitude}]
+    // Save route points as [{latitude, longitude}] - sampled to max 200 points
     if (routePoints != null && routePoints.isNotEmpty) {
-      final routePointsData = routePoints
-          .map((point) => {
-                'latitude': point.latitude,
-                'longitude': point.longitude,
-              })
-          .toList();
+      final sampledPoints = RouteUtils.sampleRoutePoints(routePoints);
+      final routePointsData = RouteUtils.toLegacyFormat(sampledPoints);
       data['routePoints'] = routePointsData;
-      debugPrint('✅ SaveRun: Added ${routePointsData.length} route points to data');
+      debugPrint('✅ SaveRun: Added ${routePointsData.length} route points (from ${routePoints.length} original)');
     } else {
       debugPrint('⚠️ SaveRun: No route points to save');
     }

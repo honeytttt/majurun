@@ -456,14 +456,15 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
   Future<void> _handleStopRun(RunController runController) async {
     Uint8List? mapImageBytes;
 
+    // Capture map image quickly before navigating away
     if (runController.routePoints.isNotEmpty) {
       try {
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 300));
 
         if (_mapKey.currentContext != null) {
           final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
           if (boundary != null) {
-            final image = await boundary.toImage(pixelRatio: 3.0);
+            final image = await boundary.toImage(pixelRatio: 2.0); // Reduced for speed
             final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
             if (byteData != null) {
               mapImageBytes = byteData.buffer.asUint8List();
@@ -477,54 +478,16 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
 
     if (!mounted) return;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Color(0xFF7ED957)),
-              SizedBox(height: 20),
-              Text(
-                "Saving your run...",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    // Navigate back immediately - save happens in background
+    Navigator.pop(context);
 
-    try {
-      await runController.stopRun(
-        context,
-        planTitle: "Free Run",
-        mapImageBytes: mapImageBytes,
-      );
-
-      if (mounted) {
-        Navigator.pop(context); // Close saving dialog
-        Navigator.pop(context); // Return to tracker screen
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("⚠️ Error: ${e.toString()}"),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
+    // Save in background without blocking UI
+    runController.stopRun(
+      context,
+      planTitle: "Free Run",
+      mapImageBytes: mapImageBytes,
+    ).catchError((e) {
+      debugPrint("❌ Background save error: $e");
+    });
   }
 }
