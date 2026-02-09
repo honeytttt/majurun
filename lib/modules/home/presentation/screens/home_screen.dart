@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Required for other tabs and services
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
+
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
+
 import 'package:majurun/modules/home/presentation/widgets/app_bar_leading.dart';
 import 'package:majurun/modules/home/presentation/screens/create_post_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
@@ -16,7 +17,6 @@ import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
 import 'package:majurun/core/services/storage_service.dart';
-//import 'package:majurun/core/utils/live_diagnostic_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
   final StorageService _storageService = StorageService();
 
-  // Profile Data
   String _userName = "Loading...";
   String _userBio = "Loading...";
   String _profileImageUrl = "";
@@ -67,7 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleProfileUpdate(
-      String name, String bio, dynamic imageOrUrl, String email) async {
+    String name,
+    String bio,
+    dynamic imageOrUrl,
+    String email,
+  ) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -87,12 +90,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-      await userDoc.set({
-        'displayName': name,
-        'bio': bio,
-        'photoUrl': finalImageUrl ?? "",
-        'email': email,
-      }, SetOptions(merge: true));
+      await userDoc.set(
+        {
+          'displayName': name,
+          'bio': bio,
+          'photoUrl': finalImageUrl ?? "",
+          'email': email,
+        },
+        SetOptions(merge: true),
+      );
 
       if (finalImageUrl != null &&
           finalImageUrl != oldImageUrl &&
@@ -150,17 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.notifications_none_outlined, color: Colors.black),
             onPressed: () {},
           ),
-          // DIAGNOSTIC BUTTON - Remove after fixing issues
-//          IconButton(
-//            icon: const Icon(Icons.bug_report, color: Colors.orange),
-//            onPressed: () {
-//              Navigator.push(
-//                context,
-//                MaterialPageRoute(builder: (_) => const LiveDiagnosticScreen()),
-//              );
-//            },
-//            tooltip: 'Diagnostic Tool',
-//          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -225,7 +220,9 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: ListView.builder(
             itemCount: posts.length,
-            itemBuilder: (context, index) => FeedItemWrapper(post: posts[index]),
+            itemBuilder: (context, index) {
+              return FeedItemWrapper(post: posts[index]);
+            },
           ),
         );
       },

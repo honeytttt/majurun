@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
@@ -15,12 +16,15 @@ class FeedItemWrapper extends StatelessWidget {
 
   const FeedItemWrapper({super.key, required this.post});
 
-  void _navigateToUserProfile(BuildContext context, String userId, bool isOwnPost) {
+  void _navigateToUserProfile(BuildContext context, String userId, String username, bool isOwnPost) {
     if (!isOwnPost) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => UserProfileScreen(userId: userId),
+          builder: (context) => UserProfileScreen(
+            userId: userId,
+            username: username,
+          ),
         ),
       );
     }
@@ -45,14 +49,55 @@ class FeedItemWrapper extends StatelessWidget {
           // --- Header Section ---
           ListTile(
             leading: GestureDetector(
-              onTap: () => _navigateToUserProfile(context, post.userId, isOwnPost),
-              child: const CircleAvatar(
-                backgroundColor: Colors.blueGrey,
-                child: Icon(Icons.person, color: Colors.white),
+              onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
+              child: FutureBuilder<String>(
+                future: _getUserPhotoUrl(post.userId),
+                builder: (context, snapshot) {
+                  final photoUrl = snapshot.data ?? '';
+                  
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const CircleAvatar(
+                      backgroundColor: Colors.grey,
+                      radius: 20,
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF00E676),
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
+                    return const CircleAvatar(
+                      backgroundColor: Colors.blueGrey,
+                      child: Icon(Icons.person, color: Colors.white),
+                    );
+                  }
+                  
+                  return CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.grey,
+                    child: ClipOval(
+                      child: Image.network(
+                        photoUrl,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             title: GestureDetector(
-              onTap: () => _navigateToUserProfile(context, post.userId, isOwnPost),
+              onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
               child: Row(
                 children: [
                   Flexible(
@@ -400,5 +445,22 @@ class FeedItemWrapper extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<String> _getUserPhotoUrl(String userId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (doc.exists && doc.data() != null) {
+        final photoUrl = doc.data()!['photoUrl'] as String? ?? '';
+        return photoUrl;
+      }
+    } catch (e) {
+      debugPrint('❌ FeedItem: Error fetching photoUrl for $userId: $e');
+    }
+    return '';
   }
 }
