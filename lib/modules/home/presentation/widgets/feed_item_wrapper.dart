@@ -11,6 +11,10 @@ import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+// ✅ Import expandable text and post detail screen
+import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
+import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+
 class FeedItemWrapper extends StatelessWidget {
   final AppPost post;
 
@@ -38,260 +42,362 @@ class FeedItemWrapper extends StatelessWidget {
     final isLiked = currentUserId != null && post.likes.contains(currentUserId);
     final isRepost = post.quotedPostId != null && post.content.trim().isEmpty;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0.5,
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // --- Header Section ---
-          ListTile(
-            leading: GestureDetector(
-              onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
-              child: FutureBuilder<String>(
-                future: _getUserPhotoUrl(post.userId),
-                builder: (context, snapshot) {
-                  final photoUrl = snapshot.data ?? '';
-                  
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const CircleAvatar(
-                      backgroundColor: Colors.grey,
+    // ✅ Wrap entire card in GestureDetector to make it tappable
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        debugPrint('🃏 FeedItem TAPPED! ID: ${post.id}');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostDetailScreen(post: post),
+          ),
+        );
+      },
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0.5,
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Header Section ---
+            ListTile(
+              leading: GestureDetector(
+                onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
+                child: FutureBuilder<String>(
+                  future: _getUserPhotoUrl(post.userId),
+                  builder: (context, snapshot) {
+                    final photoUrl = snapshot.data ?? '';
+                    
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const CircleAvatar(
+                        backgroundColor: Colors.grey,
+                        radius: 20,
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF00E676),
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
+                      return const CircleAvatar(
+                        backgroundColor: Colors.blueGrey,
+                        child: Icon(Icons.person, color: Colors.white),
+                      );
+                    }
+                    
+                    return CircleAvatar(
                       radius: 20,
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF00E676),
+                      backgroundColor: Colors.grey,
+                      child: ClipOval(
+                        child: Image.network(
+                          photoUrl,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) {
+                              debugPrint('✅ FeedItem: Avatar loaded successfully for ${post.userId}');
+                              return child;
+                            }
+                            final progress = loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : 0.0;
+                            debugPrint('⏳ FeedItem: Loading avatar for ${post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
+                            return Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  value: progress,
+                                  strokeWidth: 2,
+                                  color: const Color(0xFF00E676),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('❌ FeedItem: Error loading avatar for ${post.userId}: $error');
+                            return const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.error, color: Colors.white),
+                            );
+                          },
                         ),
                       ),
                     );
-                  }
-                  
-                  if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
-                    return const CircleAvatar(
-                      backgroundColor: Colors.blueGrey,
-                      child: Icon(Icons.person, color: Colors.white),
+                  },
+                ),
+              ),
+              title: GestureDetector(
+                onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        post.username,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isRepost) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.repeat, size: 16, color: Colors.green),
+                      const SizedBox(width: 4),
+                      Text(
+                        "reposted",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              subtitle: Text(timeago.format(post.createdAt)),
+              trailing: isOwnPost
+                  ? IconButton(
+                      icon: const Icon(Icons.more_vert, color: Colors.grey),
+                      onPressed: () => _showOptionsBottomSheet(context),
+                    )
+                  : null,
+            ),
+
+            // ✅ UPDATED: Post Text Content with ExpandableText
+            if (post.content.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ExpandableText(
+                  text: post.content,
+                  maxLines: 5,
+                  style: const TextStyle(fontSize: 16, height: 1.35),
+                  onTap: () {
+                    debugPrint('📱 ExpandableText tapped from FeedItem');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PostDetailScreen(post: post),
+                      ),
                     );
-                  }
-                  
-                  return CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.grey,
-                    child: ClipOval(
-                      child: Image.network(
-                        photoUrl,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) {
-                            debugPrint('✅ FeedItem: Avatar loaded successfully for ${post.userId}');
-                            return child;
-                          }
-                          final progress = loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                              : 0.0;
-                          debugPrint('⏳ FeedItem: Loading avatar for ${post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
-                          return Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                value: progress,
-                                strokeWidth: 2,
-                                color: const Color(0xFF00E676),
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          debugPrint('❌ FeedItem: Image load ERROR for ${post.userId}:');
-                          debugPrint('   URL: $photoUrl');
-                          debugPrint('   Error: $error');
-                          debugPrint('   Error type: ${error.runtimeType}');
-                          return const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-            title: GestureDetector(
-              onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      post.username,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                  if (isRepost) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.repeat, size: 16, color: Colors.green),
-                    const SizedBox(width: 4),
-                    Text(
-                      "reposted",
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
+
+            // --- NEW: Run Map Preview (If it's a Run Activity) ---
+            if (post.routePoints != null && post.routePoints!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: RunMapPreview(points: post.routePoints!),
               ),
-            ),
-            subtitle: Text(timeago.format(post.createdAt)),
-            trailing: isOwnPost
-                ? IconButton(
-                    icon: const Icon(Icons.more_vert, color: Colors.grey),
-                    onPressed: () => _showOptionsBottomSheet(context),
-                  )
-                : null,
-          ),
 
-          // --- Post Text Content ---
-          if (post.content.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(
-                post.content,
-                style: const TextStyle(fontSize: 16, height: 1.35),
+            // --- Media / Images Section ---
+            if (post.media.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: _buildMedia(context, post.media.first),
               ),
-            ),
 
-          // --- NEW: Run Map Preview (If it's a Run Activity) ---
-          if (post.routePoints != null && post.routePoints!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: RunMapPreview(points: post.routePoints!),
-            ),
+            // --- Quoted Post Section ---
+            if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: QuotedPostPreview(postId: post.quotedPostId!),
+              ),
 
-          // --- Media / Images Section ---
-          if (post.media.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-              child: _buildMedia(context, post.media.first),
-            ),
-
-          // --- Quoted Post Section ---
-          if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: QuotedPostPreview(postId: post.quotedPostId!),
-            ),
-
-          // --- Actions Bar (Like, Comment, Share) ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+            // ✅ UPDATED: Actions Bar - Prevent tap propagation
+            GestureDetector(
+              onTap: () {}, // Absorb taps to prevent card tap
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Like Button
-                    IconButton(
-                      icon: Icon(
-                        isLiked ? Icons.favorite : Icons.favorite_border,
-                        size: 22,
-                        color: isLiked ? Colors.red : Colors.grey[700],
-                      ),
-                      onPressed: currentUserId != null
-                          ? () => PostRepositoryImpl().toggleLike(post.id, currentUserId)
-                          : () => _showLoginSnack(context),
-                    ),
-                    Text(
-                      "${post.likes.length}",
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(width: 16),
-                    
-                    // Comment Button
-                    IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline, size: 20),
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) => CommentSheet(postId: post.id),
-                        );
-                      },
-                    ),
-                    StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: PostRepositoryImpl().getCommentsStream(post.id),
-                      builder: (context, snapshot) {
-                        final count = snapshot.data?.length ?? 0;
-                        return Text(
-                          "$count",
+                    Row(
+                      children: [
+                        // Like Button
+                        IconButton(
+                          icon: Icon(
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            size: 22,
+                            color: isLiked ? Colors.red : Colors.grey[700],
+                          ),
+                          onPressed: currentUserId != null
+                              ? () => PostRepositoryImpl().toggleLike(post.id, currentUserId)
+                              : () => _showLoginSnack(context),
+                        ),
+                        Text(
+                          "${post.likes.length}",
                           style: const TextStyle(fontWeight: FontWeight.w500),
-                        );
-                      },
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Comment Button
+                        IconButton(
+                          icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => CommentSheet(postId: post.id),
+                            );
+                          },
+                        ),
+                        StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: PostRepositoryImpl().getCommentsStream(post.id),
+                          builder: (context, snapshot) {
+                            final count = snapshot.data?.length ?? 0;
+                            return Text(
+                              "$count",
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        // Repost Button
+                        IconButton(
+                          icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
+                          onPressed: currentUserId != null
+                              ? () {
+                                  PostRepositoryImpl().repost(
+                                    post,
+                                    currentUserId,
+                                    currentUser?.displayName ?? 'Runner',
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Reposted successfully!'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              : () => _showLoginSnack(context),
+                        ),
+                        
+                        // Share Button
+                        IconButton(
+                          icon: const Icon(Icons.share, size: 20),
+                          onPressed: () => _handleShare(context),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    // Repost Button
-                    IconButton(
-                      icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
-                      onPressed: currentUserId != null
-                          ? () {
-                              PostRepositoryImpl().repost(
-                                post,
-                                currentUserId,
-                                currentUser?.displayName ?? "Runner",
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Reposted!")),
-                              );
-                            }
-                          : () => _showLoginSnack(context),
-                    ),
-                    // Share Button
-                    IconButton(
-                      icon: const Icon(Icons.share_outlined, size: 22),
-                      onPressed: () => _sharePost(context),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  void _showLoginSnack(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Please login to perform this action")),
-    );
+  // ================== HELPER METHODS ==================
+
+  Future<String> _getUserPhotoUrl(String userId) async {
+    debugPrint('📡 FeedItem: STARTING fetch for userId="$userId"');
+    
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      
+      debugPrint('📦 FeedItem: Firestore response for $userId: exists=${userDoc.exists}');
+      
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        final photoUrl = data?['photoUrl'] as String?;
+        
+        debugPrint('📸 FeedItem: Extracted photoUrl for $userId:');
+        debugPrint('   photoUrl = "$photoUrl"');
+        debugPrint('   length = ${photoUrl?.length}');
+        debugPrint('   starts with http = ${photoUrl?.startsWith('http')}');
+        debugPrint('   contains amazonaws = ${photoUrl?.contains('amazonaws')}');
+        
+        return photoUrl ?? '';
+      }
+      
+      debugPrint('⚠️  FeedItem: User doc does not exist for $userId');
+      return '';
+    } catch (e) {
+      debugPrint('❌ FeedItem: Error fetching photoUrl for $userId: $e');
+      return '';
+    }
   }
 
-  void _sharePost(BuildContext context) async {
-    final preview = post.content.length > 40
-        ? "${post.content.substring(0, 37)}..."
-        : post.content;
-    final text = preview.isNotEmpty
-        ? "Check out this post on Majurun: $preview"
-        : "Check out this post on Majurun!";
-    await Clipboard.setData(ClipboardData(text: text));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Link copied to clipboard")),
+  Widget _buildMedia(BuildContext context, media) {
+    if (media.type == MediaType.video) {
+      return Container(
+        height: 300,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        child: PostVideoPlayer(videoUrl: media.url),
+      );
+    } else {
+      return GestureDetector(
+        onTap: () => _showFullscreenImage(context, media.url),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 400),
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              media.url,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       );
     }
+  }
+
+  void _showFullscreenImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(imageUrl),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showOptionsBottomSheet(BuildContext context) {
@@ -300,209 +406,91 @@ class FeedItemWrapper extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.redAccent),
-              title: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
-              onTap: () async {
-                Navigator.pop(context);
-                final confirmed = await _showDeleteDialog(context);
-                if (confirmed == true) {
-                  await PostRepositoryImpl().deletePost(post.id);
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.cancel),
-              title: const Text("Cancel"),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.redAccent),
+                title: const Text('Delete Post', style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDelete(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy, color: Colors.blue),
+                title: const Text('Copy Text'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Clipboard.setData(ClipboardData(text: post.content));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Copied to clipboard!'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Future<bool?> _showDeleteDialog(BuildContext context) {
-    return showDialog<bool>(
+  void _confirmDelete(BuildContext context) {
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Post?"),
-        content: const Text("This action cannot be undone."),
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this post? This action cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            onPressed: () {
+              PostRepositoryImpl().deletePost(post.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Post deleted'),
+                  backgroundColor: Colors.redAccent,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMedia(BuildContext context, PostMedia media) {
-    if (media.type == MediaType.image) {
-      return GestureDetector(
-        onTap: () => _showFullImage(context, media.url),
-        child: Container(
-          constraints: const BoxConstraints(
-            maxHeight: 500,
-            minHeight: 200,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.grey[100],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              media.url,
-              fit: BoxFit.contain,
-              width: double.infinity,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 300,
-                  color: Colors.grey[200],
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                      color: const Color(0xFF00E676),
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (_, __, ___) => Container(
-                height: 300,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                      SizedBox(height: 8),
-                      Text(
-                        'Failed to load image',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      return PostVideoPlayer(
-        videoUrl: media.url,
-        height: 320,
-        borderRadius: BorderRadius.circular(12),
-      );
-    }
-  }
-
-  void _showFullImage(BuildContext context, String imageUrl) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(10),
-        child: Stack(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                color: Colors.transparent,
-              ),
-            ),
-            Center(
-              child: GestureDetector(
-                onTap: () {},
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.broken_image,
-                        size: 100,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 40,
-              right: 20,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+  void _handleShare(BuildContext context) {
+    final shareText = post.content.isNotEmpty
+        ? post.content
+        : 'Check out this post on MajuRun!';
+    Clipboard.setData(ClipboardData(text: shareText));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Post link copied to clipboard!'),
+        duration: Duration(seconds: 2),
       ),
     );
   }
 
-  Future<String> _getUserPhotoUrl(String userId) async {
-    debugPrint('📡 FeedItem: STARTING fetch for userId="$userId"');
-    
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      
-      debugPrint('📦 FeedItem: Firestore response for $userId: exists=${doc.exists}');
-      
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        final photoUrl = data['photoUrl'] as String? ?? '';
-        
-        debugPrint('📸 FeedItem: Extracted photoUrl for $userId:');
-        debugPrint('   photoUrl = "$photoUrl"');
-        debugPrint('   length = ${photoUrl.length}');
-        debugPrint('   starts with http = ${photoUrl.startsWith('http')}');
-        debugPrint('   contains amazonaws = ${photoUrl.contains('amazonaws')}');
-        
-        return photoUrl;
-      } else {
-        debugPrint('⚠️  FeedItem: User $userId has no data or does not exist');
-      }
-    } catch (e) {
-      debugPrint('❌ FeedItem: Error fetching photoUrl for $userId: $e');
-      debugPrint('   Error type: ${e.runtimeType}');
-    }
-    return '';
+  void _showLoginSnack(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please log in to interact with posts'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 }

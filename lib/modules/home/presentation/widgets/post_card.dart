@@ -11,6 +11,10 @@ import 'package:timeago/timeago.dart' as timeago;
 // ✅ Import the user profile screen
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 
+// ✅ Import expandable text and post detail screen
+import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
+import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+
 class PostCard extends StatelessWidget {
   final AppPost post;
   const PostCard({super.key, required this.post});
@@ -34,22 +38,34 @@ class PostCard extends StatelessWidget {
 
     final isSession = _isSessionPost(post);
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque, // Make entire card tappable
+      onTap: () {
+        debugPrint('🃏 Post card TAPPED! ID: ${post.id}');
+        // Open post detail screen when card is tapped
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostDetailScreen(post: post),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
@@ -261,9 +277,19 @@ class PostCard extends StatelessWidget {
                 if (post.content.trim().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      post.content,
+                    child: ExpandableText(
+                      text: post.content,
+                      maxLines: 5,
                       style: const TextStyle(fontSize: 15, height: 1.4),
+                      onTap: () {
+                        // Open post detail screen when "more" is clicked
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PostDetailScreen(post: post),
+                          ),
+                        );
+                      },
                     ),
                   ),
 
@@ -293,39 +319,42 @@ class PostCard extends StatelessWidget {
 
                 const Divider(height: 32),
 
-                // Interaction Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _ActionButton(
-                      icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                      label: '${post.likes.length}',
-                      color: isLiked ? Colors.red : Colors.grey[600],
-                      onTap: currentUserId.isNotEmpty
-                          ? () => repo.toggleLike(post.id, currentUserId)
-                          : null,
-                    ),
-                    _ActionButton(
-                      icon: Icons.chat_bubble_outline,
-                      label: 'Comment',
-                      onTap: () => showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => CommentSheet(postId: post.id),
+                // Interaction Buttons - Prevent tap propagation
+                GestureDetector(
+                  onTap: () {}, // Absorb taps
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _ActionButton(
+                        icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                        label: '${post.likes.length}',
+                        color: isLiked ? Colors.red : Colors.grey[600],
+                        onTap: currentUserId.isNotEmpty
+                            ? () => repo.toggleLike(post.id, currentUserId)
+                            : null,
                       ),
-                    ),
-                    _ActionButton(
-                      icon: Icons.repeat_rounded,
-                      label: 'Repost',
-                      onTap: currentUserId.isNotEmpty
-                          ? () {
-                              final username = currentUser?.displayName ?? "Runner";
-                              repo.repost(post, currentUserId, username);
-                            }
-                          : null,
-                    ),
-                  ],
+                      _ActionButton(
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Comment',
+                        onTap: () => showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => CommentSheet(postId: post.id),
+                        ),
+                      ),
+                      _ActionButton(
+                        icon: Icons.repeat_rounded,
+                        label: 'Repost',
+                        onTap: currentUserId.isNotEmpty
+                            ? () {
+                                final username = currentUser?.displayName ?? "Runner";
+                                repo.repost(post, currentUserId, username);
+                              }
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -333,7 +362,8 @@ class PostCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+    ); // Closing GestureDetector
   }
 
   // ✅ Fetch user's photoUrl from Firestore with extensive logging

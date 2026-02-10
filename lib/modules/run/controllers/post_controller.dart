@@ -49,7 +49,7 @@ class PostController extends ChangeNotifier {
     required int bpm,
     required String planTitle,
     Uint8List? mapImageBytes,
-    String? mapImageUrlOverride, // Added override parameter for Web Static Maps
+    String? mapImageUrlOverride,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -59,6 +59,18 @@ class PostController extends ChangeNotifier {
       }
 
       debugPrint("📝 Creating post for user: ${user.uid}");
+      
+      // Get username from Firestore
+      String username = 'Runner';
+      try {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        username = userDoc.data()?['displayName'] as String? ?? 
+                   user.displayName ?? 
+                   'Runner';
+        debugPrint("👤 Username: $username");
+      } catch (e) {
+        debugPrint("⚠️ Could not fetch username: $e");
+      }
       
       // Use the override URL (from S3) if provided, otherwise attempt upload
       String? mapImageUrl = mapImageUrlOverride;
@@ -94,6 +106,7 @@ class PostController extends ChangeNotifier {
       // Create post document in Firestore
       final postData = {
         'userId': user.uid,
+        'username': username, // ✅ Added username field
         'content': aiContent,
         'createdAt': FieldValue.serverTimestamp(),
         'planTitle': planTitle,
@@ -103,7 +116,6 @@ class PostController extends ChangeNotifier {
         'routePoints': RouteUtils.toFirestoreFormat(sampledPoints),
         'mapImageUrl': mapImageUrl,
         'likes': [],
-        'comments': 0,
         'type': 'run_activity',
       };
 
@@ -140,14 +152,25 @@ class PostController extends ChangeNotifier {
       final user = _auth.currentUser;
       if (user == null) return;
 
+      // Get username from Firestore
+      String username = 'Runner';
+      try {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        username = userDoc.data()?['displayName'] as String? ?? 
+                   user.displayName ?? 
+                   'Runner';
+      } catch (e) {
+        debugPrint("⚠️ Could not fetch username: $e");
+      }
+
       await _firestore.collection('posts').add({
         'userId': user.uid,
+        'username': username, // ✅ Added username field
         'content': aiContent,
         'videoUrl': videoUrl,
         'planTitle': planTitle ?? 'Free Run',
         'createdAt': FieldValue.serverTimestamp(),
         'likes': [],
-        'comments': 0,
         'type': 'run_video',
       });
 

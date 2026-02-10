@@ -48,13 +48,13 @@ class StatsController extends ChangeNotifier {
     Map<String, dynamic>? extra,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    
+
     debugPrint('📊 StatsController.saveRunHistory called');
     debugPrint('   User ID: $uid');
     debugPrint('   Distance: ${distanceKm.toStringAsFixed(2)} km');
     debugPrint('   Duration: $durationSeconds seconds');
     debugPrint('   Calories: ${calories ?? 0}');
-    
+
     if (uid == null) {
       debugPrint('❌ No user logged in - cannot save stats');
       return;
@@ -81,25 +81,25 @@ class StatsController extends ChangeNotifier {
 
     // 2) Calculate pace in seconds per km for bestPaceSecPerKm
     final paceSecPerKm = distanceKm > 0 ? (durationSeconds / distanceKm).round() : 0;
-    
+
     debugPrint('📈 Calculated paceSecPerKm: $paceSecPerKm');
 
     // 3) Update user stats in Firestore - DIRECT UPDATE FOR RELIABILITY
     try {
       final userRef = _firestore.collection('users').doc(uid);
-      
+
       // Get current best pace to compare
       final userDoc = await userRef.get();
       final currentBestPace = userDoc.data()?['bestPaceSecPerKm'] as int?;
-      
+
       debugPrint('   Current best pace: $currentBestPace');
       debugPrint('   This run pace: $paceSecPerKm');
-      
+
       // Determine if this is a new best pace (lower is better)
       final newBestPace = (currentBestPace == null || (paceSecPerKm > 0 && paceSecPerKm < currentBestPace))
           ? paceSecPerKm
           : currentBestPace;
-      
+
       if (newBestPace == paceSecPerKm && paceSecPerKm > 0) {
         debugPrint('🎯 NEW BEST PACE! $paceSecPerKm sec/km');
       }
@@ -110,7 +110,7 @@ class StatsController extends ChangeNotifier {
         'totalRunSeconds': FieldValue.increment(durationSeconds),
         'totalCalories': FieldValue.increment(calories ?? 0),
         'postsCount': FieldValue.increment(1),
-        'bestPaceSecPerKm': newBestPace ?? paceSecPerKm, // Set directly, not increment
+        'bestPaceSecPerKm': newBestPace > 0 ? newBestPace : paceSecPerKm,
       });
 
       debugPrint('✅ User stats updated in Firestore:');
@@ -118,12 +118,12 @@ class StatsController extends ChangeNotifier {
       debugPrint('   +$durationSeconds sec to totalRunSeconds');
       debugPrint('   +${calories ?? 0} cal to totalCalories');
       debugPrint('   +1 to postsCount');
-      debugPrint('   bestPaceSecPerKm set to: ${newBestPace ?? paceSecPerKm}');
+      debugPrint('   bestPaceSecPerKm set to: ${newBestPace > 0 ? newBestPace : paceSecPerKm}');
 
     } catch (e) {
       debugPrint('❌ ERROR updating user stats in Firestore: $e');
       debugPrint('   Error type: ${e.runtimeType}');
-      
+
       // Still try UserStatsService as fallback
       debugPrint('⚠️ Attempting fallback via UserStatsService...');
       try {
