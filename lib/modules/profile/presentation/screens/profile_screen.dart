@@ -36,7 +36,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _showPosts = false;  // Toggle between stats and posts
+  bool _showPosts = true;  // ✅ Changed: Show Posts by default (was false)
 
   void _navigateToSettings({
     required String name,
@@ -119,6 +119,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          // ✅ Sign Out Button
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            tooltip: 'Sign Out',
+            onPressed: () => _showSignOutDialog(context),
+          ),
+        ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
@@ -137,15 +145,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final followersCount = (data['followersCount'] as int?) ?? 0;
           final followingCount = (data['followingCount'] as int?) ?? 0;
           
-          // Run stats
+          // Run stats - with debug logging
           final totalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
           final bestPaceSecPerKm = (data['bestPaceSecPerKm'] as num?)?.toInt();
+          
+          debugPrint('📊 ProfileScreen Stats:');
+          debugPrint('   totalKm from Firestore: $totalKm');
+          debugPrint('   bestPaceSecPerKm from Firestore: $bestPaceSecPerKm');
+          debugPrint('   Data keys: ${data.keys.toList()}');
+          debugPrint('   Raw totalKm value: ${data['totalKm']}');
+          debugPrint('   Raw bestPaceSecPerKm value: ${data['bestPaceSecPerKm']}');
           
           String bestPace = '--:--';
           if (bestPaceSecPerKm != null && bestPaceSecPerKm > 0) {
             final minutes = bestPaceSecPerKm ~/ 60;
             final seconds = bestPaceSecPerKm % 60;
             bestPace = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+            debugPrint('   Calculated bestPace: $bestPace');
+          } else {
+            debugPrint('   ⚠️ bestPaceSecPerKm is null or 0');
           }
 
           return StreamBuilder<QuerySnapshot>(
@@ -303,25 +321,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           
           const SizedBox(height: 20),
           
-          // Stats/Posts Toggle Buttons
+          // Posts/Stats Toggle Buttons (Posts first, Stats second)
           Row(
             children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => setState(() => _showPosts = false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: !_showPosts ? const Color(0xFF00E676) : Colors.grey[200],
-                    foregroundColor: !_showPosts ? Colors.white : Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text('Stats', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
                   onPressed: () => setState(() => _showPosts = true),
@@ -335,6 +337,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     elevation: 0,
                   ),
                   child: const Text('Posts', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _showPosts = false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !_showPosts ? const Color(0xFF00E676) : Colors.grey[200],
+                    foregroundColor: !_showPosts ? Colors.white : Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Stats', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -594,5 +612,118 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (lat == null || lng == null) return null;
       return LatLng(lat, lng);
     }).whereType<LatLng>().toList();
+  }
+
+  // ✅ Sign Out Dialog
+  void _showSignOutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.logout, color: Colors.red[700], size: 28),
+              const SizedBox(width: 12),
+              const Text(
+                'Sign Out',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to sign out?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => _signOut(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[700],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text(
+                'Sign Out',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ✅ Sign Out Function
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      // Close dialog
+      Navigator.pop(context);
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF00E676),
+          ),
+        ),
+      );
+      
+      // Sign out from Firebase
+      await FirebaseAuth.instance.signOut();
+      
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+      
+      // Navigate back to login screen or show success
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully signed out'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Go back to previous screen
+        widget.onBack();
+      }
+      
+      debugPrint('✅ User signed out successfully');
+    } catch (e) {
+      debugPrint('❌ Sign out error: $e');
+      
+      if (context.mounted) {
+        // Close loading dialog if still open
+        Navigator.pop(context);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error signing out: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 }

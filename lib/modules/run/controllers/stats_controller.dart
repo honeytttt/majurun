@@ -47,6 +47,19 @@ class StatsController extends ChangeNotifier {
     String? mapImageUrl,
     Map<String, dynamic>? extra,
   }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    
+    debugPrint('📊 StatsController.saveRunHistory called');
+    debugPrint('   User ID: $uid');
+    debugPrint('   Distance: ${distanceKm.toStringAsFixed(2)} km');
+    debugPrint('   Duration: $durationSeconds seconds');
+    debugPrint('   Calories: ${calories ?? 0}');
+    
+    if (uid == null) {
+      debugPrint('❌ No user logged in - cannot save stats');
+      return;
+    }
+
     // 1) Save the run using your existing repository
     await _repository.saveRun(
       planTitle: planTitle,
@@ -64,16 +77,67 @@ class StatsController extends ChangeNotifier {
       extra: extra,
     );
 
-    // 2) Centralized aggregate stats update on user doc
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      await UserStatsService().addRun(
-        uid: uid,
-        distanceKm: distanceKm,
-        durationSeconds: durationSeconds,
-        calories: calories ?? 0,
-        completed: completed ?? true,
-      );
+    debugPrint('✅ Run saved to history repository');
+
+    // 2) Calculate pace in seconds per km for bestPaceSecPerKm
+    final paceSecPerKm = distanceKm > 0 ? (durationSeconds / distanceKm).round() : 0;
+    
+    debugPrint('📈 Calculated paceSecPerKm: $paceSecPerKm');
+
+    // 3) Update user stats in Firestore - DIRECT UPDATE FOR RELIABILITY
+    try {
+      final userRef = _firestore.collection('users').doc(uid);
+      
+      // Get current best pace to compare
+      final userDoc = await userRef.get();
+      final currentBestPace = userDoc.data()?['bestPaceSecPerKm'] as int?;
+      
+      debugPrint('   Current best pace: $currentBestPace');
+      debugPrint('   This run pace: $paceSecPerKm');
+      
+      // Determine if this is a new best pace (lower is better)
+      final newBestPace = (currentBestPace == null || (paceSecPerKm > 0 && paceSecPerKm < currentBestPace))
+          ? paceSecPerKm
+          : currentBestPace;
+      
+      if (newBestPace == paceSecPerKm && paceSecPerKm > 0) {
+        debugPrint('🎯 NEW BEST PACE! $paceSecPerKm sec/km');
+      }
+
+      // Update user document with atomic operations
+      await userRef.update({
+        'totalKm': FieldValue.increment(distanceKm),
+        'totalRunSeconds': FieldValue.increment(durationSeconds),
+        'totalCalories': FieldValue.increment(calories ?? 0),
+        'postsCount': FieldValue.increment(1),
+        'bestPaceSecPerKm': newBestPace ?? paceSecPerKm, // Set directly, not increment
+      });
+
+      debugPrint('✅ User stats updated in Firestore:');
+      debugPrint('   +${distanceKm.toStringAsFixed(2)} km to totalKm');
+      debugPrint('   +$durationSeconds sec to totalRunSeconds');
+      debugPrint('   +${calories ?? 0} cal to totalCalories');
+      debugPrint('   +1 to postsCount');
+      debugPrint('   bestPaceSecPerKm set to: ${newBestPace ?? paceSecPerKm}');
+
+    } catch (e) {
+      debugPrint('❌ ERROR updating user stats in Firestore: $e');
+      debugPrint('   Error type: ${e.runtimeType}');
+      
+      // Still try UserStatsService as fallback
+      debugPrint('⚠️ Attempting fallback via UserStatsService...');
+      try {
+        await UserStatsService().addRun(
+          uid: uid,
+          distanceKm: distanceKm,
+          durationSeconds: durationSeconds,
+          calories: calories ?? 0,
+          completed: completed ?? true,
+        );
+        debugPrint('✅ Fallback update successful');
+      } catch (fallbackError) {
+        debugPrint('❌ Fallback also failed: $fallbackError');
+      }
     }
 
     // Keep your existing in-memory updates

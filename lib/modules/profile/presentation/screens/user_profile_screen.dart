@@ -25,7 +25,7 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _isFollowing = false;
   bool _isLoading = true;
-  bool _showPosts = false;  // Start with stats visible
+  bool _showPosts = true;  // ✅ Show Posts by default
 
   Map<String, dynamic>? _userData;
   int _followersCount = 0;
@@ -353,25 +353,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           
           const SizedBox(height: 20),
           
-          // ✅ Toggle Button: Stats / Posts
+          // ✅ Toggle Buttons: Posts first, Stats second
           Row(
             children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => setState(() => _showPosts = false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: !_showPosts ? const Color(0xFF00E676) : Colors.grey[200],
-                    foregroundColor: !_showPosts ? Colors.white : Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text('Stats', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
                   onPressed: () => setState(() => _showPosts = true),
@@ -385,6 +369,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     elevation: 0,
                   ),
                   child: const Text('Posts', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _showPosts = false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !_showPosts ? const Color(0xFF00E676) : Colors.grey[200],
+                    foregroundColor: !_showPosts ? Colors.white : Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Stats', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

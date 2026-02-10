@@ -86,10 +86,37 @@ class FeedItemWrapper extends StatelessWidget {
                         width: 40,
                         height: 40,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.person,
-                          color: Colors.white,
-                        ),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) {
+                            debugPrint('✅ FeedItem: Avatar loaded successfully for ${post.userId}');
+                            return child;
+                          }
+                          final progress = loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : 0.0;
+                          debugPrint('⏳ FeedItem: Loading avatar for ${post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
+                          return Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                value: progress,
+                                strokeWidth: 2,
+                                color: const Color(0xFF00E676),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint('❌ FeedItem: Image load ERROR for ${post.userId}:');
+                          debugPrint('   URL: $photoUrl');
+                          debugPrint('   Error: $error');
+                          debugPrint('   Error type: ${error.runtimeType}');
+                          return const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                          );
+                        },
                       ),
                     ),
                   );
@@ -448,18 +475,33 @@ class FeedItemWrapper extends StatelessWidget {
   }
 
   Future<String> _getUserPhotoUrl(String userId) async {
+    debugPrint('📡 FeedItem: STARTING fetch for userId="$userId"');
+    
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .get();
       
+      debugPrint('📦 FeedItem: Firestore response for $userId: exists=${doc.exists}');
+      
       if (doc.exists && doc.data() != null) {
-        final photoUrl = doc.data()!['photoUrl'] as String? ?? '';
+        final data = doc.data()!;
+        final photoUrl = data['photoUrl'] as String? ?? '';
+        
+        debugPrint('📸 FeedItem: Extracted photoUrl for $userId:');
+        debugPrint('   photoUrl = "$photoUrl"');
+        debugPrint('   length = ${photoUrl.length}');
+        debugPrint('   starts with http = ${photoUrl.startsWith('http')}');
+        debugPrint('   contains amazonaws = ${photoUrl.contains('amazonaws')}');
+        
         return photoUrl;
+      } else {
+        debugPrint('⚠️  FeedItem: User $userId has no data or does not exist');
       }
     } catch (e) {
       debugPrint('❌ FeedItem: Error fetching photoUrl for $userId: $e');
+      debugPrint('   Error type: ${e.runtimeType}');
     }
     return '';
   }
