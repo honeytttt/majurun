@@ -110,7 +110,7 @@ class StatsController extends ChangeNotifier {
         'totalRunSeconds': FieldValue.increment(durationSeconds),
         'totalCalories': FieldValue.increment(calories ?? 0),
         'postsCount': FieldValue.increment(1),
-        'bestPaceSecPerKm': newBestPace ?? paceSecPerKm, // Set directly, not increment
+        'bestPaceSecPerKm': newBestPace > 0 ? newBestPace : paceSecPerKm,
       });
 
       debugPrint('✅ User stats updated in Firestore:');
@@ -118,7 +118,7 @@ class StatsController extends ChangeNotifier {
       debugPrint('   +$durationSeconds sec to totalRunSeconds');
       debugPrint('   +${calories ?? 0} cal to totalCalories');
       debugPrint('   +1 to postsCount');
-      debugPrint('   bestPaceSecPerKm set to: ${newBestPace ?? paceSecPerKm}');
+      debugPrint('   bestPaceSecPerKm set to: ${newBestPace > 0 ? newBestPace : paceSecPerKm}');
 
     } catch (e) {
       debugPrint('❌ ERROR updating user stats in Firestore: $e');

@@ -149,21 +149,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final totalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
           final bestPaceSecPerKm = (data['bestPaceSecPerKm'] as num?)?.toInt();
           
-          debugPrint('📊 ProfileScreen Stats:');
+          debugPrint('📊 ProfileScreen Stats for USER: $uid');
+          debugPrint('   displayName: $name');
           debugPrint('   totalKm from Firestore: $totalKm');
           debugPrint('   bestPaceSecPerKm from Firestore: $bestPaceSecPerKm');
           debugPrint('   Data keys: ${data.keys.toList()}');
           debugPrint('   Raw totalKm value: ${data['totalKm']}');
           debugPrint('   Raw bestPaceSecPerKm value: ${data['bestPaceSecPerKm']}');
           
+          // Check if this user has any run data at all
+          if (totalKm == 0.0 && bestPaceSecPerKm == null) {
+            debugPrint('   ⚠️ WARNING: This user has NO running stats!');
+            debugPrint('   ⚠️ Stats are not being synced when runs complete.');
+            debugPrint('   ⚠️ Check RunController to ensure it updates user stats.');
+          }
+          
           String bestPace = '--:--';
           if (bestPaceSecPerKm != null && bestPaceSecPerKm > 0) {
             final minutes = bestPaceSecPerKm ~/ 60;
             final seconds = bestPaceSecPerKm % 60;
             bestPace = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-            debugPrint('   Calculated bestPace: $bestPace');
+            debugPrint('   ✅ Calculated bestPace: $bestPace');
           } else {
-            debugPrint('   ⚠️ bestPaceSecPerKm is null or 0');
+            debugPrint('   ⚠️ No best pace data - user hasn\'t completed tracked runs');
           }
 
           return StreamBuilder<QuerySnapshot>(
@@ -172,8 +180,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 .where('userId', isEqualTo: uid)
                 .snapshots(),
             builder: (context, postsSnapshot) {
-              final postsCount = postsSnapshot.data?.docs.length ?? 0;
-              final totalRuns = postsCount;
+              // Separate run posts from social posts
+              int runPostsCount = 0;
+              int socialPostsCount = 0;
+              
+              if (postsSnapshot.hasData) {
+                for (final doc in postsSnapshot.data!.docs) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final type = data['type'] as String?;
+                  
+                  if (type == 'run_activity' || type == 'run_video') {
+                    runPostsCount++;
+                  } else {
+                    socialPostsCount++;
+                  }
+                }
+              }
+              
+              final totalRuns = runPostsCount; // Count only run-related posts
+              final postsCount = socialPostsCount; // Count only social posts
 
               return CustomScrollView(
                 slivers: [
@@ -311,6 +336,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: const Text(
                 'Edit Profile',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // ✅ Sync Stats Button (Temporary - remove after use)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _syncUserStatsFromPosts(context, name),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              child: const Text(
+                '🔄 Sync Stats from Posts',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -721,6 +772,202 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content: Text('Error signing out: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // ✅ Sync Stats from Posts (One-Time Use)
+  Future<void> _syncUserStatsFromPosts(BuildContext context, String username) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    
+    if (uid == null) {
+      debugPrint('❌ No user logged in');
+      return;
+    }
+    
+    debugPrint('📊 Syncing stats for user: $uid');
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF00E676)),
+        ),
+      );
+
+      // Get all posts for this user
+      final postsSnapshot = await FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: uid)
+          .get();
+
+      debugPrint('📝 Found ${postsSnapshot.docs.length} posts');
+
+      if (postsSnapshot.docs.isEmpty) {
+        debugPrint('⚠️ No posts found - nothing to sync');
+        if (mounted) Navigator.pop(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No posts found to sync'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      double totalKm = 0.0;
+      int totalRunSeconds = 0;
+      int? bestPaceSecPerKm;
+      int totalCalories = 0;
+      int runsWithData = 0;
+      int runPostsCount = 0;
+      int socialPostsCount = 0;
+
+      // Calculate stats from all posts
+      for (final doc in postsSnapshot.docs) {
+        final data = doc.data();
+        
+        // Check post type
+        final type = data['type'] as String?;
+        if (type == 'run_activity' || type == 'run_video') {
+          runPostsCount++;
+        } else {
+          socialPostsCount++;
+        }
+        
+        // Get distance - handle both String and num types
+        double? distance;
+        final distanceData = data['distance'];
+        if (distanceData is String) {
+          distance = double.tryParse(distanceData);
+        } else if (distanceData is num) {
+          distance = distanceData.toDouble();
+        }
+        
+        // Get pace (stored as string like "5:30")
+        final paceStr = data['pace'] as String?;
+        
+        // Calculate duration from distance and pace
+        int? durationSeconds;
+        int? paceSecPerKm;
+        
+        if (distance != null && distance > 0 && paceStr != null) {
+          // Parse pace string "5:30" to seconds per km
+          final paceParts = paceStr.split(':');
+          if (paceParts.length == 2) {
+            final minutes = int.tryParse(paceParts[0]) ?? 0;
+            final seconds = int.tryParse(paceParts[1]) ?? 0;
+            paceSecPerKm = (minutes * 60) + seconds;
+            
+            // Calculate total duration: distance * pace
+            durationSeconds = (distance * paceSecPerKm).round();
+          }
+        }
+        
+        if (distance != null && distance > 0) {
+          totalKm += distance;
+          runsWithData++;
+          
+          debugPrint('  Run ${doc.id}: ${distance.toStringAsFixed(2)} km, pace: $paceStr');
+          
+          if (durationSeconds != null) {
+            totalRunSeconds += durationSeconds;
+          }
+          
+          // Update best pace if this is faster (lower is better)
+          if (paceSecPerKm != null && paceSecPerKm > 0) {
+            if (bestPaceSecPerKm == null || paceSecPerKm < bestPaceSecPerKm) {
+              bestPaceSecPerKm = paceSecPerKm;
+              final minutes = paceSecPerKm ~/ 60;
+              final seconds = paceSecPerKm % 60;
+              debugPrint('    New best pace: $minutes:${seconds.toString().padLeft(2, '0')} /km');
+            }
+          }
+          
+          // Estimate calories
+          totalCalories += (distance * 60).round();
+        }
+      }
+
+      debugPrint('\n📊 CALCULATED STATS:');
+      debugPrint('   Total Distance: ${totalKm.toStringAsFixed(2)} km');
+      debugPrint('   Total Duration: $totalRunSeconds seconds');
+      debugPrint('   Total Calories: $totalCalories');
+      debugPrint('   Runs with data: $runsWithData / $runPostsCount run posts');
+      debugPrint('   Run Posts: $runPostsCount (type: run_activity or run_video)');
+      debugPrint('   Social Posts: $socialPostsCount (manual posts)');
+      debugPrint('   Total Posts: ${postsSnapshot.docs.length}');
+      
+      if (bestPaceSecPerKm != null) {
+        final minutes = bestPaceSecPerKm ~/ 60;
+        final seconds = bestPaceSecPerKm % 60;
+        debugPrint('   Best Pace: $minutes:${seconds.toString().padLeft(2, '0')} /km');
+      }
+
+      // Update user document - separate run posts from social posts
+      final updateData = {
+        'totalKm': totalKm,
+        'totalRunSeconds': totalRunSeconds,
+        'totalCalories': totalCalories,
+        'runPostsCount': runPostsCount,  // New: count of run posts
+        'socialPostsCount': socialPostsCount,  // New: count of social posts
+        'postsCount': postsSnapshot.docs.length,  // Total (for backwards compatibility)
+      };
+
+      if (bestPaceSecPerKm != null && bestPaceSecPerKm > 0) {
+        updateData['bestPaceSecPerKm'] = bestPaceSecPerKm;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update(updateData);
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      debugPrint('✅ Stats synced successfully!');
+
+      // Show success message with stats
+      if (mounted) {
+        final paceStr = bestPaceSecPerKm != null 
+            ? '${bestPaceSecPerKm ~/ 60}:${(bestPaceSecPerKm % 60).toString().padLeft(2, '0')}'
+            : '--:--';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ Synced ${totalKm.toStringAsFixed(2)} km from $runPostsCount runs!\n'
+              'Social Posts: $socialPostsCount | Best Pace: $paceStr /km',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+
+      // Refresh the page to show updated stats
+      setState(() {});
+      
+    } catch (e) {
+      debugPrint('❌ Error syncing stats: $e');
+      debugPrint('   Error type: ${e.runtimeType}');
+      
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error syncing stats: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

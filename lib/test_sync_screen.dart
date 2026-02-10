@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class TestSyncScreen extends StatelessWidget {
   const TestSyncScreen({super.key});
@@ -8,17 +6,34 @@ class TestSyncScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sync Stats')),
+      appBar: AppBar(
+        title: const Text('Test Sync Screen'),
+        backgroundColor: const Color(0xFF00E676),
+      ),
       body: Center(
-        child: ElevatedButton(
-          onPressed: () => _syncUserStatsFromPosts(context),
-          child: const Text('Sync Stats from Posts'),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'This is a placeholder test screen.',
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'You can delete this file after testing.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00E676),
+              ),
+              child: const Text('Go Back'),
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  Future<void> _syncUserStatsFromPosts(BuildContext context) async {
-    // ... (paste the entire sync function here)
   }
 }
