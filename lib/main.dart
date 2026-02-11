@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -23,6 +24,19 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // ✅ PRODUCTION-READY - No print statements
+  if (kIsWeb) {
+    try {
+      await FirebaseAuth.instance.setSettings(
+        appVerificationDisabledForTesting: false,
+      );
+      // REMOVED print statements
+      // REMOVED webApiKey getter - doesn't exist
+    } catch (e) {
+      // Silent fail in production
+    }
+  }
+  
   // Initialize user counters on first launch (non-blocking)
   FirebaseAuth.instance.authStateChanges().listen((user) {
     if (user != null) {
@@ -35,7 +49,6 @@ void main() async {
       providers: [
         Provider<AuthRepository>(create: (_) => FirebaseAuthImpl()),
         ChangeNotifierProvider<TrainingService>(create: (_) => TrainingService()),
-        // RunController now creates and manages all run-related controllers internally
         ChangeNotifierProvider<RunController>(create: (_) => RunController()),
       ],
       child: const MyApp(),

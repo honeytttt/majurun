@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear reCAPTCHA Cache</title>
+</head>
+<body>
+    <h1>🧹 Clearing reCAPTCHA Cache...</h1>
+    
+    <script>
+        // Clear all reCAPTCHA related items from localStorage and sessionStorage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Clear all cookies
+        document.cookie.split(";").forEach(function(c) {
+            document.cookie = c.replace(/^ +/, "")
+                .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        
+        console.log('✅ All reCAPTCHA caches cleared');
+        console.log('🔄 Close this tab and restart your Flutter app');
+        
+        document.body.innerHTML += '<h2 style="color:green">✅ Cache cleared! Close this tab and run flutter clean</h2>';
+    </script>
+</body>
+</html>

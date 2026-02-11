@@ -1,8 +1,10 @@
 import '../entities/app_user.dart';
 
 abstract class AuthRepository {
+  /// Emits the current user (or null) whenever auth state changes.
   Stream<AppUser?> get onAuthStateChanged;
 
+  // -------- Email / Password --------
   Future<AppUser?> signInWithEmail(String email, String password);
 
   Future<AppUser?> signUpWithEmail({
@@ -15,7 +17,7 @@ abstract class AuthRepository {
     required String phoneNumber,
   });
 
-  // PROFESSIONAL OTP HANDSHAKE
+  // -------- Phone (send & confirm) --------
   Future<void> verifyPhoneNumber({
     required String phoneNumber,
     required Function(String verificationId) onCodeSent,
@@ -27,6 +29,13 @@ abstract class AuthRepository {
     required String smsCode,
   });
 
+  // -------- Phone: Link to existing user --------
+  Future<void> linkPhoneNumber({
+    required String verificationId,
+    required String smsCode,
+  });
+
+  // -------- Other providers / sessions --------
   Future<AppUser?> signInWithGoogle();
   Future<AppUser?> signInWithFacebook();
   Future<AppUser?> signInAsGuest();

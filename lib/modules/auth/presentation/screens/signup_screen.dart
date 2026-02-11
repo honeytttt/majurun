@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 import 'otp_screen.dart';
 
@@ -18,22 +18,32 @@ class _SignupScreenState extends State<SignupScreen> {
   final _fName = TextEditingController();
   final _lName = TextEditingController();
   final _phone = TextEditingController();
-  
+
   DateTime? _dob;
   String? _gender;
   bool _loading = false;
-  bool _obscurePassword = true;
 
-  InputDecoration _buildInput(String label, IconData icon) => InputDecoration(
-    labelText: label,
-    prefixIcon: Icon(icon, size: 22, color: Colors.blueAccent),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-  );
+  String? _verificationId;
 
   void _onRegisterPressed() async {
-    if (!_formKey.currentState!.validate() || _dob == null || _gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing Information")));
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all fields")),
+      );
+      return;
+    }
+    
+    if (_dob == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select your birthday")),
+      );
+      return;
+    }
+    
+    if (_gender == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select your gender")),
+      );
       return;
     }
 
@@ -45,40 +55,55 @@ class _SignupScreenState extends State<SignupScreen> {
         phoneNumber: _phone.text.trim(),
         onCodeSent: (verificationId) {
           if (!mounted) return;
-          setState(() => _loading = false);
+          setState(() {
+            _loading = false;
+            _verificationId = verificationId;
+          });
+
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => OtpScreen(
                 phoneNumber: _phone.text.trim(),
-                onVerify: (otpCode) => _handleFinalVerification(verificationId, otpCode),
+                initialVerificationId: verificationId,
+                onVerificationIdChanged: (newId) => _verificationId = newId,
+                onVerify: (otpCode) => _finalize(_verificationId, otpCode),
               ),
             ),
           );
         },
-        onError: (error) {
+        onError: (err) {
           if (!mounted) return;
           setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(err)),
+          );
         },
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 
-  Future<void> _handleFinalVerification(String verId, String code) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
+  Future<void> _finalize(String? verId, String otp) async {
+    if (verId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Verification expired. Please resend code.")),
+      );
+      return;
+    }
 
+    setState(() => _loading = true);
+    
     try {
       final authRepo = context.read<AuthRepository>();
-      // 1. Verify Phone
-      await authRepo.signInWithOtp(verificationId: verId, smsCode: code);
-      // 2. Finalize profile and trigger Email Link
-      await authRepo.signUpWithEmail(
+      
+      // STEP 1: Create email/password account
+      final user = await authRepo.signUpWithEmail(
         email: _email.text.trim(),
         password: _pass.text.trim(),
         firstName: _fName.text.trim(),
@@ -87,92 +112,140 @@ class _SignupScreenState extends State<SignupScreen> {
         gender: _gender!,
         phoneNumber: _phone.text.trim(),
       );
-
+      
+      if (user == null) throw 'Failed to create account';
+      
+      // STEP 2: Link phone number
+      await authRepo.linkPhoneNumber(
+        verificationId: verId,
+        smsCode: otp,
+      );
+      
       if (!mounted) return;
-      _showSuccessDialog(messenger, navigator, _email.text.trim());
+      
+      // Success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account created successfully!')),
+      );
+      Navigator.popUntil(context, (route) => route.isFirst);
+      
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _showSuccessDialog(ScaffoldMessengerState messenger, NavigatorState navigator, String email) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(Icons.mark_email_unread, size: 60, color: Colors.blueAccent),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Phone Verified!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            const SizedBox(height: 10),
-            Text("We've sent a final activation link to $email. Please verify your email to log in.", textAlign: TextAlign.center),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => navigator.popUntil((route) => route.isFirst),
-            child: const Text("I UNDERSTAND"),
-          )
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("Join Majurun", style: TextStyle(fontWeight: FontWeight.bold))),
+      appBar: AppBar(
+        title: const Text("Join Majurun"),
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            const Text("Step 1: Profile Info", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: TextFormField(controller: _fName, decoration: _buildInput("First Name", Icons.person_outline))),
-                const SizedBox(width: 12),
-                Expanded(child: TextFormField(controller: _lName, decoration: _buildInput("Last Name", Icons.person_outline))),
-              ],
+            TextFormField(
+              controller: _fName,
+              decoration: const InputDecoration(
+                labelText: "First Name",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _lName,
+              decoration: const InputDecoration(
+                labelText: "Last Name",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _email,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) {
+                if (v?.isEmpty ?? true) return 'Required';
+                if (!v!.contains('@')) return 'Invalid email';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _phone,
+              decoration: const InputDecoration(
+                labelText: "Phone (e.g. +60...)",
+                border: OutlineInputBorder(),
+                hintText: "+60 12 345 6789",
+              ),
+              keyboardType: TextInputType.phone,
+              validator: (v) {
+                if (v?.isEmpty ?? true) return 'Required';
+                if (!v!.startsWith('+')) return 'Must include country code (e.g. +60)';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _pass,
+              decoration: const InputDecoration(
+                labelText: "Password",
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+              validator: (v) {
+                if (v?.isEmpty ?? true) return 'Required';
+                if (v!.length < 6) return 'Min 6 characters';
+                return null;
+              },
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              decoration: _buildInput("Gender", Icons.wc),
-              initialValue: _gender,
-              onChanged: (v) => setState(() => _gender = v),
-              items: ["Male", "Female", "Other"].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-            ),
+  decoration: const InputDecoration(
+    labelText: "Gender",
+    border: OutlineInputBorder(),
+  ),
+  value: _gender,
+  items: const [
+    DropdownMenuItem(value: "Male", child: Text("Male")),
+    DropdownMenuItem(value: "Female", child: Text("Female")),
+  ],
+  onChanged: (v) => setState(() => _gender = v),
+  validator: (v) => v == null ? 'Required' : null,
+),
             const SizedBox(height: 16),
             InkWell(
               onTap: () async {
-                final d = await showDatePicker(context: context, initialDate: DateTime(2000), firstDate: DateTime(1900), lastDate: DateTime.now());
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime(2000),
+                  firstDate: DateTime(1900),
+                  lastDate: DateTime.now(),
+                );
                 if (d != null) setState(() => _dob = d);
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(12)),
-                child: Text(_dob == null ? "Select Date of Birth" : DateFormat('dd MMMM yyyy').format(_dob!)),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text("Step 2: Security", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 16),
-            TextFormField(controller: _email, decoration: _buildInput("Email Address", Icons.email_outlined)),
-            const SizedBox(height: 16),
-            TextFormField(controller: _phone, keyboardType: TextInputType.phone, decoration: _buildInput("Mobile (+CountryCode)", Icons.phone_android)),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _pass,
-              obscureText: _obscurePassword,
-              decoration: _buildInput("Password", Icons.lock_outline).copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: "Birthday",
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(
+                  _dob == null 
+                      ? "Select Date" 
+                      : DateFormat('dd/MM/yyyy').format(_dob!),
                 ),
               ),
             ),
@@ -180,9 +253,20 @@ class _SignupScreenState extends State<SignupScreen> {
             SizedBox(
               height: 55,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: _loading ? null : _onRegisterPressed,
-                child: _loading ? const CircularProgressIndicator(color: Colors.white) : const Text("VERIFY & CREATE PROFILE"),
+                child: _loading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "CONTINUE",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],
@@ -193,7 +277,11 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _email.dispose(); _pass.dispose(); _fName.dispose(); _lName.dispose(); _phone.dispose();
+    _email.dispose();
+    _pass.dispose();
+    _fName.dispose();
+    _lName.dispose();
+    _phone.dispose();
     super.dispose();
   }
 }

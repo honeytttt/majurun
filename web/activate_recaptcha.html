@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Activate reCAPTCHA Key</title>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfbsGcsAAAAANpVHp2EAyWpw-YULwOFMuJgjfTn"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        button {
+            background: #2E7D32;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        button:hover {
+            background: #1E5D22;
+        }
+        .success {
+            color: #2E7D32;
+            font-weight: bold;
+        }
+        .error {
+            color: #c62828;
+            font-weight: bold;
+        }
+        #recaptcha-container {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Activate reCAPTCHA Key</h1>
+        <p><strong>Key ID:</strong> 6LfbsGcsAAAAANpVHp2EAyWpw-YULwOFMuJgjfTn</p>
+        <p><strong>Status:</strong> <span id="status" style="color: orange;">Incomplete</span></p>
+        
+        <div id="recaptcha-container"></div>
+        
+        <button onclick="activateKey()">🚀 ACTIVATE RECAPTCHA KEY</button>
+        
+        <div id="result" style="margin-top: 20px; padding: 15px; border-radius: 5px; display: none;"></div>
+        
+        <p style="color: #666; margin-top: 30px; font-size: 14px;">
+            Click the button above to request a token and activate your reCAPTCHA key.
+            After success, refresh Google Cloud Console.
+        </p>
+    </div>
+
+    <script>
+        async function activateKey() {
+            const button = document.querySelector('button');
+            const resultDiv = document.getElementById('result');
+            const statusSpan = document.getElementById('status');
+            
+            button.disabled = true;
+            button.textContent = '⏳ Activating...';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Requesting token from Google...';
+            resultDiv.style.background = '#fff3e0';
+            
+            try {
+                await grecaptcha.enterprise.ready();
+                
+                const token = await grecaptcha.enterprise.execute(
+                    '6LfbsGcsAAAAANpVHp2EAyWpw-YULwOFMuJgjfTn',
+                    {action: 'ACTIVATE_NOW'}
+                );
+                
+                // Success!
+                statusSpan.textContent = 'ACTIVE';
+                statusSpan.style.color = '#2E7D32';
+                
+                resultDiv.style.background = '#e8f5e9';
+                resultDiv.innerHTML = `
+                    <span class="success">✅ SUCCESS! Token received!</span><br><br>
+                    <strong>Token (first 50 chars):</strong><br>
+                    <code style="background: #f5f5f5; padding: 8px; display: block; margin-top: 10px; word-break: break-all;">
+                        ${token.substring(0, 50)}...
+                    </code><br>
+                    <span style="color: #2E7D32;">🎯 Your reCAPTCHA key is now ACTIVE!</span><br><br>
+                    <strong>Next steps:</strong><br>
+                    1. Refresh Google Cloud Console (https://console.cloud.google.com/security/recaptcha)<br>
+                    2. Status will change from "Incomplete" to "Active"<br>
+                    3. Restart your Flutter app<br>
+                    4. OTP will work! 🚀
+                `;
+                
+                console.log('✅ reCAPTCHA Activated! Token:', token.substring(0, 50));
+                
+            } catch (error) {
+                // Error!
+                resultDiv.style.background = '#ffebee';
+                resultDiv.innerHTML = `
+                    <span class="error">❌ ERROR: ${error.message || error}</span><br><br>
+                    <strong>Try this instead:</strong><br>
+                    1. Go to Google Cloud Console<br>
+                    2. Edit your reCAPTCHA key<br>
+                    3. Change type from "Score-based" to "Checkbox"<br>
+                    4. Click Save<br>
+                    5. Wait 1 minute<br>
+                    6. Click this button again
+                `;
+                
+                console.error('❌ Error:', error);
+            } finally {
+                button.disabled = false;
+                button.textContent = '🚀 ACTIVATE RECAPTCHA KEY';
+            }
+        }
+        
+        // Auto-run after 1 second
+        setTimeout(activateKey, 1000);
+    </script>
+</body>
+</html>

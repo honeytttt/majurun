@@ -5,77 +5,88 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="MajuRun App">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="majurun">
+  
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.png"/>
   <title>majurun</title>
   <link rel="manifest" href="manifest.json">
-  
-  <!-- Material Icons - Required for Flutter icons on web -->
+
+  <!-- Material Icons -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Round">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Sharp">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Two+Tone">
 
-  <script>
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      location.replace(`https:${location.href.substring(location.protocol.length)}`);
-    }
-  </script>
-
   <meta name="google-signin-client_id" content="648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com">
-  <script src="https://apis.google.com/js/api.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
+  <!-- Google Maps -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY&libraries=places,geometry&loading=async"></script>
 
-  <!-- Google Maps - Traditional loading for Safari compatibility -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY&libraries=places,geometry"></script>
-
+  <!-- Flutter bootstrap -->
   <script src="flutter_bootstrap.js" async></script>
 </head>
 <body>
-  <!-- Wake Lock API for keeping screen awake during runs -->
-  <script>
-    let wakeLock = null;
+  <!-- ✅ CRITICAL: reCAPTCHA container - MUST be first in body -->
+  <div id="recaptcha-container" style="position: fixed; bottom: 0; right: 0; z-index: 9999;"></div>
 
-    // Request wake lock
+  <!-- ✅ PRELOAD reCAPTCHA v2 - Force immediate load -->
+  <script>
+    // Force load reCAPTCHA immediately
+    (function() {
+      var script = document.createElement('script');
+      script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+
+    window.onRecaptchaLoad = function() {
+      console.log('✅ reCAPTCHA v2 loaded and ready');
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.style.display = 'block';
+        // Actually render the checkbox
+        grecaptcha.enterprise = undefined; // Remove Enterprise
+        grecaptcha.render('recaptcha-container', {
+          sitekey: '6LfJE2gsAAAAAP2xeAzsC95tz7jAzim7wAjtarF0', // YOUR V2 KEY
+          callback: function(token) {
+            console.log('✅ reCAPTCHA verified');
+          }
+        });
+      }
+    };
+
+    // Wake Lock API
+    let wakeLock = null;
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) {
           wakeLock = await navigator.wakeLock.request('screen');
-          console.log('🔒 Wake Lock activated - screen will stay awake');
-          
-          wakeLock.addEventListener('release', () => {
-            console.log('🔓 Wake Lock released');
-          });
-        } else {
-          console.warn('⚠️ Wake Lock API not supported on this browser');
+          console.log('🔒 Wake Lock activated');
         }
       } catch (err) {
         console.error('❌ Wake Lock error:', err);
       }
     }
-
-    // Release wake lock
+    
     function releaseWakeLock() {
       if (wakeLock !== null) {
         wakeLock.release();
         wakeLock = null;
-        console.log('🔓 Wake Lock manually released');
+        console.log('🔓 Wake Lock released');
       }
     }
-
-    // Auto-reacquire wake lock when page becomes visible
+    
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible' && wakeLock !== null) {
-        console.log('👁️ Page visible again, reacquiring wake lock...');
         await requestWakeLock();
       }
     });
     
-    // Make functions available globally for Flutter
     window.requestWakeLock = requestWakeLock;
     window.releaseWakeLock = releaseWakeLock;
   </script>

@@ -28,16 +28,14 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY',
-    appId: '1:648836412000:web:bd63d35e5459bd4eac8905',
-    messagingSenderId: '648836412000',
-    projectId: 'majurun-8d8b5',
-    authDomain: 'majurun-8d8b5.firebaseapp.com', // Must stay as .firebaseapp.com
-    storageBucket: 'majurun-8d8b5.firebasestorage.app',
-    measurementId: 'G-SJNGLL06NR',
-    // ADD THIS LINE FOR WEB PRODUCTION:
-    iosClientId: '648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com',
-  );
+  apiKey: 'AIzaSyBJtYsiXo8YGTj2pnsFL8HBMFq5p8NMmwM',  // ✅ PASTE NEW KEY HERE
+  appId: '1:648836412000:web:f7cbea6b0cd1650cac8905', // ✅ PASTE NEW APP ID HERE
+  messagingSenderId: '648836412000',
+  projectId: 'majurun-8d8b5',
+  authDomain: 'majurun-8d8b5.firebaseapp.com',
+  storageBucket: 'majurun-8d8b5.firebasestorage.app',
+  measurementId: 'G-0KVX83DJB3', // ✅ PASTE NEW MEASUREMENT ID HERE
+);
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB-glMd9_6VjXa50OG9jleoCkllNhtdFBY',
@@ -78,4 +76,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'majurun-8d8b5.firebasestorage.app',
     measurementId: 'G-P963LYWWNN',
   );
+
 }
