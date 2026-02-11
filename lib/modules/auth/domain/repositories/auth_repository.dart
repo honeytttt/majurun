@@ -15,6 +15,18 @@ abstract class AuthRepository {
     required String phoneNumber,
   });
 
+  // PROFESSIONAL OTP HANDSHAKE
+  Future<void> verifyPhoneNumber({
+    required String phoneNumber,
+    required Function(String verificationId) onCodeSent,
+    required Function(String errorMessage) onError,
+  });
+
+  Future<AppUser?> signInWithOtp({
+    required String verificationId,
+    required String smsCode,
+  });
+
   Future<AppUser?> signInWithGoogle();
   Future<AppUser?> signInWithFacebook();
   Future<AppUser?> signInAsGuest();

@@ -30,16 +30,48 @@ class FirebaseAuthImpl implements AuthRepository {
   }
 
   @override
+  Future<void> verifyPhoneNumber({
+    required String phoneNumber,
+    required Function(String verificationId) onCodeSent,
+    required Function(String errorMessage) onError,
+  }) async {
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _auth.signInWithCredential(credential);
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        onError(e.message ?? "Verification failed.");
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        onCodeSent(verificationId);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {},
+    );
+  }
+
+  @override
+  Future<AppUser?> signInWithOtp({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
+    final userCredential = await _auth.signInWithCredential(credential);
+    return _mapUser(userCredential.user);
+  }
+
+  @override
   Future<AppUser?> signInWithEmail(String email, String password) async {
     final cred = await _auth.signInWithEmailAndPassword(
         email: email.trim(), password: password.trim());
     
-    // Check if email is verified if not a guest
     if (!cred.user!.emailVerified && !cred.user!.isAnonymous) {
       await cred.user!.sendEmailVerification();
-      throw "Please verify your email. A link has been sent to $email.";
+      throw "Security: Please verify your email. A link has been sent to $email.";
     }
-    
     return _mapUser(cred.user);
   }
 
@@ -54,14 +86,18 @@ class FirebaseAuthImpl implements AuthRepository {
     required String phoneNumber,
   }) async {
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
-          email: email.trim(), password: password.trim());
+      UserCredential cred;
+      // Link email to the phone session already active
+      if (_auth.currentUser != null) {
+        final emailAuth = EmailAuthProvider.credential(email: email, password: password);
+        cred = await _auth.currentUser!.linkWithCredential(emailAuth);
+      } else {
+        cred = await _auth.createUserWithEmailAndPassword(
+            email: email.trim(), password: password.trim());
+      }
       
       if (cred.user != null) {
-        // 1. Send Verification Email
         await cred.user!.sendEmailVerification();
-
-        // 2. Save to Firestore with initialized stats
         await _db.collection('users').doc(cred.user!.uid).set({
           'firstName': firstName,
           'lastName': lastName,
@@ -71,8 +107,6 @@ class FirebaseAuthImpl implements AuthRepository {
           'gender': gender,
           'phoneNumber': phoneNumber,
           'createdAt': FieldValue.serverTimestamp(),
-          'isEmailVerified': false,
-          // Initialize stats fields
           'workoutsCount': 0,
           'totalKm': 0.0,
           'totalRunSeconds': 0,
@@ -80,12 +114,11 @@ class FirebaseAuthImpl implements AuthRepository {
           'postsCount': 0,
           'followersCount': 0,
           'followingCount': 0,
-          // Initialize badge fields
           'badge5k': 0,
           'badge10k': 0,
           'badgeHalf': 0,
           'badgeFull': 0,
-        });
+        }, SetOptions(merge: true));
         
         await cred.user!.updateDisplayName("$firstName $lastName");
       }
@@ -105,17 +138,14 @@ class FirebaseAuthImpl implements AuthRepository {
     );
     final UserCredential userCredential = await _auth.signInWithCredential(credential);
 
-    // Create/update user document for Google sign-in users
     if (userCredential.user != null) {
       final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
       if (!userDoc.exists) {
-        // Create new user document with initialized stats
         await _db.collection('users').doc(userCredential.user!.uid).set({
           'displayName': userCredential.user!.displayName ?? 'Runner',
           'email': userCredential.user!.email ?? '',
           'photoUrl': userCredential.user!.photoURL ?? '',
           'createdAt': FieldValue.serverTimestamp(),
-          // Initialize stats fields
           'workoutsCount': 0,
           'totalKm': 0.0,
           'totalRunSeconds': 0,
@@ -123,23 +153,13 @@ class FirebaseAuthImpl implements AuthRepository {
           'postsCount': 0,
           'followersCount': 0,
           'followingCount': 0,
-          // Initialize badge fields
           'badge5k': 0,
           'badge10k': 0,
           'badgeHalf': 0,
           'badgeFull': 0,
         });
-      } else {
-        // Update existing doc with photo if missing
-        final data = userDoc.data() ?? {};
-        if (data['photoUrl'] == null || (data['photoUrl'] as String).isEmpty) {
-          await _db.collection('users').doc(userCredential.user!.uid).set({
-            'photoUrl': userCredential.user!.photoURL ?? '',
-          }, SetOptions(merge: true));
-        }
       }
     }
-
     return _mapUser(userCredential.user);
   }
 
