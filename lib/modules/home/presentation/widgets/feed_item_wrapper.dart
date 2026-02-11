@@ -11,6 +11,7 @@ import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+// ✅ Import expandable text and post detail screen
 import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 
@@ -41,6 +42,7 @@ class FeedItemWrapper extends StatelessWidget {
     final isLiked = currentUserId != null && post.likes.contains(currentUserId);
     final isRepost = post.quotedPostId != null && post.content.trim().isEmpty;
 
+    // ✅ Wrap entire card in GestureDetector to make it tappable
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -68,7 +70,7 @@ class FeedItemWrapper extends StatelessWidget {
                   future: _getUserPhotoUrl(post.userId),
                   builder: (context, snapshot) {
                     final photoUrl = snapshot.data ?? '';
-
+                    
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const CircleAvatar(
                         backgroundColor: Colors.grey,
@@ -83,14 +85,14 @@ class FeedItemWrapper extends StatelessWidget {
                         ),
                       );
                     }
-
+                    
                     if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
                       return const CircleAvatar(
                         backgroundColor: Colors.blueGrey,
                         child: Icon(Icons.person, color: Colors.white),
                       );
                     }
-
+                    
                     return CircleAvatar(
                       radius: 20,
                       backgroundColor: Colors.grey,
@@ -99,13 +101,34 @@ class FeedItemWrapper extends StatelessWidget {
                           photoUrl,
                           width: 40,
                           height: 40,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.cover, // ✅ Keep cover for avatars
                           loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return child;
+                            if (loadingProgress == null) {
+                              debugPrint('✅ FeedItem: Avatar loaded successfully for ${post.userId}');
+                              return child;
+                            }
+                            final progress = loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : 0.0;
+                            debugPrint('⏳ FeedItem: Loading avatar for ${post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
+                            return Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  value: progress,
+                                  strokeWidth: 2,
+                                  color: const Color(0xFF00E676),
+                                ),
+                              ),
+                            );
                           },
                           errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.error, color: Colors.white);
+                            debugPrint('❌ FeedItem: Error loading avatar for ${post.userId}: $error');
+                            return const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.error, color: Colors.white),
+                            );
                           },
                         ),
                       ),
@@ -145,7 +168,7 @@ class FeedItemWrapper extends StatelessWidget {
                   : null,
             ),
 
-            // Post Text Content
+            // ✅ UPDATED: Post Text Content with ExpandableText
             if (post.content.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -154,6 +177,7 @@ class FeedItemWrapper extends StatelessWidget {
                   maxLines: 5,
                   style: const TextStyle(fontSize: 16, height: 1.35),
                   onTap: () {
+                    debugPrint('📱 ExpandableText tapped from FeedItem');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -164,28 +188,28 @@ class FeedItemWrapper extends StatelessWidget {
                 ),
               ),
 
-            // Run Map Preview
+            // --- NEW: Run Map Preview (If it's a Run Activity) ---
             if (post.routePoints != null && post.routePoints!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: RunMapPreview(points: post.routePoints!),
               ),
 
-            // Media / Images Section - FIXED VERSION
+            // --- Media / Images Section ---
             if (post.media.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                 child: _buildMedia(context, post.media.first),
               ),
 
-            // Quoted Post Section
+            // --- Quoted Post Section ---
             if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: QuotedPostPreview(postId: post.quotedPostId!),
               ),
 
-            // Actions Bar
+            // ✅ UPDATED: Actions Bar - Prevent tap propagation
             GestureDetector(
               onTap: () {}, // Absorb taps to prevent card tap
               behavior: HitTestBehavior.opaque,
@@ -212,7 +236,7 @@ class FeedItemWrapper extends StatelessWidget {
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(width: 16),
-
+                        
                         // Comment Button
                         IconButton(
                           icon: const Icon(Icons.chat_bubble_outline, size: 20),
@@ -259,7 +283,7 @@ class FeedItemWrapper extends StatelessWidget {
                                 }
                               : () => _showLoginSnack(context),
                         ),
-
+                        
                         // Share Button
                         IconButton(
                           icon: const Icon(Icons.share, size: 20),
@@ -277,78 +301,97 @@ class FeedItemWrapper extends StatelessWidget {
     );
   }
 
-  // ────────────────────────────────────────────────
-  // Updated media builder - no aspectRatio crash + no stretching
-  // ────────────────────────────────────────────────
-  Widget _buildMedia(BuildContext context, dynamic media) {
+  // ================== HELPER METHODS ==================
+
+  Future<String> _getUserPhotoUrl(String userId) async {
+    debugPrint('📡 FeedItem: STARTING fetch for userId="$userId"');
+    
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      
+      debugPrint('📦 FeedItem: Firestore response for $userId: exists=${userDoc.exists}');
+      
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        final photoUrl = data?['photoUrl'] as String?;
+        
+        debugPrint('📸 FeedItem: Extracted photoUrl for $userId:');
+        debugPrint('   photoUrl = "$photoUrl"');
+        debugPrint('   length = ${photoUrl?.length}');
+        debugPrint('   starts with http = ${photoUrl?.startsWith('http')}');
+        debugPrint('   contains amazonaws = ${photoUrl?.contains('amazonaws')}');
+        
+        return photoUrl ?? '';
+      }
+      
+      debugPrint('⚠️  FeedItem: User doc does not exist for $userId');
+      return '';
+    } catch (e) {
+      debugPrint('❌ FeedItem: Error fetching photoUrl for $userId: $e');
+      return '';
+    }
+  }
+
+  Widget _buildMedia(BuildContext context, media) {
     if (media.type == MediaType.video) {
       return Container(
         height: 300,
         margin: const EdgeInsets.symmetric(horizontal: 8),
         child: PostVideoPlayer(videoUrl: media.url),
       );
-    }
-
-    // Image - safe version with natural proportions
-    return GestureDetector(
-      onTap: () => _showFullscreenImage(context, media.url),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.grey[50],
-        ),
-        constraints: const BoxConstraints(
-          maxHeight: 500,   // prevents very tall images from breaking layout
-          minHeight: 160,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            media.url,
-            fit: BoxFit.contain,           // ← key fix: keeps original proportions
-            alignment: Alignment.center,
-            width: double.infinity,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                height: 300,
-                color: Colors.grey[100],
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E676)),
+    } else {
+      return GestureDetector(
+        onTap: () => _showFullscreenImage(context, media.url),
+        child: Container(
+          constraints: const BoxConstraints(
+            maxHeight: 350, // ✅ Reduced from 500 to 350
+            minHeight: 200,
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              media.url,
+              fit: BoxFit.contain, // ✅ Changed to contain - shows full image without stretching
+              width: double.infinity,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 300,
+                  color: Colors.grey[100],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
                   ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 220,
-                color: Colors.grey[200],
-                child: const Center(
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    size: 60,
-                    color: Colors.grey,
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint('❌ Error loading image: $error');
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Future<String> _getUserPhotoUrl(String userId) async {
-    try {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-      if (userDoc.exists) {
-        return userDoc.data()?['photoUrl'] as String? ?? '';
-      }
-      return '';
-    } catch (e) {
-      return '';
+      );
     }
   }
 

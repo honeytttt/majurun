@@ -37,32 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String _profileImageUrl = "";
   String _email = "";
 
-  // For hiding bottom nav
-  final ScrollController _scrollController = ScrollController();
-  bool _showBottomNav = true;
-
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
-
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 10) {
-        if (_showBottomNav) {
-          setState(() => _showBottomNav = false);
-        }
-      } else {
-        if (!_showBottomNav) {
-          setState(() => _showBottomNav = true);
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 
   void _fetchFirebaseUserData() {
@@ -156,7 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
-
+    
+    // When showing sub-pages, don't show the main scaffold chrome
     if (_activeSubPage != null) {
       return Scaffold(
         key: _scaffoldKey,
@@ -171,44 +150,30 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: TrainingDrawer(
         onSubPageSelected: (Widget? page) => setState(() => _activeSubPage = page),
       ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification) {
-            // You can fine-tune hiding logic here if needed
-          }
-          return false;
-        },
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            _buildProfessionalHomeFeed(brandGreen),
-            const WorkoutScreen(),
-            const CreatePostScreen(),
-            const EventsScreen(),
-            const RunTrackerScreen(),
-          ],
-        ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          // ✅ HOME FEED - Professional Twitter-style scroll
+          _buildProfessionalHomeFeed(brandGreen),
+          const WorkoutScreen(),
+          const CreatePostScreen(),
+          const EventsScreen(),
+          const RunTrackerScreen(),
+        ],
       ),
-      bottomNavigationBar: AnimatedSlide(
-        offset: _showBottomNav ? Offset.zero : const Offset(0, 1),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          selectedItemColor: brandGreen,
-          unselectedItemColor: Colors.grey[600],
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 8,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
-            BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
-            BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Rewards'),
-            BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
-          ],
-        ),
+      // ✅ SIMPLE STATIC BOTTOM NAV - No animation, smooth scrolling
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: brandGreen,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
+          BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Rewards'),
+          BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
+        ],
       ),
     );
   }
@@ -229,6 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ PROFESSIONAL TWITTER-STYLE FEED with CustomScrollView
   Widget _buildProfessionalHomeFeed(Color brandGreen) {
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostsStream(),
@@ -241,20 +207,23 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final posts = snapshot.data ?? [];
-
+        
         return RefreshIndicator(
           onRefresh: () async {
-            // You can add real refresh logic here later
-            await Future.delayed(const Duration(milliseconds: 800));
+            setState(() {});
+            await Future.delayed(const Duration(milliseconds: 500));
           },
           child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            // ✅ Professional scroll physics - bouncy and smooth
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
             slivers: [
+              // ✅ COLLAPSING APP BAR - Hides on scroll down, shows on scroll up
               SliverAppBar(
-                floating: true,
-                snap: true,
-                pinned: false,
+                floating: true, // Shows immediately when scrolling up
+                snap: true, // Snaps into place
+                pinned: false, // Doesn't stay at top
                 elevation: 0,
                 backgroundColor: Colors.white,
                 centerTitle: true,
@@ -274,22 +243,34 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
 
+              // ✅ POSTS LIST - Infinite smooth scrolling with lazy loading
               posts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.feed_outlined, size: 80, color: Colors.grey[300]),
+                            Icon(
+                              Icons.feed_outlined,
+                              size: 80,
+                              color: Colors.grey[300],
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'No posts yet',
-                              style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Start following runners or create your first post!',
-                              style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[400],
+                              ),
                             ),
                           ],
                         ),
@@ -298,19 +279,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
+                          // ✅ Lazy loading - only builds visible items
                           return FeedItemWrapper(post: posts[index]);
                         },
                         childCount: posts.length,
+                        
+                        // ✅ Performance optimization - reuses widgets
                         addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
+                        addSemanticIndexes: true,
                       ),
                     ),
 
-              const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+              // ✅ Bottom padding for better UX
+              const SliverPadding(
+                padding: EdgeInsets.only(bottom: 100),
+              ),
             ],
           ),
         );
       },
     );
+  }
+}
+
+class RunHistoryScreenWrapper extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const RunHistoryScreenWrapper({super.key, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return RunHistoryScreen(onBack: onBack);
   }
 }
