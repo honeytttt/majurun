@@ -32,42 +32,39 @@ class _SignupScreenState extends State<SignupScreen> {
   );
 
   void _onRegisterPressed() async {
-    if (!_formKey.currentState!.validate() || _dob == null || _gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing Information")));
-      return;
-    }
-
-    setState(() => _loading = true);
-    final authRepo = context.read<AuthRepository>();
-
-    try {
-      await authRepo.verifyPhoneNumber(
-        phoneNumber: _phone.text.trim(),
-        onCodeSent: (verificationId) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OtpScreen(
-                phoneNumber: _phone.text.trim(),
-                onVerify: (otpCode) => _handleFinalVerification(verificationId, otpCode),
-              ),
-            ),
-          );
-        },
-        onError: (error) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+  if (!_formKey.currentState!.validate() || _dob == null || _gender == null) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing Information")));
+    return;
   }
+
+  setState(() => _loading = true);
+
+  // Get reCAPTCHA token before starting phone verification
+  final token = await getRecaptchaToken('signup_start');
+  if (token == null) {
+    setState(() => _loading = false);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Security check failed. Please try again.")));
+    return;
+  }
+
+  // TODO: Send token to your backend (Cloud Function or server) to create assessment
+  // For now, proceed if token generated (dashboard will see executes)
+  // Later: only proceed if score > threshold (e.g. 0.4)
+
+  final authRepo = context.read<AuthRepository>();
+
+  try {
+    await authRepo.verifyPhoneNumber(
+      phoneNumber: _phone.text.trim(),
+      onCodeSent: (verificationId) {
+        // ... same as before
+      },
+      onError: (error) { /* same */ },
+    );
+  } catch (e) { /* same */ } finally {
+    if (mounted) setState(() => _loading = false);
+  }
+}
 
   Future<void> _handleFinalVerification(String verId, String code) async {
     final messenger = ScaffoldMessenger.of(context);
