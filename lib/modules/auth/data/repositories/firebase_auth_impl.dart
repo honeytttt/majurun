@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter/foundation.dart' show debugPrint; // ← ADD THIS IMPORT
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -36,19 +36,31 @@ class FirebaseAuthImpl implements AuthRepository {
     required Function(String verificationId) onCodeSent,
     required Function(String errorMessage) onError,
   }) async {
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        onError(e.message ?? "Verification failed.");
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        onCodeSent(verificationId);
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {},
-    );
+    debugPrint("verifyPhoneNumber called with phone: $phoneNumber");
+
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          debugPrint("Auto-verification completed (instant verification)");
+          await _auth.signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          debugPrint("Verification failed: ${e.code} - ${e.message}");
+          onError(e.message ?? "Verification failed: ${e.code}");
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          debugPrint("Code sent successfully - verificationId: $verificationId");
+          onCodeSent(verificationId);
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          debugPrint("Auto retrieval timeout: $verificationId");
+        },
+      );
+    } catch (e) {
+      debugPrint("Exception in verifyPhoneNumber: $e");
+      onError("Phone verification exception: $e");
+    }
   }
 
   @override
@@ -99,7 +111,6 @@ class FirebaseAuthImpl implements AuthRepository {
           debugPrint("Email credential linked successfully to existing user");
         } on FirebaseAuthException catch (e) {
           if (e.code == 'provider-already-linked') {
-            // Already linked → just use current user
             debugPrint("Email already linked to this user");
             user = currentUser;
           } else if (e.code == 'email-already-in-use') {
@@ -111,7 +122,6 @@ class FirebaseAuthImpl implements AuthRepository {
           }
         }
       } else {
-        // No current user → create new email account (fallback)
         debugPrint("No current user found - creating new email account");
         final cred = await _auth.createUserWithEmailAndPassword(
           email: email.trim(),

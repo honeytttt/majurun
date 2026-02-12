@@ -1,10 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- App Check debug token for LOCAL/DEV ONLY.
+       First load prints a token in DevTools console.
+       After you register that token in Firebase Console (App Check → Apps),
+       replace 'true' with the literal token string.
+       Remove this entirely for production builds. -->
+  <script>
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = "05764338-1584-49ce-85d8-2e43a2ac0e6e";
+    // Example after registering:
+    // self.FIREBASE_APPCHECK_DEBUG_TOKEN = "PASTE_YOUR_DEBUG_TOKEN_HERE";
+  </script>
+
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="MajuRun App">
+  <!-- (FYI: meta apple-mobile-web-app-capable is deprecated; optional to adjust later) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="majurun">
@@ -32,10 +44,11 @@
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- Google Maps -->
+  <!-- Google Maps (performance hint suggests loading=async, but we keep as-is to avoid breaking changes) -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY&libraries=places,geometry"></script>
 
-  <!-- reCAPTCHA Enterprise (moved higher for better loading reliability) -->
+  <!-- reCAPTCHA Enterprise (you may keep or remove; App Check will load what it needs.
+       Leaving it here does not break behavior.) -->
   <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfJE2gsAAAAAP2xeAzsC95tz7jAzim7wAjtarF0"></script>
 
   <!-- Flutter bootstrap (must be last script in head) -->
@@ -45,7 +58,6 @@
   <!-- Wake Lock API -->
   <script>
     let wakeLock = null;
-
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) {
@@ -61,7 +73,6 @@
         console.error('Wake Lock error:', err);
       }
     }
-
     function releaseWakeLock() {
       if (wakeLock !== null) {
         wakeLock.release();
@@ -69,14 +80,12 @@
         console.log('Wake Lock manually released');
       }
     }
-
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible' && wakeLock !== null) {
         console.log('Page visible → reacquiring wake lock');
         await requestWakeLock();
       }
     });
-
     window.requestWakeLock = requestWakeLock;
     window.releaseWakeLock = releaseWakeLock;
   </script>

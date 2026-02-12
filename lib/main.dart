@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+// App Check
+import 'package:firebase_app_check/firebase_app_check.dart';
+
 // Theme
 import 'core/theme/app_theme.dart';
 // Repos
@@ -17,19 +20,31 @@ import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 // Counter initializer
 import 'core/utils/user_counters_initializer.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
+  // Initialize Firebase App Check BEFORE using any protected Firebase APIs
+  // Web: Use reCAPTCHA Enterprise provider with your site key
+  await FirebaseAppCheck.instance.activate(
+    webProvider: ReCaptchaEnterpriseProvider(
+      '6LfJE2gsAAAAAP2xeAzsC95tz7jAzim7wAjtarF0', // your Enterprise site key
+    ),
+    // If you enforce App Check on mobile later, you can add providers here:
+    // androidProvider: AndroidProvider.playIntegrity,
+    // appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+  );
+
   // Initialize user counters on first launch (non-blocking)
   FirebaseAuth.instance.authStateChanges().listen((user) {
     if (user != null) {
       UserCountersInitializer.initializeOnFirstLaunch();
     }
   });
-  
+
   runApp(
     MultiProvider(
       providers: [
@@ -45,7 +60,6 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

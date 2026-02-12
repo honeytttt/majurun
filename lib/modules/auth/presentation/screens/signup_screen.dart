@@ -49,7 +49,7 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!mounted) return;
     setState(() => _loading = true);
 
-    // Step 1: Bot protection with your custom reCAPTCHA (keep this for signup abuse prevention)
+    // Step 1: Bot protection with custom reCAPTCHA
     String? token;
     try {
       token = await getRecaptchaToken('signup_start');
@@ -68,7 +68,7 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Step 2: Verify custom token with Cloud Function (your bot check)
+    // Step 2: Verify bot check with Cloud Function
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'asia-southeast1');
       final callable = functions.httpsCallable('verifyRecaptcha');
@@ -106,20 +106,20 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Step 3: Format phone (E.164)
+    // Step 3: Format phone to E.164 (Singapore default)
     String phone = _phone.text.trim().replaceAll(RegExp(r'[\s\-]'), '');
     if (!phone.startsWith('+')) {
       if (phone.startsWith('65')) {
-        phone = '+' + phone;
+        phone = '+$phone';
       } else if (phone.startsWith('0')) {
-        phone = '+65' + phone.substring(1);
+        phone = '+65${phone.substring(1)}';
       } else {
-        phone = '+65' + phone;
+        phone = '+65$phone';
       }
     }
     debugPrint("Formatted phone for OTP: $phone");
 
-    // Step 4: Phone verification - let Firebase Auth handle its own reCAPTCHA verifier
+    // Step 4: Phone verification (Firebase handles its own verifier)
     final authRepo = context.read<AuthRepository>();
 
     try {
