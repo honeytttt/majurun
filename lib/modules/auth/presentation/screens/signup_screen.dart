@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'otp_screen.dart';
 import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 
@@ -48,7 +49,7 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!mounted) return;
     setState(() => _loading = true);
 
-    // Get reCAPTCHA token (web platform only)
+    // Step 1: Bot protection with your custom reCAPTCHA (keep this for signup abuse prevention)
     String? token;
     try {
       token = await getRecaptchaToken('signup_start');
@@ -67,7 +68,7 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Verify token with Cloud Function
+    // Step 2: Verify custom token with Cloud Function (your bot check)
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'asia-southeast1');
       final callable = functions.httpsCallable('verifyRecaptcha');
@@ -94,9 +95,9 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
-      debugPrint("reCAPTCHA passed with score: $score");
+      debugPrint("reCAPTCHA bot check passed with score: $score");
     } catch (e) {
-      debugPrint('Cloud Function call failed: $e');
+      debugPrint('Bot check Cloud Function error: $e');
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -105,32 +106,48 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Proceed with phone verification
+    // Step 3: Format phone (E.164)
+    String phone = _phone.text.trim().replaceAll(RegExp(r'[\s\-]'), '');
+    if (!phone.startsWith('+')) {
+      if (phone.startsWith('65')) {
+        phone = '+' + phone;
+      } else if (phone.startsWith('0')) {
+        phone = '+65' + phone.substring(1);
+      } else {
+        phone = '+65' + phone;
+      }
+    }
+    debugPrint("Formatted phone for OTP: $phone");
+
+    // Step 4: Phone verification - let Firebase Auth handle its own reCAPTCHA verifier
     final authRepo = context.read<AuthRepository>();
 
     try {
       await authRepo.verifyPhoneNumber(
-        phoneNumber: _phone.text.trim(),
+        phoneNumber: phone,
         onCodeSent: (verificationId) {
+          debugPrint("OTP sent! Verification ID received: $verificationId");
           if (!mounted) return;
           setState(() => _loading = false);
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => OtpScreen(
-                phoneNumber: _phone.text.trim(),
+                phoneNumber: phone,
                 onVerify: (otpCode) => _handleFinalVerification(verificationId, otpCode),
               ),
             ),
           );
         },
         onError: (error) {
+          debugPrint("OTP send error: $error");
           if (!mounted) return;
           setState(() => _loading = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
         },
       );
     } catch (e) {
+      debugPrint('Phone verification exception: $e');
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
