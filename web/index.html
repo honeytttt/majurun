@@ -12,73 +12,80 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <title>majurun</title>
   <link rel="manifest" href="manifest.json">
-  
-  <!-- Material Icons - Required for Flutter icons on web -->
+
+  <!-- Material Icons -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Round">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Sharp">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Two+Tone">
 
+  <!-- Force HTTPS except localhost -->
   <script>
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       location.replace(`https:${location.href.substring(location.protocol.length)}`);
     }
   </script>
 
+  <!-- Google Sign-In -->
   <meta name="google-signin-client_id" content="648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com">
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- Google Maps - Traditional loading for Safari compatibility -->
+  <!-- Google Maps -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9sCbH0hZRUO2wxk9IClyZC9DNcHCZBNY&libraries=places,geometry"></script>
+
+  <!-- reCAPTCHA Enterprise (moved higher for better loading reliability) -->
   <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfJE2gsAAAAAP2xeAzsC95tz7jAzim7wAjtarF0"></script>
+
+  <!-- Flutter bootstrap (must be last script in head) -->
   <script src="flutter_bootstrap.js" async></script>
-  
 </head>
 <body>
-  <!-- Wake Lock API for keeping screen awake during runs -->
+  <!-- Wake Lock API -->
   <script>
     let wakeLock = null;
 
-    // Request wake lock
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) {
           wakeLock = await navigator.wakeLock.request('screen');
-          console.log('🔒 Wake Lock activated - screen will stay awake');
-          
+          console.log('Wake Lock activated');
           wakeLock.addEventListener('release', () => {
-            console.log('🔓 Wake Lock released');
+            console.log('Wake Lock released');
           });
         } else {
-          console.warn('⚠️ Wake Lock API not supported on this browser');
+          console.warn('Wake Lock API not supported');
         }
       } catch (err) {
-        console.error('❌ Wake Lock error:', err);
+        console.error('Wake Lock error:', err);
       }
     }
 
-    // Release wake lock
     function releaseWakeLock() {
       if (wakeLock !== null) {
         wakeLock.release();
         wakeLock = null;
-        console.log('🔓 Wake Lock manually released');
+        console.log('Wake Lock manually released');
       }
     }
 
-    // Auto-reacquire wake lock when page becomes visible
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible' && wakeLock !== null) {
-        console.log('👁️ Page visible again, reacquiring wake lock...');
+        console.log('Page visible → reacquiring wake lock');
         await requestWakeLock();
       }
     });
-    
-    // Make functions available globally for Flutter
+
     window.requestWakeLock = requestWakeLock;
     window.releaseWakeLock = releaseWakeLock;
   </script>
+
+  <!-- reCAPTCHA branding requirement (invisible mode still needs this text somewhere) -->
+  <div style="position: fixed; bottom: 8px; right: 8px; font-size: 10px; color: #aaa; z-index: 9999;">
+    Protected by <a href="https://www.google.com/recaptcha/about/" target="_blank" style="color: #aaa;">reCAPTCHA</a>
+    <a href="https://policies.google.com/privacy" target="_blank" style="color: #aaa;">Privacy</a> &
+    <a href="https://policies.google.com/terms" target="_blank" style="color: #aaa;">Terms</a>
+  </div>
 </body>
 </html>

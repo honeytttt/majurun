@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show debugPrint; // ← ADD THIS IMPORT
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -67,7 +68,7 @@ class FirebaseAuthImpl implements AuthRepository {
   Future<AppUser?> signInWithEmail(String email, String password) async {
     final cred = await _auth.signInWithEmailAndPassword(
         email: email.trim(), password: password.trim());
-    
+
     if (!cred.user!.emailVerified && !cred.user!.isAnonymous) {
       await cred.user!.sendEmailVerification();
       throw "Security: Please verify your email. A link has been sent to $email.";
@@ -86,45 +87,80 @@ class FirebaseAuthImpl implements AuthRepository {
     required String phoneNumber,
   }) async {
     try {
-      UserCredential cred;
-      // Link email to the phone session already active
-      if (_auth.currentUser != null) {
+      User? user;
+
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        // Phone session already active → try to link email credential
         final emailAuth = EmailAuthProvider.credential(email: email, password: password);
-        cred = await _auth.currentUser!.linkWithCredential(emailAuth);
+        try {
+          final cred = await currentUser.linkWithCredential(emailAuth);
+          user = cred.user;
+          debugPrint("Email credential linked successfully to existing user");
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'provider-already-linked') {
+            // Already linked → just use current user
+            debugPrint("Email already linked to this user");
+            user = currentUser;
+          } else if (e.code == 'email-already-in-use') {
+            debugPrint("Email already in use: ${e.message}");
+            throw "This email is already registered with another account. Please sign in or use a different email.";
+          } else {
+            debugPrint("Linking error: ${e.code} - ${e.message}");
+            rethrow;
+          }
+        }
       } else {
-        cred = await _auth.createUserWithEmailAndPassword(
-            email: email.trim(), password: password.trim());
+        // No current user → create new email account (fallback)
+        debugPrint("No current user found - creating new email account");
+        final cred = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password.trim(),
+        );
+        user = cred.user;
       }
-      
-      if (cred.user != null) {
-        await cred.user!.sendEmailVerification();
-        await _db.collection('users').doc(cred.user!.uid).set({
-          'firstName': firstName,
-          'lastName': lastName,
-          'displayName': '$firstName $lastName',
-          'email': email,
-          'dob': dob.toIso8601String(),
-          'gender': gender,
-          'phoneNumber': phoneNumber,
-          'createdAt': FieldValue.serverTimestamp(),
-          'workoutsCount': 0,
-          'totalKm': 0.0,
-          'totalRunSeconds': 0,
-          'totalCalories': 0,
-          'postsCount': 0,
-          'followersCount': 0,
-          'followingCount': 0,
-          'badge5k': 0,
-          'badge10k': 0,
-          'badgeHalf': 0,
-          'badgeFull': 0,
-        }, SetOptions(merge: true));
-        
-        await cred.user!.updateDisplayName("$firstName $lastName");
+
+      if (user == null) {
+        throw "Authentication failed - no user returned after linking/creation";
       }
-      return _mapUser(cred.user);
+
+      // Send verification email
+      await user.sendEmailVerification();
+
+      // Safe Firestore write (merge = true)
+      await _db.collection('users').doc(user.uid).set({
+        'firstName': firstName,
+        'lastName': lastName,
+        'displayName': '$firstName $lastName',
+        'email': email,
+        'dob': dob.toIso8601String(),
+        'gender': gender,
+        'phoneNumber': phoneNumber,
+        'createdAt': FieldValue.serverTimestamp(),
+        'workoutsCount': 0,
+        'totalKm': 0.0,
+        'totalRunSeconds': 0,
+        'totalCalories': 0,
+        'postsCount': 0,
+        'followersCount': 0,
+        'followingCount': 0,
+        'badge5k': 0,
+        'badge10k': 0,
+        'badgeHalf': 0,
+        'badgeFull': 0,
+      }, SetOptions(merge: true));
+
+      await user.updateDisplayName("$firstName $lastName");
+
+      debugPrint("User profile created/updated for UID: ${user.uid}");
+
+      return _mapUser(user);
     } on FirebaseAuthException catch (e) {
-      throw e.message ?? "Signup failed";
+      debugPrint("Auth exception during signup: ${e.code} - ${e.message}");
+      throw e.message ?? "Signup failed: ${e.code}";
+    } catch (e) {
+      debugPrint("Unexpected error during signup: $e");
+      throw "Unexpected error during signup: $e";
     }
   }
 
@@ -134,7 +170,8 @@ class FirebaseAuthImpl implements AuthRepository {
     if (googleUser == null) return null;
     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
     final AuthCredential credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken, idToken: googleAuth.idToken,
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
     );
     final UserCredential userCredential = await _auth.signInWithCredential(credential);
 
