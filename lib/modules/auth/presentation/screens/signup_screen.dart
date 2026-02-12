@@ -1,14 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
-import 'otp_screen.dart';
-import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
+// lib/modules/auth/presentation/screens/signup_screen.dart
 
-// Conditional import for web-only helper
-import 'package:majurun/web/recaptcha_helper.dart'
-    if (dart.library.html) 'package:majurun/web/recaptcha_helper.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+// ✅ relative import to your repository interface still correct (from /presentation/screens)
+import '../../domain/repositories/auth_repository.dart';
+
+// ✅ robust OTP import (replace 'majurun' with the actual pubspec name)
+import 'otp_screen.dart'; 
+
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -19,295 +20,388 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // Controllers
+  final _fullName = TextEditingController();
   final _email = TextEditingController();
-  final _pass = TextEditingController();
-  final _fName = TextEditingController();
-  final _lName = TextEditingController();
   final _phone = TextEditingController();
+  final _password = TextEditingController();
 
-  DateTime? _dob;
-  String? _gender;
+  // UI state
   bool _loading = false;
-  bool _obscurePassword = true;
+  bool _obscure = true;
+  String _countryCode = '+65';
+  DateTime? _dob;
+  String? _gender; // 'male' | 'female' | 'other'
+  bool _agree = true;
 
-  InputDecoration _buildInput(String label, IconData icon) => InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 22, color: Colors.blueAccent),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      );
+  final _dateFmt = DateFormat('dd MMM yyyy');
 
-  Future<void> _onRegisterPressed() async {
-    if (!_formKey.currentState!.validate() || _dob == null || _gender == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all required fields")),
-      );
-      return;
-    }
+  @override
+  void dispose() {
+    _fullName.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _password.dispose();
+    super.dispose();
+  }
 
-    if (!mounted) return;
-    setState(() => _loading = true);
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final first = DateTime(now.year - 100, now.month, now.day);
+    final last = DateTime(now.year - 13, now.month, now.day);
 
-    // Step 1: Bot protection with custom reCAPTCHA
-    String? token;
-    try {
-      token = await getRecaptchaToken('signup_start');
-    } catch (e) {
-      debugPrint('reCAPTCHA token error: $e');
-    }
-
-    if (token == null) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Security check failed. Please disable ad blockers or try again."),
-        ),
-      );
-      return;
-    }
-
-    // Step 2: Verify bot check with Cloud Function
-    try {
-      final functions = FirebaseFunctions.instanceFor(region: 'asia-southeast1');
-      final callable = functions.httpsCallable('verifyRecaptcha');
-
-      final result = await callable.call({
-        'token': token,
-        'action': 'signup_start',
-      });
-
-      final data = result.data as Map<String, dynamic>;
-      final score = (data['score'] as num?)?.toDouble() ?? 0.0;
-      final valid = data['valid'] as bool? ?? false;
-
-      if (!valid) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Security check failed (score: ${score.toStringAsFixed(2)}). Please try again.",
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 25, now.month, now.day),
+      firstDate: first,
+      lastDate: last,
+      helpText: 'Select Date of Birth',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          datePickerTheme: const DatePickerThemeData(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
             ),
           ),
-        );
-        return;
-      }
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _dob = picked);
+  }
 
-      debugPrint("reCAPTCHA bot check passed with score: $score");
-    } catch (e) {
-      debugPrint('Bot check Cloud Function error: $e');
-      if (!mounted) return;
-      setState(() => _loading = false);
+  String _e164() {
+    final digits = _phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    return '$_countryCode$digits';
+  }
+
+  double _passwordScore(String v) {
+    double s = 0;
+    if (v.length >= 8) s += .25;
+    if (RegExp(r'[A-Z]').hasMatch(v)) s += .2;
+    if (RegExp(r'[a-z]').hasMatch(v)) s += .2;
+    if (RegExp(r'[0-9]').hasMatch(v)) s += .2;
+    if (RegExp(r'[^A-Za-z0-9]').hasMatch(v)) s += .15;
+    return s.clamp(0, 1);
+  }
+
+  Color _scoreColor(double s, ColorScheme cs) {
+    if (s < .35) return Colors.red.shade400;
+    if (s < .7) return Colors.orange.shade600;
+    return cs.primary;
+  }
+
+  Future<void> _submit() async {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid || _dob == null || _gender == null || !_agree) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Security verification failed: $e")),
+        const SnackBar(content: Text('Please complete all required fields.')),
       );
       return;
     }
 
-    // Step 3: Format phone to E.164 (Singapore default)
-    String phone = _phone.text.trim().replaceAll(RegExp(r'[\s\-]'), '');
-    if (!phone.startsWith('+')) {
-      if (phone.startsWith('65')) {
-        phone = '+$phone';
-      } else if (phone.startsWith('0')) {
-        phone = '+65${phone.substring(1)}';
-      } else {
-        phone = '+65$phone';
-      }
-    }
-    debugPrint("Formatted phone for OTP: $phone");
+    setState(() => _loading = true);
 
-    // Step 4: Phone verification (Firebase handles its own verifier)
+    final e164 = _e164();
     final authRepo = context.read<AuthRepository>();
 
     try {
       await authRepo.verifyPhoneNumber(
-        phoneNumber: phone,
+        phoneNumber: e164,
         onCodeSent: (verificationId) {
-          debugPrint("OTP sent! Verification ID received: $verificationId");
           if (!mounted) return;
           setState(() => _loading = false);
+
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => OtpScreen(
-                phoneNumber: phone,
-                onVerify: (otpCode) => _handleFinalVerification(verificationId, otpCode),
+                phoneNumber: e164,
+                onVerify: (code) async {
+                  await authRepo.signInWithOtp(
+                    verificationId: verificationId,
+                    smsCode: code,
+                  );
+                  // AuthWrapper will pick up the signed-in state.
+                },
               ),
             ),
           );
         },
-        onError: (error) {
-          debugPrint("OTP send error: $error");
+        onError: (message) {
           if (!mounted) return;
           setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
         },
       );
     } catch (e) {
-      debugPrint('Phone verification exception: $e');
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
-  }
-
-  Future<void> _handleFinalVerification(String verId, String code) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    try {
-      final authRepo = context.read<AuthRepository>();
-      await authRepo.signInWithOtp(verificationId: verId, smsCode: code);
-      await authRepo.signUpWithEmail(
-        email: _email.text.trim(),
-        password: _pass.text.trim(),
-        firstName: _fName.text.trim(),
-        lastName: _lName.text.trim(),
-        dob: _dob!,
-        gender: _gender!,
-        phoneNumber: _phone.text.trim(),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send OTP: $e')),
       );
-
-      if (!mounted) return;
-      _showSuccessDialog(messenger, navigator, _email.text.trim());
-    } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
     }
-  }
-
-  void _showSuccessDialog(ScaffoldMessengerState messenger, NavigatorState navigator, String email) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(Icons.mark_email_unread, size: 60, color: Colors.blueAccent),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Phone Verified!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            const SizedBox(height: 10),
-            Text(
-              "We've sent a final activation link to $email. Please verify your email to log in.",
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => navigator.popUntil((route) => route.isFirst),
-            child: const Text("I UNDERSTAND"),
-          )
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("Join Majurun", style: TextStyle(fontWeight: FontWeight.bold))),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const Text("Step 1: Profile Info",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: TextFormField(controller: _fName, decoration: _buildInput("First Name", Icons.person_outline))),
-                const SizedBox(width: 12),
-                Expanded(child: TextFormField(controller: _lName, decoration: _buildInput("Last Name", Icons.person_outline))),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ignore: deprecated_member_use
-            DropdownButtonFormField<String>(
-              decoration: _buildInput("Gender", Icons.wc),
-              value: _gender,
-              onChanged: (v) => setState(() => _gender = v),
-              items: ["Male", "Female", "Other"].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime(2000),
-                  firstDate: DateTime(1900),
-                  lastDate: DateTime.now(),
-                );
-                if (d != null) setState(() => _dob = d);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(12)),
-                child: Text(_dob == null ? "Select Date of Birth" : DateFormat('dd MMMM yyyy').format(_dob!)),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text("Step 2: Security",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 16),
-            TextFormField(controller: _email, decoration: _buildInput("Email Address", Icons.email_outlined)),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: _buildInput("Mobile (+CountryCode)", Icons.phone_android),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _pass,
-              obscureText: _obscurePassword,
-              decoration: _buildInput("Password", Icons.lock_outline).copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Card(
+              elevation: 0,
+              color: cs.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(Icons.directions_run_rounded, size: 40, color: cs.primary),
+                          const SizedBox(height: 8),
+                          Text('Create your account', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Join MajuRun and start your journey',
+                            style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Form
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _fullName,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Full name',
+                                hintText: 'e.g. Alex Tan',
+                              ),
+                              validator: (v) =>
+                                  (v == null || v.trim().length < 2) ? 'Enter your full name' : null,
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _email,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                hintText: 'name@domain.com',
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return 'Email is required';
+                                final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim());
+                                return ok ? null : 'Enter a valid email';
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Phone row
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 110,
+                                  child: DropdownButtonFormField<String>(
+                                    // 🔧 Flutter 3.33+ prefers `initialValue` over `value`
+                                    initialValue: _countryCode,
+                                    decoration: const InputDecoration(labelText: 'Code'),
+                                    items: const [
+                                      DropdownMenuItem(value: '+65', child: Text('+65 SG')),
+                                      DropdownMenuItem(value: '+60', child: Text('+60 MY')),
+                                      DropdownMenuItem(value: '+91', child: Text('+91 IN')),
+                                      DropdownMenuItem(value: '+1', child: Text('+1 US')),
+                                    ],
+                                    onChanged: (v) => setState(() => _countryCode = v ?? '+65'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _phone,
+                                    keyboardType: TextInputType.phone,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Mobile number',
+                                      hintText: '9689 2876',
+                                    ),
+                                    validator: (v) {
+                                      final digits = (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+                                      if (digits.length < 7) return 'Enter a valid phone number';
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // DOB & Gender
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: _pickDob,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(labelText: 'Date of birth'),
+                                      child: Text(_dob == null ? 'Tap to select' : _dateFmt.format(_dob!)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: SegmentedButton<String>(
+                                    segments: const [
+                                      ButtonSegment(value: 'male', label: Text('Male')),
+                                      ButtonSegment(value: 'female', label: Text('Female')),
+                                      ButtonSegment(value: 'other', label: Text('Other')),
+                                    ],
+                                    selected: {_gender ?? ''}..remove(''),
+                                    onSelectionChanged: (s) => setState(() => _gender = s.first),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Password + strength
+                            StatefulBuilder(
+                              builder: (ctx, setPassState) {
+                                final s = _passwordScore(_password.text);
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextFormField(
+                                      controller: _password,
+                                      obscureText: _obscure,
+                                      textInputAction: TextInputAction.done,
+                                      decoration: InputDecoration(
+                                        labelText: 'Password',
+                                        hintText: 'At least 8 characters',
+                                        suffixIcon: IconButton(
+                                          onPressed: () => setState(() => _obscure = !_obscure),
+                                          icon: Icon(
+                                            _obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                          ),
+                                        ),
+                                      ),
+                                      onChanged: (_) => setPassState(() {}),
+                                      validator: (v) => (v == null || v.length < 8)
+                                          ? 'Use at least 8 characters'
+                                          : null,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: LinearProgressIndicator(
+                                        value: s,
+                                        minHeight: 6,
+                                        // 🔧 use new Material color role (no deprecation)
+                                        color: _scoreColor(s, cs),
+                                        backgroundColor: cs.surfaceContainerHighest,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      s < .35 ? 'Weak' : s < .7 ? 'Medium' : 'Strong',
+                                      style: Theme.of(ctx)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: _scoreColor(s, cs)),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              value: _agree,
+                              onChanged: (v) => setState(() => _agree = v ?? false),
+                              title: const Text(
+                                'I agree to the Terms of Service and Privacy Policy.',
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text.rich(
+                                TextSpan(
+                                  text:
+                                      'This site is protected by reCAPTCHA and the Google ',
+                                  children: [
+                                    TextSpan(
+                                      text: 'Privacy Policy',
+                                      style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                                    ),
+                                    const TextSpan(text: ' and '),
+                                    TextSpan(
+                                      text: 'Terms of Service',
+                                      style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                                    ),
+                                    const TextSpan(text: ' apply.'),
+                                  ],
+                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: _loading
+                                  ? FilledButton(
+                                      onPressed: () {},
+                                      child: const SizedBox(
+                                        height: 52,
+                                        child: Center(
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      ),
+                                    )
+                                  : FilledButton.icon(
+                                      onPressed: _submit,
+                                      icon: const Icon(Icons.sms_rounded),
+                                      label: const Text('Send OTP'),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              "This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: _loading ? null : _onRegisterPressed,
-                child: _loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("VERIFY & CREATE PROFILE"),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _pass.dispose();
-    _fName.dispose();
-    _lName.dispose();
-    _phone.dispose();
-    super.dispose();
   }
 }
