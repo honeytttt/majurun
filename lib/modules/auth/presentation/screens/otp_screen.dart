@@ -1,5 +1,5 @@
-// lib/otp_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- add this
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -49,19 +49,36 @@ class _OtpScreenState extends State<OtpScreen> {
         focusNode: _focusNodes[index],
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
+        textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
         maxLength: 1,
+        // IMPORTANT: do NOT make this list const, since not all formatters are const
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(1),
+        ],
         decoration: const InputDecoration(
           counterText: "",
-          border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
         ),
+        onTap: () {
+          _controllers[index].selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: _controllers[index].text.length,
+          );
+        },
         onChanged: (v) {
           if (v.isNotEmpty && index < 5) _focusNodes[index + 1].requestFocus();
           if (v.isEmpty && index > 0) _focusNodes[index - 1].requestFocus();
           if (index == 5 && v.isNotEmpty) _submitCode();
         },
+        onSubmitted: (_) {
+          if (index == 5) _submitCode();
+        },
       ),
     );
-    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,12 +128,15 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextButton.icon(
-                  onPressed: _isLoading ? null : () {
-                    // Keep minimal (resend handled by backing screen if needed)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please go back and send OTP again.')),
-                    );
-                  },
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please go back and send OTP again.'),
+                            ),
+                          );
+                        },
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Resend'),
                 ),
