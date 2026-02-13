@@ -7,21 +7,104 @@ import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
 import 'run_map_preview.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
-// ✅ Import the user profile screen
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
-
-// ✅ Import expandable text and post detail screen
 import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 
-class PostCard extends StatelessWidget {
+class PostCard extends StatefulWidget {
   final AppPost post;
+
   const PostCard({super.key, required this.post});
+
+  @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+  late String _sanitizedContent;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+    _sanitizedContent = _sanitizeText(widget.post.content);
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.content != widget.post.content) {
+      _sanitizedContent = _sanitizeText(widget.post.content);
+    }
+  }
+
+  void _initializeVideo() {
+    if (widget.post.media.isEmpty) return;
+    final firstMedia = widget.post.media.first;
+    if (firstMedia.type == MediaType.video && firstMedia.url.isNotEmpty) {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(firstMedia.url))
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {});
+            _videoController?.setLooping(true);
+          }
+        }).catchError((e) {
+          debugPrint('Video initialization failed: $e');
+        });
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    _chewieController?.dispose();
+    super.dispose();
+  }
 
   bool _isSessionPost(AppPost post) {
     final text = post.content.toLowerCase();
     return text.contains('training session') || text.contains('completed week');
+  }
+
+  String _sanitizeText(String text) {
+    if (text.isEmpty) return text;
+    
+    try {
+      final StringBuffer buffer = StringBuffer();
+      
+      for (int i = 0; i < text.length; i++) {
+        try {
+          final String char = text[i];
+          final int codeUnit = char.codeUnitAt(0);
+          
+          // Keep newlines (\n = 10), carriage returns (\r = 13), and all printable characters
+          // Also keep emojis and other Unicode characters (code units above 127)
+          if (codeUnit == 10 || codeUnit == 13) {
+            // Preserve newlines and carriage returns
+            buffer.write(char);
+          } else if (codeUnit >= 32 && codeUnit != 0xFFFD) {
+            // Keep all printable ASCII and Unicode characters except replacement character
+            buffer.write(char);
+          } else if (codeUnit > 127) {
+            // Keep Unicode characters (emojis, special chars)
+            buffer.write(char);
+          }
+          // Skip other control characters
+        } catch (e) {
+          // Skip invalid character
+          continue;
+        }
+      }
+      
+      final String result = buffer.toString();
+      return result.isNotEmpty ? result : ' ';
+    } catch (e) {
+      return ' ';
+    }
   }
 
   @override
@@ -29,24 +112,22 @@ class PostCard extends StatelessWidget {
     final repo = PostRepositoryImpl();
     final currentUser = FirebaseAuth.instance.currentUser;
     final currentUserId = currentUser?.uid ?? "";
-    final isOwnPost = currentUserId.isNotEmpty && post.userId == currentUserId;
-    final isLiked = post.likes.contains(currentUserId);
+    final isOwnPost = currentUserId.isNotEmpty && widget.post.userId == currentUserId;
+    final isLiked = widget.post.likes.contains(currentUserId);
 
-    final isRepost = post.quotedPostId != null &&
-        post.quotedPostId!.isNotEmpty &&
-        post.content.trim().isEmpty;
+    final isRepost = widget.post.quotedPostId != null &&
+        widget.post.quotedPostId!.isNotEmpty &&
+        widget.post.content.trim().isEmpty;
 
-    final isSession = _isSessionPost(post);
+    final isSession = _isSessionPost(widget.post);
 
     return GestureDetector(
-      behavior: HitTestBehavior.opaque, // Make entire card tappable
+      behavior: HitTestBehavior.opaque,
       onTap: () {
-        debugPrint('🃏 Post card TAPPED! ID: ${post.id}');
-        // Open post detail screen when card is tapped
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PostDetailScreen(post: post),
+            builder: (context) => PostDetailScreen(post: widget.post),
           ),
         );
       },
@@ -66,340 +147,333 @@ class PostCard extends StatelessWidget {
           ],
         ),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ✅ CLICKABLE AVATAR - Navigate to user profile
-                GestureDetector(
-                  onTap: () {
-                    debugPrint('🖱️ Avatar clicked: userId=${post.userId}, username=${post.username}');
-                    
-                    // Don't navigate to own profile (already in profile tab)
-                    if (isOwnPost) {
-                      debugPrint('⚠️ Cannot navigate to own profile from post');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('This is your profile! Use the Profile tab to view it.'),
-                          duration: Duration(seconds: 2),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (isOwnPost) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('This is your profile! Use the Profile tab.'),
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UserProfileScreen(
+                            userId: widget.post.userId,
+                            username: widget.post.username,
+                          ),
                         ),
                       );
-                      return;
-                    }
-                    
-                    // Navigate to user profile screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UserProfileScreen(
-                          userId: post.userId,
-                          username: post.username,
-                        ),
-                      ),
-                    );
-                  },
-                  child: FutureBuilder<String>(
-                    future: _getUserPhotoUrl(post.userId),
-                    builder: (context, snapshot) {
-                      final photoUrl = snapshot.data ?? '';
-                      
-                      // ✅ CRITICAL DEBUG LOGS
-                      if (snapshot.connectionState == ConnectionState.done) {
-                        debugPrint('🔵 PostCard: Finished loading photoUrl for ${post.userId}');
-                        debugPrint('   photoUrl = "$photoUrl"');
-                        debugPrint('   isEmpty = ${photoUrl.isEmpty}');
-                        debugPrint('   username = "${post.username}"');
-                      }
-
-                      // Show loading state
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                    },
+                    child: FutureBuilder<String>(
+                      future: _getUserPhotoUrl(widget.post.userId),
+                      builder: (context, snapshot) {
+                        final photoUrl = snapshot.data ?? '';
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const CircleAvatar(
+                            backgroundColor: Colors.grey,
+                            radius: 18,
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
+                          return const CircleAvatar(
+                            backgroundColor: Colors.blueGrey,
+                            radius: 18,
+                            child: Icon(Icons.person, color: Colors.white, size: 20),
+                          );
+                        }
                         return CircleAvatar(
+                          radius: 18,
                           backgroundColor: Colors.grey.shade300,
-                          radius: 18,
-                          child: const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFF00E676),
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Show fallback if no photoUrl
-                      if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
-                        debugPrint('⚠️ PostCard: Using fallback icon for ${post.userId} (photoUrl="$photoUrl")');
-                        return const CircleAvatar(
-                          backgroundColor: Colors.blueGrey,
-                          radius: 18,
-                          child: Icon(Icons.person, color: Colors.white, size: 20),
-                        );
-                      }
-
-                      // Show actual image
-                      debugPrint('🖼️ PostCard: Rendering image for ${post.userId}');
-                      return CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Colors.grey.shade300,
-                        child: ClipOval(
-                          child: Image.network(
-                            photoUrl,
-                            width: 36,
-                            height: 36,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) {
-                                debugPrint('✅ PostCard: Avatar image loaded successfully for ${post.userId}');
-                                return child;
-                              }
-                              
-                              final percent = loadingProgress.expectedTotalBytes != null
-                                  ? (loadingProgress.cumulativeBytesLoaded / 
-                                     loadingProgress.expectedTotalBytes! * 100).toInt()
-                                  : null;
-                              
-                              if (percent != null && percent % 25 == 0) {
-                                debugPrint('⏳ PostCard: Loading avatar... $percent%');
-                              }
-                              
-                              return const Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF00E676),
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stack) {
-                              debugPrint('❌ PostCard: Failed to load avatar for ${post.userId}');
-                              debugPrint('   URL: $photoUrl');
-                              debugPrint('   Error: $error');
-                              return const Icon(Icons.person, color: Colors.grey, size: 20);
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          // ✅ CLICKABLE USERNAME - Navigate to user profile
-                          GestureDetector(
-                            onTap: () {
-                              if (isOwnPost) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('This is your profile! Use the Profile tab to view it.'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                                return;
-                              }
-                              
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => UserProfileScreen(
-                                    userId: post.userId,
-                                    username: post.username,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              post.username,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Colors.grey,
-                                decorationStyle: TextDecorationStyle.dotted,
+                          child: ClipOval(
+                            child: Image.network(
+                              photoUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) => const Icon(
+                                Icons.person,
+                                color: Colors.grey,
+                                size: 20,
                               ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
                             ),
-                          ),
-                          if (isRepost) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.repeat_rounded, size: 16, color: Colors.green),
-                            const SizedBox(width: 4),
-                            Text(
-                              "reposted",
-                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                            ),
-                          ],
-                          if (isSession) ...[
-                            const SizedBox(width: 8),
-                            _pill("SESSION", Icons.fitness_center, Colors.green),
-                          ],
-                        ],
-                      ),
-                      Text(
-                        timeago.format(post.createdAt),
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isOwnPost)
-                  IconButton(
-                    icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 24),
-                    onPressed: () async {
-                      final confirm = await _showDeleteDialog(context);
-                      if (confirm == true) {
-                        await repo.deletePost(post.id);
-                      }
-                    },
-                  ),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Text Content
-                if (post.content.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: ExpandableText(
-                      text: post.content,
-                      maxLines: 5,
-                      style: const TextStyle(fontSize: 15, height: 1.4),
-                      onTap: () {
-                        // Open post detail screen when "more" is clicked
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PostDetailScreen(post: post),
                           ),
                         );
                       },
                     ),
                   ),
-
-                // Media first
-                _buildMediaSection(post),
-
-                // Route preview (GPS Path)
-                if (post.routePoints != null && post.routePoints!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: RunMapPreview(points: post.routePoints!),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (isOwnPost) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => UserProfileScreen(
+                                      userId: widget.post.userId,
+                                      username: widget.post.username,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                widget.post.username,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.grey,
+                                  decorationStyle: TextDecorationStyle.dotted,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            if (isRepost) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.repeat_rounded, size: 16, color: Colors.green),
+                              const SizedBox(width: 4),
+                              Text(
+                                "reposted",
+                                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                              ),
+                            ],
+                            if (isSession) ...[
+                              const SizedBox(width: 8),
+                              _pill("SESSION", Icons.fitness_center, Colors.green),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          timeago.format(widget.post.createdAt),
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
+                  if (isOwnPost)
+                    IconButton(
+                      icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 24),
+                      onPressed: () async {
+                        final confirm = await _showDeleteDialog(context);
+                        if (confirm == true) {
+                          await repo.deletePost(widget.post.id);
+                        }
+                      },
+                    ),
+                ],
+              ),
+            ),
 
-                // Quoted Post / Repost Preview
-                if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: QuotedPostPreview(postId: post.quotedPostId!),
-                  ),
-
-                // Empty placeholder
-                if (post.media.isEmpty && (post.routePoints == null || post.routePoints!.isEmpty))
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: _emptyPreview(),
-                  ),
-
-                const Divider(height: 32),
-
-                // Interaction Buttons - Prevent tap propagation
-                GestureDetector(
-                  onTap: () {}, // Absorb taps
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _ActionButton(
-                        icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                        label: '${post.likes.length}',
-                        color: isLiked ? Colors.red : Colors.grey[600],
-                        onTap: currentUserId.isNotEmpty
-                            ? () => repo.toggleLike(post.id, currentUserId)
-                            : null,
-                      ),
-                      _ActionButton(
-                        icon: Icons.chat_bubble_outline,
-                        label: 'Comment',
-                        onTap: () => showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) => CommentSheet(postId: post.id),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_sanitizedContent.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: ExpandableText(
+                        text: _sanitizedContent,
+                        maxLines: 5,
+                        style: const TextStyle(fontSize: 15, height: 1.4),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PostDetailScreen(post: widget.post),
+                          ),
                         ),
                       ),
-                      _ActionButton(
-                        icon: Icons.repeat_rounded,
-                        label: 'Repost',
-                        onTap: currentUserId.isNotEmpty
-                            ? () {
-                                final username = currentUser?.displayName ?? "Runner";
-                                repo.repost(post, currentUserId, username);
-                              }
-                            : null,
-                      ),
-                    ],
+                    ),
+
+                  if (widget.post.hasVisualContent)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _buildVisualContent(),
+                    ),
+
+                  if (widget.post.quotedPostId != null && widget.post.quotedPostId!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: QuotedPostPreview(postId: widget.post.quotedPostId!),
+                    ),
+
+                  const Divider(height: 32),
+
+                  GestureDetector(
+                    onTap: () {},
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _ActionButton(
+                          icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                          label: '${widget.post.likes.length}',
+                          color: isLiked ? Colors.red : Colors.grey[600],
+                          onTap: currentUserId.isNotEmpty
+                              ? () => repo.toggleLike(widget.post.id, currentUserId)
+                              : null,
+                        ),
+                        _ActionButton(
+                          icon: Icons.chat_bubble_outline,
+                          label: 'Comment',
+                          onTap: () => showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => CommentSheet(postId: widget.post.id),
+                          ),
+                        ),
+                        _ActionButton(
+                          icon: Icons.repeat_rounded,
+                          label: 'Repost',
+                          onTap: currentUserId.isNotEmpty
+                              ? () {
+                                  final username = currentUser?.displayName ?? "Runner";
+                                  repo.repost(widget.post, currentUserId, username);
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-              ],
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-    ); // Closing GestureDetector
+    );
   }
 
-  // ✅ Fetch user's photoUrl from Firestore with extensive logging
-  Future<String> _getUserPhotoUrl(String userId) async {
-    debugPrint('📡 PostCard: STARTING fetch for userId="$userId"');
-    
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      
-      debugPrint('📦 PostCard: Firestore response for $userId:');
-      debugPrint('   exists = ${doc.exists}');
-      
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        final photoUrl = data['photoUrl'] as String? ?? '';
-        
-        debugPrint('📸 PostCard: Extracted photoUrl for $userId:');
-        debugPrint('   photoUrl = "$photoUrl"');
-        debugPrint('   length = ${photoUrl.length}');
-        debugPrint('   starts with http = ${photoUrl.startsWith('http')}');
-        
-        return photoUrl;
-      } else {
-        debugPrint('⚠️ PostCard: No document data for $userId');
-      }
-    } catch (e, stack) {
-      debugPrint('❌ PostCard: ERROR fetching photoUrl for $userId');
-      debugPrint('   Error: $e');
-      debugPrint('   Stack: ${stack.toString().split('\n').take(3).join('\n')}');
+  Widget _buildVisualContent() {
+    final media = widget.post.media;
+    final hasMedia = media.isNotEmpty;
+    final hasRoute = widget.post.routePoints != null && widget.post.routePoints!.isNotEmpty;
+
+    Widget buildMediaContainer(Widget child, {double? aspectRatio}) {
+      return Container(
+        constraints: const BoxConstraints(
+          maxHeight: 400,
+          minHeight: 200,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.grey.shade100,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: child,
+      );
     }
-    
-    debugPrint('🔚 PostCard: Returning empty string for $userId');
-    return '';
+
+    if (hasMedia) {
+      final firstMedia = media.first;
+
+      if (firstMedia.type == MediaType.video) {
+        if (_videoController != null && _videoController!.value.isInitialized) {
+          final videoAspect = _videoController!.value.aspectRatio;
+
+          _chewieController ??= ChewieController(
+            videoPlayerController: _videoController!,
+            autoPlay: false,
+            looping: true,
+            aspectRatio: videoAspect,
+            materialProgressColors: ChewieProgressColors(
+              playedColor: const Color(0xFF00E676),
+              handleColor: const Color(0xFF00E676),
+            ),
+            placeholder: Container(
+              color: Colors.black.withValues(alpha: 0.4),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            errorBuilder: (context, errorMessage) {
+              return Center(
+                child: Text(
+                  'Video error: $errorMessage',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              );
+            },
+          );
+
+          return buildMediaContainer(
+            Chewie(controller: _chewieController!),
+          );
+        } else {
+          return buildMediaContainer(
+            const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF00E676)),
+                  SizedBox(height: 12),
+                  Text("Loading video...", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+
+      // Handle images - let them scale naturally
+      return buildMediaContainer(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Image.network(
+              firstMedia.url,
+              fit: BoxFit.contain,
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.grey.shade200,
+                child: const Center(
+                  child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                ),
+              ),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded / 
+                          loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      );
+    }
+
+    if (hasRoute) {
+      return buildMediaContainer(
+        RunMapPreview(points: widget.post.routePoints!),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _pill(String text, IconData icon, Color color) {
@@ -424,31 +498,6 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  Widget _emptyPreview() {
-    return Container(
-      height: 160,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.image_outlined, size: 34, color: Colors.grey.shade400),
-            const SizedBox(height: 8),
-            Text(
-              "No preview available",
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<bool?> _showDeleteDialog(BuildContext context) {
     return showDialog<bool>(
       context: context,
@@ -469,51 +518,16 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMediaSection(AppPost post) {
-    if (post.media.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Container(
-        constraints: const BoxConstraints(
-          maxHeight: 400,  // ✅ Prevents extreme stretching
-          minHeight: 200,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            post.media.first.url,
-            fit: BoxFit.contain,  // ✅ Changed from cover to contain - maintains aspect ratio
-            width: double.infinity,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                height: 300,
-                color: Colors.grey[200],
-                child: Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-                    color: const Color(0xFF00E676),
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 220,
-                color: Colors.grey.shade200,
-                child: const Center(
-                  child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
+  Future<String> _getUserPhotoUrl(String userId) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (doc.exists) {
+        return doc.data()?['photoUrl'] as String? ?? '';
+      }
+    } catch (e) {
+      debugPrint('Error fetching photoUrl: $e');
+    }
+    return '';
   }
 }
 

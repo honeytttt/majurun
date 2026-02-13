@@ -49,7 +49,6 @@ class AppPost extends Equatable {
   final List<String> likes;
   final List<AppComment> comments;
   final String? quotedPostId;
-  // NEW: Support for Run GPS path
   final List<LatLng>? routePoints;
 
   const AppPost({
@@ -65,18 +64,16 @@ class AppPost extends Equatable {
     this.routePoints,
   });
 
-  // ───────────────────────────────────────────────
-  //           Factory from Firestore document
-  // ───────────────────────────────────────────────
+  // NEW HELPER – makes conditional rendering cleaner
+  bool get hasVisualContent =>
+      media.isNotEmpty ||
+      (routePoints != null && routePoints!.isNotEmpty);
+
   factory AppPost.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-
     return AppPost.fromMap(data, id: doc.id);
   }
 
-  // ───────────────────────────────────────────────
-  //           Factory from Map (most flexible)
-  // ───────────────────────────────────────────────
   factory AppPost.fromMap(Map<String, dynamic> map, {required String id}) {
     return AppPost(
       id: id,
@@ -92,20 +89,16 @@ class AppPost extends Equatable {
     );
   }
 
-  // ───────────────────────────────────────────────
-  //                Helper parsers
-  // ───────────────────────────────────────────────
-
   static List<PostMedia> _parseMedia(dynamic value) {
     if (value == null || value is! List) return [];
     return value.map((item) {
       if (item is! Map<String, dynamic>) return null;
-      final typeStr = (item['type'] as String?)?.toLowerCase() ?? 'text';
+      final typeStr = (item['type'] as String?)?.toLowerCase() ?? 'image';
       return PostMedia(
         url: item['url'] as String? ?? '',
         type: MediaType.values.firstWhere(
           (e) => e.name == typeStr,
-          orElse: () => MediaType.text,
+          orElse: () => MediaType.image,
         ),
       );
     }).whereType<PostMedia>().toList();
@@ -127,7 +120,6 @@ class AppPost extends Equatable {
     if (value == null || value is! List) return [];
     return value.map((item) {
       if (item is! Map<String, dynamic>) return null;
-
       return AppComment(
         id: item['id'] as String? ?? '',
         userId: item['userId'] as String? ?? '',
@@ -143,12 +135,11 @@ class AppPost extends Equatable {
 
   static List<LatLng>? _parseRoutePoints(dynamic value) {
     if (value == null || value is! List) return null;
-
     final points = <LatLng>[];
     for (final p in value) {
       if (p is! Map<String, dynamic>) continue;
-      final lat = p['latitude'] as num?;
-      final lng = p['longitude'] as num?;
+      final lat = p['lat'] as num?;
+      final lng = p['lng'] as num?;
       if (lat != null && lng != null) {
         points.add(LatLng(lat.toDouble(), lng.toDouble()));
       }
