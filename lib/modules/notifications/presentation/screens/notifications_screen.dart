@@ -187,11 +187,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.emoji_events, color: Color(0xFF00E676)),
-            const SizedBox(width: 8),
-            const Text('Badge Earned!'),
+            Icon(Icons.emoji_events, color: Color(0xFF00E676)),
+            SizedBox(width: 8),
+            Text('Badge Earned!'),
           ],
         ),
         content: Text(notification.message),

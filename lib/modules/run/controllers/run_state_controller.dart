@@ -76,6 +76,15 @@ class RunStateController extends ChangeNotifier {
   bool _isStopping = false;
   bool _isInitialized = false;
 
+  // Idle detection
+  double _lastDistanceForIdle = 0.0;
+  int _idleSeconds = 0;
+  static const int _idleThresholdSeconds = 600; // 10 minutes
+  bool _hasNotifiedIdle = false;
+
+  // Callback for idle detection
+  VoidCallback? onIdleDetected;
+
   double get totalDistance => _totalDistance;
   int get secondsElapsed => _secondsElapsed;
   int get calories => totalCalories;
@@ -222,6 +231,9 @@ class RunStateController extends ChangeNotifier {
     _kmSplits.clear();
     _lastKmTime = 0;
     _isInitialized = false;
+    _lastDistanceForIdle = 0.0;
+    _idleSeconds = 0;
+    _hasNotifiedIdle = false;
     notifyListeners();
   }
 
@@ -248,9 +260,33 @@ class RunStateController extends ChangeNotifier {
           debugPrint("📊 ${_secondsElapsed}s - Distance: ${distanceString}km, Pace: $paceString, Cal: $totalCalories");
         }
 
+        // Idle detection - check if distance hasn't changed for 10 minutes
+        _checkIdleStatus();
+
         notifyListeners();
       }
     });
+  }
+
+  /// Check if user has been idle (no distance change) for 10+ minutes
+  void _checkIdleStatus() {
+    // Check if distance has changed since last check
+    if ((_totalDistance - _lastDistanceForIdle).abs() < 5.0) {
+      // No significant movement (less than 5 meters)
+      _idleSeconds++;
+    } else {
+      // User moved - reset idle counter
+      _idleSeconds = 0;
+      _lastDistanceForIdle = _totalDistance;
+      _hasNotifiedIdle = false;
+    }
+
+    // Notify if idle threshold reached (10 minutes) and haven't notified yet
+    if (_idleSeconds >= _idleThresholdSeconds && !_hasNotifiedIdle) {
+      _hasNotifiedIdle = true;
+      debugPrint("⏰ Idle detected - no movement for 10+ minutes");
+      onIdleDetected?.call();
+    }
   }
 
   void _handleKmMilestone(int km) {

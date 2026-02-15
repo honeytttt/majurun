@@ -31,6 +31,9 @@ class RunController extends ChangeNotifier {
     // Listen to state controller changes and propagate them
     stateController.addListener(_onStateControllerChanged);
 
+    // Connect idle detection callback
+    stateController.onIdleDetected = _handleIdleDetected;
+
     // Connect km milestone callback to voice announcements
     stateController.onKmMilestone = ({
       required int km,
@@ -65,6 +68,52 @@ class RunController extends ChangeNotifier {
 
   void _onStateControllerChanged() {
     notifyListeners();
+  }
+
+  /// Handle idle detection - show dialog asking if user is done
+  void _handleIdleDetected() {
+    final ctx = _uiContext;
+    if (ctx == null || !ctx.mounted) {
+      debugPrint("⚠️ No UI context for idle notification");
+      return;
+    }
+
+    // Show a snackbar with action to end run
+    final messenger = ScaffoldMessenger.maybeOf(ctx);
+    if (messenger == null) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 30),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.orange[800],
+        content: const Row(
+          children: [
+            Icon(Icons.timer_off, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "No movement for 10 minutes. Are you done for today?",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: "END RUN",
+          textColor: Colors.white,
+          onPressed: () {
+            // Trigger stop run
+            if (ctx.mounted) {
+              stopRun(ctx);
+            }
+          },
+        ),
+      ),
+    );
+
+    // Also speak the notification
+    voiceController.speakTraining("No movement detected for 10 minutes. Tap end run if you're done.");
   }
 
   // ---- Getters (unchanged) ----
@@ -397,6 +446,40 @@ class RunController extends ChangeNotifier {
     return (distanceKm * 60).round();
   }
 
+  /// Show notification that run was saved successfully
+  void _showRunSavedNotification(double distanceKm, int durationSeconds) {
+    final ctx = _uiContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(ctx);
+    if (messenger == null) return;
+
+    final distanceStr = distanceKm.toStringAsFixed(2);
+    final minutes = durationSeconds ~/ 60;
+    final seconds = durationSeconds % 60;
+    final durationStr = "$minutes:${seconds.toString().padLeft(2, '0')}";
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.green,
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Run saved! ${distanceStr}km in $durationStr",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ---- Auto-save (unchanged) ----
   void startAutoSave(String planTitle) {
     _autoSaveTimer?.cancel();
@@ -549,6 +632,9 @@ class RunController extends ChangeNotifier {
 
       // reset snack guard for next run
       _lastMilestoneSnackKm = 0;
+
+      // Show "run saved" notification
+      _showRunSavedNotification(finalDistance, finalDuration);
 
       notifyListeners();
       debugPrint("✅ RunController: Stop complete");

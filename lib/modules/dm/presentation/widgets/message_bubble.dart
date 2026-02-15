@@ -105,7 +105,6 @@ class MessageBubble extends StatelessWidget {
           ],
         );
       case MessageType.text:
-      default:
         return Text(
           message.content,
           style: TextStyle(

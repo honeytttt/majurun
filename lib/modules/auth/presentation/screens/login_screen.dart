@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Add this import
 import '../../domain/repositories/auth_repository.dart';
 import 'signup_screen.dart';
 
@@ -110,15 +111,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 20),
-                  
-                  // Guest User Link
-                  TextButton.icon(
-                    onPressed: _isLoading ? null : () => _handleAuthAction(authRepo.signInAsGuest),
-                    icon: const Icon(Icons.person_outline),
-                    label: const Text("Continue as Guest"),
-                  ),
-                  
                   const SizedBox(height: 30),
                   const Row(
                     children: [
@@ -136,24 +128,27 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
+                      // Google Icon
                       _socialIconButton(
                         icon: Icons.g_mobiledata, 
                         color: Colors.red, 
                         onTap: () => _handleAuthAction(authRepo.signInWithGoogle),
                       ),
+                      
+                      // Facebook Icon
                       _socialIconButton(
                         icon: Icons.facebook, 
                         color: Colors.blue.shade900, 
                         onTap: () => _handleAuthAction(authRepo.signInWithFacebook),
                       ),
+                      
+                      // Twitter/X Icon - Using Font Awesome's official X logo
+                      // This is the current X (Twitter) logo, not a close button
                       _socialIconButton(
-                        icon: Icons.close, // Represents 'X'
-                        color: Colors.black, 
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("X (Twitter) login coming soon!"))
-                          );
-                        },
+                        icon: FontAwesomeIcons.xTwitter, // Official X logo
+                        color: Colors.black,
+                        iconSize: 28, // Slightly smaller for better balance
+                        onTap: () => _handleAuthAction(authRepo.signInWithTwitter),
                       ),
                     ],
                   ),
@@ -185,7 +180,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _socialIconButton({required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _socialIconButton({
+    required IconData icon, 
+    required Color color, 
+    required VoidCallback onTap,
+    double iconSize = 32,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(50),
@@ -195,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
           shape: BoxShape.circle,
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: Icon(icon, color: color, size: 32),
+        child: Icon(icon, color: color, size: iconSize),
       ),
     );
   }

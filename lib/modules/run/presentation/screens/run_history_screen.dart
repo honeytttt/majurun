@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
+import 'package:majurun/core/services/badge_service.dart';
+import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -355,8 +358,47 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
             ],
           ),
+          // Badges Section
+          _buildBadgesSection(),
         ],
       ),
+    );
+  }
+
+  Widget _buildBadgesSection() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return const SizedBox.shrink();
+
+    return StreamBuilder<List<RunnerBadge>>(
+      stream: BadgeService().streamUserBadges(userId),
+      builder: (context, snapshot) {
+        final badges = snapshot.data ?? [];
+        if (badges.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Icon(Icons.emoji_events, size: 16, color: Colors.amber),
+                SizedBox(width: 8),
+                Text(
+                  "BADGES",
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            BadgesDisplay(badges: badges, showEmpty: false),
+          ],
+        );
+      },
     );
   }
 

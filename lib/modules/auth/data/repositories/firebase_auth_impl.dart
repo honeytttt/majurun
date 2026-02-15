@@ -214,13 +214,61 @@ class FirebaseAuthImpl implements AuthRepository {
   Future<AppUser?> signInWithFacebook() async => throw UnimplementedError();
 
   @override
-  Future<AppUser?> signInAsGuest() async {
+  Future<AppUser?> signInWithTwitter() async {
+    // Create a Twitter provider
+    final twitterProvider = TwitterAuthProvider();
+    
     try {
-      final cred = await _auth.signInAnonymously();
-      return _mapUser(cred.user);
+      // Sign in with popup (web) or redirect (mobile)
+      final userCredential = await _auth.signInWithPopup(twitterProvider);
+      
+      if (userCredential.user != null) {
+        // Check if user exists in Firestore
+        final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
+        
+        if (!userDoc.exists) {
+          // Create new user document for Twitter sign-in
+          await _db.collection('users').doc(userCredential.user!.uid).set({
+            'displayName': userCredential.user!.displayName ?? 'Runner',
+            'email': userCredential.user!.email ?? '',
+            'photoUrl': userCredential.user!.photoURL ?? '',
+            'createdAt': FieldValue.serverTimestamp(),
+            'workoutsCount': 0,
+            'totalKm': 0.0,
+            'totalRunSeconds': 0,
+            'totalCalories': 0,
+            'postsCount': 0,
+            'followersCount': 0,
+            'followingCount': 0,
+            'badge5k': 0,
+            'badge10k': 0,
+            'badgeHalf': 0,
+            'badgeFull': 0,
+          });
+        }
+      }
+      
+      return _mapUser(userCredential.user);
+    } on FirebaseAuthException catch (e) {
+      debugPrint("Twitter sign-in error: ${e.code} - ${e.message}");
+      
+      if (e.code == 'account-exists-with-different-credential') {
+        throw "An account already exists with the same email address but different sign-in credentials.";
+      } else if (e.code == 'provider-already-linked') {
+        throw "Twitter account is already linked to another account.";
+      }
+      
+      throw e.message ?? "Twitter sign-in failed";
     } catch (e) {
-      throw "Guest sign-in failed: $e";
+      debugPrint("Unexpected error during Twitter sign-in: $e");
+      throw "Twitter sign-in failed: $e";
     }
+  }
+
+  @override
+  Future<AppUser?> signInAsGuest() async {
+    // REMOVED: Guest sign-in functionality - now throws unimplemented
+    throw UnimplementedError("Guest sign-in has been disabled");
   }
 
   @override
