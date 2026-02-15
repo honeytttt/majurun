@@ -1,0 +1,199 @@
+{
+    "ETag": "E1PA6795UKMFR9",
+    "Distribution": {
+        "Id": "E3119D1YL9VG8H",
+        "ARN": "arn:aws:cloudfront::219024422812:distribution/E3119D1YL9VG8H",
+        "Status": "Deployed",
+        "LastModifiedTime": "2026-02-14T10:29:10.513000+00:00",
+        "InProgressInvalidationBatches": 0,
+        "DomainName": "d2hkk9lw3ztjzg.cloudfront.net",
+        "ActiveTrustedSigners": {
+            "Enabled": false,
+            "Quantity": 0
+        },
+        "ActiveTrustedKeyGroups": {
+            "Enabled": false,
+            "Quantity": 0
+        },
+        "DistributionConfig": {
+            "CallerReference": "6deb087d-8648-41e9-9aaa-7e851c139594",
+            "Aliases": {
+                "Quantity": 2,
+                "Items": [
+                    "www.majurun.com",
+                    "majurun.com"
+                ]
+            },
+            "DefaultRootObject": "index.html",
+            "Origins": {
+                "Quantity": 2,
+                "Items": [
+                    {
+                        "Id": "majurun-com-origin",
+                        "DomainName": "majurun.com.s3.ap-southeast-1.amazonaws.com",
+                        "OriginPath": "",
+                        "CustomHeaders": {
+                            "Quantity": 0
+                        },
+                        "S3OriginConfig": {
+                            "OriginAccessIdentity": "origin-access-identity/cloudfront/E2XKR0IG10SRMQ",
+                            "OriginReadTimeout": 30
+                        },
+                        "ConnectionAttempts": 3,
+                        "ConnectionTimeout": 10,
+                        "OriginShield": {
+                            "Enabled": false
+                        },
+                        "OriginAccessControlId": ""
+                    },
+                    {
+                        "Id": "www-majurun-com-origin",
+                        "DomainName": "www.majurun.com.s3.ap-southeast-1.amazonaws.com",
+                        "OriginPath": "",
+                        "CustomHeaders": {
+                            "Quantity": 0
+                        },
+                        "S3OriginConfig": {
+                            "OriginAccessIdentity": "origin-access-identity/cloudfront/E2XKR0IG10SRMQ",
+                            "OriginReadTimeout": 30
+                        },
+                        "ConnectionAttempts": 3,
+                        "ConnectionTimeout": 10,
+                        "OriginShield": {
+                            "Enabled": false
+                        },
+                        "OriginAccessControlId": ""
+                    }
+                ]
+            },
+            "OriginGroups": {
+                "Quantity": 0
+            },
+            "DefaultCacheBehavior": {
+                "TargetOriginId": "majurun-com-origin",
+                "TrustedSigners": {
+                    "Enabled": false,
+                    "Quantity": 0
+                },
+                "TrustedKeyGroups": {
+                    "Enabled": false,
+                    "Quantity": 0
+                },
+                "ViewerProtocolPolicy": "redirect-to-https",
+                "AllowedMethods": {
+                    "Quantity": 2,
+                    "Items": [
+                        "HEAD",
+                        "GET"
+                    ],
+                    "CachedMethods": {
+                        "Quantity": 2,
+                        "Items": [
+                            "HEAD",
+                            "GET"
+                        ]
+                    }
+                },
+                "SmoothStreaming": false,
+                "Compress": true,
+                "LambdaFunctionAssociations": {
+                    "Quantity": 0
+                },
+                "FunctionAssociations": {
+                    "Quantity": 0
+                },
+                "FieldLevelEncryptionId": "",
+                "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+                "GrpcConfig": {
+                    "Enabled": false
+                }
+            },
+            "CacheBehaviors": {
+                "Quantity": 1,
+                "Items": [
+                    {
+                        "PathPattern": "/privacy-policy.html",
+                        "TargetOriginId": "www-majurun-com-origin",
+                        "TrustedSigners": {
+                            "Enabled": false,
+                            "Quantity": 0
+                        },
+                        "TrustedKeyGroups": {
+                            "Enabled": false,
+                            "Quantity": 0
+                        },
+                        "ViewerProtocolPolicy": "redirect-to-https",
+                        "AllowedMethods": {
+                            "Quantity": 2,
+                            "Items": [
+                                "HEAD",
+                                "GET"
+                            ],
+                            "CachedMethods": {
+                                "Quantity": 2,
+                                "Items": [
+                                    "HEAD",
+                                    "GET"
+                                ]
+                            }
+                        },
+                        "SmoothStreaming": false,
+                        "Compress": true,
+                        "LambdaFunctionAssociations": {
+                            "Quantity": 0
+                        },
+                        "FunctionAssociations": {
+                            "Quantity": 0
+                        },
+                        "FieldLevelEncryptionId": "",
+                        "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+                        "GrpcConfig": {
+                            "Enabled": false
+                        }
+                    }
+                ]
+            },
+            "CustomErrorResponses": {
+                "Quantity": 0
+            },
+            "Comment": "majurun app",
+            "Logging": {
+                "Enabled": false,
+                "IncludeCookies": false,
+                "Bucket": "",
+                "Prefix": ""
+            },
+            "PriceClass": "PriceClass_All",
+            "Enabled": true,
+            "ViewerCertificate": {
+                "CloudFrontDefaultCertificate": false,
+                "ACMCertificateArn": "arn:aws:acm:us-east-1:219024422812:certificate/ebae5cd3-303d-40d7-9354-9f8e149f5a4d",
+                "SSLSupportMethod": "sni-only",
+                "MinimumProtocolVersion": "TLSv1.3_2025",
+                "Certificate": "arn:aws:acm:us-east-1:219024422812:certificate/ebae5cd3-303d-40d7-9354-9f8e149f5a4d",
+                "CertificateSource": "acm"
+            },
+            "Restrictions": {
+                "GeoRestriction": {
+                    "RestrictionType": "none",
+                    "Quantity": 0
+                }
+            },
+            "WebACLId": "arn:aws:wafv2:us-east-1:219024422812:global/webacl/CreatedByCloudFront-930efa95/e0d72863-1fde-47e3-b615-64077bf3903a",
+            "HttpVersion": "http2",
+            "IsIPV6Enabled": true,
+            "ContinuousDeploymentPolicyId": "",
+            "Staging": false
+        },
+        "AliasICPRecordals": [
+            {
+                "CNAME": "www.majurun.com",
+                "ICPRecordalStatus": "APPROVED"
+            },
+            {
+                "CNAME": "majurun.com",
+                "ICPRecordalStatus": "APPROVED"
+            }
+        ]
+    }
+}
