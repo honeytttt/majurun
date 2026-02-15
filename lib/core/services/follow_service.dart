@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:majurun/core/services/notification_service.dart';
 
 class FollowService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   /// Follow a user
   Future<void> followUser(String targetUserId) async {
@@ -55,6 +57,22 @@ class FollowService {
           'followersCount': FieldValue.increment(1),
         });
       });
+
+      // Create follow notification (outside transaction for better error handling)
+      try {
+        final currentUserDoc = await _firestore.collection('users').doc(currentUserId).get();
+        final currentUserData = currentUserDoc.data();
+
+        await _notificationService.createFollowNotification(
+          targetUserId: targetUserId,
+          followerUserId: currentUserId,
+          followerUsername: currentUserData?['displayName'] ?? 'Someone',
+          followerPhotoUrl: currentUserData?['photoUrl'],
+        );
+      } catch (notifError) {
+        debugPrint('⚠️ Failed to create follow notification: $notifError');
+        // Don't rethrow - follow was successful, notification is optional
+      }
 
       debugPrint('✅ Followed user: $targetUserId');
     } catch (e) {

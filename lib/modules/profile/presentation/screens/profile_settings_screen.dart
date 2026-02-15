@@ -8,7 +8,8 @@ class ProfileSettingsScreen extends StatefulWidget {
   final String currentBio;
   final String currentImageUrl;
   final String currentEmail;
-  final Function(String, String, dynamic, String) onSave; // name, bio, image(File/Uint8List), email
+  final String currentLocation;
+  final Function(String, String, dynamic, String, String) onSave; // name, bio, image(File/Uint8List), email, location
 
   const ProfileSettingsScreen({
     super.key,
@@ -16,6 +17,7 @@ class ProfileSettingsScreen extends StatefulWidget {
     required this.currentBio,
     required this.currentImageUrl,
     required this.currentEmail,
+    this.currentLocation = '',
     required this.onSave,
   });
 
@@ -27,6 +29,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _bioController;
   late final TextEditingController _emailController;
+  late final TextEditingController _locationController;
   File? _imageFile;
   Uint8List? _webImage;
 
@@ -36,6 +39,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     _nameController = TextEditingController(text: widget.currentName);
     _bioController = TextEditingController(text: widget.currentBio);
     _emailController = TextEditingController(text: widget.currentEmail);
+    _locationController = TextEditingController(text: widget.currentLocation);
   }
 
   @override
@@ -43,6 +47,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     _nameController.dispose();
     _bioController.dispose();
     _emailController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
@@ -78,6 +83,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       _bioController.text.trim(),
       imageData,
       _emailController.text.trim(),
+      _locationController.text.trim(),
     );
 
     if (mounted) Navigator.pop(context, true);
@@ -134,6 +140,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             _buildInputField("FULL NAME", _nameController),
             const SizedBox(height: 25),
             _buildInputField("BIO", _bioController, maxLines: 4),
+            const SizedBox(height: 25),
+            _buildInputField("LOCATION", _locationController, icon: Icons.location_on_outlined),
             const SizedBox(height: 25),
             _buildInputField("EMAIL", _emailController, enabled: false),
           ],
@@ -194,7 +202,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return const Icon(Icons.person, size: 55, color: Colors.grey);
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1, bool enabled = true}) {
+  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1, bool enabled = true, IconData? icon}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -215,6 +223,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+            prefixIcon: icon != null ? Icon(icon, color: Colors.grey[600], size: 20) : null,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
               borderSide: BorderSide(color: Colors.grey[200]!),

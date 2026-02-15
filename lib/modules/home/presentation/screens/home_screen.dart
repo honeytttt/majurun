@@ -16,6 +16,9 @@ import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
+import 'package:majurun/modules/search/presentation/screens/search_screen.dart';
+import 'package:majurun/modules/notifications/presentation/screens/notifications_screen.dart';
+import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/storage_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -31,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
   final StorageService _storageService = StorageService();
+  final NotificationService _notificationService = NotificationService();
 
   String _userName = "Loading...";
   String _userBio = "Loading...";
@@ -194,6 +198,54 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNotificationIcon() {
+    return StreamBuilder<int>(
+      stream: _notificationService.getUnreadCountStream(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none_outlined, color: Colors.black),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                );
+              },
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   // ✅ PROFESSIONAL TWITTER-STYLE FEED with CustomScrollView
   Widget _buildProfessionalHomeFeed(Color brandGreen) {
     return StreamBuilder<List<AppPost>>(
@@ -233,12 +285,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.search, color: Colors.black),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SearchScreen()),
+                      );
+                    },
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_outlined, color: Colors.black),
-                    onPressed: () {},
-                  ),
+                  _buildNotificationIcon(),
                   const SizedBox(width: 8),
                 ],
               ),

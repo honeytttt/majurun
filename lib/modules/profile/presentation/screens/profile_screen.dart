@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 
 import 'package:majurun/modules/profile/presentation/screens/profile_settings_screen.dart';
 import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/core/services/badge_service.dart';
+import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/modules/profile/presentation/screens/followers_following_screen.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
@@ -43,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String bio,
     required String imageUrl,
     required String email,
+    required String location,
   }) {
     Navigator.push(
       context,
@@ -52,7 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           currentBio: bio,
           currentImageUrl: imageUrl,
           currentEmail: email,
-          onSave: (newName, newBio, imageData, newEmail) async {
+          currentLocation: location,
+          onSave: (newName, newBio, imageData, newEmail, newLocation) async {
             dynamic uploadedImageUrl = imageUrl;
 
             if (kIsWeb && imageData is Uint8List) {
@@ -63,6 +68,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final fileName = "profile_${user.uid}_$timestamp.png";
                 uploadedImageUrl = await StorageService().uploadMedia(imageData, fileName, false);
               }
+            }
+
+            // Update Firestore with location and updatedAt
+            final currentUser = FirebaseAuth.instance.currentUser;
+            if (currentUser != null) {
+              await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).update({
+                'location': newLocation,
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
             }
 
             await widget.onSave(newName, newBio, uploadedImageUrl, newEmail);
@@ -141,6 +155,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final bio = (data['bio'] ?? widget.currentBio) as String;
           final imageUrl = (data['photoUrl'] ?? widget.currentImageUrl) as String;
           final email = (data['email'] ?? widget.currentEmail) as String;
+          final location = (data['location'] as String?) ?? '';
+          final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
 
           final followersCount = (data['followersCount'] as int?) ?? 0;
           final followingCount = (data['followingCount'] as int?) ?? 0;
@@ -187,6 +203,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       followingCount: followingCount,
                       postsCount: postsCount,
                       userId: uid,
+                      location: location,
+                      createdAt: createdAt,
                     ),
                   ),
                   
@@ -220,6 +238,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required int followingCount,
     required int postsCount,
     required String userId,
+    required String location,
+    DateTime? createdAt,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -268,8 +288,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
+          const SizedBox(height: 12),
+
+          // Location & Joined Date Row (Twitter-style)
+          _buildLocationJoinedRow(location: location, createdAt: createdAt),
           const SizedBox(height: 16),
-          
+
           // Stats Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -299,6 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 bio: bio,
                 imageUrl: imageUrl,
                 email: email,
+                location: location,
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00E676),
@@ -385,12 +410,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// Location & Joined Date Row (Twitter-style)
+  Widget _buildLocationJoinedRow({required String location, DateTime? createdAt}) {
+    final hasLocation = location.isNotEmpty;
+    final hasJoinedDate = createdAt != null;
+
+    if (!hasLocation && !hasJoinedDate) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 16,
+      runSpacing: 8,
+      children: [
+        if (hasLocation)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                location,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        if (hasJoinedDate)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                'Joined ${DateFormat('MMMM yyyy').format(createdAt)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
   Widget _buildRunStats({
     required double totalKm,
     required String bestPace,
     required int totalRuns,
     required int postsCount,
   }) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -405,7 +480,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Stats Grid
           Row(
             children: [
@@ -450,6 +525,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+
+          // Badges Section
+          if (uid != null) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Badges',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 12),
+            StreamBuilder<List<RunnerBadge>>(
+              stream: BadgeService().streamUserBadges(uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF00E676),
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                }
+
+                final badges = snapshot.data ?? [];
+                return BadgesDisplay(badges: badges);
+              },
+            ),
+          ],
         ],
       ),
     );

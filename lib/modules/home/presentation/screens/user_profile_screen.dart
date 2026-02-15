@@ -5,6 +5,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
+import 'package:majurun/modules/notifications/presentation/widgets/notification_bell_button.dart';
+import 'package:majurun/core/services/dm_service.dart';
+import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
 
 /// Professional User Profile Screen - Twitter-style
 /// Shows user's profile, stats, and posts
@@ -115,6 +118,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       });
     } catch (e) {
       debugPrint('❌ Error checking follow status: $e');
+    }
+  }
+
+  Future<void> _openChat(BuildContext context) async {
+    try {
+      final dmService = DmService();
+      final conversationId = await dmService.getOrCreateConversation(widget.userId);
+
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              conversationId: conversationId,
+              otherUserName: widget.username,
+              otherUserPhoto: _userData?['photoUrl'] as String?,
+              otherUserId: widget.userId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error opening chat: $e')),
+        );
+      }
     }
   }
 
@@ -298,29 +328,58 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          
-          // Follow Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _toggleFollow,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isFollowing ? Colors.grey[300] : const Color(0xFF00E676),
-                foregroundColor: _isFollowing ? Colors.black : Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
+
+          // Follow Button + Message Button + Bell Button Row
+          Row(
+            children: [
+              // Follow Button
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _toggleFollow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isFollowing ? Colors.grey[300] : const Color(0xFF00E676),
+                    foregroundColor: _isFollowing ? Colors.black : Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: _isFollowing ? 0 : 2,
+                  ),
+                  child: Text(
+                    _isFollowing ? 'Following' : 'Follow',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Message Button
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: _isFollowing ? 0 : 2,
-              ),
-              child: Text(
-                _isFollowing ? 'Following' : 'Follow',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                child: IconButton(
+                  icon: const Icon(Icons.mail_outline, size: 24),
+                  onPressed: () => _openChat(context),
+                  tooltip: 'Send message',
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              // Bell Button (Subscribe to notifications)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: NotificationBellButton(
+                  userId: widget.userId,
+                  size: 24,
+                ),
+              ),
+            ],
           ),
           
           // Current Goal

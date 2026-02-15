@@ -3,13 +3,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/core/services/dm_service.dart';
+import 'package:majurun/modules/dm/presentation/screens/conversations_list_screen.dart';
 
 /// AppBarLeading - Top banner component with real avatar
 /// Used across all screens: Home, Workouts, Posts, Rewards, Run
 class AppBarLeading extends StatelessWidget {
   final VoidCallback onProfilePressed;
+  final DmService _dmService = DmService();
 
-  const AppBarLeading({
+  AppBarLeading({
     super.key,
     required this.onProfilePressed,
   });
@@ -20,17 +23,64 @@ class AppBarLeading extends StatelessWidget {
       children: [
         const SizedBox(width: 8),
         _buildProfileAvatar(),
-        const SizedBox(width: 12),
-        IconButton(
-          padding: EdgeInsets.zero,
-          icon: const Icon(
-            Icons.question_answer_outlined,
-            color: Colors.black,
-            size: 24,
-          ),
-          onPressed: () => debugPrint("Forum clicked"),
-        ),
+        const SizedBox(width: 8),
+        _buildDmIcon(context),
       ],
+    );
+  }
+
+  Widget _buildDmIcon(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: _dmService.getTotalUnreadCountStream(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return Stack(
+          children: [
+            IconButton(
+              padding: EdgeInsets.zero,
+              icon: const Icon(
+                Icons.mail_outline,
+                color: Colors.black,
+                size: 24,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ConversationsListScreen(),
+                  ),
+                );
+              },
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

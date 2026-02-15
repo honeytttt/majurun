@@ -272,12 +272,12 @@ class RunStateController extends ChangeNotifier {
       pace: lastKmPaceString,
     ));
 
-    // Calculate comparison with previous km
+    // Calculate comparison with previous km (skip for first km - no reference)
     String? comparison;
-    if (_kmSplits.length > 1) {
+    if (km >= 2 && _kmSplits.length > 1) {
       final previousKm = _kmSplits[_kmSplits.length - 2];
       final timeDiff = lastKmDuration - previousKm.durationSeconds;
-      
+
       if (timeDiff.abs() < 5) {
         comparison = "Same pace as previous kilometer.";
       } else if (timeDiff < 0) {
