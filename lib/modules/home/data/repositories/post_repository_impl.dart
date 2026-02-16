@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:majurun/core/services/user_stats_service.dart';
+import 'package:majurun/core/services/notification_service.dart';
+import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
 import '../../domain/entities/post.dart';
 
 class PostRepositoryImpl {
@@ -121,6 +124,22 @@ class PostRepositoryImpl {
       if (updateUserStats) {
         await UserStatsService().incrementPosts(post.userId);
       }
+      
+      // ✅ Notify subscribers of new post
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          await NotificationService().notifySubscribersOfPost(
+            posterUserId: post.userId,
+            posterUsername: post.username,
+            posterPhotoUrl: currentUser.photoURL,
+            postId: post.id,
+          );
+          debugPrint('📬 Notified subscribers of new post');
+        }
+      } catch (e) {
+        debugPrint('❌ Error notifying subscribers: $e');
+      }
     } catch (e) {
       debugPrint("Error creating post: $e");
     }
@@ -147,17 +166,48 @@ class PostRepositoryImpl {
 
   Future<void> toggleLike(String postId, String userId) async {
     final docRef = _db.collection('posts').doc(postId);
+    
+    bool wasLiked = false;
+    String? postOwnerId;
+    
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;
+      
+      // Get post owner
+      postOwnerId = snapshot.data()?['userId'];
+      
       List<String> likes = List<String>.from(snapshot.data()?['likes'] ?? []);
-      if (likes.contains(userId)) {
+      wasLiked = likes.contains(userId);
+      
+      if (wasLiked) {
         likes.remove(userId);
       } else {
         likes.add(userId);
       }
       transaction.update(docRef, {'likes': likes});
     });
+    
+    // ✅ Create like notification (only when liking, not unliking, and not own post)
+    if (!wasLiked && postOwnerId != null && postOwnerId != userId) {
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          await NotificationService().createNotification(
+            targetUserId: postOwnerId!,
+            type: NotificationType.like,
+            fromUserId: userId,
+            fromUsername: currentUser.displayName ?? 'Runner',
+            fromUserPhotoUrl: currentUser.photoURL,
+            message: 'liked your post',
+            metadata: {'postId': postId},
+          );
+          debugPrint('💖 Like notification sent to $postOwnerId');
+        }
+      } catch (e) {
+        debugPrint('❌ Error creating like notification: $e');
+      }
+    }
   }
 
   Future<void> repost(AppPost originalPost, String userId, String username) async {
@@ -203,6 +253,7 @@ class PostRepositoryImpl {
     String? parentId,
     List<Map<String, dynamic>>? media,
   }) async {
+    // Add comment
     await _db.collection('posts').doc(postId).collection('comments').add({
       'userId': userId,
       'username': username,
@@ -212,6 +263,30 @@ class PostRepositoryImpl {
       'likes': [],
       'createdAt': FieldValue.serverTimestamp(),
     });
+    
+    // ✅ Create comment notification
+    try {
+      // Get post owner
+      final postDoc = await _db.collection('posts').doc(postId).get();
+      final postOwnerId = postDoc.data()?['userId'];
+      
+      // Only notify if commenting on someone else's post
+      if (postOwnerId != null && postOwnerId != userId) {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        await NotificationService().createNotification(
+          targetUserId: postOwnerId,
+          type: NotificationType.comment,
+          fromUserId: userId,
+          fromUsername: username,
+          fromUserPhotoUrl: currentUser?.photoURL,
+          message: 'commented on your post',
+          metadata: {'postId': postId},
+        );
+        debugPrint('💬 Comment notification sent to $postOwnerId');
+      }
+    } catch (e) {
+      debugPrint('❌ Error creating comment notification: $e');
+    }
   }
 
   Future<void> toggleCommentLike(String postId, String commentId, String userId) async {

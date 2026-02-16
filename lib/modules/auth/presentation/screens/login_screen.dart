@@ -1,8 +1,12 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Add this import
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'signup_screen.dart';
+
+const String kTermsAndConditionsUrl = 'https://www.majurun.com/terms-and-conditions.html';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +20,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+
+  /// Open Terms and Conditions URL
+  Future<void> _openTermsAndConditions() async {
+    final uri = Uri.parse(kTermsAndConditionsUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Terms and Conditions')),
+        );
+      }
+    }
+  }
 
   /// Helper to handle all authentication methods
   Future<void> _handleAuthAction(Future<void> Function() authMethod) async {
@@ -153,8 +171,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   
-                  const SizedBox(height: 40),
-                  
+                  const SizedBox(height: 24),
+
+                  // Terms and Conditions
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'By signing in, you agree to our ',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        children: [
+                          TextSpan(
+                            text: 'Terms and Conditions',
+                            style: const TextStyle(
+                              color: Colors.blueAccent,
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => _openTermsAndConditions(),
+                          ),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
                   // Signup Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

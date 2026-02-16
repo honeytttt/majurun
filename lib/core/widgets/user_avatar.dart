@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'user_avatar_impl.dart'
+    if (dart.library.io) 'user_avatar_io.dart'
+    if (dart.library.js_interop) 'user_avatar_web.dart';
 
 /// UserAvatar Widget - Displays user profile picture from Firestore
 /// 
 /// This widget fetches and displays a user's profile picture based on their userId.
-/// It includes loading states, error handling, and automatic retries.
+/// It includes loading states, error handling, and uses platform-specific rendering.
 /// 
 /// Usage:
 /// ```dart
@@ -32,11 +35,7 @@ class UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // CRITICAL: Log the userId being passed
-    debugPrint('👤 UserAvatar: Loading for userId="$userId"');
-    
     if (userId.isEmpty) {
-      debugPrint('❌ UserAvatar: Empty userId provided');
       return _buildFallback();
     }
     
@@ -46,118 +45,37 @@ class UserAvatar extends StatelessWidget {
           .doc(userId)
           .snapshots(),
       builder: (context, snapshot) {
-        // Debug connection state
         if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-          debugPrint('⏳ UserAvatar: Loading user data for $userId...');
           return _buildLoading();
         }
         
-        if (snapshot.hasError) {
-          debugPrint('❌ UserAvatar: Firestore error for $userId: ${snapshot.error}');
-          return _buildFallback();
-        }
-        
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          debugPrint('❌ UserAvatar: No user document found for $userId');
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
           return _buildFallback();
         }
         
         final data = snapshot.data!.data() as Map<String, dynamic>?;
         
         if (data == null) {
-          debugPrint('❌ UserAvatar: User data is null for $userId');
           return _buildFallback();
         }
         
         final photoUrl = data['photoUrl'] as String? ?? '';
         
-        // CRITICAL: Log the actual photoUrl value
-        debugPrint('📸 UserAvatar: photoUrl for $userId = "$photoUrl"');
-        
-        if (photoUrl.isEmpty) {
-          debugPrint('⚠️ UserAvatar: Empty photoUrl for $userId');
+        if (photoUrl.isEmpty || !photoUrl.trim().startsWith('http')) {
           return _buildFallback();
         }
         
-        // Validate URL format
-        final cleanUrl = photoUrl.trim();
-        if (!cleanUrl.startsWith('http')) {
-          debugPrint('❌ UserAvatar: Invalid URL format for $userId: $cleanUrl');
-          return _buildFallback();
-        }
-        
-        return _buildImageAvatar(cleanUrl);
+        // ✅ USE PLATFORM-SPECIFIC IMPLEMENTATION
+        return _buildImageAvatar(photoUrl.trim());
       },
     );
   }
   
-  /// Build avatar with image
+  /// Build avatar with platform-specific rendering
   Widget _buildImageAvatar(String imageUrl) {
-    debugPrint('🖼️ UserAvatar: Rendering image avatar with URL: ${imageUrl.substring(0, imageUrl.length.clamp(0, 60))}...');
-    
-    final avatar = CircleAvatar(
+    final avatar = buildUserAvatar(
+      photoUrl: imageUrl,
       radius: radius,
-      backgroundColor: Colors.grey.shade200,
-      child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          width: radius * 2,
-          height: radius * 2,
-          fit: BoxFit.cover,
-          // Add headers for better compatibility
-          headers: const {
-            'Accept': 'image/*',
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              debugPrint('✅ UserAvatar: Image loaded successfully for $userId');
-              return child;
-            }
-            
-            final percent = loadingProgress.expectedTotalBytes != null
-                ? (loadingProgress.cumulativeBytesLoaded / 
-                   loadingProgress.expectedTotalBytes! * 100).toInt()
-                : null;
-            
-            if (percent != null && percent % 25 == 0) {
-              debugPrint('⏳ UserAvatar: Loading image... $percent%');
-            }
-            
-            return Center(
-              child: SizedBox(
-                width: radius * 0.6,
-                height: radius * 0.6,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: const Color(0xFF00E676),
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                      : null,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('❌ UserAvatar: Failed to load image for $userId');
-            debugPrint('   URL: $imageUrl');
-            debugPrint('   Error: $error');
-            debugPrint('   Error type: ${error.runtimeType}');
-            
-            // Log first 3 lines of stack trace
-            if (stackTrace != null) {
-              final stackLines = stackTrace.toString().split('\n').take(3).join('\n');
-              debugPrint('   Stack: $stackLines');
-            }
-            
-            return Icon(
-              Icons.person,
-              size: radius * 0.8,
-              color: Colors.grey.shade600,
-            );
-          },
-        ),
-      ),
     );
     
     // Add border if requested
@@ -243,51 +161,14 @@ class DirectUrlAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cleanUrl = imageUrl.trim();
     
-    debugPrint('🔗 DirectUrlAvatar: imageUrl="$cleanUrl"');
-    
     if (cleanUrl.isEmpty || !cleanUrl.startsWith('http')) {
-      debugPrint('❌ DirectUrlAvatar: Invalid URL');
       return _buildFallback();
     }
     
-    final avatar = CircleAvatar(
+    // ✅ USE PLATFORM-SPECIFIC IMPLEMENTATION
+    final avatar = buildUserAvatar(
+      photoUrl: cleanUrl,
       radius: radius,
-      backgroundColor: Colors.grey.shade200,
-      child: ClipOval(
-        child: Image.network(
-          cleanUrl,
-          width: radius * 2,
-          height: radius * 2,
-          fit: BoxFit.cover,
-          headers: const {
-            'Accept': 'image/*',
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              debugPrint('✅ DirectUrlAvatar: Image loaded');
-              return child;
-            }
-            return Center(
-              child: SizedBox(
-                width: radius * 0.6,
-                height: radius * 0.6,
-                child: const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF00E676),
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('❌ DirectUrlAvatar: Error: $error');
-            return Icon(
-              Icons.person,
-              size: radius * 0.8,
-              color: Colors.grey.shade600,
-            );
-          },
-        ),
-      ),
     );
     
     // Add border if requested

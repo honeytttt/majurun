@@ -13,6 +13,7 @@ import 'package:majurun/modules/profile/presentation/screens/followers_following
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
+import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -39,7 +40,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _showPosts = true;  // ✅ Changed: Show Posts by default (was false)
+  bool _showPosts = true;  // Show Posts by default
 
   void _navigateToSettings({
     required String name,
@@ -110,6 +111,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _navigateToPrivacySettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PrivacySettingsScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -134,7 +144,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: true,
         actions: [
-          // ✅ Sign Out Button
+          // Privacy Settings Button
+          IconButton(
+            icon: const Icon(Icons.privacy_tip, color: Colors.black),
+            tooltip: 'Privacy Settings',
+            onPressed: _navigateToPrivacySettings,
+          ),
+          // Sign Out Button
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             tooltip: 'Sign Out',
@@ -161,25 +177,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final followersCount = (data['followersCount'] as int?) ?? 0;
           final followingCount = (data['followingCount'] as int?) ?? 0;
           
-          // Run stats - with debug logging
+          // Run stats
           final totalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
           final bestPaceSecPerKm = (data['bestPaceSecPerKm'] as num?)?.toInt();
           
           debugPrint('📊 ProfileScreen Stats:');
           debugPrint('   totalKm from Firestore: $totalKm');
           debugPrint('   bestPaceSecPerKm from Firestore: $bestPaceSecPerKm');
-          debugPrint('   Data keys: ${data.keys.toList()}');
-          debugPrint('   Raw totalKm value: ${data['totalKm']}');
-          debugPrint('   Raw bestPaceSecPerKm value: ${data['bestPaceSecPerKm']}');
           
           String bestPace = '--:--';
           if (bestPaceSecPerKm != null && bestPaceSecPerKm > 0) {
             final minutes = bestPaceSecPerKm ~/ 60;
             final seconds = bestPaceSecPerKm % 60;
             bestPace = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-            debugPrint('   Calculated bestPace: $bestPace');
-          } else {
-            debugPrint('   ⚠️ bestPaceSecPerKm is null or 0');
           }
 
           return StreamBuilder<QuerySnapshot>(
@@ -218,6 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         bestPace: bestPace,
                         totalRuns: totalRuns,
                         postsCount: postsCount,
+                        userId: uid,
                       ),
                     ),
                 ],
@@ -290,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           const SizedBox(height: 12),
 
-          // Location & Joined Date Row (Twitter-style)
+          // Location & Joined Date Row
           _buildLocationJoinedRow(location: location, createdAt: createdAt),
           const SizedBox(height: 16),
 
@@ -299,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               GestureDetector(
-                onTap: () {}, // Could navigate to posts view
+                onTap: () {},
                 child: _buildStatColumn('Posts', postsCount.toString()),
               ),
               GestureDetector(
@@ -410,7 +421,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// Location & Joined Date Row (Twitter-style)
+  /// Location & Joined Date Row
   Widget _buildLocationJoinedRow({required String location, DateTime? createdAt}) {
     final hasLocation = location.isNotEmpty;
     final hasJoinedDate = createdAt != null;
@@ -463,9 +474,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String bestPace,
     required int totalRuns,
     required int postsCount,
+    required String userId,
   }) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -527,37 +537,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           // Badges Section
-          if (uid != null) ...[
-            const SizedBox(height: 24),
-            Text(
-              'Badges',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
+          const SizedBox(height: 24),
+          Text(
+            'Badges',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
             ),
-            const SizedBox(height: 12),
-            StreamBuilder<List<RunnerBadge>>(
-              stream: BadgeService().streamUserBadges(uid),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF00E676),
-                        strokeWidth: 2,
-                      ),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<RunnerBadge>>(
+            stream: BadgeService().streamUserBadges(userId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF00E676),
+                      strokeWidth: 2,
                     ),
-                  );
-                }
+                  ),
+                );
+              }
 
-                final badges = snapshot.data ?? [];
-                return BadgesDisplay(badges: badges);
-              },
-            ),
-          ],
+              final badges = snapshot.data ?? [];
+              return BadgesDisplay(badges: badges);
+            },
+          ),
         ],
       ),
     );
@@ -626,7 +634,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return const SliverToBoxAdapter(
             child: Center(child: Padding(
               padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(color: Color(0xFF00E676)),
             )),
           );
         }
@@ -722,7 +730,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }).whereType<LatLng>().toList();
   }
 
-  // ✅ Sign Out Dialog
+  // Sign Out Dialog
   void _showSignOutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -777,7 +785,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ✅ Sign Out Function
+  // Sign Out Function
   Future<void> _signOut(BuildContext context) async {
     try {
       // Close dialog

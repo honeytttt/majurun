@@ -1,12 +1,16 @@
 // lib/modules/auth/presentation/screens/signup_screen.dart
 import 'dart:ui';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/repositories/auth_repository.dart';
 import 'otp_screen.dart';
 import 'country_phone_data.dart';
+
+const String kTermsAndConditionsUrl = 'https://www.majurun.com/terms-and-conditions.html';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -85,6 +89,19 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
     if (picked != null) setState(() => _dob = picked);
+  }
+
+  Future<void> _openTermsAndConditions() async {
+    final uri = Uri.parse(kTermsAndConditionsUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Terms and Conditions')),
+        );
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -393,8 +410,23 @@ class _SignupScreenState extends State<SignupScreen> {
                                   controlAffinity: ListTileControlAffinity.leading,
                                   value: _agree,
                                   onChanged: (v) => setState(() => _agree = v ?? false),
-                                  title: const Text(
-                                    'I agree to the Terms of Service and Privacy Policy.',
+                                  title: Text.rich(
+                                    TextSpan(
+                                      text: 'I agree to the ',
+                                      children: [
+                                        TextSpan(
+                                          text: 'Terms and Conditions',
+                                          style: TextStyle(
+                                            color: cs.primary,
+                                            decoration: TextDecoration.underline,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => _openTermsAndConditions(),
+                                        ),
+                                        const TextSpan(text: ' and Privacy Policy.'),
+                                      ],
+                                    ),
                                   ),
                                 ),
 

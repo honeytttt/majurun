@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:majurun/core/services/cloudinary_service.dart';
+import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/core/services/post_limit_service.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:io' show File;
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -16,15 +19,20 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _controller = TextEditingController();
-  final CloudinaryService _cloudinary = CloudinaryService();
+  final StorageService _storage = StorageService();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
+  final PostLimitService _limitService = PostLimitService();
+  
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
+  Map<String, int> _remainingPosts = {};
+  bool _isLoadingLimits = true;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(() => setState(() {}));
+    _loadRemainingPosts();
   }
 
   @override
@@ -33,7 +41,48 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
+  /// Load how many posts user can still make today
+  Future<void> _loadRemainingPosts() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final remaining = await _limitService.getRemainingPostsToday(userId);
+      if (mounted) {
+        setState(() {
+          _remainingPosts = remaining;
+          _isLoadingLimits = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading post limits: $e');
+      if (mounted) {
+        setState(() {
+          _remainingPosts = {
+            'total': PostLimitService.maxTotalPostsPerDay,
+            'image': PostLimitService.maxImagePostsPerDay,
+            'video': PostLimitService.maxVideoPostsPerDay,
+            'text': PostLimitService.maxTextPostsPerDay,
+          };
+          _isLoadingLimits = false;
+        });
+      }
+    }
+  }
+
+  /// Get remaining posts for current post type
+  int get _totalRemaining => _remainingPosts['total'] ?? PostLimitService.maxTotalPostsPerDay;
+
+  bool get _shouldShowWarning => _totalRemaining <= 5;
+
+  /// Pick and validate media (image or video)
   Future<void> _pickMedia(bool isVideo) async {
+    // ✅ Check image count limit BEFORE picking (only for images)
+    if (!isVideo && _mediaList.where((m) => m.type == MediaType.image).length >= PostLimitService.maxImagesPerPost) {
+      _showError(_limitService.getImageCountMessage());
+      return;
+    }
+
     final picker = ImagePicker();
     final XFile? file = isVideo
         ? await picker.pickVideo(source: ImageSource.gallery)
@@ -41,13 +90,37 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     if (file == null) return;
 
-    setState(() => _isUploading = true);
     try {
-      final Uint8List bytes = await file.readAsBytes();
+      final bytes = await file.readAsBytes();
+      
+      // ✅ VALIDATE FILE SIZE
+      final sizeError = _limitService.validateMediaUpload(
+        fileSizeBytes: bytes.length,
+        isVideo: isVideo,
+      );
+      
+      if (sizeError != null) {
+        _showError(sizeError);
+        return;
+      }
 
-      // Note: Make sure CloudinaryService.uploadMedia accepts these 3 positional parameters:
-      // Uint8List bytes, String filename, bool isVideo
-      String? url = await _cloudinary.uploadMedia(bytes, file.name, isVideo);
+      // ✅ VALIDATE VIDEO DURATION (if it's a video)
+      if (isVideo) {
+        final durationValid = await _validateVideoDuration(file.path);
+        if (!durationValid) {
+          _showError(_limitService.getVideoDurationMessage());
+          return;
+        }
+      }
+
+      // Show file size to user
+      final sizeStr = _limitService.formatFileSize(bytes.length);
+      debugPrint('📎 ${isVideo ? "Video" : "Image"} size: $sizeStr');
+
+      // Upload to S3
+      setState(() => _isUploading = true);
+      
+      final url = await _storage.uploadMedia(bytes, file.name, isVideo);
 
       if (url != null && mounted) {
         setState(() {
@@ -56,20 +129,72 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             type: isVideo ? MediaType.video : MediaType.image,
           ));
         });
+        
+        _showSuccess('${isVideo ? "Video" : "Image"} uploaded ($sizeStr)');
+      } else {
+        _showError('Upload failed. Please try again.');
       }
     } catch (e) {
-      debugPrint("Media upload error: $e");
+      debugPrint("❌ Media upload error: $e");
+      _showError('Upload failed: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
   }
 
+  /// Validate video duration using video_player
+  Future<bool> _validateVideoDuration(String videoPath) async {
+    try {
+      debugPrint('🎬 Checking video duration...');
+      
+      // Initialize video player to get duration
+      final controller = kIsWeb
+          ? VideoPlayerController.networkUrl(Uri.parse(videoPath))
+          : VideoPlayerController.file(File(videoPath));
+      
+      await controller.initialize();
+      
+      final durationSeconds = controller.value.duration.inSeconds;
+      debugPrint('⏱️ Video duration: $durationSeconds seconds');
+      
+      controller.dispose();
+      
+      return _limitService.isVideoDurationValid(durationSeconds);
+    } catch (e) {
+      debugPrint('⚠️ Could not check video duration: $e');
+      // If we can't check duration, allow the video (don't block user)
+      return true;
+    }
+  }
+
+  /// Create and submit the post
   Future<void> _handlePost() async {
     final text = _controller.text.trim();
-    if (text.isEmpty && _mediaList.isEmpty) return;
+    if (text.isEmpty && _mediaList.isEmpty) {
+      _showError('Please add some content or media');
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      _showError('Please log in to post');
+      return;
+    }
+
+    // ✅ VALIDATE POST LIMITS
+    final hasVideo = _mediaList.any((m) => m.type == MediaType.video);
+    final imageCount = _mediaList.where((m) => m.type == MediaType.image).length;
+
+    final validationError = await _limitService.validatePost(
+      userId: user.uid,
+      imageCount: imageCount,
+      hasVideo: hasVideo,
+    );
+    
+    if (validationError != null) {
+      _showError(validationError);
+      return;
+    }
 
     setState(() => _isUploading = true);
 
@@ -89,19 +214,50 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       await _postRepo.createPost(post);
 
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        _showSuccess('Post created successfully! 🎉');
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) Navigator.pop(context);
+      }
     } catch (e) {
-      debugPrint("Post creation failed: $e");
+      debugPrint("❌ Post creation failed: $e");
+      _showError('Failed to create post: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
+  }
+
+  /// Show error message
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Show success message
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF00E676),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final bool hasContent =
         _controller.text.trim().isNotEmpty || _mediaList.isNotEmpty;
-    final bool canPost = hasContent && !_isUploading;
+    final bool canPost = hasContent && !_isUploading && _totalRemaining > 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -111,6 +267,54 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          // ✅ SHOW REMAINING POSTS INDICATOR
+          if (!_isLoadingLimits)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _shouldShowWarning
+                        ? Colors.orange.withValues(alpha: 0.2)
+                        : const Color(0xFF00E676).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _shouldShowWarning
+                          ? Colors.orange.withValues(alpha: 0.5)
+                          : const Color(0xFF00E676).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _shouldShowWarning
+                            ? Icons.warning_amber
+                            : Icons.check_circle,
+                        size: 16,
+                        color: _shouldShowWarning
+                            ? Colors.orange
+                            : const Color(0xFF00E676),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_totalRemaining left',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _shouldShowWarning
+                              ? Colors.orange
+                              : const Color(0xFF00E676),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          
+          // POST BUTTON
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: _isUploading
@@ -118,7 +322,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     child: SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF00E676),
+                      ),
                     ),
                   )
                 : TextButton(
@@ -127,7 +334,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       "POST",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: canPost ? Colors.blue : Colors.grey,
+                        color: canPost ? const Color(0xFF00E676) : Colors.grey,
                       ),
                     ),
                   ),
@@ -136,21 +343,56 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
       body: Column(
         children: [
+          // ✅ LIMITS INFO BANNER (when approaching limit)
+          if (_shouldShowWarning && !_isLoadingLimits)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: Colors.orange.withValues(alpha: 0.1),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _limitService.getPostLimitMessage(
+                        totalRemaining: _totalRemaining,
+                        imageRemaining: _remainingPosts['image'],
+                        videoRemaining: _remainingPosts['video'],
+                        textRemaining: _remainingPosts['text'],
+                      ),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // TEXT INPUT
           Expanded(
             child: TextField(
               controller: _controller,
               maxLines: null,
               autofocus: true,
+              style: const TextStyle(fontSize: 16),
               decoration: const InputDecoration(
                 hintText: "What's on your mind?",
+                hintStyle: TextStyle(color: Colors.grey),
                 contentPadding: EdgeInsets.all(20),
                 border: InputBorder.none,
               ),
             ),
           ),
+
+          // MEDIA PREVIEW
           if (_mediaList.isNotEmpty)
-            SizedBox(
+            Container(
               height: 140,
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -168,28 +410,51 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             height: 120,
                             color: Colors.grey[200],
                             child: media.type == MediaType.image
-                                ? Image.network(media.url, fit: BoxFit.cover)
+                                ? Image.network(
+                                    media.url,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Center(
+                                        child: Icon(Icons.error, color: Colors.red),
+                                      );
+                                    },
+                                  )
                                 : const Center(
-                                    child: Icon(
-                                      Icons.videocam,
-                                      size: 40,
-                                      color: Colors.grey,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.videocam, size: 40, color: Colors.grey),
+                                        SizedBox(height: 4),
+                                        Text('Video', style: TextStyle(color: Colors.grey)),
+                                      ],
                                     ),
                                   ),
                           ),
                         ),
+                        // Remove button
                         Positioned(
                           right: 4,
                           top: 4,
                           child: GestureDetector(
                             onTap: () => setState(() => _mediaList.removeAt(i)),
-                            child: const CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.black54,
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: Colors.white,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black87,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4.0),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
@@ -200,21 +465,48 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 },
               ),
             ),
+
           const Divider(height: 1),
+
+          // MEDIA PICKER BUTTONS
           SafeArea(
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.image_outlined, color: Colors.blue),
-                  onPressed: () => _pickMedia(false),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.videocam_outlined, color: Colors.red),
-                  onPressed: () => _pickMedia(true),
-                ),
-              ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: Row(
+                children: [
+                  // Image button
+                  Expanded(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.image_outlined),
+                      label: Text(
+                        'Photo ${_mediaList.where((m) => m.type == MediaType.image).length}/${PostLimitService.maxImagesPerPost}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF00E676),
+                      ),
+                      onPressed: _isUploading ? null : () => _pickMedia(false),
+                    ),
+                  ),
+
+                  // Video button
+                  Expanded(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.videocam_outlined),
+                      label: const Text(
+                        'Video (5 min max)',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                      onPressed: _isUploading ? null : () => _pickMedia(true),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
