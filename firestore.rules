@@ -12,10 +12,19 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Helper function to check if user is admin
+    // Admin email: majurun.app@gmail.com
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'majurun.app@gmail.com';
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      // Allow users to create/update their own document, admin can update any
+      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
 
       // User's followers subcollection
       match /followers/{followerId} {
@@ -34,6 +43,18 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow write: if isOwner(userId);
       }
+
+      // User's blocked users subcollection
+      match /blockedUsers/{blockedUserId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // User privacy settings collection
+    match /userPrivacy/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
     }
 
     // Posts collection
@@ -42,13 +63,14 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() &&
         (resource.data.userId == request.auth.uid ||
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'comments']));
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'comments']) ||
+         isAdmin());
 
       // Comments subcollection
       match /comments/{commentId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
-        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       }
     }
 
@@ -96,6 +118,12 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
+    }
+
+    // Contact messages collection
+    match /contactMessages/{messageId} {
+      allow create: if isAuthenticated(); // Anyone can submit a contact form
+      allow read, update, delete: if isAdmin(); // Only admin can view/manage
     }
   }
 }

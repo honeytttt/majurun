@@ -68,12 +68,14 @@ class BadgeService {
     final badge100kMonth = (data['badge100kMonth'] as int?) ?? 0;
     final badge200kMonth = (data['badge200kMonth'] as int?) ?? 0;
 
+    // Distance badges with tier-based icons:
+    // 5K = Silver 🥈, 10K = Gold 🥇, Half Marathon = Platinum 💎, Marathon = Champion 🏆
     if (badge5k > 0) {
       badges.add(RunnerBadge(
         id: '5k_runner',
         name: '5K Runner',
         description: 'Completed a 5km run',
-        icon: '🏃',
+        icon: '🥈', // Silver
         count: badge5k,
       ));
     }
@@ -83,7 +85,7 @@ class BadgeService {
         id: '10k_runner',
         name: '10K Runner',
         description: 'Completed a 10km run',
-        icon: '🏃‍♂️',
+        icon: '🥇', // Gold
         count: badge10k,
       ));
     }
@@ -93,7 +95,7 @@ class BadgeService {
         id: 'half_marathon',
         name: 'Half Marathon',
         description: 'Completed a half marathon (21.1km)',
-        icon: '🥈',
+        icon: '💎', // Platinum
         count: badgeHalf,
       ));
     }
@@ -103,17 +105,19 @@ class BadgeService {
         id: 'marathon',
         name: 'Marathon',
         description: 'Completed a full marathon (42.2km)',
-        icon: '🥇',
+        icon: '🏆', // Champion
         count: badgeFull,
       ));
     }
 
+    // Weekly badges with tier-based icons:
+    // 50K Week = Silver 🥈, 100K Week = Gold 🥇
     if (badge50kWeek > 0) {
       badges.add(RunnerBadge(
         id: 'weekly_50k',
         name: 'Weekly 50K',
         description: 'Ran 50km in a single week',
-        icon: '🔥',
+        icon: '🥈', // Silver
         count: badge50kWeek,
       ));
     }
@@ -123,17 +127,19 @@ class BadgeService {
         id: 'weekly_100k',
         name: 'Weekly 100K',
         description: 'Ran 100km in a single week',
-        icon: '⚡',
+        icon: '🥇', // Gold
         count: badge100kWeek,
       ));
     }
 
+    // Monthly badges with tier-based icons:
+    // 100K Month = Silver 🥈, 200K Month = Gold 🥇
     if (badge100kMonth > 0) {
       badges.add(RunnerBadge(
         id: 'monthly_100k',
         name: 'Monthly 100K',
         description: 'Ran 100km in a single month',
-        icon: '🌟',
+        icon: '🥈', // Silver
         count: badge100kMonth,
       ));
     }
@@ -143,7 +149,7 @@ class BadgeService {
         id: 'monthly_200k',
         name: 'Monthly 200K',
         description: 'Ran 200km in a single month',
-        icon: '💫',
+        icon: '🥇', // Gold
         count: badge200kMonth,
       ));
     }

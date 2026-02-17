@@ -6,7 +6,9 @@
       "Bash(timeout 5 cat:*)",
       "Bash(flutter build:*)",
       "Bash(aws s3 sync:*)",
-      "Bash(aws cloudfront create-invalidation:*)"
+      "Bash(aws cloudfront create-invalidation:*)",
+      "Bash(dir:*)",
+      "Bash(flutter pub get:*)"
     ]
   }
 }

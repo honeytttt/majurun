@@ -139,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
     
-    // When showing sub-pages, don't show the main scaffold chrome
     if (_activeSubPage != null) {
       return Scaffold(
         key: _scaffoldKey,
@@ -157,7 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          // ✅ HOME FEED - Professional Twitter-style scroll
           _buildProfessionalHomeFeed(brandGreen),
           const WorkoutScreen(),
           const CreatePostScreen(),
@@ -165,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
           const RunTrackerScreen(),
         ],
       ),
-      // ✅ SIMPLE STATIC BOTTOM NAV - No animation, smooth scrolling
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -182,19 +179,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ UPDATED: Significant increase in height for maximum readability
   Widget _buildBranding(Color brandGreen) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.directions_run, color: brandGreen, size: 26),
-        const SizedBox(width: 6),
-        const Text(
+    return Image.asset(
+      'assets/images/majurun-logo.jpg',
+      height: 80, // Increased to make the "MAJURUN" text clear
+      width: double.infinity,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return const Text(
           "MAJURUN",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 22),
-        ),
-        const SizedBox(width: 6),
-        Icon(Icons.fitness_center, color: brandGreen, size: 26),
-      ],
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 24),
+        );
+      },
     );
   }
 
@@ -246,7 +243,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ PROFESSIONAL TWITTER-STYLE FEED with CustomScrollView
   Widget _buildProfessionalHomeFeed(Color brandGreen) {
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostsStream(),
@@ -266,20 +262,21 @@ class _HomeScreenState extends State<HomeScreen> {
             await Future.delayed(const Duration(milliseconds: 500));
           },
           child: CustomScrollView(
-            // ✅ Professional scroll physics - bouncy and smooth
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
             slivers: [
-              // ✅ COLLAPSING APP BAR - Hides on scroll down, shows on scroll up
               SliverAppBar(
-                floating: true, // Shows immediately when scrolling up
-                snap: true, // Snaps into place
-                pinned: false, // Doesn't stay at top
+                floating: true,
+                snap: true,
+                pinned: false,
                 elevation: 0,
+                // ✅ UPDATED: Increased toolbarHeight to accommodate the 80px logo
+                toolbarHeight: 100, 
                 backgroundColor: Colors.white,
                 centerTitle: true,
-                leadingWidth: 100,
+                // ✅ UPDATED: increased to 110 to give room for avatar and avoid overflow
+                leadingWidth: 110, 
                 leading: AppBarLeading(onProfilePressed: _showProfile),
                 title: _buildBranding(brandGreen),
                 actions: [
@@ -296,59 +293,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 8),
                 ],
               ),
-
-              // ✅ POSTS LIST - Infinite smooth scrolling with lazy loading
               posts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.feed_outlined,
-                              size: 80,
-                              color: Colors.grey[300],
-                            ),
+                            Icon(Icons.feed_outlined, size: 80, color: Colors.grey[300]),
                             const SizedBox(height: 16),
-                            Text(
-                              'No posts yet',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Start following runners or create your first post!',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[400],
-                              ),
-                            ),
+                            const Text('No posts yet', style: TextStyle(fontSize: 18, color: Colors.grey)),
                           ],
                         ),
                       ),
                     )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          // ✅ Lazy loading - only builds visible items
-                          return FeedItemWrapper(post: posts[index]);
-                        },
+                        (context, index) => FeedItemWrapper(post: posts[index]),
                         childCount: posts.length,
-                        
-                        // ✅ Performance optimization - reuses widgets
                         addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
-                        addSemanticIndexes: true,
                       ),
                     ),
-
-              // ✅ Bottom padding for better UX
-              const SliverPadding(
-                padding: EdgeInsets.only(bottom: 100),
-              ),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
             ],
           ),
         );
@@ -359,9 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class RunHistoryScreenWrapper extends StatelessWidget {
   final VoidCallback onBack;
-
   const RunHistoryScreenWrapper({super.key, required this.onBack});
-
   @override
   Widget build(BuildContext context) {
     return RunHistoryScreen(onBack: onBack);

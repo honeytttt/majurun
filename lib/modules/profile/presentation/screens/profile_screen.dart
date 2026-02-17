@@ -8,12 +8,14 @@ import 'package:intl/intl.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_settings_screen.dart';
 import 'package:majurun/core/services/storage_service.dart';
 import 'package:majurun/core/services/badge_service.dart';
+import 'package:majurun/core/utils/user_counters_initializer.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/modules/profile/presentation/screens/followers_following_screen.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
 import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.dart';
+import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -41,6 +43,20 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _showPosts = true;  // Show Posts by default
+
+  @override
+  void initState() {
+    super.initState();
+    // Sync badges from run history when profile loads
+    _syncBadges();
+  }
+
+  Future<void> _syncBadges() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await UserCountersInitializer.syncBadgesFromRunHistory(uid);
+    }
+  }
 
   void _navigateToSettings({
     required String name,
@@ -120,6 +136,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _navigateToContactUs() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ContactUsScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -130,9 +155,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: widget.onBack,
+        leadingWidth: 100,
+        leading: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: widget.onBack,
+            ),
+            IconButton(
+              icon: const Icon(Icons.support_agent, color: Color(0xFF00E676)),
+              tooltip: 'Contact Us',
+              onPressed: _navigateToContactUs,
+            ),
+          ],
         ),
         title: const Text(
           "MY PROFILE",

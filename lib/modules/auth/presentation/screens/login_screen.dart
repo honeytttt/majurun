@@ -40,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       await authMethod();
-      // On success, AuthWrapper will automatically redirect to Home
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -70,16 +69,26 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "MAJURUN",
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                      letterSpacing: 2,
-                    ),
+                  // Updated App Logo - Increased size for professional look
+                  Image.asset(
+                    'assets/images/majurun-logo.jpg',
+                    height: 120, // Increased height
+                    width: double.infinity, 
+                    fit: BoxFit.contain, 
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Text(
+                        "MAJURUN",
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF00E676),
+                          letterSpacing: 2,
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 40),
+                  
+                  const SizedBox(height: 32), // Balanced spacing
                   
                   // Email Field
                   TextFormField(
@@ -146,26 +155,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // Google Icon
                       _socialIconButton(
                         icon: Icons.g_mobiledata, 
                         color: Colors.red, 
                         onTap: () => _handleAuthAction(authRepo.signInWithGoogle),
                       ),
-                      
-                      // Facebook Icon
                       _socialIconButton(
                         icon: Icons.facebook, 
                         color: Colors.blue.shade900, 
                         onTap: () => _handleAuthAction(authRepo.signInWithFacebook),
                       ),
-                      
-                      // Twitter/X Icon - Using Font Awesome's official X logo
-                      // This is the current X (Twitter) logo, not a close button
                       _socialIconButton(
-                        icon: FontAwesomeIcons.xTwitter, // Official X logo
+                        icon: FontAwesomeIcons.xTwitter, 
                         color: Colors.black,
-                        iconSize: 28, // Slightly smaller for better balance
+                        iconSize: 28, 
                         onTap: () => _handleAuthAction(authRepo.signInWithTwitter),
                       ),
                     ],

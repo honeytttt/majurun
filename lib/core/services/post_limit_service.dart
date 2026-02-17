@@ -6,7 +6,16 @@ import 'package:flutter/foundation.dart';
 /// Prevents spam and ensures quality content
 class PostLimitService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
+  // Admin email - no posting limits apply
+  static const String adminEmail = 'majurun.app@gmail.com';
+
+  /// Check if current user is admin (no limits)
+  bool isAdmin() {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    return email == adminEmail;
+  }
+
   // ========================================
   // ✅ CONFIGURABLE LIMITS - Change these as needed
   // ========================================
@@ -41,6 +50,12 @@ class PostLimitService {
 
   /// Check if user can post today based on post type
   Future<bool> canPostToday(String userId, {bool hasImages = false, bool hasVideo = false}) async {
+    // Admin has no limits
+    if (isAdmin()) {
+      debugPrint('👑 Admin user - no posting limits');
+      return true;
+    }
+
     try {
       final counts = await _getPostsCountByTypeToday(userId);
       final totalCount = counts['total'] ?? 0;
@@ -305,6 +320,12 @@ class PostLimitService {
     required int imageCount,
     required bool hasVideo,
   }) async {
+    // Admin bypasses all validations
+    if (isAdmin()) {
+      debugPrint('👑 Admin user - bypassing post validation');
+      return null;
+    }
+
     // Check image count per post
     if (!hasVideo && !isImageCountValid(imageCount)) {
       return getImageCountMessage();

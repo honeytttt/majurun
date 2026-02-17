@@ -149,7 +149,7 @@ class VoiceController extends ChangeNotifier {
 
     // Encouragement - enhanced for major milestones
     if (km == 5) {
-      announcement.write("You're halfway to 10K! Keep pushing!");
+      announcement.write("5K complete! Amazing work!");
     } else if (km == 10) {
       announcement.write("You've hit 10K! You're unstoppable!");
     } else if (km % 5 == 0) {

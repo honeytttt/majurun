@@ -21,9 +21,137 @@ class UserCountersInitializer {
         await prefs.setBool(key, true);
         debugPrint('✅ Counters initialized successfully!');
       }
+
+      // Always sync badges from run history to ensure accuracy
+      await syncBadgesFromRunHistory(currentUser.uid);
     } catch (e) {
       debugPrint('❌ Error during initialization: $e');
     }
+  }
+
+  /// Sync badges by recalculating from run history
+  /// This ensures badges are accurate even if they weren't tracked properly before
+  static Future<void> syncBadgesFromRunHistory(String userId) async {
+    final firestore = FirebaseFirestore.instance;
+
+    try {
+      debugPrint('🔄 Syncing badges from run history for user: $userId');
+
+      int badge5kCount = 0;
+      int badge10kCount = 0;
+      int badgeHalfCount = 0;
+      int badgeFullCount = 0;
+
+      // Track processed run timestamps to avoid duplicates
+      final processedRuns = <String>{};
+
+      // 1) Get all runs from training_history (primary source)
+      final historySnapshot = await firestore
+          .collection('users')
+          .doc(userId)
+          .collection('training_history')
+          .get();
+
+      for (final doc in historySnapshot.docs) {
+        final data = doc.data();
+        final distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        final completed = data['completed'] as bool? ?? true;
+
+        // Create a unique key based on distance and timestamp to detect duplicates
+        final completedAt = (data['completedAt'] as Timestamp?)?.seconds.toString() ?? doc.id;
+        final runKey = '${distanceKm.toStringAsFixed(2)}_$completedAt';
+
+        if (!completed || processedRuns.contains(runKey)) continue;
+        processedRuns.add(runKey);
+
+        // Count badge-qualifying runs
+        if (distanceKm >= 5.0) badge5kCount++;
+        if (distanceKm >= 10.0) badge10kCount++;
+        if (distanceKm >= 21.0975) badgeHalfCount++;
+        if (distanceKm >= 42.195) badgeFullCount++;
+      }
+
+      // 2) Also check posts for run data (in case runs were posted but not in history)
+      final postsSnapshot = await firestore
+          .collection('posts')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      for (final doc in postsSnapshot.docs) {
+        final data = doc.data();
+        final distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
+
+        // Skip if no run data
+        if (distanceKm <= 0) continue;
+
+        // Create a unique key to detect if this run was already counted from history
+        final createdAt = (data['createdAt'] as Timestamp?)?.seconds.toString() ?? doc.id;
+        final runKey = '${distanceKm.toStringAsFixed(2)}_$createdAt';
+
+        // Skip if already processed from training_history
+        if (processedRuns.contains(runKey)) continue;
+        processedRuns.add(runKey);
+
+        // Count badge-qualifying runs from posts
+        if (distanceKm >= 5.0) badge5kCount++;
+        if (distanceKm >= 10.0) badge10kCount++;
+        if (distanceKm >= 21.0975) badgeHalfCount++;
+        if (distanceKm >= 42.195) badgeFullCount++;
+      }
+
+      debugPrint('📊 Found ${processedRuns.length} unique runs');
+      debugPrint('🏅 Badge counts: 5k=$badge5kCount, 10k=$badge10kCount, half=$badgeHalfCount, full=$badgeFullCount');
+
+      // Get current user data to compare
+      final userDoc = await firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        debugPrint('⚠️ User document does not exist');
+        return;
+      }
+
+      final currentData = userDoc.data() ?? {};
+      final currentBadge5k = (currentData['badge5k'] as int?) ?? 0;
+      final currentBadge10k = (currentData['badge10k'] as int?) ?? 0;
+      final currentBadgeHalf = (currentData['badgeHalf'] as int?) ?? 0;
+      final currentBadgeFull = (currentData['badgeFull'] as int?) ?? 0;
+
+      // Update badges if recalculated values differ
+      final updates = <String, dynamic>{};
+
+      if (badge5kCount != currentBadge5k) {
+        updates['badge5k'] = badge5kCount;
+        debugPrint('🏅 Updating badge5k: $currentBadge5k → $badge5kCount');
+      }
+      if (badge10kCount != currentBadge10k) {
+        updates['badge10k'] = badge10kCount;
+        debugPrint('🏅 Updating badge10k: $currentBadge10k → $badge10kCount');
+      }
+      if (badgeHalfCount != currentBadgeHalf) {
+        updates['badgeHalf'] = badgeHalfCount;
+        debugPrint('🏅 Updating badgeHalf: $currentBadgeHalf → $badgeHalfCount');
+      }
+      if (badgeFullCount != currentBadgeFull) {
+        updates['badgeFull'] = badgeFullCount;
+        debugPrint('🏅 Updating badgeFull: $currentBadgeFull → $badgeFullCount');
+      }
+
+      if (updates.isNotEmpty) {
+        await firestore.collection('users').doc(userId).update(updates);
+        debugPrint('✅ Badges synced: $updates');
+      } else {
+        debugPrint('✅ Badges already in sync');
+      }
+    } catch (e) {
+      debugPrint('❌ Error syncing badges: $e');
+    }
+  }
+
+  /// Force recalculate all badges (call manually when needed)
+  static Future<void> forceRecalculateBadges() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    await syncBadgesFromRunHistory(currentUser.uid);
   }
 
   static Future<void> _ensureUserDocumentHasCounters(String userId) async {

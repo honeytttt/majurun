@@ -84,60 +84,24 @@ class StatsController extends ChangeNotifier {
 
     debugPrint('📈 Calculated paceSecPerKm: $paceSecPerKm');
 
-    // 3) Update user stats in Firestore - DIRECT UPDATE FOR RELIABILITY
+    // 3) Update user stats and badges via UserStatsService (handles all stats + badges)
     try {
-      final userRef = _firestore.collection('users').doc(uid);
-
-      // Get current best pace to compare
-      final userDoc = await userRef.get();
-      final currentBestPace = userDoc.data()?['bestPaceSecPerKm'] as int?;
-
-      debugPrint('   Current best pace: $currentBestPace');
-      debugPrint('   This run pace: $paceSecPerKm');
-
-      // Determine if this is a new best pace (lower is better)
-      final newBestPace = (currentBestPace == null || (paceSecPerKm > 0 && paceSecPerKm < currentBestPace))
-          ? paceSecPerKm
-          : currentBestPace;
-
-      if (newBestPace == paceSecPerKm && paceSecPerKm > 0) {
-        debugPrint('🎯 NEW BEST PACE! $paceSecPerKm sec/km');
-      }
-
-      // Update user document with atomic operations
-      await userRef.update({
-        'totalKm': FieldValue.increment(distanceKm),
-        'totalRunSeconds': FieldValue.increment(durationSeconds),
-        'totalCalories': FieldValue.increment(calories ?? 0),
-        'postsCount': FieldValue.increment(1),
-        'bestPaceSecPerKm': newBestPace > 0 ? newBestPace : paceSecPerKm,
-      });
-
-      debugPrint('✅ User stats updated in Firestore:');
+      debugPrint('📈 Updating stats and badges via UserStatsService...');
+      await UserStatsService().addRun(
+        uid: uid,
+        distanceKm: distanceKm,
+        durationSeconds: durationSeconds,
+        calories: calories ?? 0,
+        completed: completed ?? true,
+      );
+      debugPrint('✅ User stats and badges updated successfully');
       debugPrint('   +${distanceKm.toStringAsFixed(2)} km to totalKm');
       debugPrint('   +$durationSeconds sec to totalRunSeconds');
       debugPrint('   +${calories ?? 0} cal to totalCalories');
-      debugPrint('   +1 to postsCount');
-      debugPrint('   bestPaceSecPerKm set to: ${newBestPace > 0 ? newBestPace : paceSecPerKm}');
-
+      debugPrint('   Badge increments: 5k=${distanceKm >= 5.0}, 10k=${distanceKm >= 10.0}, half=${distanceKm >= 21.0975}, full=${distanceKm >= 42.195}');
     } catch (e) {
-      debugPrint('❌ ERROR updating user stats in Firestore: $e');
+      debugPrint('❌ ERROR updating user stats: $e');
       debugPrint('   Error type: ${e.runtimeType}');
-
-      // Still try UserStatsService as fallback
-      debugPrint('⚠️ Attempting fallback via UserStatsService...');
-      try {
-        await UserStatsService().addRun(
-          uid: uid,
-          distanceKm: distanceKm,
-          durationSeconds: durationSeconds,
-          calories: calories ?? 0,
-          completed: completed ?? true,
-        );
-        debugPrint('✅ Fallback update successful');
-      } catch (fallbackError) {
-        debugPrint('❌ Fallback also failed: $fallbackError');
-      }
     }
 
     // Keep your existing in-memory updates

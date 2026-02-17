@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
+import 'package:majurun/core/services/subscription_service.dart';
 import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
 import 'run_map_preview.dart';
@@ -125,11 +126,14 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
+
     final repo = PostRepositoryImpl();
+    final subscriptionService = SubscriptionService();
     final currentUser = FirebaseAuth.instance.currentUser;
     final currentUserId = currentUser?.uid ?? "";
     final isOwnPost = currentUserId.isNotEmpty && widget.post.userId == currentUserId;
+    final isAdmin = subscriptionService.isAdmin();
+    final canModifyPost = isOwnPost || isAdmin;
     final isLiked = widget.post.likes.contains(currentUserId);
 
     final isRepost = widget.post.quotedPostId != null &&
@@ -289,15 +293,56 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                         ],
                       ),
                     ),
-                    if (isOwnPost)
-                      IconButton(
-                        icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 24),
-                        onPressed: () async {
-                          final confirm = await _showDeleteDialog(context);
-                          if (confirm == true) {
-                            await repo.deletePost(widget.post.id);
+                    if (canModifyPost)
+                      PopupMenuButton<String>(
+                        icon: Icon(
+                          isAdmin && !isOwnPost ? Icons.admin_panel_settings : Icons.more_vert,
+                          color: isAdmin && !isOwnPost ? Colors.orange : Colors.grey,
+                          size: 24,
+                        ),
+                        onSelected: (value) async {
+                          if (value == 'delete') {
+                            final confirm = await _showDeleteDialog(context, isAdmin: isAdmin && !isOwnPost);
+                            if (confirm == true) {
+                              await repo.deletePost(widget.post.id);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Post deleted'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } else if (value == 'edit') {
+                            _showEditDialog(context, repo);
                           }
                         },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 20),
+                                SizedBox(width: 8),
+                                Text('Edit Post'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.delete_forever, size: 20, color: Colors.red),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isAdmin && !isOwnPost ? 'Delete (Admin)' : 'Delete Post',
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),
@@ -540,12 +585,16 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     );
   }
 
-  Future<bool?> _showDeleteDialog(BuildContext context) {
+  Future<bool?> _showDeleteDialog(BuildContext context, {bool isAdmin = false}) {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Delete Post?"),
-        content: const Text("This will permanently remove this post."),
+        title: Text(isAdmin ? "Admin: Delete Post?" : "Delete Post?"),
+        content: Text(
+          isAdmin
+              ? "You are using admin privileges to delete this user's post. This action cannot be undone."
+              : "This will permanently remove this post.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -554,6 +603,66 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, PostRepositoryImpl repo) {
+    final contentController = TextEditingController(text: widget.post.content);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Post"),
+        content: TextField(
+          controller: contentController,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: "Edit your post content...",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newContent = contentController.text.trim();
+              if (newContent.isNotEmpty) {
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('posts')
+                      .doc(widget.post.id)
+                      .update({
+                    'content': newContent,
+                    'editedAt': FieldValue.serverTimestamp(),
+                  });
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Post updated'),
+                        backgroundColor: Color(0xFF00E676),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating post: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text("Save", style: TextStyle(color: Color(0xFF00E676))),
           ),
         ],
       ),

@@ -206,17 +206,23 @@ class _SignupScreenState extends State<SignupScreen> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
-                          // Header
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.directions_run_rounded, size: 36, color: cs.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Create your account',
-                                style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ],
+                          // Header with Logo
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.asset(
+                              'assets/images/majurun-logo.jpg',
+                              height: 80,
+                              width: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(Icons.directions_run_rounded, size: 60, color: cs.primary);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Create your account',
+                            style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -298,7 +304,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                         textInputAction: TextInputAction.next,
                                         decoration: const InputDecoration(
                                           labelText: 'Mobile number *',
-                                          hintText: '9689 2876',
+                                          hintText: '9689 0000',
                                         ),
                                         validator: (v) {
                                           final digits = (v ?? '')
@@ -476,6 +482,23 @@ class _SignupScreenState extends State<SignupScreen> {
                                           icon: const Icon(Icons.sms_rounded),
                                           label: const Text('Send OTP'),
                                         ),
+                                ),
+                                const SizedBox(height: 16),
+                                // Contact Us link
+                                Center(
+                                  child: TextButton.icon(
+                                    onPressed: () async {
+                                      final uri = Uri.parse('mailto:admin@majurun.com?subject=Support Request');
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(uri);
+                                      }
+                                    },
+                                    icon: Icon(Icons.support_agent, color: cs.primary, size: 18),
+                                    label: Text(
+                                      'Need help? Contact Us',
+                                      style: TextStyle(color: cs.primary),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

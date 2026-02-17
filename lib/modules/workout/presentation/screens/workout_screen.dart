@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
+import 'package:majurun/core/services/subscription_service.dart';
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
@@ -15,17 +16,27 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   final ScrollController _scrollController = ScrollController();
+  final SubscriptionService _subscriptionService = SubscriptionService();
   bool _showBackToTop = false;
+  bool _isPro = false;
+  int _selectedCategoryIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _checkProStatus();
     _scrollController.addListener(() {
       setState(() {
-        // Show button only after scrolling down 200 pixels
         _showBackToTop = _scrollController.offset > 200;
       });
     });
+  }
+
+  Future<void> _checkProStatus() async {
+    final isPro = await _subscriptionService.isProUser();
+    if (mounted) {
+      setState(() => _isPro = isPro);
+    }
   }
 
   @override
@@ -94,27 +105,124 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Widget _buildCategoryChips(Color brandGreen) {
     final List<String> categories = ["All", "Strength", "Yoga", "HIIT", "Meditation", "Outdoors"];
+    // "All" is free, other categories require Pro
+    final List<bool> isProRequired = [false, true, true, true, true, true];
+
     return SizedBox(
       height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
         itemBuilder: (context, index) {
-          bool isSelected = index == 0;
-          return Container(
-            margin: const EdgeInsets.only(right: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: isSelected ? brandGreen : Colors.grey[100],
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isSelected ? brandGreen : Colors.grey[300]!),
-            ),
-            child: Center(
-              child: Text(categories[index],
-                  style: TextStyle(color: isSelected ? Colors.black : Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 13)),
+          bool isSelected = index == _selectedCategoryIndex;
+          bool requiresPro = isProRequired[index];
+          bool isLocked = requiresPro && !_isPro;
+
+          return GestureDetector(
+            onTap: () {
+              if (isLocked) {
+                _showProDialog(context);
+              } else {
+                setState(() => _selectedCategoryIndex = index);
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: isLocked
+                    ? Colors.grey[200]
+                    : (isSelected ? brandGreen : Colors.grey[100]),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isLocked
+                      ? Colors.grey[400]!
+                      : (isSelected ? brandGreen : Colors.grey[300]!),
+                ),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      categories[index],
+                      style: TextStyle(
+                        color: isLocked
+                            ? Colors.grey
+                            : (isSelected ? Colors.black : Colors.grey[600]),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (requiresPro) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        isLocked ? Icons.lock : Icons.workspace_premium,
+                        size: 14,
+                        color: isLocked ? Colors.grey : const Color(0xFFFFD700),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _showProDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Color(0xFFFFD700)),
+            SizedBox(width: 8),
+            Text('Pro Feature'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This workout category requires a Pro subscription.'),
+            SizedBox(height: 12),
+            Text('Upgrade to unlock:'),
+            SizedBox(height: 8),
+            Text('• All workout categories'),
+            Text('• Advanced training programs'),
+            Text('• Premium AI coaches'),
+            SizedBox(height: 16),
+            Text(
+              'Monthly: \$9.99/mo\nYearly: \$79.99/yr',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Maybe Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Subscription feature coming soon!'),
+                  backgroundColor: Color(0xFF00E676),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFD700),
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Subscribe'),
+          ),
+        ],
       ),
     );
   }

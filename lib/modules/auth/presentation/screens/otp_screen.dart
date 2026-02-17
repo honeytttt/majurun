@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- add this
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../../domain/repositories/auth_repository.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
   final Function(String) onVerify;
+  final Function(String verificationId)? onNewVerificationId;
 
   const OtpScreen({
     super.key,
     required this.phoneNumber,
     required this.onVerify,
+    this.onNewVerificationId,
   });
 
   @override
@@ -20,9 +25,31 @@ class _OtpScreenState extends State<OtpScreen> {
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
+  bool _isResending = false;
+  int _resendCountdown = 0;
+  Timer? _countdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startResendCountdown();
+  }
+
+  void _startResendCountdown() {
+    setState(() => _resendCountdown = 60);
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendCountdown > 0) {
+        setState(() => _resendCountdown--);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     for (final c in _controllers) {
       c.dispose();
     }
@@ -30,6 +57,61 @@ class _OtpScreenState extends State<OtpScreen> {
       f.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _resendOtp() async {
+    if (_resendCountdown > 0 || _isResending) return;
+
+    setState(() => _isResending = true);
+
+    try {
+      final authRepo = context.read<AuthRepository>();
+      await authRepo.verifyPhoneNumber(
+        phoneNumber: widget.phoneNumber,
+        onCodeSent: (verificationId) {
+          if (mounted) {
+            setState(() => _isResending = false);
+            _startResendCountdown();
+            // Clear OTP fields
+            for (final c in _controllers) {
+              c.clear();
+            }
+            _focusNodes[0].requestFocus();
+
+            // Notify parent of new verification ID if callback provided
+            widget.onNewVerificationId?.call(verificationId);
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('OTP sent successfully!'),
+                backgroundColor: Color(0xFF00E676),
+              ),
+            );
+          }
+        },
+        onError: (message) {
+          if (mounted) {
+            setState(() => _isResending = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $message'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isResending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to resend OTP: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _submitCode() async {
@@ -127,19 +209,21 @@ class _OtpScreenState extends State<OtpScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: _isLoading
-                      ? null
-                      : () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please go back and send OTP again.'),
-                            ),
-                          );
-                        },
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Resend'),
-                ),
+                _isResending
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : TextButton.icon(
+                        onPressed: _resendCountdown > 0 || _isLoading ? null : _resendOtp,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(
+                          _resendCountdown > 0
+                              ? 'Resend in ${_resendCountdown}s'
+                              : 'Resend OTP',
+                        ),
+                      ),
               ],
             ),
           ),
