@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>5K to 10K Plan - MajuRun</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1B4D2C 0%, #000000 50%, #0D2818 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .plan-container {
+            width: 800px;
+            background: #000000;
+            border-radius: 30px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(126, 217, 87, 0.3);
+            border: 2px solid rgba(126, 217, 87, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #2D7A3E;
+        }
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #7ED957;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(126, 217, 87, 0.5);
+        }
+        .subtitle {
+            font-size: 20px;
+            color: #FFFFFF;
+            font-weight: 300;
+            letter-spacing: 3px;
+        }
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #2D7A3E, #7ED957);
+            color: #000000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 15px;
+            letter-spacing: 1px;
+        }
+        .weeks-grid { display: grid; gap: 20px; }
+        .week-card {
+            background: linear-gradient(135deg, rgba(45, 122, 62, 0.15), rgba(126, 217, 87, 0.05));
+            border: 2px solid rgba(126, 217, 87, 0.3);
+            border-radius: 15px;
+            padding: 20px 25px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .week-number {
+            background: linear-gradient(135deg, #2D7A3E, #7ED957);
+            color: #000000;
+            font-size: 24px;
+            font-weight: 900;
+            width: 70px;
+            height: 70px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-right: 25px;
+            box-shadow: 0 4px 15px rgba(126, 217, 87, 0.3);
+            flex-shrink: 0;
+        }
+        .week-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; }
+        .week-num { font-size: 28px; line-height: 1; }
+        .week-details { flex: 1; }
+        .workout-text { font-size: 18px; color: #FFFFFF; font-weight: 600; margin-bottom: 5px; }
+        .sets-text { font-size: 28px; color: #7ED957; font-weight: 900; letter-spacing: 1px; }
+        .note-text { font-size: 12px; color: #FFFFFF; opacity: 0.55; margin-top: 4px; }
+        .run-icon { color: #7ED957; font-weight: bold; }
+        .walk-icon { color: #FFFFFF; opacity: 0.7; }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            padding-top: 30px;
+            border-top: 2px solid rgba(126, 217, 87, 0.2);
+        }
+        .footer-text { color: #FFFFFF; font-size: 14px; opacity: 0.7; letter-spacing: 2px; }
+        .logo { color: #7ED957; font-size: 24px; font-weight: 900; margin-top: 10px; letter-spacing: 3px; }
+    </style>
+</head>
+<body>
+    <div class="plan-container">
+        <div class="header">
+            <div class="title">5K TO 10K</div>
+            <div class="subtitle">8-Week Intermediate Plan</div>
+            <div class="badge">3 DAYS PER WEEK</div>
+        </div>
+
+        <div class="weeks-grid">
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">1</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 10 min</span> • <span class="walk-icon">WALK 1 min</span></div>
+                    <div class="sets-text">× 3 SETS</div>
+                    <div class="note-text">~33 min total; one day aim for longer if feeling good</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">2</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 12 min</span> • <span class="walk-icon">WALK 1 min</span></div>
+                    <div class="sets-text">× 3 SETS</div>
+                    <div class="note-text">~39 min total</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">3</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 15 min</span> • <span class="walk-icon">WALK 1 min</span></div>
+                    <div class="sets-text">× 3 SETS</div>
+                    <div class="note-text">~48 min total</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">4</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 18 min</span> • <span class="walk-icon">WALK 1 min</span></div>
+                    <div class="sets-text">× 3 SETS</div>
+                    <div class="note-text">~57 min total</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">5</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 22 min</span> • <span class="walk-icon">WALK 1 min</span></div>
+                    <div class="sets-text">× 2 SETS + RUN 10 min</div>
+                    <div class="note-text">~54-60 min total; build toward less walking</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">6</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 25 min continuous</span></div>
+                    <div class="sets-text">× 2 SETS</div>
+                    <div class="note-text">50 min total; or one longer 40-45 min run if ready</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">7</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 35-40 min continuous</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">Focus on steady easy pace; add short walk only if needed</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">8</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 60 min continuous</span></div>
+                    <div class="sets-text">× 1 SET 🎉</div>
+                    <div class="note-text">~9-11 km depending on your pace — you're 10K ready!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">YOUR JOURNEY TO 10K STARTS HERE</div>
+            <div class="logo">MAJURUN</div>
+        </div>
+    </div>
+</body>
+</html>

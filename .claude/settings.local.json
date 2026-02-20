@@ -8,7 +8,8 @@
       "Bash(aws s3 sync:*)",
       "Bash(aws cloudfront create-invalidation:*)",
       "Bash(dir:*)",
-      "Bash(flutter pub get:*)"
+      "Bash(flutter pub get:*)",
+      "Bash(winget upgrade:*)"
     ]
   }
 }

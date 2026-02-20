@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Half to Full Marathon Plan - MajuRun</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1B4D2C 0%, #000000 50%, #0D2818 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .plan-container {
+            width: 800px;
+            background: #000000;
+            border-radius: 30px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(126, 217, 87, 0.3);
+            border: 2px solid rgba(126, 217, 87, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #2D7A3E;
+        }
+        .title {
+            font-size: 36px;
+            font-weight: 900;
+            color: #7ED957;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(126, 217, 87, 0.5);
+        }
+        .subtitle {
+            font-size: 20px;
+            color: #FFFFFF;
+            font-weight: 300;
+            letter-spacing: 3px;
+        }
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #2D7A3E, #7ED957);
+            color: #000000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 15px;
+            letter-spacing: 1px;
+        }
+        .weeks-grid { display: grid; gap: 16px; }
+        .week-card {
+            background: linear-gradient(135deg, rgba(45, 122, 62, 0.15), rgba(126, 217, 87, 0.05));
+            border: 2px solid rgba(126, 217, 87, 0.3);
+            border-radius: 15px;
+            padding: 18px 25px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .week-card.recovery {
+            border-color: rgba(126, 217, 87, 0.15);
+            background: linear-gradient(135deg, rgba(45, 122, 62, 0.07), rgba(126, 217, 87, 0.02));
+        }
+        .week-card.taper {
+            border-color: rgba(126, 217, 87, 0.5);
+            background: linear-gradient(135deg, rgba(45, 122, 62, 0.25), rgba(126, 217, 87, 0.08));
+        }
+        .week-number {
+            background: linear-gradient(135deg, #2D7A3E, #7ED957);
+            color: #000000;
+            font-size: 24px;
+            font-weight: 900;
+            width: 65px;
+            height: 65px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-right: 25px;
+            box-shadow: 0 4px 15px rgba(126, 217, 87, 0.3);
+            flex-shrink: 0;
+        }
+        .week-card.recovery .week-number {
+            background: linear-gradient(135deg, #1a4a28, #4a9a5a);
+        }
+        .week-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; }
+        .week-num { font-size: 26px; line-height: 1; }
+        .week-details { flex: 1; }
+        .workout-text { font-size: 17px; color: #FFFFFF; font-weight: 600; margin-bottom: 4px; }
+        .sets-text { font-size: 26px; color: #7ED957; font-weight: 900; letter-spacing: 1px; }
+        .note-text { font-size: 12px; color: #FFFFFF; opacity: 0.55; margin-top: 3px; }
+        .tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .tag-recovery { background: rgba(126, 217, 87, 0.15); color: #7ED957; border: 1px solid rgba(126,217,87,0.3); }
+        .tag-taper { background: rgba(126, 217, 87, 0.25); color: #7ED957; border: 1px solid rgba(126,217,87,0.5); }
+        .run-icon { color: #7ED957; font-weight: bold; }
+        .walk-icon { color: #FFFFFF; opacity: 0.7; }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            padding-top: 30px;
+            border-top: 2px solid rgba(126, 217, 87, 0.2);
+        }
+        .footer-text { color: #FFFFFF; font-size: 14px; opacity: 0.7; letter-spacing: 2px; }
+        .logo { color: #7ED957; font-size: 24px; font-weight: 900; margin-top: 10px; letter-spacing: 3px; }
+    </style>
+</head>
+<body>
+    <div class="plan-container">
+        <div class="header">
+            <div class="title">HALF TO FULL MARATHON</div>
+            <div class="subtitle">12-Week Advanced Plan</div>
+            <div class="badge">3 DAYS PER WEEK</div>
+        </div>
+
+        <div class="weeks-grid">
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">1</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 40 min</span> • <span class="walk-icon">WALK 2 min</span></div>
+                    <div class="sets-text">× 2 SETS</div>
+                    <div class="note-text">~84 min total</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">2</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 50 min</span> • <span class="walk-icon">WALK 1 min</span></div>
+                    <div class="sets-text">× 2 SETS</div>
+                    <div class="note-text">~102 min total</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">3</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 60 min continuous</span></div>
+                    <div class="sets-text">× 2 SETS</div>
+                    <div class="note-text">120 min total</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">4</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 70 min continuous</span></div>
+                    <div class="sets-text">× 1 SET + shorter run</div>
+                    <div class="note-text">Build confidence in longer efforts</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">5</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 80 min continuous</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">~12-15 km; practice gels/water every 30-45 min</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">6</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 90 min continuous</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">~14-17 km</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">7</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 100 min continuous</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">~15-19 km</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">8</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 110 min continuous</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">~17-21 km — peak long run territory</div>
+                </div>
+            </div>
+
+            <div class="week-card recovery">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">9</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 90 min continuous</span> <span class="tag tag-recovery">RECOVERY</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">Slightly shorter — let your body recover and adapt</div>
+                </div>
+            </div>
+
+            <div class="week-card">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">10</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 100 min continuous</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">Back up for final endurance push</div>
+                </div>
+            </div>
+
+            <div class="week-card taper">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">11</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 70-80 min continuous</span> <span class="tag tag-taper">TAPER</span></div>
+                    <div class="sets-text">× 1 SET</div>
+                    <div class="note-text">Reduce volume — let your legs feel fresh</div>
+                </div>
+            </div>
+
+            <div class="week-card taper">
+                <div class="week-number"><div class="week-label">WEEK</div><div class="week-num">12</div></div>
+                <div class="week-details">
+                    <div class="workout-text"><span class="run-icon">RUN 30-40 min easy + REST</span> <span class="tag tag-taper">RACE WEEK</span></div>
+                    <div class="sets-text">→ RACE DAY 🎉</div>
+                    <div class="note-text">26.2 miles / 42.2 km — start slow, trust your training!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">YOUR JOURNEY TO FULL MARATHON STARTS HERE</div>
+            <div class="logo">MAJURUN</div>
+        </div>
+    </div>
+</body>
+</html>

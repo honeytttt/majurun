@@ -18,6 +18,7 @@ class StatsController extends ChangeNotifier {
   })  : _repository = repository ?? FirestoreRunHistoryImpl(),
         _firestore = firestore ?? FirebaseFirestore.instance;
 
+  // Personal stats (from run history)
   double historyDistance = 0.0;
   int runStreak = 0;
   int totalRuns = 0;
@@ -32,6 +33,8 @@ class StatsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Saves run to personal history (private workout record)
+  /// Does NOT create a social post automatically
   Future<void> saveRunHistory({
     required String planTitle,
     required double distanceKm,
@@ -60,7 +63,7 @@ class StatsController extends ChangeNotifier {
       return;
     }
 
-    // 1) Save the run using your existing repository
+    // 1) Save to run history (private workout record)
     await _repository.saveRun(
       planTitle: planTitle,
       distanceKm: distanceKm,
@@ -77,14 +80,9 @@ class StatsController extends ChangeNotifier {
       extra: extra,
     );
 
-    debugPrint('✅ Run saved to history repository');
+    debugPrint('✅ Run saved to history repository (PRIVATE)');
 
-    // 2) Calculate pace in seconds per km for bestPaceSecPerKm
-    final paceSecPerKm = distanceKm > 0 ? (durationSeconds / distanceKm).round() : 0;
-
-    debugPrint('📈 Calculated paceSecPerKm: $paceSecPerKm');
-
-    // 3) Update user stats and badges via UserStatsService (handles all stats + badges)
+    // 2) Update user stats and badges
     try {
       debugPrint('📈 Updating stats and badges via UserStatsService...');
       await UserStatsService().addRun(
@@ -95,16 +93,11 @@ class StatsController extends ChangeNotifier {
         completed: completed ?? true,
       );
       debugPrint('✅ User stats and badges updated successfully');
-      debugPrint('   +${distanceKm.toStringAsFixed(2)} km to totalKm');
-      debugPrint('   +$durationSeconds sec to totalRunSeconds');
-      debugPrint('   +${calories ?? 0} cal to totalCalories');
-      debugPrint('   Badge increments: 5k=${distanceKm >= 5.0}, 10k=${distanceKm >= 10.0}, half=${distanceKm >= 21.0975}, full=${distanceKm >= 42.195}');
     } catch (e) {
       debugPrint('❌ ERROR updating user stats: $e');
-      debugPrint('   Error type: ${e.runtimeType}');
     }
 
-    // Keep your existing in-memory updates
+    // Update local state
     historyDistance += distanceKm;
     runStreak += 1;
 
@@ -112,6 +105,64 @@ class StatsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Creates a social post from a completed run
+  /// Call this separately when user wants to share
+  Future<void> createPostFromRun({
+    required String planTitle,
+    required double distanceKm,
+    required int durationSeconds,
+    required String pace,
+    String? caption,
+    String? mapImageUrl,
+    List<LatLng>? routePoints,
+    int? avgBpm,
+    int? calories,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      debugPrint('❌ No user logged in - cannot create post');
+      return;
+    }
+
+    debugPrint('📝 Creating social post from run...');
+
+    // Get user data for the post
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    final userData = userDoc.data() ?? {};
+
+    final postData = {
+      'userId': user.uid,
+      'userName': userData['name'] ?? 'Runner',
+      'userAvatar': userData['avatarUrl'] ?? '',
+      'type': 'run',
+      'createdAt': FieldValue.serverTimestamp(),
+      
+      // Run data
+      'runData': {
+        'planTitle': planTitle,
+        'distanceKm': distanceKm,
+        'durationSeconds': durationSeconds,
+        'pace': pace,
+        'avgBpm': avgBpm,
+        'calories': calories,
+        'mapImageUrl': mapImageUrl,
+      },
+      
+      // Optional caption
+      'caption': caption ?? 'Completed $planTitle - ${distanceKm.toStringAsFixed(2)} km!',
+      
+      // Social metrics
+      'likes': [],
+      'likeCount': 0,
+      'commentCount': 0,
+    };
+
+    await _firestore.collection('posts').add(postData);
+    debugPrint('✅ Social post created successfully');
+    notifyListeners();
+  }
+
+  /// Get last activity from RUN HISTORY (private workout record)
   Future<Map<String, dynamic>?> getLastActivity() async {
     final lastRun = await _repository.getLastRun();
     if (lastRun == null) return null;
@@ -135,6 +186,8 @@ class StatsController extends ChangeNotifier {
     };
   }
 
+  /// Get all runs from RUN HISTORY (private workout records)
+  /// This is YOUR personal workout log, not social posts
   Future<List<Map<String, dynamic>>> getRunHistory() async {
     final runs = await _repository.getAllRuns();
     return runs
@@ -158,12 +211,90 @@ class StatsController extends ChangeNotifier {
         .toList();
   }
 
+  /// Get SOCIAL POSTS stream (public feed from all users)
+  /// This is the global social feed, not just your runs
   Stream<List<RunPost>> getPostStream() {
     return _firestore
         .collection('posts')
         .orderBy('createdAt', descending: true)
+        .limit(50) // Add limit for performance
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => RunPost.fromFirestore(doc)).toList());
+  }
+
+  /// Get ONLY YOUR posts (for profile view)
+  Stream<List<RunPost>> getMyPostsStream() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return Stream.value([]);
+
+    return _firestore
+        .collection('posts')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => RunPost.fromFirestore(doc)).toList());
+  }
+
+  /// Get posts from users you follow (for feed)
+  Stream<List<RunPost>> getFeedPostsStream(List<String> followingIds) {
+    if (followingIds.isEmpty) {
+      // If not following anyone, show recent posts from everyone
+      return getPostStream();
+    }
+
+    return _firestore
+        .collection('posts')
+        .where('userId', whereIn: followingIds)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => RunPost.fromFirestore(doc)).toList());
+  }
+
+  /// Delete a post (only your own)
+  Future<void> deletePost(String postId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    if (postDoc.exists && postDoc.data()?['userId'] == uid) {
+      await _firestore.collection('posts').doc(postId).delete();
+      debugPrint('✅ Post deleted: $postId');
+      notifyListeners();
+    } else {
+      debugPrint('❌ Cannot delete post - not yours or does not exist');
+    }
+  }
+
+  /// Like/Unlike a post
+  Future<void> toggleLike(String postId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final postRef = _firestore.collection('posts').doc(postId);
+    final postDoc = await postRef.get();
+    
+    if (!postDoc.exists) return;
+
+    final likes = List<String>.from(postDoc.data()?['likes'] ?? []);
+    
+    if (likes.contains(uid)) {
+      // Unlike
+      await postRef.update({
+        'likes': FieldValue.arrayRemove([uid]),
+        'likeCount': FieldValue.increment(-1),
+      });
+      debugPrint('👎 Unliked post: $postId');
+    } else {
+      // Like
+      await postRef.update({
+        'likes': FieldValue.arrayUnion([uid]),
+        'likeCount': FieldValue.increment(1),
+      });
+      debugPrint('👍 Liked post: $postId');
+    }
   }
 }
