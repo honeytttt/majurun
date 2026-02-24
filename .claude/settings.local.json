@@ -10,7 +10,8 @@
       "Bash(dir:*)",
       "Bash(flutter pub get:*)",
       "Bash(winget upgrade:*)",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(wc:*)"
     ]
   }
 }

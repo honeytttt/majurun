@@ -17,6 +17,9 @@ import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
 import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
+import 'package:majurun/core/widgets/weekly_goals_card.dart';
+import 'package:majurun/core/widgets/streak_card.dart';
+import 'package:majurun/core/widgets/personal_records_card.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -445,7 +448,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+
+          const SizedBox(height: 20),
+
+          // Feedback & Support Card
+          _buildFeedbackCard(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFeedbackCard() {
+    return GestureDetector(
+      onTap: _navigateToContactUs,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF00E676).withValues(alpha: 0.15),
+              const Color(0xFF00E676).withValues(alpha: 0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF00E676).withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00E676).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.feedback_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Share Your Feedback',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Help us improve Majurun with your suggestions',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.grey[400],
+              size: 16,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -533,6 +617,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Weekly Goals Card
+          const WeeklyGoalsCard(),
+          const SizedBox(height: 16),
+
+          // Streak Card
+          const StreakCard(),
+          const SizedBox(height: 24),
+
           Text(
             'Running Stats',
             style: TextStyle(
@@ -618,6 +710,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return BadgesDisplay(badges: badges);
             },
           ),
+
+          // Personal Records Section
+          const SizedBox(height: 24),
+          Text(
+            'Personal Records',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const PersonalRecordsCard(),
         ],
       ),
     );
