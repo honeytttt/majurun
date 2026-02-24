@@ -196,7 +196,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Text('• Premium AI coaches'),
             SizedBox(height: 16),
             Text(
-              'Monthly: \$9.99/mo\nYearly: \$79.99/yr',
+              'Monthly: \$1.99/mo\nYearly: \$15.99/yr (Save 33%)',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],

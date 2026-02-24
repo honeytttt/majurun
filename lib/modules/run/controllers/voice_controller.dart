@@ -1,15 +1,20 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:majurun/core/services/voice_settings_service.dart';
 
 class VoiceController extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
+  final VoiceSettingsService _settingsService = VoiceSettingsService();
   bool _isVoiceEnabled = true;
   bool _isInitialized = false;
 
   VoiceController() {
     _initTts();
+    _settingsService.loadSettings();
   }
+
+  VoiceSettings get _settings => _settingsService.settings;
 
   bool get isVoiceEnabled => _isVoiceEnabled;
   bool get isInitialized => _isInitialized;
@@ -71,14 +76,14 @@ class VoiceController extends ChangeNotifier {
   }
 
   Future<void> _speak(String text) async {
-    if (!_isVoiceEnabled) return;
-    
+    if (!_isVoiceEnabled || !_settings.masterEnabled) return;
+
     try {
       // ✅ Ensure initialized before speaking
       if (!_isInitialized) {
         await _initTts();
       }
-      
+
       await _tts.speak(text);
       debugPrint("🔊 Speaking: $text");
     } catch (e) {
@@ -95,6 +100,7 @@ class VoiceController extends ChangeNotifier {
 
   /// Play celebration sound for major milestones (5km, 10km, 21km, 42km)
   Future<void> _playMilestoneSound(int km) async {
+    if (!_settings.hapticFeedback) return;
     // Only play for 5km, 10km, half marathon, full marathon
     if (km != 5 && km != 10 && km != 21 && km != 42) return;
 
@@ -113,6 +119,7 @@ class VoiceController extends ChangeNotifier {
 
   /// Play subtle "ting" sound for half-kilometer milestones (0.5, 1.5, 2.5, etc.)
   Future<void> _playTingSound() async {
+    if (!_settings.hapticFeedback) return;
     try {
       // Light haptic for subtle notification
       await HapticFeedback.lightImpact();
@@ -129,7 +136,7 @@ class VoiceController extends ChangeNotifier {
     required double distanceKm,
     required String currentPace,
   }) async {
-    if (!_isVoiceEnabled) return;
+    if (!_isVoiceEnabled || !_settings.masterEnabled || !_settings.halfKmUpdates) return;
 
     // Play subtle ting sound
     await _playTingSound();
@@ -166,10 +173,12 @@ class VoiceController extends ChangeNotifier {
     required String averagePace,
     String? comparison,
   }) async {
-    if (!_isVoiceEnabled) return;
+    if (!_isVoiceEnabled || !_settings.masterEnabled || !_settings.fullKmUpdates) return;
 
     // Play celebration sound BEFORE announcement for major milestones
-    await _playMilestoneSound(km);
+    if (_settings.majorMilestones) {
+      await _playMilestoneSound(km);
+    }
 
     // Parse totalTime (format: "32:15" = 32 minutes 15 seconds)
     final timeParts = totalTime.split(':');
@@ -184,52 +193,60 @@ class VoiceController extends ChangeNotifier {
     // Build complete announcement
     final announcement = StringBuffer();
 
-    // Special celebration for major milestones
-    if (km == 5) {
-      announcement.write("Congratulations! ");
-    } else if (km == 10) {
-      announcement.write("Incredible achievement! ");
-    } else if (km == 21) {
-      announcement.write("Half marathon complete! You're amazing! ");
-    } else if (km == 42) {
-      announcement.write("Full marathon! This is legendary! ");
+    // Special celebration for major milestones (if enabled)
+    if (_settings.majorMilestones) {
+      if (km == 5) {
+        announcement.write("Congratulations! ");
+      } else if (km == 10) {
+        announcement.write("Incredible achievement! ");
+      } else if (km == 21) {
+        announcement.write("Half marathon complete! You're amazing! ");
+      } else if (km == 42) {
+        announcement.write("Full marathon! This is legendary! ");
+      }
     }
 
     // Main milestone
     announcement.write("You've completed $km ");
     announcement.write(km == 1 ? "kilometer. " : "kilometers. ");
 
-    // Time
-    announcement.write("Your total time is $minutes ");
-    announcement.write(minutes == 1 ? "minute " : "minutes ");
-    if (seconds > 0) {
-      announcement.write("and $seconds ");
-      announcement.write(seconds == 1 ? "second. " : "seconds. ");
-    } else {
-      announcement.write(". ");
+    // Time (if enabled)
+    if (_settings.totalTime) {
+      announcement.write("Your total time is $minutes ");
+      announcement.write(minutes == 1 ? "minute " : "minutes ");
+      if (seconds > 0) {
+        announcement.write("and $seconds ");
+        announcement.write(seconds == 1 ? "second. " : "seconds. ");
+      } else {
+        announcement.write(". ");
+      }
     }
 
-    // Last km pace
-    final paceParts = lastKmPace.split(':');
-    final paceMin = int.tryParse(paceParts[0]) ?? 0;
-    final paceSec = int.tryParse(paceParts.length > 1 ? paceParts[1] : '0') ?? 0;
+    // Last km pace (if enabled)
+    if (_settings.lastKmPace) {
+      final paceParts = lastKmPace.split(':');
+      final paceMin = int.tryParse(paceParts[0]) ?? 0;
+      final paceSec = int.tryParse(paceParts.length > 1 ? paceParts[1] : '0') ?? 0;
 
-    announcement.write("Your last kilometer pace was $paceMin ");
-    announcement.write(paceMin == 1 ? "minute " : "minutes ");
-    if (paceSec > 0) {
-      announcement.write("and $paceSec ");
-      announcement.write(paceSec == 1 ? "second " : "seconds ");
+      announcement.write("Your last kilometer pace was $paceMin ");
+      announcement.write(paceMin == 1 ? "minute " : "minutes ");
+      if (paceSec > 0) {
+        announcement.write("and $paceSec ");
+        announcement.write(paceSec == 1 ? "second " : "seconds ");
+      }
+      announcement.write("per kilometer. ");
     }
-    announcement.write("per kilometer. ");
 
-    // Average pace
-    announcement.write("Your average pace is $avgPaceMin ");
-    announcement.write(avgPaceMin == 1 ? "minute " : "minutes ");
-    if (avgPaceSec > 0) {
-      announcement.write("and $avgPaceSec ");
-      announcement.write(avgPaceSec == 1 ? "second " : "seconds ");
+    // Average pace (if enabled)
+    if (_settings.averagePace) {
+      announcement.write("Your average pace is $avgPaceMin ");
+      announcement.write(avgPaceMin == 1 ? "minute " : "minutes ");
+      if (avgPaceSec > 0) {
+        announcement.write("and $avgPaceSec ");
+        announcement.write(avgPaceSec == 1 ? "second " : "seconds ");
+      }
+      announcement.write("per kilometer. ");
     }
-    announcement.write("per kilometer. ");
 
     // Comparison if available
     if (comparison != null && comparison.isNotEmpty) {
@@ -237,41 +254,47 @@ class VoiceController extends ChangeNotifier {
       announcement.write(". ");
     }
 
-    // Encouragement
-    if (km == 42) {
-      announcement.write("You've conquered a full marathon! Absolute champion!");
-    } else if (km == 21) {
-      announcement.write("Half marathon done! Incredible effort!");
-    } else if (km == 10) {
-      announcement.write("You've hit 10K! You're unstoppable!");
-    } else if (km == 5) {
-      announcement.write("5K complete! Amazing work!");
-    } else if (km % 5 == 0) {
-      announcement.write("Amazing progress! Keep it up!");
-    } else if (km % 3 == 0) {
-      announcement.write("You're doing great!");
-    } else {
-      announcement.write("Keep going strong!");
+    // Encouragement (if enabled)
+    if (_settings.encouragement) {
+      if (km == 42) {
+        announcement.write("You've conquered a full marathon! Absolute champion!");
+      } else if (km == 21) {
+        announcement.write("Half marathon done! Incredible effort!");
+      } else if (km == 10) {
+        announcement.write("You've hit 10K! You're unstoppable!");
+      } else if (km == 5) {
+        announcement.write("5K complete! Amazing work!");
+      } else if (km % 5 == 0) {
+        announcement.write("Amazing progress! Keep it up!");
+      } else if (km % 3 == 0) {
+        announcement.write("You're doing great!");
+      } else {
+        announcement.write("Keep going strong!");
+      }
     }
 
     await _speak(announcement.toString());
   }
 
   Future<void> speakRunStarted() async {
+    if (!_settings.runStartStop) return;
     // ✅ Ensure TTS is ready (critical for web)
     await ensureInitialized();
     await _speak("Run started. Stay safe and enjoy your run!");
   }
 
   Future<void> speakRunPaused() async {
+    if (!_settings.pauseResume) return;
     await _speak("Run paused. Take a breath!");
   }
 
   Future<void> speakRunResumed() async {
+    if (!_settings.pauseResume) return;
     await _speak("Run resumed. Let's go!");
   }
 
   Future<void> speakRunStopped() async {
+    if (!_settings.runStartStop) return;
     await _speak("Great job! Run completed. Check your stats!");
   }
 

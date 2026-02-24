@@ -16,6 +16,7 @@ import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
 import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
+import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -136,6 +137,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _navigateToVoiceSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const VoiceSettingsScreen(),
+      ),
+    );
+  }
+
   void _navigateToContactUs() {
     Navigator.push(
       context,
@@ -179,6 +189,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: true,
         actions: [
+          // Voice Coach Settings Button
+          IconButton(
+            icon: const Icon(Icons.record_voice_over, color: Colors.blue),
+            tooltip: 'Voice Coach Settings',
+            onPressed: _navigateToVoiceSettings,
+          ),
           // Privacy Settings Button
           IconButton(
             icon: const Icon(Icons.privacy_tip, color: Colors.black),

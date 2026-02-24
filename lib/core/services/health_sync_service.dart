@@ -93,7 +93,7 @@ class HealthSyncService {
           double calories = 0;
           int durationSeconds = 0;
           String workoutType = 'run';
-          String sourceName = point.sourceName ?? 'Health App';
+          String sourceName = point.sourceName.isNotEmpty ? point.sourceName : 'Health App';
 
           if (point.value is WorkoutHealthValue) {
             final workout = point.value as WorkoutHealthValue;

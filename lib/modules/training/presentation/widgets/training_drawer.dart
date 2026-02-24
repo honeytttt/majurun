@@ -244,7 +244,7 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
             _ProFeatureItem(text: 'All Workout Categories'),
             SizedBox(height: 16),
             Text(
-              'Monthly: \$9.99/mo\nYearly: \$79.99/yr (Save 33%)',
+              'Monthly: \$1.99/mo\nYearly: \$15.99/yr (Save 33%)',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
