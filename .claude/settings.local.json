@@ -9,7 +9,8 @@
       "Bash(aws cloudfront create-invalidation:*)",
       "Bash(dir:*)",
       "Bash(flutter pub get:*)",
-      "Bash(winget upgrade:*)"
+      "Bash(winget upgrade:*)",
+      "Bash(dart analyze:*)"
     ]
   }
 }

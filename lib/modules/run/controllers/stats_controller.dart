@@ -183,6 +183,8 @@ class StatsController extends ChangeNotifier {
       'completed': lastRun.completed,
       'mapImageUrl': lastRun.mapImageUrl,
       'extra': lastRun.extra,
+      'isExternal': lastRun.isExternal,
+      'source': lastRun.source,
     };
   }
 
@@ -207,6 +209,8 @@ class StatsController extends ChangeNotifier {
               'completed': run.completed,
               'mapImageUrl': run.mapImageUrl,
               'extra': run.extra,
+              'isExternal': run.isExternal,
+              'source': run.source,
             })
         .toList();
   }

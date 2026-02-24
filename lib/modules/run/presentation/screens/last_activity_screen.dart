@@ -31,9 +31,12 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
     final calories = widget.lastRun['calories'] ?? 0;
 
     final date = widget.lastRun['date'] as DateTime? ?? DateTime.now();
-    final dateStr = DateFormat('MMM dd').format(date);
-    final startTime = DateFormat('HH:mm').format(date);
-    final endTime = DateFormat('HH:mm').format(date.add(Duration(seconds: durationSeconds)));
+    // 'date' is the timestamp when the run was saved (end of run),
+    // so subtract duration to get the actual start time.
+    final startDateTime = date.subtract(Duration(seconds: durationSeconds));
+    final dateStr = DateFormat('MMM dd').format(startDateTime);
+    final startTime = DateFormat('HH:mm').format(startDateTime);
+    final endTime = DateFormat('HH:mm').format(date);
     final headerDateTime = "$dateStr • $startTime–$endTime";
 
     final elevationRaw = widget.lastRun['elevation'] ?? 118.0;

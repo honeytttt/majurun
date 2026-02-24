@@ -5,31 +5,63 @@ import 'package:flutter/services.dart';
 class VoiceController extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
   bool _isVoiceEnabled = true;
+  bool _isInitialized = false;
 
   VoiceController() {
     _initTts();
   }
 
   bool get isVoiceEnabled => _isVoiceEnabled;
+  bool get isInitialized => _isInitialized;
 
   Future<void> _initTts() async {
     try {
-      // Configure for iOS with premium voice
-      if (defaultTargetPlatform == TargetPlatform.iOS) {
-        await _tts.setVoice({"name": "Samantha", "locale": "en-US"}); // Premium female voice
-        // Alternatives: "Nicky" (also female), "Karen" (Australian)
-      } else if (kIsWeb) {
-        await _tts.setVoice({"name": "Google US English", "locale": "en-US"});
+      // ✅ FIX: iOS Safari voice issue - initialize early and test
+      if (kIsWeb) {
+        // Web-specific configuration
+        await _tts.setLanguage("en-US");
+        await _tts.setSpeechRate(0.5);
+        await _tts.setPitch(1.0);
+        await _tts.setVolume(1.0);
+        
+        // ✅ CRITICAL: Warm up TTS on web to avoid first-call silence
+        // This "primes" the speech synthesizer
+        await _tts.speak(" "); // Speak silent space
+        await Future.delayed(const Duration(milliseconds: 100));
+        await _tts.stop();
+        
+        debugPrint("✅ Voice initialized for WEB (warmed up)");
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        // Native iOS with premium voice
+        await _tts.setVoice({"name": "Samantha", "locale": "en-US"});
+        await _tts.setLanguage("en-US");
+        await _tts.setSpeechRate(0.5);
+        await _tts.setPitch(1.1);
+        await _tts.setVolume(1.0);
+        
+        debugPrint("✅ Voice initialized for iOS (Samantha)");
+      } else {
+        // Android and other platforms
+        await _tts.setLanguage("en-US");
+        await _tts.setSpeechRate(0.5);
+        await _tts.setPitch(1.0);
+        await _tts.setVolume(1.0);
+        
+        debugPrint("✅ Voice initialized (default)");
       }
 
-      await _tts.setLanguage("en-US");
-      await _tts.setSpeechRate(0.5); // Slower = clearer (0.5 = normal pace)
-      await _tts.setPitch(1.1); // Slightly higher pitch for female voice
-      await _tts.setVolume(1.0);
-
-      debugPrint("✅ Voice initialized with premium female voice");
+      _isInitialized = true;
     } catch (e) {
       debugPrint("⚠️ Error initializing voice: $e");
+      _isInitialized = false;
+    }
+  }
+
+  /// ✅ FIX: Re-initialize TTS if needed (call this when run starts on web)
+  Future<void> ensureInitialized() async {
+    if (!_isInitialized || kIsWeb) {
+      debugPrint("🔄 Re-initializing TTS...");
+      await _initTts();
     }
   }
 
@@ -42,22 +74,29 @@ class VoiceController extends ChangeNotifier {
     if (!_isVoiceEnabled) return;
     
     try {
+      // ✅ Ensure initialized before speaking
+      if (!_isInitialized) {
+        await _initTts();
+      }
+      
       await _tts.speak(text);
       debugPrint("🔊 Speaking: $text");
     } catch (e) {
       debugPrint("⚠️ Error speaking: $e");
+      // Try to recover
+      await _initTts();
     }
   }
 
-  // NEW: Public method for training announcements
+  /// Public method for training announcements
   Future<void> speakTraining(String text) async {
     await _speak(text);
   }
 
-  /// Play celebration sound for major milestones (5km, 10km)
+  /// Play celebration sound for major milestones (5km, 10km, 21km, 42km)
   Future<void> _playMilestoneSound(int km) async {
-    // Only play for 5km and 10km milestones
-    if (km != 5 && km != 10) return;
+    // Only play for 5km, 10km, half marathon, full marathon
+    if (km != 5 && km != 10 && km != 21 && km != 42) return;
 
     try {
       // Use system haptic feedback as a "celebration" notification
@@ -72,7 +111,54 @@ class VoiceController extends ChangeNotifier {
     }
   }
 
-  // FIXED: Complete announcement with all details including average pace
+  /// Play subtle "ting" sound for half-kilometer milestones (0.5, 1.5, 2.5, etc.)
+  Future<void> _playTingSound() async {
+    try {
+      // Light haptic for subtle notification
+      await HapticFeedback.lightImpact();
+      await Future.delayed(const Duration(milliseconds: 50));
+      await HapticFeedback.selectionClick();
+      debugPrint("🔔 Ting sound played for half-km milestone!");
+    } catch (e) {
+      debugPrint("⚠️ Error playing ting sound: $e");
+    }
+  }
+
+  /// NEW: Announcement for half-kilometer milestones (0.5km, 1.5km, 2.5km, etc.)
+  Future<void> speakHalfKmMilestone({
+    required double distanceKm,
+    required String currentPace,
+  }) async {
+    if (!_isVoiceEnabled) return;
+
+    // Play subtle ting sound
+    await _playTingSound();
+
+    // Parse current pace (format: "5:30" = 5 minutes 30 seconds per km)
+    final paceParts = currentPace.split(':');
+    final paceMin = int.tryParse(paceParts[0]) ?? 0;
+    final paceSec = int.tryParse(paceParts.length > 1 ? paceParts[1] : '0') ?? 0;
+
+    // Build short, concise announcement
+    final announcement = StringBuffer();
+
+    // Distance announcement
+    final distanceStr = distanceKm.toStringAsFixed(1); // e.g., "0.5", "1.5", "2.5"
+    announcement.write("$distanceStr kilometers. ");
+
+    // Current pace
+    announcement.write("Pace: $paceMin ");
+    announcement.write(paceMin == 1 ? "minute " : "minutes ");
+    if (paceSec > 0) {
+      announcement.write("$paceSec. ");
+    } else {
+      announcement.write(". ");
+    }
+
+    await _speak(announcement.toString());
+  }
+
+  /// Full kilometer milestone announcement
   Future<void> speakKmMilestone({
     required int km,
     required String totalTime,
@@ -95,7 +181,7 @@ class VoiceController extends ChangeNotifier {
     final avgPaceMin = int.tryParse(avgPaceParts[0]) ?? 0;
     final avgPaceSec = int.tryParse(avgPaceParts.length > 1 ? avgPaceParts[1] : '0') ?? 0;
 
-    // FIXED: Build complete announcement
+    // Build complete announcement
     final announcement = StringBuffer();
 
     // Special celebration for major milestones
@@ -103,13 +189,17 @@ class VoiceController extends ChangeNotifier {
       announcement.write("Congratulations! ");
     } else if (km == 10) {
       announcement.write("Incredible achievement! ");
+    } else if (km == 21) {
+      announcement.write("Half marathon complete! You're amazing! ");
+    } else if (km == 42) {
+      announcement.write("Full marathon! This is legendary! ");
     }
 
     // Main milestone
     announcement.write("You've completed $km ");
     announcement.write(km == 1 ? "kilometer. " : "kilometers. ");
 
-    // Time - FIXED: Say "minutes" not "hours"
+    // Time
     announcement.write("Your total time is $minutes ");
     announcement.write(minutes == 1 ? "minute " : "minutes ");
     if (seconds > 0) {
@@ -132,7 +222,7 @@ class VoiceController extends ChangeNotifier {
     }
     announcement.write("per kilometer. ");
 
-    // Average pace (NEW)
+    // Average pace
     announcement.write("Your average pace is $avgPaceMin ");
     announcement.write(avgPaceMin == 1 ? "minute " : "minutes ");
     if (avgPaceSec > 0) {
@@ -147,11 +237,15 @@ class VoiceController extends ChangeNotifier {
       announcement.write(". ");
     }
 
-    // Encouragement - enhanced for major milestones
-    if (km == 5) {
-      announcement.write("5K complete! Amazing work!");
+    // Encouragement
+    if (km == 42) {
+      announcement.write("You've conquered a full marathon! Absolute champion!");
+    } else if (km == 21) {
+      announcement.write("Half marathon done! Incredible effort!");
     } else if (km == 10) {
       announcement.write("You've hit 10K! You're unstoppable!");
+    } else if (km == 5) {
+      announcement.write("5K complete! Amazing work!");
     } else if (km % 5 == 0) {
       announcement.write("Amazing progress! Keep it up!");
     } else if (km % 3 == 0) {
@@ -164,6 +258,8 @@ class VoiceController extends ChangeNotifier {
   }
 
   Future<void> speakRunStarted() async {
+    // ✅ Ensure TTS is ready (critical for web)
+    await ensureInitialized();
     await _speak("Run started. Stay safe and enjoy your run!");
   }
 
@@ -179,8 +275,9 @@ class VoiceController extends ChangeNotifier {
     await _speak("Great job! Run completed. Check your stats!");
   }
 
-  // NEW: Test voice to let users hear it
+  /// Test voice to let users hear it
   Future<void> testVoice() async {
+    await ensureInitialized();
     await _speak("Hi! I'm your running coach. Let's get moving!");
   }
 

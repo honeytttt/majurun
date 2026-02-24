@@ -198,19 +198,22 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     ];
   }
 
+  // ✅ FIXED: Using ListTile with Radio instead of deprecated RadioListTile
   Widget _buildRadioTile(String title, String subtitle, MessagePrivacy value) {
-    return RadioListTile<MessagePrivacy>(
+    return ListTile(
+      leading: Radio<MessagePrivacy>(
+        value: value,
+        groupValue: _selectedPrivacy,
+        onChanged: (newValue) {
+          if (newValue != null) {
+            _updatePrivacy(newValue);
+          }
+        },
+        activeColor: const Color(0xFF00E676),
+      ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle),
-      value: value,
-      groupValue: _selectedPrivacy,
-      onChanged: (newValue) {
-        if (newValue != null) {
-          _updatePrivacy(newValue);
-        }
-      },
-      activeColor: const Color(0xFF00E676),
-      controlAffinity: ListTileControlAffinity.leading,
+      onTap: () => _updatePrivacy(value),
     );
   }
 

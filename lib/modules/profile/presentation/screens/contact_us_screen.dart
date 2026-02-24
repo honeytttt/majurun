@@ -224,9 +224,9 @@ ${_messageController.text.trim()}
               ),
               const SizedBox(height: 16),
 
-              // Category dropdown
+              // Category dropdown - ✅ FIXED: Using initialValue instead of deprecated value
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Category',
                   prefixIcon: Icon(Icons.category_outlined),

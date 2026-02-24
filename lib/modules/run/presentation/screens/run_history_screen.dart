@@ -9,6 +9,7 @@ import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
 import 'package:majurun/core/services/badge_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
+import 'package:majurun/core/services/health_sync_service.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -23,6 +24,7 @@ class RunHistoryScreen extends StatefulWidget {
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
   Future<List<Map<String, dynamic>>>? _historyFuture;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -42,6 +44,53 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       _historyFuture = controller.getRunHistory();
     });
     await _historyFuture;
+  }
+
+  Future<void> _syncHealthData() async {
+    if (_isSyncing) return;
+
+    setState(() => _isSyncing = true);
+
+    try {
+      final service = HealthSyncService();
+      final result = await service.syncData(days: 365); // Sync last year
+
+      if (!mounted) return;
+
+      if (result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: ${result.error}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else if (result.imported > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Imported ${result.imported} runs from health apps'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _refreshHistory();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No new runs to import'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
   }
 
   @override
@@ -96,6 +145,20 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       ),
                       centerTitle: true,
                       actions: [
+                        IconButton(
+                          icon: _isSyncing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Icon(Icons.sync, color: Colors.black),
+                          tooltip: 'Import from Health Apps',
+                          onPressed: _isSyncing ? null : _syncHealthData,
+                        ),
                         IconButton(
                           icon: const Icon(Icons.share, color: Colors.black),
                           onPressed: () => _shareHistory(context, runs),
@@ -167,18 +230,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         ),
                       )
                     else
-                      SliverPadding(
-                        padding: const EdgeInsets.all(16),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildRunCard(context, runs[index]),
-                            ),
-                            childCount: runs.length,
-                          ),
-                        ),
-                      ),
+                      ..._buildGroupedRunsList(context, runs),
 
                     const SliverToBoxAdapter(child: SizedBox(height: 20)),
                   ],
@@ -191,7 +243,156 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     );
   }
 
+  // ---------------- grouped list by month ----------------
+  List<Widget> _buildGroupedRunsList(BuildContext context, List<Map<String, dynamic>> runs) {
+    // Sort runs by date descending (newest first)
+    final sortedRuns = List<Map<String, dynamic>>.from(runs)
+      ..sort((a, b) => _parseDate(b['date']).compareTo(_parseDate(a['date'])));
+
+    // Group runs by month-year
+    final Map<String, List<Map<String, dynamic>>> groupedRuns = {};
+    final Map<String, double> monthlyTotals = {};
+
+    for (final run in sortedRuns) {
+      final date = _parseDate(run['date']);
+      final key = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+
+      groupedRuns.putIfAbsent(key, () => []);
+      groupedRuns[key]!.add(run);
+
+      final distVal = run['distance'] ?? 0.0;
+      final distance = (distVal is num) ? distVal.toDouble() : 0.0;
+      monthlyTotals[key] = (monthlyTotals[key] ?? 0.0) + distance;
+    }
+
+    // Sort keys descending (newest month first)
+    final sortedKeys = groupedRuns.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    final List<Widget> slivers = [];
+
+    for (final key in sortedKeys) {
+      final monthRuns = groupedRuns[key]!;
+      final totalKm = monthlyTotals[key] ?? 0.0;
+      final date = _parseDate(monthRuns.first['date']);
+      final monthName = DateFormat('MMM').format(date).toUpperCase();
+      final year = date.year;
+
+      // Month header
+      slivers.add(
+        SliverToBoxAdapter(
+          child: _buildMonthHeader(monthName, year, totalKm),
+        ),
+      );
+
+      // Runs for this month
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildRunCard(context, monthRuns[index]),
+              ),
+              childCount: monthRuns.length,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return slivers;
+  }
+
+  Widget _buildMonthHeader(String month, int year, double totalKm) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade500,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.calendar_month, size: 16, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    month,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  Text(
+                    year.toString(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.blue.shade600],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.directions_run, size: 14, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  "${totalKm.toStringAsFixed(1)} KM",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ---------------- helpers ----------------
+  String _getSourceLabel(String source) {
+    final lower = source.toLowerCase();
+    if (lower.contains('strava')) return 'STRAVA';
+    if (lower.contains('nike')) return 'NIKE';
+    if (lower.contains('garmin')) return 'GARMIN';
+    if (lower.contains('fitbit')) return 'FITBIT';
+    if (lower.contains('samsung')) return 'SAMSUNG';
+    if (lower.contains('google')) return 'GOOGLE';
+    if (lower.contains('apple') || lower.contains('health')) return 'HEALTH';
+    return 'IMPORTED';
+  }
+
   bool _isTrainingRun(Map<String, dynamic> run) {
     final type = run['type']?.toString().toLowerCase();
     if (type == 'training') return true;
@@ -550,6 +751,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
     final isTraining = _isTrainingRun(run);
     final isProRun = !isTraining && (run['planTitle'] != "Free Run");
+    final isExternal = run['isExternal'] == true;
+    final externalSource = run['source']?.toString() ?? '';
 
     final status = _completedFlag(run);
     final weekDayLabel = _weekDayLabel(run);
@@ -589,11 +792,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: isTraining
-                            ? [Colors.green.shade400, Colors.green.shade700]
-                            : isProRun
-                                ? [Colors.blue.shade400, Colors.blue.shade600]
-                                : [Colors.grey.shade700, Colors.grey.shade900],
+                        colors: isExternal
+                            ? [Colors.purple.shade400, Colors.purple.shade600]
+                            : isTraining
+                                ? [Colors.green.shade400, Colors.green.shade700]
+                                : isProRun
+                                    ? [Colors.blue.shade400, Colors.blue.shade600]
+                                    : [Colors.grey.shade700, Colors.grey.shade900],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -621,7 +826,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                             const Spacer(),
-                            if (isTraining)
+                            if (isExternal)
+                              _badge(label: _getSourceLabel(externalSource), icon: Icons.cloud_download, colors: [Colors.purple.shade400, Colors.purple.shade600])
+                            else if (isTraining)
                               _badge(label: "SESSION", icon: Icons.fitness_center, colors: [Colors.green.shade400, Colors.green.shade700])
                             else if (isProRun)
                               _badge(label: "PRO", icon: Icons.auto_awesome, colors: [Colors.blue.shade400, Colors.blue.shade600]),

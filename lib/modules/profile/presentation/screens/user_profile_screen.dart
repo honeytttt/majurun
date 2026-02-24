@@ -66,7 +66,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _userData = userDoc.data();
 
         _totalKm = (_userData?['totalKm'] as num?)?.toDouble() ?? 0.0;
-        _totalRuns = (_userData?['postsCount'] as num?)?.toInt() ?? 0;
+        // Get totalRuns from workoutsCount (run history), not postsCount
+        _totalRuns = (_userData?['workoutsCount'] as num?)?.toInt() ?? 0;
 
         // Load join date
         _createdAt = (_userData?['createdAt'] as Timestamp?)?.toDate();

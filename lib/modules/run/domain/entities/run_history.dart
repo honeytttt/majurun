@@ -20,6 +20,10 @@ class RunHistory {
   final String? mapImageUrl; // optional image (plan image or map)
   final Map<String, dynamic>? extra; // any extra custom fields
 
+  // External/imported run fields
+  final bool? isExternal; // true if imported from health app
+  final String? source; // source app name (Strava, Nike, etc.)
+
   const RunHistory({
     required this.id,
     required this.planTitle,
@@ -38,6 +42,8 @@ class RunHistory {
     this.completed,
     this.mapImageUrl,
     this.extra,
+    this.isExternal,
+    this.source,
   });
 
   /// Format duration as HH:MM:SS
@@ -79,6 +85,8 @@ class RunHistory {
     bool? completed,
     String? mapImageUrl,
     Map<String, dynamic>? extra,
+    bool? isExternal,
+    String? source,
   }) {
     return RunHistory(
       id: id ?? this.id,
@@ -98,6 +106,8 @@ class RunHistory {
       completed: completed ?? this.completed,
       mapImageUrl: mapImageUrl ?? this.mapImageUrl,
       extra: extra ?? this.extra,
+      isExternal: isExternal ?? this.isExternal,
+      source: source ?? this.source,
     );
   }
 }

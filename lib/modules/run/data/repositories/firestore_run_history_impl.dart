@@ -200,6 +200,8 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       completed: data['completed'] as bool?,
       mapImageUrl: data['mapImageUrl']?.toString(),
       extra: null,
+      isExternal: data['isExternal'] as bool?,
+      source: data['source']?.toString(),
     );
   }
 }

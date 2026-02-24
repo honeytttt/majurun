@@ -234,7 +234,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 .snapshots(),
             builder: (context, postsSnapshot) {
               final postsCount = postsSnapshot.data?.docs.length ?? 0;
-              final totalRuns = postsCount;
+              // Get totalRuns from workoutsCount (run history), not postsCount
+              final totalRuns = (data['workoutsCount'] as int?) ?? 0;
 
               return CustomScrollView(
                 slivers: [

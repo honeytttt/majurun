@@ -67,6 +67,7 @@ class RunStateController extends ChangeNotifier {
   int totalCalories = 0;
 
   int _lastAnnouncedKm = 0;
+  double _lastAnnouncedHalfKm = 0.0; // ✅ NEW: Track half-km announcements
   final List<KmSplit> _kmSplits = [];
   int _lastKmTime = 0; // Seconds at last km
 
@@ -97,6 +98,12 @@ class RunStateController extends ChangeNotifier {
     required String averagePace,
     String? comparison,
   })? onKmMilestone;
+
+  // ✅ NEW: Callback for half-km milestones (0.5, 1.5, 2.5, etc.)
+  Function({
+    required double distanceKm,
+    required String currentPace,
+  })? onHalfKmMilestone;
 
   Future<void> startRun() async {
     debugPrint("🏃 startRun() called. Current state: $_state");
@@ -143,9 +150,13 @@ class RunStateController extends ChangeNotifier {
     lastVideoUrl = null;
     totalCalories = 0;
     _lastAnnouncedKm = 0;
+    _lastAnnouncedHalfKm = 0.0; // ✅ NEW: Reset half-km tracker
     _kmSplits.clear();
     _lastKmTime = 0;
     _isInitialized = false;
+    _lastDistanceForIdle = 0.0;
+    _idleSeconds = 0;
+    _hasNotifiedIdle = false;
 
     // Get initial position before starting
     try {
@@ -228,6 +239,7 @@ class RunStateController extends ChangeNotifier {
     lastVideoUrl = null;
     totalCalories = 0;
     _lastAnnouncedKm = 0;
+    _lastAnnouncedHalfKm = 0.0; // ✅ NEW: Reset half-km tracker
     _kmSplits.clear();
     _lastKmTime = 0;
     _isInitialized = false;
@@ -244,12 +256,8 @@ class RunStateController extends ChangeNotifier {
       if (_state == RunState.running) {
         _secondsElapsed++;
 
-        // Check for km milestones
-        final currentKm = (_totalDistance / 1000).floor();
-        if (currentKm > _lastAnnouncedKm && currentKm > 0) {
-          _handleKmMilestone(currentKm);
-          _lastAnnouncedKm = currentKm;
-        }
+        // ✅ UPDATED: Check for milestones (both full and half km)
+        _checkMilestones();
 
         // Calculate calories (rough estimate: 65 cal per km)
         totalCalories = ((_totalDistance / 1000) * 65).round();
@@ -266,6 +274,33 @@ class RunStateController extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  /// ✅ UPDATED: Check for both full-km and half-km milestones
+  void _checkMilestones() {
+    final distanceKm = _totalDistance / 1000;
+
+    // Check for FULL kilometer milestones (1.0, 2.0, 3.0, etc.)
+    final currentKm = distanceKm.floor();
+    if (currentKm > _lastAnnouncedKm && currentKm > 0) {
+      _handleKmMilestone(currentKm);
+      _lastAnnouncedKm = currentKm;
+      return; // Don't check half-km on the same update to avoid double-announcement
+    }
+
+    // Check for HALF kilometer milestones (0.5, 1.5, 2.5, etc.)
+    final roundedHalfKm = (distanceKm * 2).floor() / 2.0; // Rounds to nearest 0.5
+    
+    // Check if this is a half-km mark (ends in .5) and we haven't announced it yet
+    if (roundedHalfKm > _lastAnnouncedHalfKm && 
+        (roundedHalfKm % 1.0 == 0.5) && 
+        distanceKm >= roundedHalfKm - 0.05 && // Within 50 meters
+        distanceKm <= roundedHalfKm + 0.05) {
+      
+      debugPrint("🔔 Half-km milestone: ${roundedHalfKm.toStringAsFixed(1)}km reached!");
+      _handleHalfKmMilestone(roundedHalfKm);
+      _lastAnnouncedHalfKm = roundedHalfKm;
+    }
   }
 
   /// Check if user has been idle (no distance change) for 10+ minutes
@@ -315,13 +350,13 @@ class RunStateController extends ChangeNotifier {
       final timeDiff = lastKmDuration - previousKm.durationSeconds;
 
       if (timeDiff.abs() < 5) {
-        comparison = "Same pace as previous kilometer.";
+        comparison = "Same pace as previous kilometer";
       } else if (timeDiff < 0) {
         final diffSec = timeDiff.abs();
-        comparison = "Faster by $diffSec seconds. Great job!";
+        comparison = "Faster by $diffSec seconds. Great job";
       } else {
         final diffSec = timeDiff;
-        comparison = "Slower by $diffSec seconds. Keep pushing!";
+        comparison = "Slower by $diffSec seconds. Keep pushing";
       }
     }
 
@@ -338,6 +373,16 @@ class RunStateController extends ChangeNotifier {
 
     // Update last km time marker
     _lastKmTime = _secondsElapsed;
+  }
+
+  /// ✅ NEW: Handle half-km milestones (0.5, 1.5, 2.5, etc.)
+  void _handleHalfKmMilestone(double distanceKm) {
+    if (onHalfKmMilestone != null) {
+      onHalfKmMilestone!(
+        distanceKm: distanceKm,
+        currentPace: paceString,
+      );
+    }
   }
 
   void _recordPerformanceSnapshot() {
