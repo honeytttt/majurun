@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>MajuRun — AI-Guided Pre-Run Activation</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #040404; --dark: #0d0f0e; --card: #111714; --border: #1e2821;
+    --green: #39ff14; --mint: #10d979; --teal: #0acfb4; --amber: #f5b700;
+    --white: #ffffff; --muted: #5a7060;
+  }
+
+  html, body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: var(--black); font-family: 'DM Sans', sans-serif; color: var(--white);
+  }
+
+  .scene { 
+    position: absolute; 
+    inset: 40px 0 110px 0;
+    opacity: 0; 
+    pointer-events: none; 
+    transition: opacity 0.6s ease; 
+    display: flex; 
+    align-items: flex-start; 
+    justify-content: center;
+    overflow-y: auto;
+  }
+  .scene.active { opacity: 1; pointer-events: all; }
+
+  /* INTRO SCENE */
+  #s-intro { 
+    background: var(--black); 
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .intro-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(57,255,20,0.03) 1px, transparent 1px), 
+                      linear-gradient(90deg, rgba(57,255,20,0.03) 1px, transparent 1px);
+    background-size: 80px 80px; animation: grid-drift 20s linear infinite;
+  }
+  @keyframes grid-drift { from { transform: translateY(0); } to { transform: translateY(80px); } }
+  
+  .intro-accent { 
+    position: absolute; left: 0; top: 0; bottom: 0; width: 6px; 
+    background: var(--green); box-shadow: 0 0 40px var(--green); 
+  }
+  
+  .intro-content {
+    z-index: 10; text-align: center;
+  }
+  
+  .intro-badge {
+    display: inline-flex; background: var(--green); color: var(--black);
+    font-size: 12px; font-weight: 700; letter-spacing: 4px; padding: 6px 16px; 
+    margin-bottom: 32px;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%);
+  }
+  
+  .intro-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 180px; line-height: 0.85; 
+    color: var(--white); animation: title-in 1s cubic-bezier(.16,1,.3,1) both;
+  }
+  .intro-title .green { color: var(--green); text-shadow: 0 0 60px rgba(57,255,20,0.6); }
+  
+  @keyframes title-in { 
+    from { opacity: 0; transform: translateY(40px); } 
+    to { opacity: 1; transform: translateY(0); } 
+  }
+  
+  .intro-sub {
+    font-size: 16px; color: var(--muted); letter-spacing: 4px; margin-top: 32px;
+    text-transform: uppercase; animation: fade-up 1s 0.4s both;
+  }
+  
+  @keyframes fade-up { 
+    from { opacity: 0; transform: translateY(20px); } 
+    to { opacity: 1; transform: translateY(0); } 
+  }
+
+  /* EXERCISE SCENE */
+  .exercise-scene {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    padding: 60px 80px 80px;
+  }
+
+  .exercise-left {
+    background: var(--black);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px 60px 40px;
+    overflow-y: auto;
+  }
+
+  .segment-badge {
+    background: var(--mint);
+    color: var(--black);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 5px 16px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+  }
+
+  .exercise-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 118px;
+    color: rgba(255,255,255,0.06);
+    line-height: 1;
+    margin-bottom: -24px;
+  }
+
+  .exercise-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 74px;
+    line-height: 0.86;
+    color: var(--white);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .exercise-subtitle {
+    font-size: 15px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .exercise-instructions {
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .instruction-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--mint);
+    border-radius: 4px;
+  }
+
+  .instruction-icon {
+    width: 24px;
+    height: 24px;
+    background: var(--mint);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--black);
+    font-weight: 700;
+  }
+
+  .instruction-text {
+    font-size: 13.5px;
+    color: var(--white);
+    line-height: 1.35;
+  }
+
+  .exercise-right {
+    background: var(--dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 30px 60px;
+    position: relative;
+  }
+
+  .demo-label {
+    position: absolute;
+    top: 28px;
+    background: rgba(4,4,4,0.95);
+    border: 1px solid var(--mint);
+    padding: 6px 18px;
+    font-size: 10px;
+    color: var(--mint);
+    letter-spacing: 2px;
+    font-weight: 600;
+  }
+
+  .gif-placeholder {
+    width: 440px;
+    height: 440px;
+    background: var(--card);
+    border: 3px solid var(--mint);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    box-shadow: 0 0 40px rgba(16,217,121,0.2);
+  }
+
+  .gif-placeholder-icon {
+    font-size: 72px;
+    opacity: 0.35;
+  }
+
+  .gif-placeholder-text {
+    font-size: 13.5px;
+    color: var(--muted);
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.3;
+  }
+
+  .demo-tip {
+    position: absolute;
+    bottom: 28px;
+    background: rgba(4,4,4,0.95);
+    border: 1px solid var(--border);
+    padding: 9px 18px;
+    font-size: 12px;
+    color: var(--white);
+    max-width: 400px;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* GO SCENE */
+  #s-go {
+    background: var(--black);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .go-circle {
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: var(--green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    animation: go-pulse 2s ease-in-out infinite;
+    margin-bottom: 64px;
+  }
+
+  .go-circle::before, .go-circle::after {
+    content: ''; position: absolute; border-radius: 50%;
+    border: 2px solid rgba(57,255,20,0.3); animation: go-ring 2s ease-in-out infinite;
+  }
+  .go-circle::before { inset: -32px; }
+  .go-circle::after { inset: -64px; animation-delay: 0.4s; }
+  
+  @keyframes go-ring { 
+    0%,100% { opacity: 1; transform: scale(1); } 
+    50% { opacity: 0.3; transform: scale(1.05); } 
+  }
+  
+  @keyframes go-pulse { 
+    0%,100% { box-shadow: 0 0 80px rgba(57,255,20,0.6); } 
+    50% { box-shadow: 0 0 160px rgba(57,255,20,0.9); } 
+  }
+
+  .go-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 180px;
+    color: var(--black);
+    line-height: 1;
+  }
+
+  .ready-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 72px;
+    color: var(--white);
+    letter-spacing: 8px;
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 90px; z-index: 9999;
+    background: rgba(4,4,4,0.98); border-top: 2px solid var(--border);
+    display: flex; align-items: center; padding: 0 48px; gap: 32px; 
+    backdrop-filter: blur(16px);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  }
+  
+  #hud-logo { 
+    font-family: 'Bebas Neue', sans-serif; font-size: 24px; 
+    letter-spacing: 4px; color: var(--green); 
+  }
+  
+  #hud-progress { 
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; 
+    color: var(--muted); letter-spacing: 2px; 
+  }
+  
+  #hud-bar-wrap { 
+    flex: 1; height: 5px; background: var(--border); 
+    border-radius: 3px; overflow: hidden; 
+  }
+  
+  #hud-bar { 
+    height: 100%; width: 0%; background: var(--green); 
+    border-radius: 3px; transition: width 0.5s linear; 
+    box-shadow: 0 0 12px var(--green); 
+  }
+  
+  #hud-time { 
+    font-family: 'JetBrains Mono', monospace; font-size: 26px; 
+    color: var(--white); letter-spacing: 2px; width: 100px; text-align: right; 
+  }
+
+  #hud-pause {
+    width: 54px;
+    height: 54px;
+    border: 3px solid var(--green);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: var(--green);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Play Overlay */
+  #play-overlay {
+    position: fixed; inset: 0; background: var(--black); z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: opacity 0.6s ease;
+  }
+  #play-overlay.hidden { opacity: 0; pointer-events: none; }
+  
+  .play-title { 
+    font-family: 'Bebas Neue', sans-serif; font-size: 96px; 
+    color: var(--white); letter-spacing: 4px; text-align: center; line-height: 0.9; 
+  }
+  .play-title span { color: var(--green); }
+  
+  .play-btn {
+    margin-top: 64px; width: 120px; height: 120px; border-radius: 50%; 
+    border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center; 
+    animation: pulse-ring 2s ease-in-out infinite; position: relative;
+  }
+  .play-btn svg { width: 40px; height: 40px; fill: var(--green); margin-left: 6px; }
+  
+  @keyframes pulse-ring {
+    0%,100% { box-shadow: 0 0 0 0 rgba(57,255,20,0.4); }
+    50% { box-shadow: 0 0 0 20px rgba(57,255,20,0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="play-overlay">
+  <div class="play-title">AI-GUIDED<br><span>PRE-RUN</span><br>ACTIVATION</div>
+  <div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+  <div style="margin-top:20px;font-size:13px;color:#5a7060;letter-spacing:2px">CLICK TO START</div>
+</div>
+
+<div id="hud">
+  <div id="hud-logo">MAJURUN</div>
+  <div id="hud-progress">EXERCISE <span id="current-ex">0</span> OF <span id="total-ex">8</span></div>
+  <div id="hud-bar-wrap"><div id="hud-bar"></div></div>
+  <div id="hud-time">0:00</div>
+  <div id="hud-pause">⏸</div>
+</div>
+
+<!-- INTRO -->
+<div id="s-intro" class="scene active">
+  <div class="intro-grid"></div>
+  <div class="intro-accent"></div>
+  <div class="intro-content">
+    <div class="intro-badge">▶ MAJURUN AI</div>
+    <div class="intro-title">PRE-RUN<br><span class="green">ACTIVATION</span></div>
+    <div class="intro-sub">8 Minutes · 8 Dynamic Exercises</div>
+  </div>
+</div>
+
+<!-- 1. Leg Swings -->
+<div id="ex-1" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 1/8</div>
+      <div class="exercise-number">01</div>
+      <div class="exercise-title">LEG<br>SWINGS</div>
+      <div class="exercise-subtitle">Forward/Backward & Side-to-Side · 15 each · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Stand on one leg, hold wall or tree for balance</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Swing leg forward and backward 15 times</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Switch to side-to-side swings, then change legs</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🦵</div>
+        <div class="gif-placeholder-text">leg_swings.gif</div>
+      </div>
+      <div class="demo-tip">Loosen hips for efficient running stride</div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Walking Lunges -->
+<div id="ex-2" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 2/8</div>
+      <div class="exercise-number">02</div>
+      <div class="exercise-title">WALKING<br>LUNGES</div>
+      <div class="exercise-subtitle">Activate glutes & core · 10 steps each leg · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Step forward into a lunge, back knee near ground</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Push off front foot to bring back leg forward</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Keep torso upright and alternate legs</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🚶</div>
+        <div class="gif-placeholder-text">walking_lunges.gif</div>
+      </div>
+      <div class="demo-tip">Dynamic glute & hip flexor activation</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. High Knees -->
+<div id="ex-3" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 3/8</div>
+      <div class="exercise-number">03</div>
+      <div class="exercise-title">HIGH<br>KNEES</div>
+      <div class="exercise-subtitle">Warm up hip flexors · 40 steps · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">March or jog lightly in place</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Drive knees high toward chest</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Pump arms naturally, stay light on toes</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🏃</div>
+        <div class="gif-placeholder-text">high_knees.gif</div>
+      </div>
+      <div class="demo-tip">Prepares hips for powerful running stride</div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Butt Kicks -->
+<div id="ex-4" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 4/8</div>
+      <div class="exercise-number">04</div>
+      <div class="exercise-title">BUTT<br>KICKS</div>
+      <div class="exercise-subtitle">Stretch quads · 40 steps · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Jog lightly in place</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Kick heels toward glutes with each step</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Keep knees pointing downward</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🏃</div>
+        <div class="gif-placeholder-text">butt_kicks.gif</div>
+      </div>
+      <div class="demo-tip">Dynamic quad stretch before running</div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Hip Circles -->
+<div id="ex-5" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 5/8</div>
+      <div class="exercise-number">05</div>
+      <div class="exercise-title">HIP<br>CIRCLES</div>
+      <div class="exercise-subtitle">Loosen lower back & hips · 10 each direction · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Hands on hips, feet shoulder-width</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Make wide circles with hips clockwise</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Reverse direction after 10 circles</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🔄</div>
+        <div class="gif-placeholder-text">hip_circles.gif</div>
+      </div>
+      <div class="demo-tip">Improves hip mobility for stride efficiency</div>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Hamstring Sweeps -->
+<div id="ex-6" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 6/8</div>
+      <div class="exercise-number">06</div>
+      <div class="exercise-title">HAMSTRING<br>SWEEPS</div>
+      <div class="exercise-subtitle">Dynamic hamstring stretch · 10 each leg · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Step forward, front heel down, toes up</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Hinge at hips and sweep arms down & up</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Alternate legs with smooth rhythm</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🦵</div>
+        <div class="gif-placeholder-text">hamstring_sweeps.gif</div>
+      </div>
+      <div class="demo-tip">Prepares hamstrings for powerful strides</div>
+    </div>
+  </div>
+</div>
+
+<!-- 7. Calf Raises -->
+<div id="ex-7" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 7/8</div>
+      <div class="exercise-number">07</div>
+      <div class="exercise-title">CALF<br>RAISES</div>
+      <div class="exercise-subtitle">Prepare lower legs · 20 reps · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Stand with feet hip-width apart</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Rise onto toes as high as possible</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Hold 1 second at top, lower slowly</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">🦿</div>
+        <div class="gif-placeholder-text">calf_raises.gif</div>
+      </div>
+      <div class="demo-tip">Strengthens calves for push-off</div>
+    </div>
+  </div>
+</div>
+
+<!-- 8. Arm Circles/Swings -->
+<div id="ex-8" class="scene">
+  <div class="exercise-scene">
+    <div class="exercise-left">
+      <div class="segment-badge">WARM-UP 8/8</div>
+      <div class="exercise-number">08</div>
+      <div class="exercise-title">ARM CIRCLES<br>& SWINGS</div>
+      <div class="exercise-subtitle">Loosen shoulders · 20 circles + 15 swings each arm · 50 sec</div>
+      <div class="exercise-instructions">
+        <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Extend arms to sides at shoulder height</div></div>
+        <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Make large controlled circles forward then backward</div></div>
+        <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Follow with controlled arm swings across body</div></div>
+      </div>
+    </div>
+    <div class="exercise-right">
+      <div class="demo-label">EXERCISE DEMO</div>
+      <div class="gif-placeholder">
+        <div class="gif-placeholder-icon">💪</div>
+        <div class="gif-placeholder-text">arm_circles_swings.gif</div>
+      </div>
+      <div class="demo-tip">Mobilises shoulders for relaxed arm drive</div>
+    </div>
+  </div>
+</div>
+
+<!-- GO -->
+<div id="s-go" class="scene">
+  <div class="go-circle">
+    <div class="go-text">GO!</div>
+  </div>
+  <div class="ready-text">YOU'RE READY TO RUN</div>
+</div>
+
+<script>
+const EXERCISES = [
+  { id: 's-intro', duration: 5 },
+  { id: 'ex-1', duration: 50 },  // Leg Swings
+  { id: 'ex-2', duration: 50 },  // Walking Lunges
+  { id: 'ex-3', duration: 50 },  // High Knees
+  { id: 'ex-4', duration: 50 },  // Butt Kicks
+  { id: 'ex-5', duration: 50 },  // Hip Circles
+  { id: 'ex-6', duration: 50 },  // Hamstring Sweeps
+  { id: 'ex-7', duration: 50 },  // Calf Raises
+  { id: 'ex-8', duration: 50 },  // Arm Circles/Swings
+  { id: 's-go', duration: 30 },
+];
+
+let currentExercise = 0;
+let elapsedSeconds = 0;
+let animationFrame = null;
+let lastTime = null;
+let isPaused = false;
+
+const hudTime = document.getElementById('hud-time');
+const currentExEl = document.getElementById('current-ex');
+const pauseBtn = document.getElementById('hud-pause');
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function updateHUD() {
+  const total = EXERCISES.reduce((sum, ex) => sum + ex.duration, 0);
+  const progress = (elapsedSeconds / total) * 100;
+  document.getElementById('hud-bar').style.width = Math.min(100, progress) + '%';
+
+  let cum = 0;
+  for (let i = 0; i < currentExercise; i++) cum += EXERCISES[i].duration;
+  const elapsedInEx = elapsedSeconds - cum;
+  const remaining = Math.max(0, EXERCISES[currentExercise].duration - elapsedInEx);
+  hudTime.textContent = formatTime(remaining);
+
+  const exNum = (currentExercise >= 1 && currentExercise <= 8) ? currentExercise : 0;
+  currentExEl.textContent = exNum;
+}
+
+function switchScene(idx) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(EXERCISES[idx].id);
+  if (el) el.classList.add('active');
+  currentExercise = idx;
+  updateHUD();
+}
+
+function animate(ts) {
+  if (isPaused) {
+    animationFrame = requestAnimationFrame(animate);
+    return;
+  }
+
+  if (!lastTime) lastTime = ts;
+  const delta = (ts - lastTime) / 1000;
+  lastTime = ts;
+
+  elapsedSeconds += delta;
+  updateHUD();
+
+  let cum = 0;
+  for (let i = 0; i < EXERCISES.length; i++) {
+    cum += EXERCISES[i].duration;
+    if (elapsedSeconds < cum) {
+      if (i !== currentExercise) switchScene(i);
+      break;
+    }
+  }
+
+  if (elapsedSeconds < EXERCISES.reduce((sum,e)=>sum+e.duration,0)) {
+    animationFrame = requestAnimationFrame(animate);
+  }
+}
+
+pauseBtn.onclick = () => {
+  isPaused = !isPaused;
+  pauseBtn.textContent = isPaused ? '▶' : '⏸';
+  if (!isPaused) {
+    lastTime = null;
+    animationFrame = requestAnimationFrame(animate);
+  }
+};
+
+document.getElementById('play-overlay').addEventListener('click', () => {
+  document.getElementById('play-overlay').classList.add('hidden');
+  setTimeout(() => {
+    document.getElementById('play-overlay').style.display = 'none';
+    switchScene(0);
+    animationFrame = requestAnimationFrame(animate);
+  }, 600);
+});
+</script>
+</body>
+</html>
