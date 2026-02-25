@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>MajuRun - Guided Meditation</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #040404; --dark: #0a0a0f; --card: #10101a; --border: #1a1a2e;
+    --cyan: #06b6d4; --teal: #14b8a6; --sky: #7dd3fc;
+    --white: #ffffff; --muted: #4a5568;
+  }
+
+  html, body {
+    width: 100%; min-height: 100vh; overflow-x: hidden;
+    background: var(--dark); font-family: 'DM Sans', sans-serif; color: var(--white);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .scene {
+    position: fixed; inset: 0; padding-bottom: env(safe-area-inset-bottom);
+    opacity: 0; pointer-events: none; transition: opacity 0.8s ease;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow-y: auto;
+  }
+  .scene.active { opacity: 1; pointer-events: all; }
+
+  #s-intro { background: var(--dark); }
+
+  .intro-orb {
+    position: absolute; width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(6,182,212,0.15), transparent 70%);
+    border-radius: 50%; animation: orb-breathe 8s ease-in-out infinite;
+  }
+  @keyframes orb-breathe {
+    0%,100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+  }
+
+  .intro-content { z-index: 10; text-align: center; padding: 20px; }
+
+  .intro-badge {
+    display: inline-flex; background: rgba(6,182,212,0.2); color: var(--cyan);
+    font-size: 11px; font-weight: 600; letter-spacing: 3px; padding: 8px 16px;
+    margin-bottom: 24px; border-radius: 20px; border: 1px solid rgba(6,182,212,0.3);
+  }
+
+  .intro-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(44px, 14vw, 100px);
+    line-height: 0.95; color: var(--white); font-weight: 400;
+  }
+  .intro-title .accent { color: var(--cyan); text-shadow: 0 0 40px rgba(6,182,212,0.5); }
+
+  .intro-sub {
+    font-size: clamp(12px, 3vw, 15px); color: var(--muted); letter-spacing: 3px;
+    margin-top: 24px; text-transform: uppercase;
+  }
+
+  .meditation-scene {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    padding: max(env(safe-area-inset-top), 20px) 20px 120px;
+    overflow-y: auto;
+  }
+
+  .session-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .session-badge {
+    background: rgba(6,182,212,0.2); color: var(--cyan);
+    font-size: 10px; font-weight: 600; letter-spacing: 2px;
+    padding: 6px 14px; border-radius: 16px; border: 1px solid rgba(6,182,212,0.3);
+  }
+
+  .session-duration {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; color: var(--muted);
+  }
+
+  .breath-circle {
+    width: min(60vw, 250px); height: min(60vw, 250px);
+    margin: 20px auto 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(6,182,212,0.3), transparent 70%);
+    border: 2px solid rgba(6,182,212,0.4);
+    display: flex; align-items: center; justify-content: center;
+    animation: breath-cycle 8s ease-in-out infinite;
+  }
+  @keyframes breath-cycle {
+    0%,100% { transform: scale(0.9); border-color: rgba(6,182,212,0.3); }
+    50% { transform: scale(1.1); border-color: rgba(6,182,212,0.8); }
+  }
+
+  .breath-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(20px, 6vw, 32px);
+    color: var(--cyan); letter-spacing: 4px;
+    animation: breath-text 8s ease-in-out infinite;
+  }
+  @keyframes breath-text {
+    0%,15% { content: 'INHALE'; opacity: 1; }
+    25%,35% { opacity: 0.5; }
+    50%,65% { opacity: 1; }
+    75%,85% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  .session-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(32px, 9vw, 50px);
+    line-height: 0.95; color: var(--white);
+    text-align: center; margin-bottom: 8px;
+  }
+
+  .session-subtitle {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--muted); text-align: center; margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .guidance-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+  }
+
+  .guidance-icon {
+    font-size: 32px; margin-bottom: 12px;
+  }
+
+  .guidance-text {
+    font-size: clamp(14px, 3.5vw, 16px);
+    color: var(--white); line-height: 1.6;
+    font-style: italic;
+  }
+
+  .breath-pattern {
+    display: flex; justify-content: center; gap: 20px;
+    margin-top: 20px;
+  }
+
+  .breath-phase {
+    text-align: center; padding: 16px 20px;
+    background: rgba(6,182,212,0.1);
+    border-radius: 12px; border: 1px solid rgba(6,182,212,0.2);
+  }
+
+  .phase-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    color: var(--cyan); margin-bottom: 6px;
+  }
+
+  .phase-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; color: var(--white);
+  }
+
+  #s-go { background: var(--dark); }
+
+  .complete-orb {
+    width: min(70vw, 280px); height: min(70vw, 280px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(6,182,212,0.4), rgba(20,184,166,0.2), transparent 70%);
+    display: flex; align-items: center; justify-content: center;
+    animation: complete-pulse 4s ease-in-out infinite;
+    margin-bottom: 40px;
+  }
+
+  @keyframes complete-pulse {
+    0%,100% { box-shadow: 0 0 60px rgba(6,182,212,0.3); }
+    50% { box-shadow: 0 0 100px rgba(6,182,212,0.5); }
+  }
+
+  .complete-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 10vw, 60px);
+    color: var(--white); text-align: center; line-height: 1;
+  }
+
+  .ready-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(20px, 6vw, 36px);
+    color: var(--cyan); letter-spacing: 4px; text-align: center;
+  }
+
+  #hud {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 16px 20px max(env(safe-area-inset-bottom), 16px);
+    background: rgba(10,10,15,0.95); border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    backdrop-filter: blur(20px); z-index: 9999;
+  }
+
+  #hud-logo {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px;
+    letter-spacing: 3px; color: var(--cyan); display: none;
+  }
+  @media (min-width: 400px) { #hud-logo { display: block; } }
+
+  #hud-progress {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); letter-spacing: 1px;
+  }
+
+  #hud-bar-wrap {
+    flex: 1; height: 3px; background: var(--border);
+    border-radius: 2px; overflow: hidden;
+  }
+
+  #hud-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--cyan), var(--teal));
+    border-radius: 2px; transition: width 0.5s linear;
+  }
+
+  #hud-time {
+    font-family: 'JetBrains Mono', monospace; font-size: 20px;
+    color: var(--white); min-width: 50px; text-align: right;
+  }
+
+  #hud-pause {
+    width: 44px; height: 44px;
+    border: 1px solid var(--cyan); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: var(--cyan); cursor: pointer;
+    background: rgba(6,182,212,0.1);
+  }
+
+  #play-overlay {
+    position: fixed; inset: 0; background: var(--dark); z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; cursor: pointer; transition: opacity 0.8s ease;
+  }
+  #play-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .play-orb {
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(6,182,212,0.3), transparent 70%);
+    border: 1px solid rgba(6,182,212,0.4);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 40px; animation: play-breathe 4s ease-in-out infinite;
+  }
+  @keyframes play-breathe {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  .play-orb svg { width: 40px; height: 40px; fill: var(--cyan); margin-left: 6px; }
+
+  .play-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 10vw, 60px);
+    color: var(--white); text-align: center; line-height: 1;
+  }
+  .play-title span { color: var(--cyan); }
+
+  .play-hint { margin-top: 24px; font-size: 12px; color: var(--muted); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+
+<div id="play-overlay">
+  <div class="play-orb"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+  <div class="play-title">GUIDED<br><span>MEDITATION</span></div>
+  <div class="play-hint">Tap to Begin</div>
+</div>
+
+<div id="hud">
+  <div id="hud-logo">CALM</div>
+  <div id="hud-progress">SESSION <span id="current-ex">0</span>/<span id="total-ex">5</span></div>
+  <div id="hud-bar-wrap"><div id="hud-bar"></div></div>
+  <div id="hud-time">0:00</div>
+  <div id="hud-pause">||</div>
+</div>
+
+<div id="s-intro" class="scene active">
+  <div class="intro-orb"></div>
+  <div class="intro-content">
+    <div class="intro-badge">MINDFULNESS</div>
+    <div class="intro-title">GUIDED<br><span class="accent">MEDITATION</span></div>
+    <div class="intro-sub">5 Sessions - 10 Minutes</div>
+  </div>
+</div>
+
+<!-- 1. Arrival -->
+<div id="ex-1" class="scene">
+  <div class="meditation-scene">
+    <div class="session-header">
+      <div class="session-badge">SESSION 1/5</div>
+      <div class="session-duration">2 MIN</div>
+    </div>
+    <div class="breath-circle">
+      <div class="breath-text">BREATHE</div>
+    </div>
+    <div class="session-title">ARRIVAL</div>
+    <div class="session-subtitle">Find a comfortable position. Close your eyes. Let go of the outside world.</div>
+    <div class="guidance-card">
+      <div class="guidance-icon">🌙</div>
+      <div class="guidance-text">"Take a deep breath in through your nose... and slowly release through your mouth. Feel your body settling into stillness."</div>
+    </div>
+    <div class="breath-pattern">
+      <div class="breath-phase"><div class="phase-label">INHALE</div><div class="phase-value">4s</div></div>
+      <div class="breath-phase"><div class="phase-label">HOLD</div><div class="phase-value">4s</div></div>
+      <div class="breath-phase"><div class="phase-label">EXHALE</div><div class="phase-value">6s</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Body Scan -->
+<div id="ex-2" class="scene">
+  <div class="meditation-scene">
+    <div class="session-header">
+      <div class="session-badge">SESSION 2/5</div>
+      <div class="session-duration">2 MIN</div>
+    </div>
+    <div class="breath-circle">
+      <div class="breath-text">SCAN</div>
+    </div>
+    <div class="session-title">BODY SCAN</div>
+    <div class="session-subtitle">Bring awareness to each part of your body, releasing tension as you go.</div>
+    <div class="guidance-card">
+      <div class="guidance-icon">✨</div>
+      <div class="guidance-text">"Notice the top of your head... your forehead relaxing... jaw softening... shoulders dropping away from your ears..."</div>
+    </div>
+    <div class="breath-pattern">
+      <div class="breath-phase"><div class="phase-label">FOCUS</div><div class="phase-value">Head</div></div>
+      <div class="breath-phase"><div class="phase-label">THEN</div><div class="phase-value">Body</div></div>
+      <div class="breath-phase"><div class="phase-label">FINALLY</div><div class="phase-value">Feet</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Present Moment -->
+<div id="ex-3" class="scene">
+  <div class="meditation-scene">
+    <div class="session-header">
+      <div class="session-badge">SESSION 3/5</div>
+      <div class="session-duration">2 MIN</div>
+    </div>
+    <div class="breath-circle">
+      <div class="breath-text">NOW</div>
+    </div>
+    <div class="session-title">PRESENT<br>MOMENT</div>
+    <div class="session-subtitle">Anchor yourself in the here and now. There is only this breath.</div>
+    <div class="guidance-card">
+      <div class="guidance-icon">🕊️</div>
+      <div class="guidance-text">"When thoughts arise, simply notice them without judgment. Then gently return to your breath. Each return is a moment of awakening."</div>
+    </div>
+    <div class="breath-pattern">
+      <div class="breath-phase"><div class="phase-label">NOTICE</div><div class="phase-value">Thought</div></div>
+      <div class="breath-phase"><div class="phase-label">RELEASE</div><div class="phase-value">Gently</div></div>
+      <div class="breath-phase"><div class="phase-label">RETURN</div><div class="phase-value">Breath</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Gratitude -->
+<div id="ex-4" class="scene">
+  <div class="meditation-scene">
+    <div class="session-header">
+      <div class="session-badge">SESSION 4/5</div>
+      <div class="session-duration">2 MIN</div>
+    </div>
+    <div class="breath-circle">
+      <div class="breath-text">THANKS</div>
+    </div>
+    <div class="session-title">GRATITUDE</div>
+    <div class="session-subtitle">Cultivate appreciation for this moment, your body, your breath.</div>
+    <div class="guidance-card">
+      <div class="guidance-icon">💜</div>
+      <div class="guidance-text">"Think of three things you're grateful for. Feel the warmth of appreciation spreading through your heart. Gratitude is the gateway to peace."</div>
+    </div>
+    <div class="breath-pattern">
+      <div class="breath-phase"><div class="phase-label">GRATEFUL</div><div class="phase-value">1</div></div>
+      <div class="breath-phase"><div class="phase-label">GRATEFUL</div><div class="phase-value">2</div></div>
+      <div class="breath-phase"><div class="phase-label">GRATEFUL</div><div class="phase-value">3</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Return -->
+<div id="ex-5" class="scene">
+  <div class="meditation-scene">
+    <div class="session-header">
+      <div class="session-badge">SESSION 5/5</div>
+      <div class="session-duration">2 MIN</div>
+    </div>
+    <div class="breath-circle">
+      <div class="breath-text">AWAKEN</div>
+    </div>
+    <div class="session-title">GENTLE<br>RETURN</div>
+    <div class="session-subtitle">Slowly bring awareness back. Carry this peace with you.</div>
+    <div class="guidance-card">
+      <div class="guidance-icon">🌅</div>
+      <div class="guidance-text">"Begin to deepen your breath. Wiggle your fingers and toes. When you're ready, gently open your eyes. Welcome back."</div>
+    </div>
+    <div class="breath-pattern">
+      <div class="breath-phase"><div class="phase-label">DEEPEN</div><div class="phase-value">Breath</div></div>
+      <div class="breath-phase"><div class="phase-label">MOVE</div><div class="phase-value">Gently</div></div>
+      <div class="breath-phase"><div class="phase-label">OPEN</div><div class="phase-value">Eyes</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="s-go" class="scene">
+  <div class="complete-orb">
+    <div class="complete-text">PEACE</div>
+  </div>
+  <div class="ready-text">NAMASTE</div>
+</div>
+
+<script>
+const EXERCISES = [
+  { id: 's-intro', duration: 5 },
+  { id: 'ex-1', duration: 120 },
+  { id: 'ex-2', duration: 120 },
+  { id: 'ex-3', duration: 120 },
+  { id: 'ex-4', duration: 120 },
+  { id: 'ex-5', duration: 120 },
+  { id: 's-go', duration: 20 },
+];
+
+let currentExercise = 0, elapsedSeconds = 0, animationFrame = null, lastTime = null, isPaused = false;
+
+const hudTime = document.getElementById('hud-time');
+const currentExEl = document.getElementById('current-ex');
+const pauseBtn = document.getElementById('hud-pause');
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function updateHUD() {
+  const total = EXERCISES.reduce((sum, ex) => sum + ex.duration, 0);
+  document.getElementById('hud-bar').style.width = Math.min(100, (elapsedSeconds / total) * 100) + '%';
+  let cum = 0;
+  for (let i = 0; i < currentExercise; i++) cum += EXERCISES[i].duration;
+  hudTime.textContent = formatTime(Math.max(0, EXERCISES[currentExercise].duration - (elapsedSeconds - cum)));
+  currentExEl.textContent = (currentExercise >= 1 && currentExercise <= 5) ? currentExercise : 0;
+}
+
+function switchScene(idx) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.getElementById(EXERCISES[idx].id)?.classList.add('active');
+  currentExercise = idx; updateHUD();
+}
+
+function animate(ts) {
+  if (isPaused) { animationFrame = requestAnimationFrame(animate); return; }
+  if (!lastTime) lastTime = ts;
+  elapsedSeconds += (ts - lastTime) / 1000; lastTime = ts; updateHUD();
+  let cum = 0;
+  for (let i = 0; i < EXERCISES.length; i++) {
+    cum += EXERCISES[i].duration;
+    if (elapsedSeconds < cum) { if (i !== currentExercise) switchScene(i); break; }
+  }
+  if (elapsedSeconds < EXERCISES.reduce((sum,e)=>sum+e.duration,0)) animationFrame = requestAnimationFrame(animate);
+}
+
+pauseBtn.onclick = () => {
+  isPaused = !isPaused; pauseBtn.textContent = isPaused ? '▶' : '||';
+  if (!isPaused) { lastTime = null; animationFrame = requestAnimationFrame(animate); }
+};
+
+document.getElementById('play-overlay').addEventListener('click', () => {
+  document.getElementById('play-overlay').classList.add('hidden');
+  setTimeout(() => { document.getElementById('play-overlay').style.display = 'none'; switchScene(0); animationFrame = requestAnimationFrame(animate); }, 800);
+});
+</script>
+</body>
+</html>

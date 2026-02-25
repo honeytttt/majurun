@@ -138,18 +138,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
-    
+    const Color darkBackground = Color(0xFF0A0A0F);
+    const Color darkSurface = Color(0xFF151520);
+
     if (_activeSubPage != null) {
       return Scaffold(
         key: _scaffoldKey,
-        backgroundColor: Colors.white,
+        backgroundColor: darkBackground,
         body: _activeSubPage,
       );
     }
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Colors.white,
+      backgroundColor: darkBackground,
       drawer: TrainingDrawer(
         onSubPageSelected: (Widget? page) => setState(() => _activeSubPage = page),
       ),
@@ -163,35 +165,150 @@ class _HomeScreenState extends State<HomeScreen> {
           const RunTrackerScreen(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: brandGreen,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Post'),
-          BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Rewards'),
-          BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: 'RUN'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: darkSurface,
+          border: Border(
+            top: BorderSide(
+              color: brandGreen.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', brandGreen),
+                _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen),
+                _buildCenterNavItem(brandGreen),
+                _buildNavItem(3, Icons.card_giftcard_rounded, Icons.card_giftcard_outlined, 'Rewards', brandGreen),
+                _buildNavItem(4, Icons.directions_run_rounded, Icons.directions_run_outlined, 'RUN', brandGreen),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  // ✅ UPDATED: Significant increase in height for maximum readability
+  Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? brandGreen.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : unselectedIcon,
+              color: isSelected ? brandGreen : Colors.white38,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? brandGreen : Colors.white38,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterNavItem(Color brandGreen) {
+    return GestureDetector(
+      onTap: () => _onItemTapped(2),
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [brandGreen, brandGreen.withValues(alpha: 0.8)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: brandGreen.withValues(alpha: 0.4),
+              blurRadius: 12,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.add_rounded,
+          color: Colors.black,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
   Widget _buildBranding(Color brandGreen) {
-    return Image.asset(
-      'assets/images/majurun-logo.jpg',
-      height: 80, // Increased to make the "MAJURUN" text clear
-      width: double.infinity,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return const Text(
-          "MAJURUN",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 24),
-        );
-      },
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 4,
+          height: 32,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [brandGreen, brandGreen.withValues(alpha: 0.5)],
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "MAJU",
+              style: TextStyle(
+                color: brandGreen,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                letterSpacing: 2,
+                height: 1,
+              ),
+            ),
+            const Text(
+              "RUN",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                letterSpacing: 2,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -203,28 +320,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Stack(
           children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none_outlined, color: Colors.black),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const NotificationsScreen()),
-                );
-              },
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A2E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF2A2A3E),
+                  width: 1,
+                ),
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white70, size: 22),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                  );
+                },
+              ),
             ),
             if (unreadCount > 0)
               Positioned(
-                right: 8,
-                top: 8,
+                right: 0,
+                top: 0,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                    ),
                     shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF0A0A0F), width: 2),
                   ),
                   constraints: const BoxConstraints(
-                    minWidth: 16,
-                    minHeight: 16,
+                    minWidth: 18,
+                    minHeight: 18,
                   ),
                   child: Text(
                     unreadCount > 99 ? '99+' : unreadCount.toString(),
@@ -244,19 +377,41 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProfessionalHomeFeed(Color brandGreen) {
+    const Color darkBackground = Color(0xFF0A0A0F);
+    const Color darkSurface = Color(0xFF151520);
+
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              color: brandGreen,
+              strokeWidth: 3,
+            ),
+          );
         }
         if (snapshot.hasError) {
-          return Center(child: Text("Error: ${snapshot.error}"));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: brandGreen),
+                const SizedBox(height: 16),
+                Text(
+                  "Error: ${snapshot.error}",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          );
         }
 
         final posts = snapshot.data ?? [];
-        
+
         return RefreshIndicator(
+          color: brandGreen,
+          backgroundColor: darkSurface,
           onRefresh: () async {
             setState(() {});
             await Future.delayed(const Duration(milliseconds: 500));
@@ -271,26 +426,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 snap: true,
                 pinned: false,
                 elevation: 0,
-                // ✅ UPDATED: Increased toolbarHeight to accommodate the 80px logo
-                toolbarHeight: 100, 
-                backgroundColor: Colors.white,
+                toolbarHeight: 80,
+                backgroundColor: darkBackground,
+                surfaceTintColor: Colors.transparent,
                 centerTitle: true,
-                // ✅ UPDATED: increased to 110 to give room for avatar and avoid overflow
-                leadingWidth: 110, 
+                leadingWidth: 80,
                 leading: AppBarLeading(onProfilePressed: _showProfile),
                 title: _buildBranding(brandGreen),
                 actions: [
-                  IconButton(
-                    icon: const Icon(Icons.search, color: Colors.black),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SearchScreen()),
-                      );
-                    },
+                  Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF2A2A3E),
+                        width: 1,
+                      ),
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.search_rounded, color: Colors.white70, size: 22),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const SearchScreen()),
+                        );
+                      },
+                    ),
                   ),
                   _buildNotificationIcon(),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 16),
                 ],
               ),
               posts.isEmpty
@@ -299,9 +467,39 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.feed_outlined, size: 80, color: Colors.grey[300]),
-                            const SizedBox(height: 16),
-                            const Text('No posts yet', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: darkSurface,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: const Color(0xFF2A2A3E),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.feed_outlined,
+                                size: 64,
+                                color: brandGreen.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'No posts yet',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Be the first to share your run!',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.5),
+                              ),
+                            ),
                           ],
                         ),
                       ),

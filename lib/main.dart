@@ -65,7 +65,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Majurun',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      // Use premium dark theme for professional look
+      theme: AppTheme.darkTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
       home: const AuthWrapper(),
     );
   }

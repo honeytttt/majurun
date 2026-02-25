@@ -64,6 +64,9 @@ dependencies:
   web: ^1.1.1
   cloud_functions: ^5.1.3
 
+  # WebView for workout videos ─────────────────────────────────
+  webview_flutter: ^4.8.0
+
   # Remove or conditionalize ────────────────────────────────
   # js: ^0.6.7                  # ← REMOVE (only for web)
 
@@ -90,6 +93,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/workouts/
+    - lib/workouts/
 
 # Optional: helps with dependency resolution in some cases
 dependency_overrides:

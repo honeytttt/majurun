@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>MajuRun - Home Workout</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #040404; --dark: #0d0f0e; --card: #111714; --border: #1e2821;
+    --blue: #3b82f6; --indigo: #6366f1; --sky: #0ea5e9;
+    --white: #ffffff; --muted: #5a7060;
+  }
+
+  html, body {
+    width: 100%; min-height: 100vh; overflow-x: hidden;
+    background: var(--black); font-family: 'DM Sans', sans-serif; color: var(--white);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .scene {
+    position: fixed; inset: 0; padding-bottom: env(safe-area-inset-bottom);
+    opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow-y: auto;
+  }
+  .scene.active { opacity: 1; pointer-events: all; }
+
+  #s-intro { background: var(--black); }
+  .intro-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+    background-size: 60px 60px; animation: grid-drift 20s linear infinite;
+  }
+  @keyframes grid-drift { from { transform: translateY(0); } to { transform: translateY(60px); } }
+
+  .intro-accent {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    background: linear-gradient(180deg, var(--blue), var(--indigo));
+    box-shadow: 0 0 30px var(--blue);
+  }
+
+  .intro-content { z-index: 10; text-align: center; padding: 20px; }
+
+  .intro-badge {
+    display: inline-flex; background: var(--blue); color: var(--white);
+    font-size: 11px; font-weight: 700; letter-spacing: 3px; padding: 6px 14px;
+    margin-bottom: 24px; border-radius: 4px;
+  }
+
+  .intro-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(48px, 15vw, 120px);
+    line-height: 0.9; color: var(--white);
+  }
+  .intro-title .accent { color: var(--blue); text-shadow: 0 0 40px rgba(59,130,246,0.6); }
+
+  .intro-sub {
+    font-size: clamp(12px, 3vw, 16px); color: var(--muted); letter-spacing: 3px;
+    margin-top: 20px; text-transform: uppercase;
+  }
+
+  .exercise-scene {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    padding: max(env(safe-area-inset-top), 20px) 20px 120px;
+    overflow-y: auto;
+  }
+
+  .segment-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .segment-badge {
+    background: var(--blue); color: var(--white);
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    padding: 5px 12px; border-radius: 4px;
+  }
+
+  .no-equipment-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(59,130,246,0.15); color: var(--blue);
+    font-size: 10px; font-weight: 600; letter-spacing: 1px;
+    padding: 5px 12px; border-radius: 4px;
+  }
+
+  .exercise-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(60px, 18vw, 100px);
+    color: rgba(255,255,255,0.06);
+    line-height: 0.8; text-align: center;
+  }
+
+  .exercise-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 10vw, 60px);
+    line-height: 0.9; color: var(--white);
+    text-align: center; margin: -20px 0 8px;
+  }
+
+  .exercise-subtitle {
+    font-size: clamp(12px, 3vw, 14px);
+    color: var(--muted); text-align: center; margin-bottom: 24px;
+  }
+
+  .video-container {
+    width: 100%; aspect-ratio: 16/9;
+    background: var(--card); border: 2px solid var(--blue);
+    border-radius: 16px; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 30px rgba(59,130,246,0.2);
+    overflow: hidden;
+  }
+
+  .video-placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; color: var(--muted);
+  }
+
+  .video-placeholder-icon { font-size: 48px; opacity: 0.5; }
+
+  .exercise-instructions {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .instruction-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+  }
+
+  .instruction-icon {
+    width: 26px; height: 26px;
+    background: var(--blue); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 13px; color: var(--white); font-weight: 700;
+  }
+
+  .instruction-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--white); line-height: 1.4;
+  }
+
+  .space-tip {
+    margin-top: 16px; padding: 14px;
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 8px;
+  }
+
+  .space-tip-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    color: var(--blue); margin-bottom: 6px;
+  }
+
+  .space-tip-text {
+    font-size: 13px; color: var(--muted); line-height: 1.4;
+  }
+
+  #s-go { background: var(--black); }
+
+  .go-circle {
+    width: min(70vw, 300px); height: min(70vw, 300px);
+    border-radius: 50%; background: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    animation: go-pulse 2s ease-in-out infinite;
+    margin-bottom: 40px;
+  }
+
+  @keyframes go-pulse {
+    0%,100% { box-shadow: 0 0 60px rgba(59,130,246,0.5); }
+    50% { box-shadow: 0 0 120px rgba(59,130,246,0.8); }
+  }
+
+  .go-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(50px, 16vw, 100px);
+    color: var(--white); line-height: 1;
+  }
+
+  .ready-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(24px, 7vw, 48px);
+    color: var(--white); letter-spacing: 4px; text-align: center;
+  }
+
+  #hud {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 16px 20px max(env(safe-area-inset-bottom), 16px);
+    background: rgba(4,4,4,0.95); border-top: 2px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    backdrop-filter: blur(20px); z-index: 9999;
+  }
+
+  #hud-logo {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px;
+    letter-spacing: 3px; color: var(--blue); display: none;
+  }
+  @media (min-width: 400px) { #hud-logo { display: block; } }
+
+  #hud-progress {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); letter-spacing: 1px;
+  }
+
+  #hud-bar-wrap {
+    flex: 1; height: 4px; background: var(--border);
+    border-radius: 2px; overflow: hidden;
+  }
+
+  #hud-bar {
+    height: 100%; width: 0%; background: var(--blue);
+    border-radius: 2px; transition: width 0.3s linear;
+    box-shadow: 0 0 10px var(--blue);
+  }
+
+  #hud-time {
+    font-family: 'JetBrains Mono', monospace; font-size: 20px;
+    color: var(--white); min-width: 50px; text-align: right;
+  }
+
+  #hud-pause {
+    width: 44px; height: 44px;
+    border: 2px solid var(--blue); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--blue); cursor: pointer;
+  }
+
+  #play-overlay {
+    position: fixed; inset: 0; background: var(--black); z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; cursor: pointer; transition: opacity 0.5s ease;
+  }
+  #play-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .play-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(40px, 12vw, 80px);
+    color: var(--white); text-align: center; line-height: 0.95;
+  }
+  .play-title span { color: var(--blue); }
+
+  .play-btn {
+    margin-top: 40px; width: 100px; height: 100px; border-radius: 50%;
+    border: 2px solid var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    animation: pulse-ring 2s ease-in-out infinite;
+  }
+  .play-btn svg { width: 36px; height: 36px; fill: var(--blue); margin-left: 4px; }
+
+  @keyframes pulse-ring {
+    0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+    50% { box-shadow: 0 0 0 16px rgba(59,130,246,0); }
+  }
+
+  .play-hint { margin-top: 20px; font-size: 12px; color: var(--muted); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+
+<div id="play-overlay">
+  <div class="play-title">NO EQUIPMENT<br><span>HOME</span><br>WORKOUT</div>
+  <div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+  <div class="play-hint">Tap to Start</div>
+</div>
+
+<div id="hud">
+  <div id="hud-logo">HOME</div>
+  <div id="hud-progress">MOVE <span id="current-ex">0</span>/<span id="total-ex">7</span></div>
+  <div id="hud-bar-wrap"><div id="hud-bar"></div></div>
+  <div id="hud-time">0:00</div>
+  <div id="hud-pause">||</div>
+</div>
+
+<div id="s-intro" class="scene active">
+  <div class="intro-grid"></div>
+  <div class="intro-accent"></div>
+  <div class="intro-content">
+    <div class="intro-badge">NO EQUIPMENT</div>
+    <div class="intro-title">HOME<br><span class="accent">WORKOUT</span></div>
+    <div class="intro-sub">7 Moves - 20 Minutes</div>
+  </div>
+</div>
+
+<!-- 1. Bodyweight Squats -->
+<div id="ex-1" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 1/7</div>
+      <div class="no-equipment-badge">🏠 NO GEAR</div>
+    </div>
+    <div class="exercise-number">01</div>
+    <div class="exercise-title">BODYWEIGHT<br>SQUATS</div>
+    <div class="exercise-subtitle">Lower body foundation - 20 reps</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🦵</div>
+        <div>bodyweight_squats.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Stand with feet shoulder-width apart</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Lower until thighs are parallel to floor</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Drive through heels to stand</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">SPACE NEEDED</div>
+      <div class="space-tip-text">Standing space only - perfect for any room</div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Push-ups -->
+<div id="ex-2" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 2/7</div>
+      <div class="no-equipment-badge">🏠 NO GEAR</div>
+    </div>
+    <div class="exercise-number">02</div>
+    <div class="exercise-title">PUSH-UPS</div>
+    <div class="exercise-subtitle">Upper body strength - 15 reps</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">💪</div>
+        <div>pushups.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Start in high plank, hands shoulder-width</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Lower chest to floor, elbows at 45 degrees</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Push back up, fully extending arms</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">MODIFICATION</div>
+      <div class="space-tip-text">Knee push-ups if needed - same great benefits</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Glute Bridges -->
+<div id="ex-3" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 3/7</div>
+      <div class="no-equipment-badge">🏠 NO GEAR</div>
+    </div>
+    <div class="exercise-number">03</div>
+    <div class="exercise-title">GLUTE<br>BRIDGES</div>
+    <div class="exercise-subtitle">Posterior chain activation - 20 reps</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🍑</div>
+        <div>glute_bridges.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Lie on back, knees bent, feet flat</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Drive through heels, lift hips high</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Squeeze glutes at top, lower with control</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">TIP</div>
+      <div class="space-tip-text">Use a yoga mat or carpet for comfort</div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Plank Hold -->
+<div id="ex-4" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 4/7</div>
+      <div class="no-equipment-badge">🏠 NO GEAR</div>
+    </div>
+    <div class="exercise-number">04</div>
+    <div class="exercise-title">PLANK<br>HOLD</div>
+    <div class="exercise-subtitle">Core stability - 45 second hold</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🧘</div>
+        <div>plank_hold.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Forearms on ground, elbows under shoulders</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Body forms straight line head to heels</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Hold position, breathe steadily</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">CHALLENGE</div>
+      <div class="space-tip-text">Try to increase hold time each session</div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Reverse Lunges -->
+<div id="ex-5" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 5/7</div>
+      <div class="no-equipment-badge">🏠 NO GEAR</div>
+    </div>
+    <div class="exercise-number">05</div>
+    <div class="exercise-title">REVERSE<br>LUNGES</div>
+    <div class="exercise-subtitle">Single leg strength - 12 each leg</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🚶</div>
+        <div>reverse_lunges.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Stand tall, step one foot back</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Lower until both knees at 90 degrees</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Push through front heel to return</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">BALANCE</div>
+      <div class="space-tip-text">Hold a wall if needed for stability</div>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Superman Hold -->
+<div id="ex-6" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 6/7</div>
+      <div class="no-equipment-badge">🏠 NO GEAR</div>
+    </div>
+    <div class="exercise-number">06</div>
+    <div class="exercise-title">SUPERMAN<br>HOLD</div>
+    <div class="exercise-subtitle">Lower back strength - 30 sec hold</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🦸</div>
+        <div>superman_hold.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Lie face down, arms extended overhead</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Lift arms, chest, and legs off ground</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Hold position, squeeze back muscles</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">FOCUS</div>
+      <div class="space-tip-text">Keep neck neutral, gaze at floor</div>
+    </div>
+  </div>
+</div>
+
+<!-- 7. Burpees -->
+<div id="ex-7" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">MOVE 7/7</div>
+      <div class="no-equipment-badge">🔥 FINISHER</div>
+    </div>
+    <div class="exercise-number">07</div>
+    <div class="exercise-title">BURPEES</div>
+    <div class="exercise-subtitle">Full body finisher - 10 reps</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">⚡</div>
+        <div>burpees.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Squat down, place hands on floor</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Jump feet back, perform push-up</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Jump feet forward, explode up!</div></div>
+    </div>
+    <div class="space-tip">
+      <div class="space-tip-label">FINISH STRONG</div>
+      <div class="space-tip-text">Give everything you've got!</div>
+    </div>
+  </div>
+</div>
+
+<div id="s-go" class="scene">
+  <div class="go-circle">
+    <div class="go-text">DONE!</div>
+  </div>
+  <div class="ready-text">GREAT HOME WORKOUT!</div>
+</div>
+
+<script>
+const EXERCISES = [
+  { id: 's-intro', duration: 5 },
+  { id: 'ex-1', duration: 60 },
+  { id: 'ex-2', duration: 60 },
+  { id: 'ex-3', duration: 60 },
+  { id: 'ex-4', duration: 45 },
+  { id: 'ex-5', duration: 60 },
+  { id: 'ex-6', duration: 30 },
+  { id: 'ex-7', duration: 60 },
+  { id: 's-go', duration: 15 },
+];
+
+let currentExercise = 0, elapsedSeconds = 0, animationFrame = null, lastTime = null, isPaused = false;
+
+const hudTime = document.getElementById('hud-time');
+const currentExEl = document.getElementById('current-ex');
+const pauseBtn = document.getElementById('hud-pause');
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function updateHUD() {
+  const total = EXERCISES.reduce((sum, ex) => sum + ex.duration, 0);
+  document.getElementById('hud-bar').style.width = Math.min(100, (elapsedSeconds / total) * 100) + '%';
+  let cum = 0;
+  for (let i = 0; i < currentExercise; i++) cum += EXERCISES[i].duration;
+  hudTime.textContent = formatTime(Math.max(0, EXERCISES[currentExercise].duration - (elapsedSeconds - cum)));
+  currentExEl.textContent = (currentExercise >= 1 && currentExercise <= 7) ? currentExercise : 0;
+}
+
+function switchScene(idx) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.getElementById(EXERCISES[idx].id)?.classList.add('active');
+  currentExercise = idx; updateHUD();
+}
+
+function animate(ts) {
+  if (isPaused) { animationFrame = requestAnimationFrame(animate); return; }
+  if (!lastTime) lastTime = ts;
+  elapsedSeconds += (ts - lastTime) / 1000; lastTime = ts; updateHUD();
+  let cum = 0;
+  for (let i = 0; i < EXERCISES.length; i++) {
+    cum += EXERCISES[i].duration;
+    if (elapsedSeconds < cum) { if (i !== currentExercise) switchScene(i); break; }
+  }
+  if (elapsedSeconds < EXERCISES.reduce((sum,e)=>sum+e.duration,0)) animationFrame = requestAnimationFrame(animate);
+}
+
+pauseBtn.onclick = () => {
+  isPaused = !isPaused; pauseBtn.textContent = isPaused ? '▶' : '||';
+  if (!isPaused) { lastTime = null; animationFrame = requestAnimationFrame(animate); }
+};
+
+document.getElementById('play-overlay').addEventListener('click', () => {
+  document.getElementById('play-overlay').classList.add('hidden');
+  setTimeout(() => { document.getElementById('play-overlay').style.display = 'none'; switchScene(0); animationFrame = requestAnimationFrame(animate); }, 500);
+});
+</script>
+</body>
+</html>

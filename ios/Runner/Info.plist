@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Majurun</string>
+	<string>MajuRun</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>majurun</string>
+	<string>MajuRun</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -28,16 +28,53 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
+	<!-- Health Kit Permissions -->
 	<key>NSHealthShareUsageDescription</key>
-    <string>Majurun needs access to your health data to sync your runs and progress.</string>
-    <key>NSHealthUpdateUsageDescription</key>
-    <string>Majurun needs access to your health data to sync your runs and progress.</string>
+	<string>MajuRun needs access to read your health data to display your fitness metrics, track calories burned, and sync your workout history.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>MajuRun needs permission to write workout data to Health to keep your fitness records up to date.</string>
+
+	<!-- Location Permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MajuRun needs your location to track your running route and calculate distance and pace in real-time.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>MajuRun needs background location access to continue tracking your run even when the app is in the background or your screen is off.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>MajuRun uses your location to track runs accurately even when the app is in the background.</string>
+
+	<!-- Motion & Fitness -->
+	<key>NSMotionUsageDescription</key>
+	<string>MajuRun uses motion sensors to accurately count your steps and detect your running cadence.</string>
+
+	<!-- Camera & Photo Library -->
+	<key>NSCameraUsageDescription</key>
+	<string>MajuRun needs camera access to let you take photos for your profile and share running moments.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MajuRun needs access to your photo library to select images for your profile and posts.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MajuRun needs permission to save workout screenshots and route maps to your photo library.</string>
+
+	<!-- Microphone (for video) -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MajuRun needs microphone access to record audio with your workout videos.</string>
+
+	<!-- Bluetooth (for heart rate monitors) -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>MajuRun uses Bluetooth to connect to heart rate monitors and fitness devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>MajuRun uses Bluetooth to connect to heart rate monitors and fitness devices.</string>
+
+	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>
-<array>
-    <string>location</string>
-</array>
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>Majurun needs your location to track your run even when the screen is off.</string>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>audio</string>
+	</array>
+
+	<!-- Supported Orientations -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -51,9 +88,34 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- Performance Settings -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+
+	<!-- App Transport Security - Allow HTTPS connections -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
+
+	<!-- Required device capabilities -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+		<string>location-services</string>
+		<string>gps</string>
+	</array>
+
+	<!-- Status bar style -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>
 </plist>

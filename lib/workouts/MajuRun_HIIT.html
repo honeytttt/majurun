@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>MajuRun - HIIT Blast</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #040404; --dark: #0d0f0e; --card: #111714; --border: #1e2821;
+    --orange: #ff6b35; --yellow: #ffc234; --fire: #ff4500;
+    --white: #ffffff; --muted: #5a7060;
+  }
+
+  html, body {
+    width: 100%; min-height: 100vh; overflow-x: hidden;
+    background: var(--black); font-family: 'DM Sans', sans-serif; color: var(--white);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .scene {
+    position: fixed; inset: 0; padding-bottom: env(safe-area-inset-bottom);
+    opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow-y: auto;
+  }
+  .scene.active { opacity: 1; pointer-events: all; }
+
+  #s-intro { background: var(--black); }
+  .intro-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,107,53,0.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,107,53,0.05) 1px, transparent 1px);
+    background-size: 50px 50px; animation: grid-drift 15s linear infinite;
+  }
+  @keyframes grid-drift { from { transform: translateY(0); } to { transform: translateY(50px); } }
+
+  .intro-accent {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    background: linear-gradient(180deg, var(--orange), var(--fire));
+    box-shadow: 0 0 30px var(--orange);
+  }
+
+  .intro-content { z-index: 10; text-align: center; padding: 20px; }
+
+  .intro-badge {
+    display: inline-flex; background: var(--orange); color: var(--black);
+    font-size: 11px; font-weight: 700; letter-spacing: 3px; padding: 6px 14px;
+    margin-bottom: 24px; border-radius: 4px;
+  }
+
+  .intro-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(56px, 18vw, 140px);
+    line-height: 0.85; color: var(--white);
+  }
+  .intro-title .accent { color: var(--orange); text-shadow: 0 0 50px rgba(255,107,53,0.7); }
+
+  .intro-sub {
+    font-size: clamp(12px, 3vw, 16px); color: var(--muted); letter-spacing: 3px;
+    margin-top: 20px; text-transform: uppercase;
+  }
+
+  .exercise-scene {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    padding: max(env(safe-area-inset-top), 20px) 20px 120px;
+    overflow-y: auto;
+  }
+
+  .segment-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .segment-badge {
+    background: var(--orange); color: var(--black);
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    padding: 5px 12px; border-radius: 4px;
+  }
+
+  .intensity-badge {
+    background: var(--fire); color: var(--white);
+    font-size: 9px; font-weight: 700; letter-spacing: 1px;
+    padding: 4px 10px; border-radius: 4px;
+    animation: pulse-intensity 1s ease-in-out infinite;
+  }
+  @keyframes pulse-intensity {
+    0%,100% { opacity: 1; } 50% { opacity: 0.6; }
+  }
+
+  .exercise-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(60px, 18vw, 100px);
+    color: rgba(255,255,255,0.06);
+    line-height: 0.8; text-align: center;
+  }
+
+  .exercise-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 10vw, 60px);
+    line-height: 0.9; color: var(--white);
+    text-align: center; margin: -20px 0 8px;
+  }
+
+  .exercise-subtitle {
+    font-size: clamp(12px, 3vw, 14px);
+    color: var(--muted); text-align: center; margin-bottom: 24px;
+  }
+
+  .video-container {
+    width: 100%; aspect-ratio: 16/9;
+    background: var(--card); border: 2px solid var(--orange);
+    border-radius: 16px; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 30px rgba(255,107,53,0.25);
+    overflow: hidden;
+  }
+
+  .video-placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; color: var(--muted);
+  }
+
+  .video-placeholder-icon { font-size: 48px; }
+
+  .exercise-instructions {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .instruction-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--orange);
+    border-radius: 8px;
+  }
+
+  .instruction-icon {
+    width: 26px; height: 26px;
+    background: var(--orange); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 13px; color: var(--black); font-weight: 700;
+  }
+
+  .instruction-text {
+    font-size: clamp(13px, 3.5vw, 15px);
+    color: var(--white); line-height: 1.4;
+  }
+
+  .work-rest-indicator {
+    display: flex; gap: 12px; margin-top: 16px;
+  }
+
+  .work-box, .rest-box {
+    flex: 1; padding: 16px; border-radius: 12px; text-align: center;
+  }
+
+  .work-box {
+    background: rgba(255,107,53,0.2); border: 1px solid var(--orange);
+  }
+
+  .rest-box {
+    background: rgba(57,255,20,0.1); border: 1px solid #39ff14;
+  }
+
+  .indicator-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .work-box .indicator-label { color: var(--orange); }
+  .rest-box .indicator-label { color: #39ff14; }
+
+  .indicator-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; color: var(--white); font-weight: 700;
+  }
+
+  #s-go { background: var(--black); }
+
+  .go-circle {
+    width: min(70vw, 300px); height: min(70vw, 300px);
+    border-radius: 50%; background: linear-gradient(135deg, var(--orange), var(--fire));
+    display: flex; align-items: center; justify-content: center;
+    animation: go-pulse 1.5s ease-in-out infinite;
+    margin-bottom: 40px;
+  }
+
+  @keyframes go-pulse {
+    0%,100% { box-shadow: 0 0 60px rgba(255,107,53,0.6); transform: scale(1); }
+    50% { box-shadow: 0 0 100px rgba(255,69,0,0.8); transform: scale(1.03); }
+  }
+
+  .go-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(60px, 20vw, 120px);
+    color: var(--white); line-height: 1;
+  }
+
+  .ready-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(24px, 7vw, 48px);
+    color: var(--white); letter-spacing: 4px; text-align: center;
+  }
+
+  #hud {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 16px 20px max(env(safe-area-inset-bottom), 16px);
+    background: rgba(4,4,4,0.95); border-top: 2px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    backdrop-filter: blur(20px); z-index: 9999;
+  }
+
+  #hud-logo {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px;
+    letter-spacing: 3px; color: var(--orange); display: none;
+  }
+  @media (min-width: 400px) { #hud-logo { display: block; } }
+
+  #hud-progress {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); letter-spacing: 1px;
+  }
+
+  #hud-bar-wrap {
+    flex: 1; height: 4px; background: var(--border);
+    border-radius: 2px; overflow: hidden;
+  }
+
+  #hud-bar {
+    height: 100%; width: 0%; background: linear-gradient(90deg, var(--orange), var(--fire));
+    border-radius: 2px; transition: width 0.3s linear;
+    box-shadow: 0 0 10px var(--orange);
+  }
+
+  #hud-time {
+    font-family: 'JetBrains Mono', monospace; font-size: 20px;
+    color: var(--white); min-width: 50px; text-align: right;
+  }
+
+  #hud-pause {
+    width: 44px; height: 44px;
+    border: 2px solid var(--orange); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--orange); cursor: pointer;
+  }
+
+  #play-overlay {
+    position: fixed; inset: 0; background: var(--black); z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; cursor: pointer; transition: opacity 0.4s ease;
+  }
+  #play-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .play-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(44px, 14vw, 90px);
+    color: var(--white); text-align: center; line-height: 0.9;
+  }
+  .play-title span { color: var(--orange); }
+
+  .play-btn {
+    margin-top: 40px; width: 100px; height: 100px; border-radius: 50%;
+    border: 2px solid var(--orange);
+    display: flex; align-items: center; justify-content: center;
+    animation: pulse-ring 1.5s ease-in-out infinite;
+  }
+  .play-btn svg { width: 36px; height: 36px; fill: var(--orange); margin-left: 4px; }
+
+  @keyframes pulse-ring {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,107,53,0.5); }
+    50% { box-shadow: 0 0 0 18px rgba(255,107,53,0); }
+  }
+
+  .play-hint { margin-top: 20px; font-size: 12px; color: var(--muted); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+
+<div id="play-overlay">
+  <div class="play-title">HIGH INTENSITY<br><span>INTERVAL</span><br>TRAINING</div>
+  <div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+  <div class="play-hint">Tap to Ignite</div>
+</div>
+
+<div id="hud">
+  <div id="hud-logo">HIIT</div>
+  <div id="hud-progress">ROUND <span id="current-ex">0</span>/<span id="total-ex">6</span></div>
+  <div id="hud-bar-wrap"><div id="hud-bar"></div></div>
+  <div id="hud-time">0:00</div>
+  <div id="hud-pause">||</div>
+</div>
+
+<div id="s-intro" class="scene active">
+  <div class="intro-grid"></div>
+  <div class="intro-accent"></div>
+  <div class="intro-content">
+    <div class="intro-badge">MAX INTENSITY</div>
+    <div class="intro-title">HIIT<br><span class="accent">BLAST</span></div>
+    <div class="intro-sub">6 Rounds - 20 Minutes</div>
+  </div>
+</div>
+
+<!-- 1. Jumping Jacks -->
+<div id="ex-1" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">ROUND 1/6</div>
+      <div class="intensity-badge">HIGH INTENSITY</div>
+    </div>
+    <div class="exercise-number">01</div>
+    <div class="exercise-title">JUMPING<br>JACKS</div>
+    <div class="exercise-subtitle">Full Body Cardio Warm-up</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">⭐</div>
+        <div>jumping_jacks.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Start with feet together, arms at sides</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Jump feet wide while raising arms overhead</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Jump back to start, maintain fast pace</div></div>
+    </div>
+    <div class="work-rest-indicator">
+      <div class="work-box"><div class="indicator-label">WORK</div><div class="indicator-value">40s</div></div>
+      <div class="rest-box"><div class="indicator-label">REST</div><div class="indicator-value">20s</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Burpees -->
+<div id="ex-2" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">ROUND 2/6</div>
+      <div class="intensity-badge">MAX EFFORT</div>
+    </div>
+    <div class="exercise-number">02</div>
+    <div class="exercise-title">BURPEES</div>
+    <div class="exercise-subtitle">Full Body Explosive Power</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🔥</div>
+        <div>burpees.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Squat down, hands on floor</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Jump feet back, chest to ground</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Push up, jump feet forward, explode up</div></div>
+    </div>
+    <div class="work-rest-indicator">
+      <div class="work-box"><div class="indicator-label">WORK</div><div class="indicator-value">40s</div></div>
+      <div class="rest-box"><div class="indicator-label">REST</div><div class="indicator-value">20s</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. High Knees -->
+<div id="ex-3" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">ROUND 3/6</div>
+      <div class="intensity-badge">CARDIO BLAST</div>
+    </div>
+    <div class="exercise-number">03</div>
+    <div class="exercise-title">HIGH KNEES</div>
+    <div class="exercise-subtitle">Speed & Cardio Endurance</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🏃</div>
+        <div>high_knees.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Run in place with high knee drive</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Drive knees above hip level</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Pump arms, stay on balls of feet</div></div>
+    </div>
+    <div class="work-rest-indicator">
+      <div class="work-box"><div class="indicator-label">WORK</div><div class="indicator-value">40s</div></div>
+      <div class="rest-box"><div class="indicator-label">REST</div><div class="indicator-value">20s</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Squat Jumps -->
+<div id="ex-4" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">ROUND 4/6</div>
+      <div class="intensity-badge">POWER</div>
+    </div>
+    <div class="exercise-number">04</div>
+    <div class="exercise-title">SQUAT<br>JUMPS</div>
+    <div class="exercise-subtitle">Lower Body Explosive Power</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">💥</div>
+        <div>squat_jumps.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Lower into squat position</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Explode up, jumping as high as possible</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Land softly, immediately squat again</div></div>
+    </div>
+    <div class="work-rest-indicator">
+      <div class="work-box"><div class="indicator-label">WORK</div><div class="indicator-value">40s</div></div>
+      <div class="rest-box"><div class="indicator-label">REST</div><div class="indicator-value">20s</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Mountain Climbers -->
+<div id="ex-5" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">ROUND 5/6</div>
+      <div class="intensity-badge">CORE BURN</div>
+    </div>
+    <div class="exercise-number">05</div>
+    <div class="exercise-title">MOUNTAIN<br>CLIMBERS</div>
+    <div class="exercise-subtitle">Core & Cardio Combination</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🏔️</div>
+        <div>mountain_climbers.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Start in high plank position</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Drive knees to chest alternating rapidly</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Keep hips level, core tight</div></div>
+    </div>
+    <div class="work-rest-indicator">
+      <div class="work-box"><div class="indicator-label">WORK</div><div class="indicator-value">40s</div></div>
+      <div class="rest-box"><div class="indicator-label">REST</div><div class="indicator-value">20s</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Tuck Jumps -->
+<div id="ex-6" class="scene">
+  <div class="exercise-scene">
+    <div class="segment-header">
+      <div class="segment-badge">ROUND 6/6</div>
+      <div class="intensity-badge">FINISH STRONG</div>
+    </div>
+    <div class="exercise-number">06</div>
+    <div class="exercise-title">TUCK JUMPS</div>
+    <div class="exercise-subtitle">Final Explosive Effort</div>
+    <div class="video-container">
+      <div class="video-placeholder">
+        <div class="video-placeholder-icon">🚀</div>
+        <div>tuck_jumps.mp4</div>
+      </div>
+    </div>
+    <div class="exercise-instructions">
+      <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Stand with feet hip-width apart</div></div>
+      <div class="instruction-item"><div class="instruction-icon">2</div><div class="instruction-text">Jump and tuck knees to chest at peak</div></div>
+      <div class="instruction-item"><div class="instruction-icon">3</div><div class="instruction-text">Land softly, immediately repeat</div></div>
+    </div>
+    <div class="work-rest-indicator">
+      <div class="work-box"><div class="indicator-label">WORK</div><div class="indicator-value">40s</div></div>
+      <div class="rest-box"><div class="indicator-label">REST</div><div class="indicator-value">20s</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="s-go" class="scene">
+  <div class="go-circle">
+    <div class="go-text">FIRE!</div>
+  </div>
+  <div class="ready-text">YOU CRUSHED IT!</div>
+</div>
+
+<script>
+const EXERCISES = [
+  { id: 's-intro', duration: 5 },
+  { id: 'ex-1', duration: 60 },
+  { id: 'ex-2', duration: 60 },
+  { id: 'ex-3', duration: 60 },
+  { id: 'ex-4', duration: 60 },
+  { id: 'ex-5', duration: 60 },
+  { id: 'ex-6', duration: 60 },
+  { id: 's-go', duration: 15 },
+];
+
+let currentExercise = 0, elapsedSeconds = 0, animationFrame = null, lastTime = null, isPaused = false;
+
+const hudTime = document.getElementById('hud-time');
+const currentExEl = document.getElementById('current-ex');
+const pauseBtn = document.getElementById('hud-pause');
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function updateHUD() {
+  const total = EXERCISES.reduce((sum, ex) => sum + ex.duration, 0);
+  document.getElementById('hud-bar').style.width = Math.min(100, (elapsedSeconds / total) * 100) + '%';
+  let cum = 0;
+  for (let i = 0; i < currentExercise; i++) cum += EXERCISES[i].duration;
+  hudTime.textContent = formatTime(Math.max(0, EXERCISES[currentExercise].duration - (elapsedSeconds - cum)));
+  currentExEl.textContent = (currentExercise >= 1 && currentExercise <= 6) ? currentExercise : 0;
+}
+
+function switchScene(idx) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.getElementById(EXERCISES[idx].id)?.classList.add('active');
+  currentExercise = idx; updateHUD();
+}
+
+function animate(ts) {
+  if (isPaused) { animationFrame = requestAnimationFrame(animate); return; }
+  if (!lastTime) lastTime = ts;
+  elapsedSeconds += (ts - lastTime) / 1000; lastTime = ts; updateHUD();
+  let cum = 0;
+  for (let i = 0; i < EXERCISES.length; i++) {
+    cum += EXERCISES[i].duration;
+    if (elapsedSeconds < cum) { if (i !== currentExercise) switchScene(i); break; }
+  }
+  if (elapsedSeconds < EXERCISES.reduce((sum,e)=>sum+e.duration,0)) animationFrame = requestAnimationFrame(animate);
+}
+
+pauseBtn.onclick = () => {
+  isPaused = !isPaused; pauseBtn.textContent = isPaused ? '▶' : '||';
+  if (!isPaused) { lastTime = null; animationFrame = requestAnimationFrame(animate); }
+};
+
+document.getElementById('play-overlay').addEventListener('click', () => {
+  document.getElementById('play-overlay').classList.add('hidden');
+  setTimeout(() => { document.getElementById('play-overlay').style.display = 'none'; switchScene(0); animationFrame = requestAnimationFrame(animate); }, 400);
+});
+</script>
+</body>
+</html>
