@@ -16,12 +16,19 @@ class QuotedPostPreview extends StatelessWidget {
             height: 60,
             margin: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: const Color(0xFF151520),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+              border: Border.all(color: const Color(0xFF2A2A3E)),
             ),
             child: const Center(
-              child: SizedBox(width: 20, height: 2, child: LinearProgressIndicator())
+              child: SizedBox(
+                width: 20,
+                height: 2,
+                child: LinearProgressIndicator(
+                  backgroundColor: Color(0xFF2A2A3E),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E676)),
+                ),
+              ),
             ),
           );
         }
@@ -32,13 +39,13 @@ class QuotedPostPreview extends StatelessWidget {
              padding: const EdgeInsets.all(12),
              margin: const EdgeInsets.symmetric(vertical: 8),
              decoration: BoxDecoration(
-               color: Colors.grey.withValues(alpha: 0.05),
+               color: const Color(0xFF151520),
                borderRadius: BorderRadius.circular(12),
-               border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+               border: Border.all(color: const Color(0xFF2A2A3E)),
              ),
              child: const Text(
                "This post is no longer available.",
-               style: TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic)
+               style: TextStyle(fontSize: 13, color: Colors.white54, fontStyle: FontStyle.italic)
              ),
           );
         }
@@ -50,23 +57,23 @@ class QuotedPostPreview extends StatelessWidget {
           margin: const EdgeInsets.only(top: 4, bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+            border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(12),
-            color: Colors.blue.withValues(alpha: 0.02),
+            color: const Color(0xFF00E676).withValues(alpha: 0.05),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.person_outline, size: 14, color: Colors.blue),
+                  const Icon(Icons.person_outline, size: 14, color: Color(0xFF00E676)),
                   const SizedBox(width: 6),
                   Text(
                     original.username,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Colors.blueAccent
+                      color: Color(0xFF00E676),
                     ),
                   ),
                 ],
@@ -74,7 +81,7 @@ class QuotedPostPreview extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 original.content.isEmpty ? "[Media or Repost]" : original.content,
-                style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.3),
+                style: const TextStyle(fontSize: 14, color: Colors.white70, height: 1.3),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),

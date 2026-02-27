@@ -58,7 +58,7 @@ class FeedItemWrapper extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0.5,
-        color: Colors.white,
+        color: const Color(0xFF1A1A2E),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -143,7 +143,7 @@ class FeedItemWrapper extends StatelessWidget {
                     Expanded(
                       child: Text(
                         post.username,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -159,7 +159,10 @@ class FeedItemWrapper extends StatelessWidget {
                   ],
                 ),
               ),
-              subtitle: Text(timeago.format(post.createdAt)),
+              subtitle: Text(
+                timeago.format(post.createdAt),
+                style: const TextStyle(color: Colors.white60),
+              ),
               trailing: isOwnPost
                   ? IconButton(
                       icon: const Icon(Icons.more_vert, color: Colors.grey),
@@ -175,7 +178,7 @@ class FeedItemWrapper extends StatelessWidget {
                 child: ExpandableText(
                   text: post.content,
                   maxLines: 5,
-                  style: const TextStyle(fontSize: 16, height: 1.35),
+                  style: const TextStyle(fontSize: 16, height: 1.35, color: Colors.white),
                   onTap: () {
                     debugPrint('📱 ExpandableText tapped from FeedItem');
                     Navigator.push(
@@ -233,13 +236,13 @@ class FeedItemWrapper extends StatelessWidget {
                         ),
                         Text(
                           "${post.likes.length}",
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white70),
                         ),
                         const SizedBox(width: 16),
                         
                         // Comment Button
                         IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                          icon: const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white60),
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
@@ -255,7 +258,7 @@ class FeedItemWrapper extends StatelessWidget {
                             final count = snapshot.data?.length ?? 0;
                             return Text(
                               "$count",
-                              style: const TextStyle(fontWeight: FontWeight.w500),
+                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white70),
                             );
                           },
                         ),
@@ -286,7 +289,7 @@ class FeedItemWrapper extends StatelessWidget {
                         
                         // Share Button
                         IconButton(
-                          icon: const Icon(Icons.share, size: 20),
+                          icon: const Icon(Icons.share, size: 20, color: Colors.white60),
                           onPressed: () => _handleShare(context),
                         ),
                       ],

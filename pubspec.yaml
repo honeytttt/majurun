@@ -66,6 +66,7 @@ dependencies:
 
   # WebView for workout videos ─────────────────────────────────
   webview_flutter: ^4.8.0
+  webview_flutter_web: ^0.2.3
 
   # Remove or conditionalize ────────────────────────────────
   # js: ^0.6.7                  # ← REMOVE (only for web)

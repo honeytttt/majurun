@@ -158,11 +158,15 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFF1A1A2E),
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF2A2A3E),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               )
@@ -263,8 +267,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                                   widget.post.username,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                     decoration: TextDecoration.underline,
-                                    decorationColor: Colors.grey,
+                                    decorationColor: Colors.white54,
                                     decorationStyle: TextDecorationStyle.dotted,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -273,22 +278,22 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                               ),
                               if (isRepost) ...[
                                 const SizedBox(width: 6),
-                                const Icon(Icons.repeat_rounded, size: 16, color: Colors.green),
+                                const Icon(Icons.repeat_rounded, size: 16, color: Color(0xFF00E676)),
                                 const SizedBox(width: 4),
-                                Text(
+                                const Text(
                                   "reposted",
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                  style: TextStyle(color: Colors.white70, fontSize: 13),
                                 ),
                               ],
                               if (isSession) ...[
                                 const SizedBox(width: 8),
-                                _pill("SESSION", Icons.fitness_center, Colors.green),
+                                _pill("SESSION", Icons.fitness_center, const Color(0xFF00E676)),
                               ],
                             ],
                           ),
                           Text(
                             timeago.format(widget.post.createdAt),
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            style: const TextStyle(color: Colors.white54, fontSize: 12),
                           ),
                         ],
                       ),
@@ -371,7 +376,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                         child: QuotedPostPreview(postId: widget.post.quotedPostId!),
                       ),
 
-                    const Divider(height: 32),
+                    const Divider(height: 32, color: Color(0xFF2A2A3E)),
 
                     GestureDetector(
                       onTap: () {},
@@ -426,7 +431,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
       return ExpandableText(
         text: _safeContent,
         maxLines: 5,
-        style: const TextStyle(fontSize: 15, height: 1.4),
+        style: const TextStyle(fontSize: 15, height: 1.4, color: Colors.white),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -438,7 +443,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
       // Fallback to simple Text widget if ExpandableText fails
       return Text(
         _safeContent,
-        style: const TextStyle(fontSize: 15, height: 1.4),
+        style: const TextStyle(fontSize: 15, height: 1.4, color: Colors.white),
         maxLines: 5,
         overflow: TextOverflow.ellipsis,
       );
@@ -709,7 +714,7 @@ class _ActionButton extends StatelessWidget {
             Icon(
               icon,
               size: 18,
-              color: isEnabled ? (color ?? Colors.grey[700]) : Colors.grey[400],
+              color: isEnabled ? (color ?? Colors.white70) : Colors.grey[600],
             ),
             const SizedBox(width: 4),
             Text(
@@ -717,7 +722,7 @@ class _ActionButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: isEnabled ? (color ?? Colors.grey[700]) : Colors.grey[400],
+                color: isEnabled ? (color ?? Colors.white70) : Colors.grey[600],
               ),
             ),
           ],

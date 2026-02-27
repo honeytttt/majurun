@@ -31,9 +31,10 @@ class _ExpandableTextState extends State<ExpandableText> {
         debugPrint('   Text: "${widget.text.substring(0, widget.text.length > 50 ? 50 : widget.text.length)}..."');
         debugPrint('   Max lines: ${widget.maxLines}');
         
+        final defaultStyle = const TextStyle(fontSize: 15, height: 1.4, color: Colors.white);
         final textSpan = TextSpan(
           text: widget.text,
-          style: widget.style ?? const TextStyle(fontSize: 15, height: 1.4),
+          style: widget.style ?? defaultStyle,
         );
 
         final textPainter = TextPainter(
@@ -63,7 +64,7 @@ class _ExpandableTextState extends State<ExpandableText> {
             children: [
               Text(
                 widget.text,
-                style: widget.style ?? const TextStyle(fontSize: 15, height: 1.4),
+                style: widget.style ?? const TextStyle(fontSize: 15, height: 1.4, color: Colors.white),
                 maxLines: _isExpanded ? null : widget.maxLines,
                 overflow: _isExpanded ? null : TextOverflow.ellipsis,
               ),
@@ -86,7 +87,7 @@ class _ExpandableTextState extends State<ExpandableText> {
                         Text(
                           'more',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: Colors.blue[600],
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -95,7 +96,7 @@ class _ExpandableTextState extends State<ExpandableText> {
                         Icon(
                           Icons.arrow_forward_ios,
                           size: 12,
-                          color: Colors.grey[600],
+                          color: Colors.blue[600],
                         ),
                       ],
                     ),
@@ -109,7 +110,7 @@ class _ExpandableTextState extends State<ExpandableText> {
                     child: Text(
                       'show less',
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: Colors.blue[600],
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),

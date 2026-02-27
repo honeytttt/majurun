@@ -20,10 +20,9 @@ class AppBarLeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(width: 8),
         _buildProfileAvatar(),
-        const SizedBox(width: 8),
         _buildDmIcon(context),
       ],
     );

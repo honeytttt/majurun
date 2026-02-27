@@ -266,49 +266,60 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBranding(Color brandGreen) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 4,
-          height: 32,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [brandGreen, brandGreen.withValues(alpha: 0.5)],
-            ),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "MAJU",
-              style: TextStyle(
-                color: brandGreen,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-                letterSpacing: 2,
-                height: 1,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.asset(
+        'assets/images/majurun-logo.jpg',
+        height: 48,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          // Fallback to text if image fails
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 4,
+                height: 32,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [brandGreen, brandGreen.withValues(alpha: 0.5)],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const Text(
-              "RUN",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-                letterSpacing: 2,
-                height: 1,
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "MAJU",
+                    style: TextStyle(
+                      color: brandGreen,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      letterSpacing: 2,
+                      height: 1,
+                    ),
+                  ),
+                  const Text(
+                    "RUN",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      letterSpacing: 2,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          );
+        },
+      ),
     );
   }
 

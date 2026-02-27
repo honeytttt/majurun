@@ -21,6 +21,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _showBackToTop = false;
   bool _isPro = false;
   int _selectedCategoryIndex = 0;
+  int _selectedLevelIndex = 0;
+
+  // Level configuration
+  final List<Map<String, dynamic>> _levels = [
+    {'name': 'All Levels', 'color': const Color(0xFF00E676)},
+    {'name': 'Beginner', 'color': const Color(0xFF22C55E)},
+    {'name': 'Intermediate', 'color': const Color(0xFFFF9800)},
+    {'name': 'Advanced', 'color': const Color(0xFFFF4757)},
+    {'name': 'Regular', 'color': const Color(0xFF3B82F6)},
+  ];
 
   // Category configuration with accent colors
   final List<Map<String, dynamic>> _categories = [
@@ -33,12 +43,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     {'name': 'Indoors', 'icon': Icons.home, 'color': const Color(0xFF3B82F6), 'requiresPro': true},
   ];
 
-  // Workout configurations
+  // Workout configurations with multiple levels per category
   final List<Map<String, dynamic>> _workouts = [
+    // ALL Category
     {
       'name': 'Pre-Run Activation',
-      'type': 'PreRun_Clean',
-      'icon': '🏃',
+      'type': 'PreRun',
+      'icon': Icons.directions_run,
+      'thumbnail': 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
       'category': 'All',
       'duration': '8 min',
       'level': 'Beginner',
@@ -46,10 +58,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'description': 'Dynamic warm-up before running',
       'featured': true,
     },
+    // STRENGTH Category - All Levels
+    {
+      'name': 'Strength Basics',
+      'type': 'Strength',
+      'icon': Icons.fitness_center,
+      'thumbnail': 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop',
+      'category': 'Strength',
+      'duration': '12 min',
+      'level': 'Beginner',
+      'color': const Color(0xFFFF4757),
+      'description': 'Foundation strength movements',
+    },
     {
       'name': 'Strength Training',
       'type': 'Strength',
-      'icon': '💪',
+      'icon': Icons.fitness_center,
+      'thumbnail': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=300&fit=crop',
       'category': 'Strength',
       'duration': '15 min',
       'level': 'Intermediate',
@@ -57,9 +82,33 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'description': 'Build muscle & power',
     },
     {
+      'name': 'Power Builder',
+      'type': 'Strength',
+      'icon': Icons.fitness_center,
+      'thumbnail': 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400&h=300&fit=crop',
+      'category': 'Strength',
+      'duration': '25 min',
+      'level': 'Advanced',
+      'color': const Color(0xFFFF4757),
+      'description': 'Intense strength session',
+    },
+    {
+      'name': 'Daily Strength',
+      'type': 'Strength',
+      'icon': Icons.fitness_center,
+      'thumbnail': 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=300&fit=crop',
+      'category': 'Strength',
+      'duration': '10 min',
+      'level': 'Regular',
+      'color': const Color(0xFFFF4757),
+      'description': 'Quick daily routine',
+    },
+    // YOGA Category - All Levels
+    {
       'name': 'Yoga Flow',
       'type': 'Yoga',
-      'icon': '🧘',
+      'icon': Icons.self_improvement,
+      'thumbnail': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop',
       'category': 'Yoga',
       'duration': '20 min',
       'level': 'Beginner',
@@ -67,9 +116,66 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'description': 'Flexibility & mindfulness',
     },
     {
+      'name': 'Power Yoga',
+      'type': 'Yoga',
+      'icon': Icons.self_improvement,
+      'thumbnail': 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop',
+      'category': 'Yoga',
+      'duration': '30 min',
+      'level': 'Intermediate',
+      'color': const Color(0xFFA855F7),
+      'description': 'Dynamic flow sequences',
+    },
+    {
+      'name': 'Advanced Asanas',
+      'type': 'Yoga',
+      'icon': Icons.self_improvement,
+      'thumbnail': 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?w=400&h=300&fit=crop',
+      'category': 'Yoga',
+      'duration': '40 min',
+      'level': 'Advanced',
+      'color': const Color(0xFFA855F7),
+      'description': 'Complex poses & inversions',
+    },
+    {
+      'name': 'Morning Stretch',
+      'type': 'Yoga',
+      'icon': Icons.self_improvement,
+      'thumbnail': 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=400&h=300&fit=crop',
+      'category': 'Yoga',
+      'duration': '15 min',
+      'level': 'Regular',
+      'color': const Color(0xFFA855F7),
+      'description': 'Daily flexibility routine',
+    },
+    // HIIT Category - All Levels
+    {
+      'name': 'HIIT Intro',
+      'type': 'HIIT',
+      'icon': Icons.flash_on,
+      'thumbnail': 'https://images.unsplash.com/photo-1601422407692-ec4eeec1d9b3?w=400&h=300&fit=crop',
+      'category': 'HIIT',
+      'duration': '12 min',
+      'level': 'Beginner',
+      'color': const Color(0xFFFF6B35),
+      'description': 'Learn HIIT basics',
+    },
+    {
+      'name': 'HIIT Circuit',
+      'type': 'HIIT',
+      'icon': Icons.flash_on,
+      'thumbnail': 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?w=400&h=300&fit=crop',
+      'category': 'HIIT',
+      'duration': '18 min',
+      'level': 'Intermediate',
+      'color': const Color(0xFFFF6B35),
+      'description': 'Full body intervals',
+    },
+    {
       'name': 'HIIT Blast',
       'type': 'HIIT',
-      'icon': '🔥',
+      'icon': Icons.flash_on,
+      'thumbnail': 'https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=400&h=300&fit=crop',
       'category': 'HIIT',
       'duration': '20 min',
       'level': 'Advanced',
@@ -77,9 +183,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'description': 'High intensity intervals',
     },
     {
+      'name': 'Daily HIIT',
+      'type': 'HIIT',
+      'icon': Icons.flash_on,
+      'thumbnail': 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=400&h=300&fit=crop',
+      'category': 'HIIT',
+      'duration': '10 min',
+      'level': 'Regular',
+      'color': const Color(0xFFFF6B35),
+      'description': 'Quick daily burner',
+    },
+    // MEDITATION Category - All Levels
+    {
       'name': 'Guided Meditation',
       'type': 'Meditation',
-      'icon': '🧠',
+      'icon': Icons.spa,
+      'thumbnail': 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop',
       'category': 'Meditation',
       'duration': '10 min',
       'level': 'Beginner',
@@ -87,9 +206,55 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'description': 'Mental clarity & peace',
     },
     {
+      'name': 'Deep Focus',
+      'type': 'Meditation',
+      'icon': Icons.spa,
+      'thumbnail': 'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=400&h=300&fit=crop',
+      'category': 'Meditation',
+      'duration': '20 min',
+      'level': 'Intermediate',
+      'color': const Color(0xFF06B6D4),
+      'description': 'Enhanced concentration',
+    },
+    {
+      'name': 'Zen Master',
+      'type': 'Meditation',
+      'icon': Icons.spa,
+      'thumbnail': 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400&h=300&fit=crop',
+      'category': 'Meditation',
+      'duration': '30 min',
+      'level': 'Advanced',
+      'color': const Color(0xFF06B6D4),
+      'description': 'Deep meditation practice',
+    },
+    {
+      'name': 'Daily Calm',
+      'type': 'Meditation',
+      'icon': Icons.spa,
+      'thumbnail': 'https://images.unsplash.com/photo-1528715471579-d1bcf0ba5e83?w=400&h=300&fit=crop',
+      'category': 'Meditation',
+      'duration': '5 min',
+      'level': 'Regular',
+      'color': const Color(0xFF06B6D4),
+      'description': 'Quick daily mindfulness',
+    },
+    // OUTDOORS Category - All Levels
+    {
+      'name': 'Park Walk',
+      'type': 'Outdoors',
+      'icon': Icons.park,
+      'thumbnail': 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop',
+      'category': 'Outdoors',
+      'duration': '15 min',
+      'level': 'Beginner',
+      'color': const Color(0xFF22C55E),
+      'description': 'Easy outdoor stroll',
+    },
+    {
       'name': 'Outdoor Training',
       'type': 'Outdoors',
-      'icon': '🌲',
+      'icon': Icons.park,
+      'thumbnail': 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400&h=300&fit=crop',
       'category': 'Outdoors',
       'duration': '25 min',
       'level': 'Intermediate',
@@ -97,14 +262,71 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'description': 'Nature-based workout',
     },
     {
+      'name': 'Trail Challenge',
+      'type': 'Outdoors',
+      'icon': Icons.park,
+      'thumbnail': 'https://images.unsplash.com/photo-1483721310020-03333e577078?w=400&h=300&fit=crop',
+      'category': 'Outdoors',
+      'duration': '35 min',
+      'level': 'Advanced',
+      'color': const Color(0xFF22C55E),
+      'description': 'Intense outdoor session',
+    },
+    {
+      'name': 'Morning Outdoor',
+      'type': 'Outdoors',
+      'icon': Icons.park,
+      'thumbnail': 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400&h=300&fit=crop',
+      'category': 'Outdoors',
+      'duration': '12 min',
+      'level': 'Regular',
+      'color': const Color(0xFF22C55E),
+      'description': 'Daily outdoor routine',
+    },
+    // INDOORS Category - All Levels
+    {
       'name': 'Home Workout',
       'type': 'Indoors',
-      'icon': '🏠',
+      'icon': Icons.home,
+      'thumbnail': 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
       'category': 'Indoors',
       'duration': '20 min',
       'level': 'Beginner',
       'color': const Color(0xFF3B82F6),
       'description': 'No equipment needed',
+    },
+    {
+      'name': 'Living Room HIIT',
+      'type': 'Indoors',
+      'icon': Icons.home,
+      'thumbnail': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop',
+      'category': 'Indoors',
+      'duration': '25 min',
+      'level': 'Intermediate',
+      'color': const Color(0xFF3B82F6),
+      'description': 'Indoor cardio blast',
+    },
+    {
+      'name': 'Indoor Power',
+      'type': 'Indoors',
+      'icon': Icons.home,
+      'thumbnail': 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=400&h=300&fit=crop',
+      'category': 'Indoors',
+      'duration': '35 min',
+      'level': 'Advanced',
+      'color': const Color(0xFF3B82F6),
+      'description': 'Full home workout',
+    },
+    {
+      'name': 'Quick Home',
+      'type': 'Indoors',
+      'icon': Icons.home,
+      'thumbnail': 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=300&fit=crop',
+      'category': 'Indoors',
+      'duration': '10 min',
+      'level': 'Regular',
+      'color': const Color(0xFF3B82F6),
+      'description': 'Daily indoor routine',
     },
   ];
 
@@ -170,10 +392,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   List<Map<String, dynamic>> _getFilteredWorkouts() {
     final selectedCategory = _categories[_selectedCategoryIndex]['name'] as String;
-    if (selectedCategory == 'All') {
-      return _workouts;
-    }
-    return _workouts.where((w) => w['category'] == selectedCategory).toList();
+    final selectedLevel = _levels[_selectedLevelIndex]['name'] as String;
+
+    return _workouts.where((w) {
+      // Category filter
+      final matchesCategory = selectedCategory == 'All' || w['category'] == selectedCategory;
+      // Level filter
+      final matchesLevel = selectedLevel == 'All Levels' || w['level'] == selectedLevel;
+      return matchesCategory && matchesLevel;
+    }).toList();
   }
 
   @override
@@ -202,6 +429,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     _buildHeader(),
                     const SizedBox(height: 24),
                     _buildCategoryChips(),
+                    const SizedBox(height: 16),
+                    _buildLevelChips(),
                     const SizedBox(height: 28),
                     _buildFeaturedCard(),
                     const SizedBox(height: 32),
@@ -367,6 +596,48 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       ),
                     ],
                   ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLevelChips() {
+    return SizedBox(
+      height: 36,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _levels.length,
+        itemBuilder: (context, index) {
+          final level = _levels[index];
+          final bool isSelected = index == _selectedLevelIndex;
+          final Color levelColor = level['color'] as Color;
+
+          return GestureDetector(
+            onTap: () => setState(() => _selectedLevelIndex = index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: isSelected ? levelColor.withValues(alpha: 0.2) : const Color(0xFF151520),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isSelected ? levelColor : const Color(0xFF2A2A3E),
+                  width: isSelected ? 1.5 : 1,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  level['name'] as String,
+                  style: TextStyle(
+                    color: isSelected ? levelColor : Colors.white70,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),
@@ -667,6 +938,41 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _buildWorkoutGrid() {
     final filteredWorkouts = _getFilteredWorkouts();
 
+    if (filteredWorkouts.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(40),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.fitness_center,
+                  size: 64,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No workouts found',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Try selecting a different category or level',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -677,7 +983,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final workout = filteredWorkouts[index];
-          return _buildWorkoutCard(workout);
+          return RepaintBoundary(
+            child: _buildWorkoutCard(workout),
+          );
         },
         childCount: filteredWorkouts.length,
       ),
@@ -688,10 +996,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final Color accentColor = workout['color'] as Color;
     final bool requiresPro = workout['category'] != 'All';
     final bool isLocked = requiresPro && !_isPro;
+    final String? thumbnailUrl = workout['thumbnail'] as String?;
+    final IconData iconData = workout['icon'] as IconData;
 
     return GestureDetector(
       onTap: () => _openWorkout(workout),
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: const Color(0xFF151520),
           borderRadius: BorderRadius.circular(20),
@@ -704,12 +1015,76 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
         child: Stack(
           children: [
-            // Gradient accent at top
+            // Thumbnail Image
+            if (thumbnailUrl != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 100,
+                child: ColorFiltered(
+                  colorFilter: isLocked
+                      ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                      : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                  child: Image.network(
+                    thumbnailUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: accentColor.withValues(alpha: 0.1),
+                        child: Center(
+                          child: Icon(
+                            iconData,
+                            size: 40,
+                            color: accentColor.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: accentColor.withValues(alpha: 0.1),
+                        child: Center(
+                          child: Icon(
+                            iconData,
+                            size: 40,
+                            color: accentColor.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            // Gradient overlay on image
+            if (thumbnailUrl != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 100,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        const Color(0xFF151520).withValues(alpha: 0.8),
+                        const Color(0xFF151520),
+                      ],
+                      stops: const [0.0, 0.7, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            // Accent line at top
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              height: 4,
+              height: 3,
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -724,91 +1099,102 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isLocked
-                              ? Colors.grey.withValues(alpha: 0.1)
-                              : accentColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          workout['icon'] as String,
-                          style: TextStyle(
-                            fontSize: 28,
-                            color: isLocked ? Colors.grey : null,
+            // Content overlay
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top row with icon and badge
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: (isLocked ? Colors.grey : accentColor).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: (isLocked ? Colors.grey : accentColor).withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Icon(
+                            iconData,
+                            size: 20,
+                            color: isLocked ? Colors.grey : accentColor,
                           ),
                         ),
+                        if (isLocked)
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.lock, size: 14, color: Colors.grey),
+                          )
+                        else
+                          _buildLevelBadge(workout['level'] as String, accentColor),
+                      ],
+                    ),
+                    const Spacer(),
+                    // Title and description at bottom
+                    Text(
+                      workout['name'] as String,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: isLocked ? Colors.grey : Colors.white,
                       ),
-                      if (isLocked)
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      workout['description'] as String,
+                      style: TextStyle(
+                        color: isLocked
+                            ? Colors.grey.withValues(alpha: 0.6)
+                            : Colors.white60,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 12,
+                          color: isLocked ? Colors.grey : accentColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          workout['duration'] as String,
+                          style: TextStyle(
+                            color: isLocked ? Colors.grey : Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const Spacer(),
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
+                            color: (isLocked ? Colors.grey : accentColor).withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.lock, size: 16, color: Colors.grey),
-                        )
-                      else
-                        _buildLevelBadge(workout['level'] as String, accentColor),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    workout['name'] as String,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: isLocked ? Colors.grey : Colors.white,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    workout['description'] as String,
-                    style: TextStyle(
-                      color: isLocked
-                          ? Colors.grey.withValues(alpha: 0.6)
-                          : Colors.white60,
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 13,
-                        color: isLocked ? Colors.grey : accentColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        workout['duration'] as String,
-                        style: TextStyle(
-                          color: isLocked ? Colors.grey : Colors.white70,
-                          fontSize: 12,
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            size: 16,
+                            color: isLocked ? Colors.grey : accentColor,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      Icon(
-                        Icons.play_circle_outline,
-                        size: 20,
-                        color: isLocked ? Colors.grey : accentColor,
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
