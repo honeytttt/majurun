@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,16 +6,22 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
+import 'package:majurun/core/services/analytics_service.dart';
+import 'package:majurun/core/services/crash_reporting_service.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
 
+/// Production-grade run controller with full error handling,
+/// background tracking support, and auto-pause functionality.
 class RunController extends ChangeNotifier {
   final RunStateController stateController = RunStateController();
   final VoiceController voiceController = VoiceController();
   final PostController postController = PostController();
   final StatsController statsController = StatsController();
+  final AnalyticsService _analytics = AnalyticsService();
+  final CrashReportingService _crashReporting = CrashReportingService();
 
   // Recovery properties
   Timer? _autoSaveTimer;
@@ -28,14 +33,40 @@ class RunController extends ChangeNotifier {
   // Prevent spamming UI with repeated milestone SnackBars
   int _lastMilestoneSnackKm = 0;
 
+  // Error handling
+  String? _lastError;
+  String? get lastError => _lastError;
+
   RunController() {
+    _setupCallbacks();
+  }
+
+  void _setupCallbacks() {
     // Listen to state controller changes
     stateController.addListener(_onStateControllerChanged);
 
-    // Connect idle detection callback
+    // Idle detection callback
     stateController.onIdleDetected = _handleIdleDetected;
 
-    // ✅ Connect full km milestone callback
+    // Auto-pause callback
+    stateController.onAutoPauseChanged = (isAutoPaused) {
+      if (isAutoPaused) {
+        voiceController.speakTraining("Run auto-paused. Start moving to continue.");
+        _showAutoPauseSnackBar();
+      } else {
+        voiceController.speakTraining("Run resumed.");
+      }
+      notifyListeners();
+    };
+
+    // GPS error callback
+    stateController.onError = (error) {
+      _lastError = error;
+      _crashReporting.recordLocationError(errorType: 'gps_error', errorMessage: error);
+      _showErrorSnackBar(error);
+    };
+
+    // Km milestone callback
     stateController.onKmMilestone = ({
       required int km,
       required String totalTime,
@@ -65,12 +96,11 @@ class RunController extends ChangeNotifier {
       );
     };
 
-    // ✅ NEW: Connect half-km milestone callback
+    // Half-km milestone callback
     stateController.onHalfKmMilestone = ({
       required double distanceKm,
       required String currentPace,
     }) {
-      // No tap-to-speak needed for half-km (shorter, less critical)
       voiceController.speakHalfKmMilestone(
         distanceKm: distanceKm,
         currentPace: currentPace,
@@ -82,7 +112,56 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Handle idle detection - show dialog asking if user is done
+  // ============== GETTERS ==============
+
+  RunState get state => stateController.state;
+  bool get isAutoPaused => stateController.state == RunState.autoPaused;
+
+  String get distanceString => stateController.distanceString;
+  String get durationString => stateController.durationString;
+  String get paceString => stateController.paceString;
+  String get currentPaceString => stateController.currentPaceString;
+
+  int get currentBpm => stateController.currentBpm;
+  int get totalCalories => stateController.totalCalories;
+  double get totalDistance => stateController.totalDistance;
+  int get secondsElapsed => stateController.secondsElapsed;
+
+  List<LatLng> get routePoints => stateController.routePoints;
+  List<ChartDataSpot> get hrHistorySpots => stateController.hrHistorySpots;
+  List<ChartDataSpot> get paceHistorySpots => stateController.paceHistorySpots;
+
+  String? get lastVideoUrl => stateController.lastVideoUrl;
+
+  // GPS Quality
+  String get gpsQualityText => stateController.gpsQualityText;
+  Color get gpsQualityColor => stateController.gpsQualityColor;
+  double get gpsAcceptanceRate => stateController.gpsAcceptanceRate;
+
+  // History stats
+  double get historyDistance => statsController.historyDistance;
+  int get runStreak => statsController.runStreak;
+  int get totalRuns => statsController.totalRuns;
+  String get totalHistoryTimeStr => statsController.totalHistoryTimeStr;
+
+  // Voice
+  bool get isVoiceEnabled => voiceController.isVoiceEnabled;
+  void toggleVoice() => voiceController.toggleVoice();
+
+  // Video generation
+  Future<void> generateVeoVideo() async => await postController.generateVeoVideo();
+
+  Future<void> finalizeProPost(String aiContent, String videoUrl, {String? planTitle}) async {
+    await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
+  }
+
+  /// Set context for SnackBars
+  void setUiContext(BuildContext context) {
+    _uiContext = context;
+  }
+
+  // ============== IDLE & AUTO-PAUSE HANDLING ==============
+
   void _handleIdleDetected() {
     final ctx = _uiContext;
     if (ctx == null || !ctx.mounted) {
@@ -104,7 +183,7 @@ class RunController extends ChangeNotifier {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                "No movement for 10 minutes. Are you done for today?",
+                "No movement for 10 minutes. Are you done?",
                 style: TextStyle(color: Colors.white),
               ),
             ),
@@ -125,44 +204,70 @@ class RunController extends ChangeNotifier {
     voiceController.speakTraining("No movement detected for 10 minutes. Tap end run if you're done.");
   }
 
-  // ---- Getters ----
-  RunState get state => stateController.state;
+  void _showAutoPauseSnackBar() {
+    final ctx = _uiContext;
+    if (ctx == null || !ctx.mounted) return;
 
-  String get distanceString => stateController.distanceString;
-  String get durationString => stateController.durationString;
-  String get paceString => stateController.paceString;
+    final messenger = ScaffoldMessenger.maybeOf(ctx);
+    if (messenger == null) return;
 
-  int get currentBpm => stateController.currentBpm;
-  int get totalCalories => stateController.totalCalories;
-  double get totalDistance => stateController.totalDistance;
-  int get secondsElapsed => stateController.secondsElapsed;
-
-  List<LatLng> get routePoints => stateController.routePoints;
-  List<ChartDataSpot> get hrHistorySpots => stateController.hrHistorySpots;
-  List<ChartDataSpot> get paceHistorySpots => stateController.paceHistorySpots;
-
-  String? get lastVideoUrl => stateController.lastVideoUrl;
-
-  double get historyDistance => statsController.historyDistance;
-  int get runStreak => statsController.runStreak;
-  int get totalRuns => statsController.totalRuns;
-  String get totalHistoryTimeStr => statsController.totalHistoryTimeStr;
-
-  bool get isVoiceEnabled => voiceController.isVoiceEnabled;
-  void toggleVoice() => voiceController.toggleVoice();
-
-  Future<void> generateVeoVideo() async => await postController.generateVeoVideo();
-
-  Future<void> finalizeProPost(String aiContent, String videoUrl, {String? planTitle}) async {
-    await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.blue[700],
+        content: const Row(
+          children: [
+            Icon(Icons.pause_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Auto-paused: No movement detected",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: "RESUME",
+          textColor: Colors.white,
+          onPressed: resumeRun,
+        ),
+      ),
+    );
   }
 
-  /// Set context for SnackBars
-  void setUiContext(BuildContext context) {
-    _uiContext = context;
+  void _showErrorSnackBar(String message) {
+    final ctx = _uiContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(ctx);
+    if (messenger == null) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red[700],
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  /// Check if we should use tap-to-speak (iOS Safari workaround)
+  // ============== iOS SAFARI WORKAROUND ==============
+
   bool _shouldUseTapToSpeakForMilestone() {
     if (!kIsWeb) return false;
     return defaultTargetPlatform == TargetPlatform.iOS;
@@ -176,8 +281,6 @@ class RunController extends ChangeNotifier {
     String? comparison,
   }) {
     if (!voiceController.isVoiceEnabled) return;
-
-    // Avoid duplicates
     if (km <= _lastMilestoneSnackKm) return;
     _lastMilestoneSnackKm = km;
 
@@ -227,7 +330,8 @@ class RunController extends ChangeNotifier {
     );
   }
 
-  // ---- Recovery ----
+  // ============== RECOVERY ==============
+
   Future<void> checkForRecoverableRun(BuildContext context) async {
     if (_hasShownRecoveryDialog) return;
 
@@ -265,11 +369,9 @@ class RunController extends ChangeNotifier {
     );
 
     if (shouldRecover == true && context.mounted) {
-      // ✅ FIXED: Just show message that recovery is not fully implemented yet
-      // The recovery code was trying to access private members
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Run recovery is being improved. Starting fresh run.'),
+        const SnackBar(
+          content: Text('Run recovery is being improved. Starting fresh run.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -327,7 +429,8 @@ class RunController extends ChangeNotifier {
     );
   }
 
-  // ---- Auto-save ----
+  // ============== AUTO-SAVE ==============
+
   void startAutoSave(String planTitle) {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
@@ -348,10 +451,7 @@ class RunController extends ChangeNotifier {
         distance: stateController.totalDistance / 1000,
         durationSeconds: stateController.secondsElapsed,
         routePoints: stateController.routePoints
-            .map((p) => {
-                  'lat': p.latitude,
-                  'lng': p.longitude,
-                })
+            .map((p) => {'lat': p.latitude, 'lng': p.longitude})
             .toList(),
         startTime: DateTime.now().subtract(Duration(seconds: stateController.secondsElapsed)),
         planTitle: planTitle,
@@ -359,38 +459,52 @@ class RunController extends ChangeNotifier {
           'pace': stateController.paceString,
           'calories': stateController.totalCalories,
           'avgBpm': stateController.currentBpm,
+          'gpsAcceptanceRate': stateController.gpsAcceptanceRate,
         },
       );
       debugPrint('💾 Run state auto-saved');
     } catch (e) {
       debugPrint('⚠️ Error auto-saving run state: $e');
+      _crashReporting.recordError(e, StackTrace.current, reason: 'Auto-save failed');
     }
   }
 
-  // ---- Run control ----
+  // ============== RUN CONTROL ==============
+
   Future<void> startRun({String planTitle = "Free Run", BuildContext? context}) async {
     try {
       debugPrint("🎬 RunController: Starting run");
+      _lastError = null;
 
       if (context != null) {
         setUiContext(context);
       }
 
-      // ✅ CRITICAL FIX: Ensure voice is initialized (fixes iOS Safari issue)
+      // Ensure voice is initialized (fixes iOS Safari issue)
       await voiceController.ensureInitialized();
 
+      // Enable wake lock to keep screen on
       await WakeLockService.enable();
       debugPrint("🔒 Screen wake lock enabled");
 
+      // Start tracking
       await stateController.startRun();
+
+      // Log analytics
+      _analytics.logRunStarted();
+
+      // Announce start
       await voiceController.speakRunStarted();
 
+      // Start auto-save
       startAutoSave(planTitle);
       notifyListeners();
 
       debugPrint("✅ RunController: Run started successfully");
     } catch (e) {
       debugPrint("❌ RunController: Error starting run: $e");
+      _lastError = e.toString();
+      _crashReporting.recordRunTrackingError(phase: 'start', errorMessage: e.toString());
       await WakeLockService.disable();
       rethrow;
     }
@@ -400,6 +514,7 @@ class RunController extends ChangeNotifier {
     debugPrint("🎬 RunController: Pausing run");
     stateController.pauseRun();
     voiceController.speakRunPaused();
+    _analytics.logRunPaused();
     notifyListeners();
   }
 
@@ -407,6 +522,7 @@ class RunController extends ChangeNotifier {
     debugPrint("🎬 RunController: Resuming run");
     stateController.resumeRun();
     voiceController.speakRunResumed();
+    _analytics.logRunResumed();
     notifyListeners();
   }
 
@@ -421,9 +537,7 @@ class RunController extends ChangeNotifier {
       debugPrint("🎬 RunController: Stopping run");
       debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
 
-      stateController.stopRun();
-      await voiceController.speakRunStopped();
-
+      // Capture final stats before stopping
       final finalDistance = stateController.totalDistance / 1000;
       final finalDuration = stateController.secondsElapsed;
       final finalPace = stateController.paceString;
@@ -431,10 +545,25 @@ class RunController extends ChangeNotifier {
       final finalDistanceString = stateController.distanceString;
       final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
       final finalBpm = stateController.currentBpm;
+      final routeStats = stateController.getRouteStats();
+
+      // Stop tracking
+      await stateController.stopRun();
+      await voiceController.speakRunStopped();
 
       debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");
       debugPrint("📍 Route points: ${finalRoutePoints.length} points");
+      debugPrint("📊 GPS Acceptance Rate: ${stateController.gpsAcceptanceRate.toStringAsFixed(1)}%");
+      debugPrint("📊 Elevation gain: ${routeStats['elevationGain']?.toStringAsFixed(0) ?? '0'}m");
 
+      // Log analytics
+      _analytics.logRunCompleted(
+        distanceKm: finalDistance,
+        durationSeconds: finalDuration,
+        avgPaceMinPerKm: _paceStringToMinutes(finalPace),
+      );
+
+      // Save to history
       await statsController.saveRunHistory(
         planTitle: planTitle,
         distanceKm: finalDistance,
@@ -445,8 +574,9 @@ class RunController extends ChangeNotifier {
         calories: finalCalories,
       );
 
-      debugPrint("✅ Run saved to history with route points");
+      debugPrint("✅ Run saved to history");
 
+      // Generate AI post
       final aiPost = postController.generateAIPost(
         planTitle,
         finalDistanceString,
@@ -457,6 +587,7 @@ class RunController extends ChangeNotifier {
 
       debugPrint("✅ AI post generated");
 
+      // Create social post
       await postController.createAutoPost(
         aiContent: aiPost,
         routePoints: finalRoutePoints,
@@ -469,6 +600,7 @@ class RunController extends ChangeNotifier {
 
       debugPrint("✅ Auto post created");
 
+      // Clean up
       await RunRecoveryService.clearRecoverableRun();
       stopAutoSave();
       debugPrint("✅ Recovery data cleared");
@@ -485,8 +617,10 @@ class RunController extends ChangeNotifier {
 
       notifyListeners();
       debugPrint("✅ RunController: Stop complete");
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint("❌ RunController: Error stopping run: $e");
+      _crashReporting.recordRunTrackingError(phase: 'stop', errorMessage: e.toString());
+      _crashReporting.recordError(e, stack, reason: 'Error stopping run');
       stopAutoSave();
       await WakeLockService.disable();
       stateController.resetRun();
@@ -495,6 +629,16 @@ class RunController extends ChangeNotifier {
       rethrow;
     }
   }
+
+  double _paceStringToMinutes(String pace) {
+    final parts = pace.split(':');
+    if (parts.length != 2) return 0;
+    final minutes = int.tryParse(parts[0]) ?? 0;
+    final seconds = int.tryParse(parts[1]) ?? 0;
+    return minutes + (seconds / 60);
+  }
+
+  // ============== STATS & HISTORY ==============
 
   Stream<List<dynamic>> getPostStream() => statsController.getPostStream();
   Future<void> refreshHistoryStats() async => await statsController.refreshHistoryStats();

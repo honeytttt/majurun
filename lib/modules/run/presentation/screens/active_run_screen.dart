@@ -7,7 +7,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 
-/// Modern professional active run screen
+/// Production-grade active run screen with:
+/// - GPS quality indicator
+/// - Auto-pause support
+/// - Current pace display
+/// - Professional animations
 class ActiveRunScreen extends StatefulWidget {
   const ActiveRunScreen({super.key});
 
@@ -15,12 +19,32 @@ class ActiveRunScreen extends StatefulWidget {
   State<ActiveRunScreen> createState() => _ActiveRunScreenState();
 }
 
-class _ActiveRunScreenState extends State<ActiveRunScreen> {
+class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderStateMixin {
   GoogleMapController? _mapController;
   final GlobalKey _mapKey = GlobalKey();
 
+  // Animations
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Pulse animation for GPS indicator
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
   @override
   void dispose() {
+    _pulseController.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -43,31 +67,35 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1B4D2C), // Deep green
+                    Color(0xFF1B4D2C),
                     Colors.black,
                     Colors.black,
-                    Color(0xFF0D2818), // Very dark green
+                    Color(0xFF0D2818),
                   ],
                   stops: [0.0, 0.3, 0.7, 1.0],
                 ),
               ),
               child: Column(
                 children: [
-                  // Top controls
+                  // Top controls with GPS indicator
                   SafeArea(
                     bottom: false,
                     child: _buildTopBar(runController),
                   ),
-                  
-                  // Map section (takes remaining space)
+
+                  // Auto-pause banner
+                  if (runController.isAutoPaused || runController.state == RunState.paused)
+                    _buildPauseBanner(runController),
+
+                  // Map section
                   Expanded(
                     flex: 5,
                     child: _buildMapSection(runController),
                   ),
-                  
+
                   // Stats section
                   _buildStatsSection(runController),
-                  
+
                   // Bottom controls
                   SafeArea(
                     top: false,
@@ -84,31 +112,27 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
 
   Widget _buildTopBar(RunController runController) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Music icon
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.music_note,
-              color: Colors.white,
-              size: 20,
+          // GPS Quality Indicator
+          _buildGpsIndicator(runController),
+
+          // Center spacer with current pace
+          Expanded(
+            child: Center(
+              child: _buildCurrentPaceChip(runController),
             ),
           ),
-          
-          // Voice icon
+
+          // Voice control
           GestureDetector(
             onTap: runController.toggleVoice,
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: runController.isVoiceEnabled 
+                color: runController.isVoiceEnabled
                     ? const Color(0xFF2D7A3E)
                     : Colors.white.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
@@ -116,8 +140,128 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
               child: Icon(
                 runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
                 color: Colors.white,
-                size: 20,
+                size: 18,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGpsIndicator(RunController runController) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: runController.gpsQualityColor.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: runController.gpsQualityColor.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Transform.scale(
+                scale: _pulseAnimation.value,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: runController.gpsQualityColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: runController.gpsQualityColor.withValues(alpha: 0.5),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                runController.gpsQualityText,
+                style: TextStyle(
+                  color: runController.gpsQualityColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCurrentPaceChip(RunController runController) {
+    if (runController.state != RunState.running) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.speed,
+            color: Color(0xFF7ED957),
+            size: 14,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Current: ${runController.currentPaceString}/km',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPauseBanner(RunController runController) {
+    final isAutoPaused = runController.isAutoPaused;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isAutoPaused
+              ? [Colors.blue.shade700, Colors.blue.shade900]
+              : [Colors.orange.shade700, Colors.orange.shade900],
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isAutoPaused ? Icons.pause_circle : Icons.pause,
+            color: Colors.white,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            isAutoPaused
+                ? 'AUTO-PAUSED • Start moving to resume'
+                : 'PAUSED • Tap resume to continue',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -149,60 +293,133 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: runController.routePoints.isEmpty
-            ? Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF1B4D2C).withValues(alpha: 0.5),
-                      Colors.black,
-                    ],
-                  ),
-                ),
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF7ED957),
-                  ),
-                ),
-              )
-            : GoogleMap(
-                key: _mapKey,
-                initialCameraPosition: CameraPosition(
-                  target: runController.routePoints.last,
-                  zoom: 17,
-                ),
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                  _updateCamera(runController);
-                },
-                polylines: {
-                  Polyline(
-                    polylineId: const PolylineId('route'),
-                    points: runController.routePoints,
-                    color: const Color(0xFF7ED957),
-                    width: 6,
-                  ),
-                },
-                markers: {
-                  if (runController.routePoints.isNotEmpty)
-                    Marker(
-                      markerId: const MarkerId('current'),
-                      position: runController.routePoints.last,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        child: Stack(
+          children: [
+            // Map or loading state
+            runController.routePoints.isEmpty
+                ? _buildMapLoading()
+                : RepaintBoundary(
+                    key: _mapKey,
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: runController.routePoints.last,
+                        zoom: 17,
+                      ),
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                        _updateCamera(runController);
+                      },
+                      polylines: {
+                        Polyline(
+                          polylineId: const PolylineId('route'),
+                          points: runController.routePoints,
+                          color: const Color(0xFF7ED957),
+                          width: 5,
+                          jointType: JointType.round,
+                          startCap: Cap.roundCap,
+                          endCap: Cap.roundCap,
+                        ),
+                      },
+                      markers: {
+                        // Start marker
+                        if (runController.routePoints.length > 1)
+                          Marker(
+                            markerId: const MarkerId('start'),
+                            position: runController.routePoints.first,
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                            anchor: const Offset(0.5, 0.5),
+                          ),
+                        // Current position marker
+                        if (runController.routePoints.isNotEmpty)
+                          Marker(
+                            markerId: const MarkerId('current'),
+                            position: runController.routePoints.last,
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                          ),
+                      },
+                      myLocationEnabled: false,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      compassEnabled: false,
+                      rotateGesturesEnabled: false,
+                      scrollGesturesEnabled: true,
+                      tiltGesturesEnabled: false,
+                      zoomGesturesEnabled: true,
                     ),
-                },
-                myLocationEnabled: false,
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-                compassEnabled: false,
-                rotateGesturesEnabled: false,
-                scrollGesturesEnabled: false,
-                tiltGesturesEnabled: false,
-                zoomGesturesEnabled: false,
+                  ),
+
+            // GPS stats overlay
+            Positioned(
+              bottom: 12,
+              left: 12,
+              child: _buildGpsStatsOverlay(runController),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapLoading() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1B4D2C).withValues(alpha: 0.5),
+            Colors.black,
+          ],
+        ),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              color: Color(0xFF7ED957),
+              strokeWidth: 3,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Acquiring GPS signal...',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGpsStatsOverlay(RunController runController) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.satellite_alt,
+            color: runController.gpsQualityColor,
+            size: 14,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '${runController.gpsAcceptanceRate.toStringAsFixed(0)}% GPS',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -216,7 +433,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
 
   Widget _buildStatsSection(RunController runController) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
         children: [
           // Main stats row
@@ -227,22 +444,24 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
                 'DISTANCE',
                 runController.distanceString,
                 'KM',
+                runController.state == RunState.running,
               ),
               _buildMainStat(
                 'TIME',
                 runController.durationString,
                 '',
+                runController.state == RunState.running,
               ),
             ],
           ),
-          
-          const SizedBox(height: 24),
-          
+
+          const SizedBox(height: 20),
+
           // Secondary stats row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildSecondaryStat('PACE', runController.paceString),
+              _buildSecondaryStat('AVG PACE', '${runController.paceString}/km'),
               _buildSecondaryStat('BPM', '${runController.currentBpm}'),
               _buildSecondaryStat('CAL', '${runController.totalCalories}'),
             ],
@@ -252,35 +471,35 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
     );
   }
 
-  Widget _buildMainStat(String label, String value, String unit) {
+  Widget _buildMainStat(String label, String value, String unit, bool isActive) {
     return Column(
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+            fontSize: 11,
+            color: Colors.grey[500],
             fontWeight: FontWeight.w600,
             letterSpacing: 1.5,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 48,
+              style: TextStyle(
+                fontSize: 44,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF7ED957),
+                color: isActive ? const Color(0xFF7ED957) : Colors.grey,
                 height: 1,
               ),
             ),
             if (unit.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                padding: const EdgeInsets.only(left: 4, bottom: 6),
                 child: Text(
                   unit,
                   style: TextStyle(
@@ -297,7 +516,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
 
   Widget _buildSecondaryStat(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -318,17 +537,17 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               color: Colors.grey[400],
               fontWeight: FontWeight.w600,
-              letterSpacing: 1,
+              letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Color(0xFF7ED957),
             ),
@@ -339,24 +558,29 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
   }
 
   Widget _buildBottomControls(RunController runController) {
+    final isPaused = runController.state == RunState.paused ||
+                     runController.state == RunState.autoPaused;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
           // Pause/Resume button
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                if (runController.state == RunState.running) {
-                  runController.pauseRun();
-                } else {
+                if (isPaused) {
                   runController.resumeRun();
+                } else {
+                  runController.pauseRun();
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2D7A3E),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                backgroundColor: isPaused
+                    ? const Color(0xFF7ED957)
+                    : const Color(0xFF2D7A3E),
+                foregroundColor: isPaused ? Colors.black : Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -367,16 +591,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    runController.state == RunState.running 
-                        ? Icons.pause 
-                        : Icons.play_arrow,
-                    size: 28,
+                    isPaused ? Icons.play_arrow : Icons.pause,
+                    size: 26,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    runController.state == RunState.running ? 'PAUSE' : 'RESUME',
+                    isPaused ? 'RESUME' : 'PAUSE',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
@@ -385,9 +607,9 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
               ),
             ),
           ),
-          
-          const SizedBox(width: 16),
-          
+
+          const SizedBox(width: 12),
+
           // Stop button
           Expanded(
             child: ElevatedButton(
@@ -395,7 +617,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red[700],
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -405,12 +627,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.stop, size: 28),
+                  Icon(Icons.stop, size: 26),
                   SizedBox(width: 8),
                   Text(
-                    'STOP',
+                    'FINISH',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
@@ -430,15 +652,15 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Stop Run?', style: TextStyle(color: Colors.white)),
+        title: const Text('End Run?', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'Are you sure you want to stop your run?',
+          'Are you sure you want to end and save your run?',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF7ED957))),
+            child: const Text('Continue Run', style: TextStyle(color: Color(0xFF7ED957))),
           ),
           TextButton(
             onPressed: () {
@@ -446,7 +668,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
               final runController = Provider.of<RunController>(context, listen: false);
               _handleStopRun(runController);
             },
-            child: const Text('Stop Run', style: TextStyle(color: Colors.red)),
+            child: const Text('End & Save', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -456,15 +678,15 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
   Future<void> _handleStopRun(RunController runController) async {
     Uint8List? mapImageBytes;
 
-    // Capture map image quickly before navigating away
+    // Capture map image before navigating
     if (runController.routePoints.isNotEmpty) {
       try {
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 200));
 
         if (_mapKey.currentContext != null) {
           final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
           if (boundary != null) {
-            final image = await boundary.toImage(pixelRatio: 2.0); // Reduced for speed
+            final image = await boundary.toImage(pixelRatio: 2.0);
             final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
             if (byteData != null) {
               mapImageBytes = byteData.buffer.asUint8List();
@@ -478,10 +700,10 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> {
 
     if (!mounted) return;
 
-    // Navigate back immediately - save happens in background
+    // Navigate back immediately
     Navigator.pop(context);
 
-    // Save in background without blocking UI
+    // Save in background
     runController.stopRun(
       context,
       planTitle: "Free Run",

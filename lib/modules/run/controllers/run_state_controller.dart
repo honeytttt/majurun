@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/core/services/background_location_service.dart';
 
-enum RunState { idle, running, paused }
+enum RunState { idle, running, paused, autoPaused }
 
 class ChartDataSpot {
   final double x;
@@ -15,36 +15,47 @@ class KmSplit {
   final int kmNumber;
   final int durationSeconds;
   final String pace;
-  
+  final double elevationChange;
+
   KmSplit({
     required this.kmNumber,
     required this.durationSeconds,
     required this.pace,
+    this.elevationChange = 0,
   });
 }
 
+/// Production-grade run state controller with:
+/// - Background location tracking
+/// - GPS accuracy filtering
+/// - Auto-pause when stationary
+/// - Proper timer management (stops when paused)
+/// - Memory-efficient route handling
+/// - Full error handling
 class RunStateController extends ChangeNotifier {
+  // Services
+  final BackgroundLocationService _locationService = BackgroundLocationService();
+
+  // State
   RunState _state = RunState.idle;
   RunState get state => _state;
 
-  Position? _currentPosition;
-  LatLng? get currentLatLng => _currentPosition == null
-      ? null
-      : LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
-
-  double _totalDistance = 0.0;
-  String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
-
+  // Timer (only runs when actually running)
+  Timer? _timer;
   int _secondsElapsed = 0;
-  String get durationString {
-    final mins = _secondsElapsed ~/ 60;
-    final secs = _secondsElapsed % 60;
-    return "${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
-  }
+  int _activeRunSeconds = 0; // Only counts time while actually moving
 
-  double get averageSpeedMs =>
-      _secondsElapsed > 0 ? _totalDistance / _secondsElapsed : 0.0;
+  // Distance & Position
+  double _totalDistance = 0.0;
+  FilteredPosition? _currentPosition;
 
+  LatLng? get currentLatLng => _currentPosition?.latLng;
+  String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
+  double get totalDistance => _totalDistance;
+  int get secondsElapsed => _secondsElapsed;
+
+  // Pace calculation
+  double get averageSpeedMs => _activeRunSeconds > 0 ? _totalDistance / _activeRunSeconds : 0.0;
   String get paceString {
     if (averageSpeedMs < 0.5) return "0:00";
     final paceMinKm = 16.666666 / averageSpeedMs;
@@ -53,44 +64,62 @@ class RunStateController extends ChangeNotifier {
     return "$minutes:${seconds.toString().padLeft(2, '0')}";
   }
 
-  final List<LatLng> _routePoints = [];
-  List<LatLng> get routePoints => List.unmodifiable(_routePoints);
+  // Current pace (last 30 seconds)
+  double _recentDistance = 0;
+  int _recentSeconds = 0;
+  String get currentPaceString {
+    if (_recentSeconds < 5 || _recentDistance < 10) return paceString;
+    final recentSpeedMs = _recentDistance / _recentSeconds;
+    if (recentSpeedMs < 0.5) return paceString;
+    final paceMinKm = 16.666666 / recentSpeedMs;
+    final minutes = paceMinKm.floor();
+    final seconds = ((paceMinKm - minutes) * 60).round();
+    return "$minutes:${seconds.toString().padLeft(2, '0')}";
+  }
 
-  final Set<Polyline> _polylines = {};
+  // Duration string
+  String get durationString {
+    final hours = _secondsElapsed ~/ 3600;
+    final mins = (_secondsElapsed % 3600) ~/ 60;
+    final secs = _secondsElapsed % 60;
+    if (hours > 0) {
+      return "${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
+    }
+    return "${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
+  }
+
+  // Route points (memory-managed by location service)
+  List<LatLng> get routePoints => _locationService.getRouteLatLngs();
+
+  // Polylines for map (single polyline, properly managed)
+  Set<Polyline> _polylines = {};
   Set<Polyline> get polylines => _polylines;
 
+  // Performance charts
   final List<ChartDataSpot> hrHistorySpots = [];
   final List<ChartDataSpot> paceHistorySpots = [];
 
+  // Stats
   String? lastVideoUrl;
-  int currentBpm = 145;
+  int currentBpm = 0; // Will be updated from health service
   int totalCalories = 0;
+  GpsQuality _gpsQuality = GpsQuality.good;
+  GpsQuality get gpsQuality => _gpsQuality;
 
+  // Km splits
   int _lastAnnouncedKm = 0;
-  double _lastAnnouncedHalfKm = 0.0; // ✅ NEW: Track half-km announcements
+  double _lastAnnouncedHalfKm = 0.0;
   final List<KmSplit> _kmSplits = [];
-  int _lastKmTime = 0; // Seconds at last km
-
-  Timer? _timer;
-  StreamSubscription<Position>? _positionStream;
-
-  bool _isStopping = false;
-  bool _isInitialized = false;
+  List<KmSplit> get kmSplits => List.unmodifiable(_kmSplits);
+  int _lastKmTime = 0;
 
   // Idle detection
-  double _lastDistanceForIdle = 0.0;
   int _idleSeconds = 0;
   static const int _idleThresholdSeconds = 600; // 10 minutes
   bool _hasNotifiedIdle = false;
 
-  // Callback for idle detection
+  // Callbacks
   VoidCallback? onIdleDetected;
-
-  double get totalDistance => _totalDistance;
-  int get secondsElapsed => _secondsElapsed;
-  int get calories => totalCalories;
-
-  // Callback for km milestones
   Function({
     required int km,
     required String totalTime,
@@ -98,368 +127,408 @@ class RunStateController extends ChangeNotifier {
     required String averagePace,
     String? comparison,
   })? onKmMilestone;
-
-  // ✅ NEW: Callback for half-km milestones (0.5, 1.5, 2.5, etc.)
   Function({
     required double distanceKm,
     required String currentPace,
   })? onHalfKmMilestone;
+  Function(String error)? onError;
+  Function(bool isAutoPaused)? onAutoPauseChanged;
 
-  Future<void> startRun() async {
-    debugPrint("🏃 startRun() called. Current state: $_state");
+  // Error state
+  String? _lastError;
+  String? get lastError => _lastError;
 
-    if (_state == RunState.running || _isStopping) {
-      debugPrint("⚠️ Already running or stopping — exiting");
-      return;
-    }
-
-    debugPrint("📍 Checking if location service is enabled...");
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    debugPrint("📍 Location service enabled: $serviceEnabled");
-
-    if (!serviceEnabled) {
-      debugPrint("❌ Location services are DISABLED");
-      throw Exception("Please enable location services to track your run");
-    }
-
-    debugPrint("🔐 Checking location permission...");
-    var permission = await Geolocator.checkPermission();
-    debugPrint("🔐 Current permission status: $permission");
-
-    if (permission == LocationPermission.denied) {
-      debugPrint("🔐 Permission denied — requesting now...");
-      permission = await Geolocator.requestPermission();
-      debugPrint("🔐 Permission after request: $permission");
-    }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      debugPrint("❌ Permission DENIED or DENIED FOREVER");
-      throw Exception("Location permission is required to track your run");
-    }
-
-    debugPrint("✅ All location checks PASSED — initializing run");
-
-    // Reset everything for a fresh start
-    _secondsElapsed = 0;
-    _totalDistance = 0.0;
-    _routePoints.clear();
-    _polylines.clear();
-    hrHistorySpots.clear();
-    paceHistorySpots.clear();
-    lastVideoUrl = null;
-    totalCalories = 0;
-    _lastAnnouncedKm = 0;
-    _lastAnnouncedHalfKm = 0.0; // ✅ NEW: Reset half-km tracker
-    _kmSplits.clear();
-    _lastKmTime = 0;
-    _isInitialized = false;
-    _lastDistanceForIdle = 0.0;
-    _idleSeconds = 0;
-    _hasNotifiedIdle = false;
-
-    // Get initial position before starting
-    try {
-      debugPrint("📍 Getting initial position...");
-      _currentPosition = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-      _routePoints.add(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
-      debugPrint("✅ Initial position: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}");
-      _isInitialized = true;
-    } catch (e) {
-      debugPrint("❌ Failed to get initial position: $e");
-      throw Exception("Failed to get your location. Please try again.");
-    }
-
-    // NOW set state to running and start everything
-    _state = RunState.running;
-    _startTimer();
-    _startLocationUpdates();
-    
-    // Force UI update
-    notifyListeners();
-
-    debugPrint("✅ Run STARTED successfully - state: $_state, initialized: $_isInitialized");
+  RunStateController() {
+    _setupLocationCallbacks();
   }
 
-  void pauseRun() {
-    debugPrint("⏸️ pauseRun() called. Current state: $_state");
-    if (_state != RunState.running || _isStopping) {
-      debugPrint("⚠️ Cannot pause - not running or stopping");
-      return;
-    }
-    _state = RunState.paused;
-    debugPrint("✅ Run PAUSED");
-    notifyListeners();
-  }
+  void _setupLocationCallbacks() {
+    _locationService.onPositionUpdate = (position, distance) {
+      _currentPosition = position;
+      _totalDistance = distance;
+      _updatePolylines();
+      notifyListeners();
+    };
 
-  void resumeRun() {
-    debugPrint("▶️ resumeRun() called. Current state: $_state");
-    if (_state != RunState.paused || _isStopping) {
-      debugPrint("⚠️ Cannot resume - not paused or stopping");
-      return;
-    }
-    _state = RunState.running;
-    debugPrint("✅ Run RESUMED");
-    notifyListeners();
-  }
-
-  void stopRun() {
-    debugPrint("⏹️ stopRun() called. Current state: $_state");
-    if (_isStopping) {
-      debugPrint("⚠️ Already stopping");
-      return;
-    }
-    _isStopping = true;
-
-    _state = RunState.idle;
-    _timer?.cancel();
-    _positionStream?.cancel();
-
-    debugPrint("✅ Run STOPPED - Distance: ${distanceString}km, Time: $durationString");
-    debugPrint("📊 Final stats - Calories: $totalCalories, Points: ${_routePoints.length}");
-
-    // Don't reset here - let the controller reset after saving
-    _isStopping = false;
-    notifyListeners();
-  }
-
-  void resetRun() {
-    debugPrint("🔄 Resetting run data");
-    _secondsElapsed = 0;
-    _totalDistance = 0.0;
-    _routePoints.clear();
-    _polylines.clear();
-    hrHistorySpots.clear();
-    paceHistorySpots.clear();
-    lastVideoUrl = null;
-    totalCalories = 0;
-    _lastAnnouncedKm = 0;
-    _lastAnnouncedHalfKm = 0.0; // ✅ NEW: Reset half-km tracker
-    _kmSplits.clear();
-    _lastKmTime = 0;
-    _isInitialized = false;
-    _lastDistanceForIdle = 0.0;
-    _idleSeconds = 0;
-    _hasNotifiedIdle = false;
-    notifyListeners();
-  }
-
-  void _startTimer() {
-    debugPrint("⏱️ Starting timer");
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_state == RunState.running) {
-        _secondsElapsed++;
-
-        // ✅ UPDATED: Check for milestones (both full and half km)
-        _checkMilestones();
-
-        // Calculate calories (rough estimate: 65 cal per km)
-        totalCalories = ((_totalDistance / 1000) * 65).round();
-
-        // Record performance snapshot every 10 seconds
-        if (_secondsElapsed % 10 == 0) {
-          _recordPerformanceSnapshot();
-          debugPrint("📊 ${_secondsElapsed}s - Distance: ${distanceString}km, Pace: $paceString, Cal: $totalCalories");
-        }
-
-        // Idle detection - check if distance hasn't changed for 10 minutes
-        _checkIdleStatus();
-
+    _locationService.onAutoPauseChanged = (isAutoPaused) {
+      if (isAutoPaused && _state == RunState.running) {
+        _state = RunState.autoPaused;
+        _stopTimer();
+        onAutoPauseChanged?.call(true);
+        notifyListeners();
+      } else if (!isAutoPaused && _state == RunState.autoPaused) {
+        _state = RunState.running;
+        _startTimer();
+        onAutoPauseChanged?.call(false);
         notifyListeners();
       }
-    });
+    };
+
+    _locationService.onError = (error) {
+      _lastError = error;
+      onError?.call(error);
+      debugPrint('❌ Location error: $error');
+    };
+
+    _locationService.onGpsQualityChanged = (quality) {
+      _gpsQuality = quality;
+      notifyListeners();
+    };
   }
 
-  /// ✅ UPDATED: Check for both full-km and half-km milestones
+  /// Start a new run
+  Future<void> startRun() async {
+    if (_state == RunState.running || _state == RunState.paused) {
+      debugPrint('⚠️ Run already active');
+      return;
+    }
+
+    debugPrint('🏃 Starting run...');
+    _lastError = null;
+
+    // Reset all state
+    _secondsElapsed = 0;
+    _activeRunSeconds = 0;
+    _totalDistance = 0.0;
+    _recentDistance = 0;
+    _recentSeconds = 0;
+    _polylines.clear();
+    hrHistorySpots.clear();
+    paceHistorySpots.clear();
+    lastVideoUrl = null;
+    totalCalories = 0;
+    _lastAnnouncedKm = 0;
+    _lastAnnouncedHalfKm = 0.0;
+    _kmSplits.clear();
+    _lastKmTime = 0;
+    _idleSeconds = 0;
+    _hasNotifiedIdle = false;
+    _currentPosition = null;
+
+    // Start location tracking
+    final success = await _locationService.startTracking();
+    if (!success) {
+      _lastError = 'Failed to start GPS tracking';
+      throw Exception(_lastError);
+    }
+
+    // Set state and start timer
+    _state = RunState.running;
+    _startTimer();
+    notifyListeners();
+
+    debugPrint('✅ Run started successfully');
+  }
+
+  /// Pause the run (manual pause)
+  void pauseRun() {
+    if (_state != RunState.running && _state != RunState.autoPaused) {
+      debugPrint('⚠️ Cannot pause - not running');
+      return;
+    }
+
+    debugPrint('⏸️ Pausing run...');
+    _state = RunState.paused;
+    _stopTimer();
+    _locationService.pause();
+    notifyListeners();
+  }
+
+  /// Resume the run
+  void resumeRun() {
+    if (_state != RunState.paused && _state != RunState.autoPaused) {
+      debugPrint('⚠️ Cannot resume - not paused');
+      return;
+    }
+
+    debugPrint('▶️ Resuming run...');
+    _state = RunState.running;
+    _startTimer();
+    _locationService.resume();
+    notifyListeners();
+  }
+
+  /// Stop the run
+  Future<void> stopRun() async {
+    if (_state == RunState.idle) {
+      debugPrint('⚠️ No run to stop');
+      return;
+    }
+
+    debugPrint('⏹️ Stopping run...');
+    _state = RunState.idle;
+    _stopTimer();
+    await _locationService.stopTracking();
+
+    // Log final stats
+    final stats = _locationService.getRouteStats();
+    debugPrint('📊 Final run stats:');
+    debugPrint('   Distance: ${(_totalDistance / 1000).toStringAsFixed(2)} km');
+    debugPrint('   Duration: $durationString');
+    debugPrint('   Avg Pace: $paceString');
+    debugPrint('   Calories: $totalCalories');
+    debugPrint('   GPS Points: ${stats['pointCount']}');
+    debugPrint('   GPS Acceptance Rate: ${_locationService.gpsAcceptanceRate.toStringAsFixed(1)}%');
+
+    notifyListeners();
+  }
+
+  /// Reset run data (call after saving)
+  void resetRun() {
+    debugPrint('🔄 Resetting run data');
+    _secondsElapsed = 0;
+    _activeRunSeconds = 0;
+    _totalDistance = 0.0;
+    _recentDistance = 0;
+    _recentSeconds = 0;
+    _polylines.clear();
+    hrHistorySpots.clear();
+    paceHistorySpots.clear();
+    lastVideoUrl = null;
+    totalCalories = 0;
+    _lastAnnouncedKm = 0;
+    _lastAnnouncedHalfKm = 0.0;
+    _kmSplits.clear();
+    _lastKmTime = 0;
+    _idleSeconds = 0;
+    _hasNotifiedIdle = false;
+    _currentPosition = null;
+    _lastError = null;
+    notifyListeners();
+  }
+
+  // ============== TIMER MANAGEMENT ==============
+
+  void _startTimer() {
+    _timer?.cancel();
+    debugPrint('⏱️ Timer started');
+    _timer = Timer.periodic(const Duration(seconds: 1), _onTimerTick);
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
+    debugPrint('⏱️ Timer stopped at $_secondsElapsed seconds');
+  }
+
+  void _onTimerTick(Timer timer) {
+    if (_state != RunState.running) return;
+
+    _secondsElapsed++;
+    _activeRunSeconds++;
+    _recentSeconds++;
+
+    // Update recent distance for current pace calculation
+    final currentDistance = _totalDistance;
+    if (_recentSeconds >= 30) {
+      // Reset recent tracking every 30 seconds
+      _recentDistance = 0;
+      _recentSeconds = 0;
+    } else {
+      _recentDistance = currentDistance - (_totalDistance - _recentDistance);
+    }
+
+    // Check milestones
+    _checkMilestones();
+
+    // Calculate calories (more accurate formula based on speed)
+    // Running: ~1 cal per kg per km, assuming 70kg average
+    // Adjusted by pace (faster = more calories)
+    final distanceKm = _totalDistance / 1000;
+    final caloriesPerKm = averageSpeedMs > 2.5 ? 75 : 65; // Higher intensity = more calories
+    totalCalories = (distanceKm * caloriesPerKm).round();
+
+    // Record performance snapshot every 10 seconds
+    if (_secondsElapsed % 10 == 0) {
+      _recordPerformanceSnapshot();
+    }
+
+    // Check for idle (no GPS updates for 10 minutes while "running")
+    _checkIdleStatus();
+
+    notifyListeners();
+  }
+
+  // ============== MILESTONE CHECKING ==============
+
   void _checkMilestones() {
     final distanceKm = _totalDistance / 1000;
 
-    // Check for FULL kilometer milestones (1.0, 2.0, 3.0, etc.)
+    // Full kilometer milestones
     final currentKm = distanceKm.floor();
     if (currentKm > _lastAnnouncedKm && currentKm > 0) {
       _handleKmMilestone(currentKm);
       _lastAnnouncedKm = currentKm;
-      return; // Don't check half-km on the same update to avoid double-announcement
+      return;
     }
 
-    // Check for HALF kilometer milestones (0.5, 1.5, 2.5, etc.)
-    final roundedHalfKm = (distanceKm * 2).floor() / 2.0; // Rounds to nearest 0.5
-    
-    // Check if this is a half-km mark (ends in .5) and we haven't announced it yet
-    if (roundedHalfKm > _lastAnnouncedHalfKm && 
-        (roundedHalfKm % 1.0 == 0.5) && 
-        distanceKm >= roundedHalfKm - 0.05 && // Within 50 meters
+    // Half kilometer milestones
+    final roundedHalfKm = (distanceKm * 2).floor() / 2.0;
+    if (roundedHalfKm > _lastAnnouncedHalfKm &&
+        (roundedHalfKm % 1.0 == 0.5) &&
+        distanceKm >= roundedHalfKm - 0.05 &&
         distanceKm <= roundedHalfKm + 0.05) {
-      
-      debugPrint("🔔 Half-km milestone: ${roundedHalfKm.toStringAsFixed(1)}km reached!");
+      debugPrint('🔔 Half-km milestone: ${roundedHalfKm.toStringAsFixed(1)}km');
       _handleHalfKmMilestone(roundedHalfKm);
       _lastAnnouncedHalfKm = roundedHalfKm;
     }
   }
 
-  /// Check if user has been idle (no distance change) for 10+ minutes
-  void _checkIdleStatus() {
-    // Check if distance has changed since last check
-    if ((_totalDistance - _lastDistanceForIdle).abs() < 5.0) {
-      // No significant movement (less than 5 meters)
-      _idleSeconds++;
-    } else {
-      // User moved - reset idle counter
-      _idleSeconds = 0;
-      _lastDistanceForIdle = _totalDistance;
-      _hasNotifiedIdle = false;
-    }
-
-    // Notify if idle threshold reached (10 minutes) and haven't notified yet
-    if (_idleSeconds >= _idleThresholdSeconds && !_hasNotifiedIdle) {
-      _hasNotifiedIdle = true;
-      debugPrint("⏰ Idle detected - no movement for 10+ minutes");
-      onIdleDetected?.call();
-    }
-  }
-
   void _handleKmMilestone(int km) {
-    debugPrint("🎯 Milestone: ${km}km completed!");
+    debugPrint('🎯 Milestone: ${km}km completed!');
 
-    // Calculate last km time
-    final lastKmDuration = _secondsElapsed - _lastKmTime;
-    
-    // Calculate last km pace
-    final lastKmPaceValue = lastKmDuration / 60.0; // minutes per km
-    final lastKmPaceMin = lastKmPaceValue.floor();
-    final lastKmPaceSec = ((lastKmPaceValue - lastKmPaceMin) * 60).round();
-    final lastKmPaceString = "$lastKmPaceMin:${lastKmPaceSec.toString().padLeft(2, '0')}";
+    // Calculate this km split
+    final thisKmTime = _secondsElapsed - _lastKmTime;
 
-    // Store this km split
+    // Pace for this km
+    final paceMinutes = thisKmTime / 60.0;
+    final paceMin = paceMinutes.floor();
+    final paceSec = ((paceMinutes - paceMin) * 60).round();
+    final lastKmPaceString = "$paceMin:${paceSec.toString().padLeft(2, '0')}";
+
+    // Store split
     _kmSplits.add(KmSplit(
       kmNumber: km,
-      durationSeconds: lastKmDuration,
+      durationSeconds: thisKmTime,
       pace: lastKmPaceString,
     ));
 
-    // Calculate comparison with previous km (skip for first km - no reference)
+    // Compare with previous km
     String? comparison;
     if (km >= 2 && _kmSplits.length > 1) {
       final previousKm = _kmSplits[_kmSplits.length - 2];
-      final timeDiff = lastKmDuration - previousKm.durationSeconds;
+      final timeDiff = thisKmTime - previousKm.durationSeconds;
 
       if (timeDiff.abs() < 5) {
         comparison = "Same pace as previous kilometer";
       } else if (timeDiff < 0) {
-        final diffSec = timeDiff.abs();
-        comparison = "Faster by $diffSec seconds. Great job";
+        comparison = "Faster by ${timeDiff.abs()} seconds. Great job!";
       } else {
-        final diffSec = timeDiff;
-        comparison = "Slower by $diffSec seconds. Keep pushing";
+        comparison = "Slower by $timeDiff seconds. Keep pushing!";
       }
     }
 
-    // Trigger voice announcement callback
-    if (onKmMilestone != null) {
-      onKmMilestone!(
-        km: km,
-        totalTime: durationString,
-        lastKmPace: lastKmPaceString,
-        averagePace: paceString,
-        comparison: comparison,
-      );
-    }
+    // Trigger callback
+    onKmMilestone?.call(
+      km: km,
+      totalTime: durationString,
+      lastKmPace: lastKmPaceString,
+      averagePace: paceString,
+      comparison: comparison,
+    );
 
-    // Update last km time marker
     _lastKmTime = _secondsElapsed;
   }
 
-  /// ✅ NEW: Handle half-km milestones (0.5, 1.5, 2.5, etc.)
   void _handleHalfKmMilestone(double distanceKm) {
-    if (onHalfKmMilestone != null) {
-      onHalfKmMilestone!(
-        distanceKm: distanceKm,
-        currentPace: paceString,
-      );
-    }
+    onHalfKmMilestone?.call(
+      distanceKm: distanceKm,
+      currentPace: currentPaceString,
+    );
   }
+
+  // ============== PERFORMANCE TRACKING ==============
 
   void _recordPerformanceSnapshot() {
     final x = _secondsElapsed / 60.0;
     hrHistorySpots.add(ChartDataSpot(x, currentBpm.toDouble()));
+
     final paceValue = averageSpeedMs > 0 ? 16.666666 / averageSpeedMs : 0.0;
     paceHistorySpots.add(ChartDataSpot(x, paceValue));
+
+    // Limit history size for memory
+    if (hrHistorySpots.length > 360) {
+      hrHistorySpots.removeAt(0);
+      paceHistorySpots.removeAt(0);
+    }
   }
 
-  void _startLocationUpdates() {
-    debugPrint("📍 Starting location updates");
-    _positionStream?.cancel();
-    
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // Update every 5 meters
-      ),
-    ).listen(
-      (position) {
-        if (_state != RunState.running) {
-          debugPrint("⚠️ Location update received but not running (state: $_state)");
-          return;
-        }
+  // ============== IDLE DETECTION ==============
 
-        // Calculate distance if we have a previous position
-        if (_currentPosition != null && _isInitialized) {
-          final distance = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            position.latitude,
-            position.longitude,
-          );
-          
-          // Only add distance if it's reasonable (less than 100m between updates)
-          // This filters out GPS jumps
-          if (distance < 100) {
-            _totalDistance += distance;
-            debugPrint("📍 +${distance.toStringAsFixed(1)}m (Total: ${(_totalDistance).toStringAsFixed(1)}m)");
-          } else {
-            debugPrint("⚠️ GPS jump detected: ${distance.toStringAsFixed(1)}m - ignoring");
-          }
-        }
+  void _checkIdleStatus() {
+    // Check if no new GPS data for extended period
+    final lastPosition = _locationService.lastPosition;
+    if (lastPosition == null) return;
 
-        _currentPosition = position;
-        _routePoints.add(LatLng(position.latitude, position.longitude));
-        _updatePolylines();
-        
-        notifyListeners();
-      },
-      onError: (error) {
-        debugPrint("❌ Location stream error: $error");
-      },
-      onDone: () {
-        debugPrint("📍 Location stream closed");
-      },
-    );
+    final timeSinceLastUpdate = DateTime.now().difference(lastPosition.timestamp).inSeconds;
+    if (timeSinceLastUpdate > 60) {
+      _idleSeconds++;
+    } else {
+      _idleSeconds = 0;
+      _hasNotifiedIdle = false;
+    }
+
+    if (_idleSeconds >= _idleThresholdSeconds && !_hasNotifiedIdle) {
+      _hasNotifiedIdle = true;
+      debugPrint('⏰ Idle detected - no movement for 10+ minutes');
+      onIdleDetected?.call();
+    }
   }
+
+  // ============== POLYLINE MANAGEMENT ==============
 
   void _updatePolylines() {
-    _polylines
-      ..clear()
-      ..add(
-        Polyline(
-          polylineId: const PolylineId('run_route'),
-          points: List.from(_routePoints),
-          color: Colors.blueAccent,
-          width: 6,
-        ),
-      );
+    final points = routePoints;
+    if (points.isEmpty) return;
+
+    // Create single polyline with gradient effect
+    _polylines = {
+      Polyline(
+        polylineId: const PolylineId('run_route'),
+        points: points,
+        color: Colors.blue,
+        width: 5,
+        patterns: const [],
+        jointType: JointType.round,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+      ),
+    };
   }
+
+  // ============== GPS QUALITY INDICATOR ==============
+
+  String get gpsQualityText {
+    switch (_gpsQuality) {
+      case GpsQuality.excellent:
+        return 'Excellent GPS';
+      case GpsQuality.good:
+        return 'Good GPS';
+      case GpsQuality.fair:
+        return 'Fair GPS';
+      case GpsQuality.poor:
+        return 'Poor GPS';
+      case GpsQuality.unusable:
+        return 'No GPS Signal';
+    }
+  }
+
+  Color get gpsQualityColor {
+    switch (_gpsQuality) {
+      case GpsQuality.excellent:
+        return Colors.green;
+      case GpsQuality.good:
+        return Colors.lightGreen;
+      case GpsQuality.fair:
+        return Colors.orange;
+      case GpsQuality.poor:
+        return Colors.deepOrange;
+      case GpsQuality.unusable:
+        return Colors.red;
+    }
+  }
+
+  // ============== ROUTE STATS ==============
+
+  Map<String, dynamic> getRouteStats() => _locationService.getRouteStats();
+
+  double get gpsAcceptanceRate => _locationService.gpsAcceptanceRate;
 
   @override
   void dispose() {
-    debugPrint("🗑️ Disposing RunStateController");
+    debugPrint('🗑️ Disposing RunStateController');
     _timer?.cancel();
-    _positionStream?.cancel();
+    _locationService.dispose();
     super.dispose();
   }
 }

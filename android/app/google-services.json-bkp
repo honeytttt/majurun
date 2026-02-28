@@ -48,42 +48,6 @@
           ]
         }
       }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:648836412000:android:015b64300bfff880ac8905",
-        "android_client_info": {
-          "package_name": "com.majurun.app"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyB-glMd9_6VjXa50OG9jleoCkllNhtdFBY"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "648836412000-f462s9o01pmajtm0lrcotcade630dtqu.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.majurun"
-              }
-            }
-          ]
-        }
-      }
     }
   ],
   "configuration_version": "1"

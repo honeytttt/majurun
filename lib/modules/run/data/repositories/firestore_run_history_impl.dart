@@ -188,7 +188,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       durationSeconds: data['durationSeconds'] as int? ?? 0,
       pace: data['pace']?.toString() ?? RunConstants.defaultPace,
       calories: data['calories'] as int? ??
-          (distanceKm * RunConstants.caloriesPerKm).round(),
+          (distanceKm * RunConstants.caloriesPerKmRunning).round(),
       completedAt: (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       avgBpm: data['avgBpm'] as int?,
       routePoints: routePoints,

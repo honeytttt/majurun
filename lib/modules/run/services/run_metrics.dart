@@ -32,7 +32,7 @@ class RunMetrics {
   /// Calculate estimated calories burned.
   static int calories(double distanceMeters) {
     final distanceKm = distanceMeters / 1000;
-    return (distanceKm * RunConstants.caloriesPerKm).round();
+    return (distanceKm * RunConstants.caloriesPerKmRunning).round();
   }
 
   /// Format distance as kilometers with 2 decimal places.

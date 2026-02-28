@@ -6,6 +6,10 @@ import 'firebase_options.dart';
 // App Check
 import 'package:firebase_app_check/firebase_app_check.dart';
 
+// Core services
+import 'core/services/analytics_service.dart';
+import 'core/services/crash_reporting_service.dart';
+
 // Theme
 import 'core/theme/app_theme.dart';
 // Repos
@@ -38,10 +42,34 @@ Future<void> main() async {
     // appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
   );
 
-  // Initialize user counters on first launch (non-blocking)
+  // Initialize crash reporting (must be before other services)
+  final crashReporting = CrashReportingService();
+  try {
+    await crashReporting.initialize();
+    crashReporting.setupGlobalErrorHandling();
+  } catch (e) {
+    debugPrint('CrashReporting initialization failed: $e');
+  }
+
+  // Initialize analytics
+  final analytics = AnalyticsService();
+  try {
+    await analytics.initialize();
+  } catch (e) {
+    debugPrint('Analytics initialization failed: $e');
+  }
+
+  // Initialize user counters and set analytics user on auth state changes
   FirebaseAuth.instance.authStateChanges().listen((user) {
     if (user != null) {
       UserCountersInitializer.initializeOnFirstLaunch();
+      // Set user ID for analytics and crash reporting
+      analytics.setUserId(user.uid);
+      crashReporting.setUserId(user.uid);
+    } else {
+      // Clear user ID when logged out
+      analytics.setUserId(null);
+      crashReporting.clearUserId();
     }
   });
 
