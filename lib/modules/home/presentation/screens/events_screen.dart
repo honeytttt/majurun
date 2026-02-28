@@ -208,7 +208,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                     const SizedBox(height: 4),
                     Text(
                       "$_totalXP XP Total",
-                      style: TextStyle(fontSize: 14, color: brandGreen),
+                      style: const TextStyle(fontSize: 14, color: brandGreen),
                     ),
                     const SizedBox(height: 8),
                     ClipRRect(
@@ -288,7 +288,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                   color: brandGreen.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
+                child: const Text(
                   "1/3 Done",
                   style: TextStyle(fontSize: 12, color: brandGreen, fontWeight: FontWeight.bold),
                 ),
@@ -449,11 +449,11 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(Icons.local_fire_department, color: Color(0xFFFF6B35), size: 24),
-                        const SizedBox(width: 8),
-                        const Text(
+                        Icon(Icons.local_fire_department, color: Color(0xFFFF6B35), size: 24),
+                        SizedBox(width: 8),
+                        Text(
                           "Day Streak!",
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
@@ -829,7 +829,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
             ),
             if (!earned) ...[
               const SizedBox(height: 4),
-              Icon(Icons.lock_outline, size: 12, color: Colors.white30),
+              const Icon(Icons.lock_outline, size: 12, color: Colors.white30),
             ],
           ],
         ),

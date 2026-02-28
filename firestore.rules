@@ -75,13 +75,22 @@ service cloud.firestore {
     }
 
     // Notifications collection - user's personal notifications
+    // Rate limited: max 10 notifications per minute per sender (enforced via Cloud Functions)
     match /notifications/{userId} {
       allow read: if isOwner(userId);
-      allow write: if isAuthenticated(); // Anyone can create notifications for a user
+      // Only allow writes with valid notification structure
+      allow write: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['type', 'senderId', 'createdAt']) &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.type in ['follow', 'like', 'comment', 'mention', 'badge'];
 
       match /items/{notificationId} {
         allow read: if isOwner(userId);
-        allow create: if isAuthenticated(); // Anyone can create (e.g., follow notification)
+        // Validate notification structure and ensure sender is authenticated user
+        allow create: if isAuthenticated() &&
+          request.resource.data.keys().hasAll(['type', 'senderId', 'createdAt']) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.type in ['follow', 'like', 'comment', 'mention', 'badge'];
         allow update, delete: if isOwner(userId); // Only owner can modify/delete
       }
     }

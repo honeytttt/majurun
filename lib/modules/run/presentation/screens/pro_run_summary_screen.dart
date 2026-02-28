@@ -257,7 +257,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
         children: [
           _buildMainStatItem(
             'Distance',
-            '${(widget.runData.distanceMeters / 1000).toStringAsFixed(2)}',
+            (widget.runData.distanceMeters / 1000).toStringAsFixed(2),
             'km',
           ),
           _buildMainStatItem(

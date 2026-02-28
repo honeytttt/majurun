@@ -14,7 +14,7 @@ class ChallengesService extends ChangeNotifier {
   List<Challenge> _activeChallenges = [];
   List<Challenge> _joinedChallenges = [];
   List<Challenge> _completedChallenges = [];
-  Map<String, ChallengeProgress> _progress = {};
+  final Map<String, ChallengeProgress> _progress = {};
 
   List<Challenge> get activeChallenges => List.unmodifiable(_activeChallenges);
   List<Challenge> get joinedChallenges => List.unmodifiable(_joinedChallenges);
@@ -87,13 +87,14 @@ class ChallengesService extends ChangeNotifier {
     if (_userId == null) return;
 
     try {
-      // Get runs within challenge period
+      // Get runs within challenge period (limit to prevent excessive reads)
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
           .collection('runHistory')
           .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(challenge.startDate))
           .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(challenge.endDate))
+          .limit(500) // Max runs per challenge period
           .get();
 
       double currentValue = 0;
@@ -162,6 +163,7 @@ class ChallengesService extends ChangeNotifier {
           .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
           .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(end))
           .orderBy('timestamp')
+          .limit(500) // Limit for streak calculation
           .get();
 
       if (snapshot.docs.isEmpty) return 0;

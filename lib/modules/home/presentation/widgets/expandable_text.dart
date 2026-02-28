@@ -31,7 +31,7 @@ class _ExpandableTextState extends State<ExpandableText> {
         debugPrint('   Text: "${widget.text.substring(0, widget.text.length > 50 ? 50 : widget.text.length)}..."');
         debugPrint('   Max lines: ${widget.maxLines}');
         
-        final defaultStyle = const TextStyle(fontSize: 15, height: 1.4, color: Colors.white);
+        const defaultStyle = TextStyle(fontSize: 15, height: 1.4, color: Colors.white);
         final textSpan = TextSpan(
           text: widget.text,
           style: widget.style ?? defaultStyle,

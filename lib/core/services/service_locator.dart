@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'analytics_service.dart';
@@ -45,25 +46,32 @@ class ServiceLocator {
   final weatherService = WeatherService();
 
   bool _isInitialized = false;
+  StreamSubscription<User?>? _authSubscription;
 
   /// Initialize all services
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    // Initialize crash reporting first for error tracking
-    await crashReportingService.initialize();
+    try {
+      // Initialize crash reporting first for error tracking
+      await crashReportingService.initialize();
 
-    // Initialize analytics
-    await analyticsService.initialize();
+      // Initialize analytics
+      await analyticsService.initialize();
 
-    // Initialize TTS services
-    await intervalTrainingService.initialize();
-    await audioCoachingService.initialize();
+      // Initialize TTS services
+      await intervalTrainingService.initialize();
+      await audioCoachingService.initialize();
 
-    // Listen for auth changes to update user context
-    FirebaseAuth.instance.authStateChanges().listen(_onAuthStateChanged);
+      // Listen for auth changes to update user context
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen(_onAuthStateChanged);
 
-    _isInitialized = true;
+      _isInitialized = true;
+    } catch (e) {
+      // Log error but don't crash the app
+      crashReportingService.recordError(e, StackTrace.current);
+      _isInitialized = true; // Mark as initialized to prevent retry loops
+    }
   }
 
   void _onAuthStateChanged(User? user) {
@@ -137,9 +145,12 @@ class ServiceLocator {
 
   /// Dispose all services
   void dispose() {
+    _authSubscription?.cancel();
+    _authSubscription = null;
     backgroundLocationService.dispose();
     intervalTrainingService.dispose();
     audioCoachingService.dispose();
+    _isInitialized = false;
   }
 }
 

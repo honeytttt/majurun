@@ -72,6 +72,7 @@ class PostRepositoryImpl {
     return _db
         .collection('posts')
         .orderBy('createdAt', descending: true)
+        .limit(50) // Pagination: limit initial load
         .snapshots()
         .map((snapshot) {
       debugPrint("📰 Received ${snapshot.docs.length} posts from Firestore");

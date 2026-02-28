@@ -1,4 +1,6 @@
-// ignore: avoid_web_libraries_in_flutter
+// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
+// Note: dart:html is deprecated, but package:web migration is complex for iframe srcdoc
+// TODO: Migrate to package:web when better documentation is available
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/widgets.dart';

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -41,10 +42,19 @@ class _HomeScreenState extends State<HomeScreen> {
   String _profileImageUrl = "";
   String _email = "";
 
+  // Stream subscription for proper disposal
+  StreamSubscription<DocumentSnapshot>? _userDataSubscription;
+
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
+  }
+
+  @override
+  void dispose() {
+    _userDataSubscription?.cancel();
+    super.dispose();
   }
 
   void _fetchFirebaseUserData() {
@@ -53,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _email = user.email ?? "";
 
-    FirebaseFirestore.instance
+    _userDataSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .snapshots()
@@ -203,9 +213,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
     final isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: AnimatedContainer(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label tab${isSelected ? ", selected" : ""}',
+      child: GestureDetector(
+        onTap: () => _onItemTapped(index),
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -232,13 +246,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 
   Widget _buildCenterNavItem(Color brandGreen) {
-    return GestureDetector(
-      onTap: () => _onItemTapped(2),
-      child: Container(
+    return Semantics(
+      button: true,
+      label: 'Create new post',
+      child: GestureDetector(
+        onTap: () => _onItemTapped(2),
+        child: Container(
         width: 56,
         height: 56,
         decoration: BoxDecoration(
@@ -262,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
           size: 28,
         ),
       ),
+    ),
     );
   }
 
@@ -329,9 +348,14 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, snapshot) {
         final unreadCount = snapshot.data ?? 0;
 
-        return Stack(
-          children: [
-            Container(
+        return Semantics(
+          button: true,
+          label: unreadCount > 0
+              ? 'Notifications, $unreadCount unread'
+              : 'Notifications',
+          child: Stack(
+            children: [
+              Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
@@ -381,7 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-          ],
+            ],
+          ),
         );
       },
     );

@@ -314,7 +314,7 @@ class WeeklySummaryService {
         insights.add(WeeklyInsight(
           type: InsightType.positive,
           title: 'Great progress!',
-          message: 'Your distance is up ${change}% from last week. Keep it up!',
+          message: 'Your distance is up $change% from last week. Keep it up!',
         ));
       } else if (change < -20) {
         insights.add(WeeklyInsight(

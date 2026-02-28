@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'majurun-8d8b5.firebasestorage.app',
     androidClientId: '648836412000-vgl0o8at7nr22ttnfdrkmslfkreglsu1.apps.googleusercontent.com',
     iosClientId: '648836412000-f462s9o01pmajtm0lrcotcade630dtqu.apps.googleusercontent.com',
-    iosBundleId: 'com.example.majurun',
+    iosBundleId: 'com.majurun.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'majurun-8d8b5.firebasestorage.app',
     androidClientId: '648836412000-vgl0o8at7nr22ttnfdrkmslfkreglsu1.apps.googleusercontent.com',
     iosClientId: '648836412000-f462s9o01pmajtm0lrcotcade630dtqu.apps.googleusercontent.com',
-    iosBundleId: 'com.example.majurun',
+    iosBundleId: 'com.majurun.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

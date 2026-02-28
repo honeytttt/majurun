@@ -58,3 +58,8 @@
 
 # Location services
 -keep class com.google.android.gms.location.** { *; }
+
+# Wearable Data Layer API
+-keep class com.google.android.gms.wearable.** { *; }
+-keep class com.majurun.app.WearOSPlugin { *; }
+-keep class com.majurun.app.WearDataListenerService { *; }

@@ -21,6 +21,7 @@ class DmService {
         .collection('conversations')
         .where('participants', arrayContains: currentUserId)
         .orderBy('lastMessageTime', descending: true)
+        .limit(50) // Pagination: limit conversations loaded
         .snapshots()
         .map((snapshot) {
           return snapshot.docs.map((doc) {
@@ -37,6 +38,7 @@ class DmService {
     return _firestore
         .collection('conversations')
         .where('participants', arrayContains: currentUserId)
+        .limit(100) // Limit for performance
         .snapshots()
         .map((snapshot) {
           int totalUnread = 0;
@@ -148,10 +150,12 @@ class DmService {
         .collection('conversations')
         .doc(conversationId)
         .collection('messages')
-        .orderBy('createdAt', descending: false)
+        .orderBy('createdAt', descending: true) // Get latest first
+        .limit(100) // Limit messages loaded initially
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) {
+          // Reverse to show oldest first in UI
+          return snapshot.docs.reversed.map((doc) {
             return Message.fromFirestore(doc);
           }).toList();
         });

@@ -317,17 +317,29 @@ class WeatherData {
     int rating = 5;
 
     // Temperature penalties
-    if (temperatureCelsius < 0 || temperatureCelsius > 35) rating -= 2;
-    else if (temperatureCelsius < 5 || temperatureCelsius > 30) rating -= 1;
+    if (temperatureCelsius < 0 || temperatureCelsius > 35) {
+      rating -= 2;
+    } else if (temperatureCelsius < 5 || temperatureCelsius > 30) {
+      rating -= 1;
+    }
 
     // Weather condition penalties
-    if (condition == WeatherCondition.thunderstorm) rating -= 3;
-    if (condition == WeatherCondition.snow) rating -= 1;
-    if (condition == WeatherCondition.rain) rating -= 1;
+    if (condition == WeatherCondition.thunderstorm) {
+      rating -= 3;
+    }
+    if (condition == WeatherCondition.snow) {
+      rating -= 1;
+    }
+    if (condition == WeatherCondition.rain) {
+      rating -= 1;
+    }
 
     // Wind penalties
-    if (windSpeedKmh > 40) rating -= 2;
-    else if (windSpeedKmh > 25) rating -= 1;
+    if (windSpeedKmh > 40) {
+      rating -= 2;
+    } else if (windSpeedKmh > 25) {
+      rating -= 1;
+    }
 
     return rating.clamp(1, 5);
   }

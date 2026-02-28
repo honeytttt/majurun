@@ -328,7 +328,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
         trailing: Switch(
           value: _settings.masterEnabled,
           onChanged: (v) => _updateSetting((s) => s.copyWith(masterEnabled: v)),
-          activeColor: Colors.white,
+          activeThumbColor: Colors.white,
           activeTrackColor: Colors.white.withValues(alpha: 0.5),
         ),
       ),
@@ -424,7 +424,13 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
       ),
       value: value,
       onChanged: onChanged,
-      activeColor: Colors.blue,
+      activeTrackColor: Colors.blue.withAlpha(128),
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return Colors.blue;
+        }
+        return Colors.grey;
+      }),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }

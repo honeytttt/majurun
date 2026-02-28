@@ -36,7 +36,7 @@ class SegmentsService {
       final endPoint = route.last;
 
       // Calculate elevation change if available
-      final elevationGain = 0.0; // Would need altitude data
+      const elevationGain = 0.0; // Would need altitude data
 
       final segmentRef = _firestore.collection('segments').doc();
 

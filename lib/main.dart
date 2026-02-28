@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,6 +10,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 // Core services
 import 'core/services/analytics_service.dart';
 import 'core/services/crash_reporting_service.dart';
+import 'core/config/app_config.dart';
 
 // Theme
 import 'core/theme/app_theme.dart';
@@ -33,13 +35,13 @@ Future<void> main() async {
 
   // Initialize Firebase App Check BEFORE using any protected Firebase APIs
   // Web: Use reCAPTCHA Enterprise provider with your site key
+  // Configure via: flutter build --dart-define=RECAPTCHA_KEY=your_key
   await FirebaseAppCheck.instance.activate(
-    webProvider: ReCaptchaEnterpriseProvider(
-      '6LfJE2gsAAAAAP2xeAzsC95tz7jAzim7wAjtarF0', // your Enterprise site key
-    ),
-    // If you enforce App Check on mobile later, you can add providers here:
-    // androidProvider: AndroidProvider.playIntegrity,
-    // appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+    webProvider: ReCaptchaEnterpriseProvider(AppConfig.recaptchaSiteKey),
+    // Android: Use Play Integrity for production
+    androidProvider: AndroidProvider.playIntegrity,
+    // iOS: Use App Attest with Device Check fallback
+    appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
   );
 
   // Initialize crash reporting (must be before other services)
@@ -59,20 +61,6 @@ Future<void> main() async {
     debugPrint('Analytics initialization failed: $e');
   }
 
-  // Initialize user counters and set analytics user on auth state changes
-  FirebaseAuth.instance.authStateChanges().listen((user) {
-    if (user != null) {
-      UserCountersInitializer.initializeOnFirstLaunch();
-      // Set user ID for analytics and crash reporting
-      analytics.setUserId(user.uid);
-      crashReporting.setUserId(user.uid);
-    } else {
-      // Clear user ID when logged out
-      analytics.setUserId(null);
-      crashReporting.clearUserId();
-    }
-  });
-
   runApp(
     MultiProvider(
       providers: [
@@ -80,14 +68,54 @@ Future<void> main() async {
         ChangeNotifierProvider<TrainingService>(create: (_) => TrainingService()),
         // RunController now creates and manages all run-related controllers internally
         ChangeNotifierProvider<RunController>(create: (_) => RunController()),
+        Provider<AnalyticsService>.value(value: analytics),
+        Provider<CrashReportingService>.value(value: crashReporting),
       ],
       child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  StreamSubscription<User?>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAuthListener();
+  }
+
+  void _setupAuthListener() {
+    final analytics = AnalyticsService();
+    final crashReporting = CrashReportingService();
+
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        UserCountersInitializer.initializeOnFirstLaunch();
+        // Set user ID for analytics and crash reporting
+        analytics.setUserId(user.uid);
+        crashReporting.setUserId(user.uid);
+      } else {
+        // Clear user ID when logged out
+        analytics.setUserId(null);
+        crashReporting.clearUserId();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

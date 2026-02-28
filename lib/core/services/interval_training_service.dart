@@ -41,7 +41,7 @@ class IntervalTrainingService extends ChangeNotifier {
           : null;
 
   // Pre-built workouts
-  static final List<IntervalWorkout> prebuiltWorkouts = [
+  static const List<IntervalWorkout> prebuiltWorkouts = [
     // Beginner Intervals
     IntervalWorkout(
       id: 'beginner_run_walk',
@@ -312,9 +312,9 @@ class IntervalTrainingService extends ChangeNotifier {
         break;
       case IntervalType.work:
         if (interval.repetitions > 1) {
-          message = 'Interval ${_currentRepetition} of ${interval.repetitions}. ${interval.instruction}';
+          message = 'Interval $_currentRepetition of ${interval.repetitions}. ${interval.instruction}';
         } else {
-          message = '${interval.instruction}';
+          message = interval.instruction;
         }
         if (interval.targetPace != null) {
           message += ' Target pace: ${interval.targetPace}';

@@ -12,7 +12,7 @@ class GoalsService extends ChangeNotifier {
   String? _userId;
 
   List<RunningGoal> _activeGoals = [];
-  Map<String, GoalProgress> _progress = {};
+  final Map<String, GoalProgress> _progress = {};
 
   List<RunningGoal> get activeGoals => List.unmodifiable(_activeGoals);
   Map<String, GoalProgress> get progress => Map.unmodifiable(_progress);
@@ -89,13 +89,14 @@ class GoalsService extends ChangeNotifier {
       final periodStart = _getPeriodStart(goal.period, goal.startDate);
       final periodEnd = _getPeriodEnd(goal.period, periodStart);
 
-      // Query runs within the period
+      // Query runs within the period (limit for performance)
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
           .collection('runHistory')
           .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(periodStart))
           .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(periodEnd))
+          .limit(200) // Max runs per goal period
           .get();
 
       double currentValue = 0;
@@ -197,13 +198,14 @@ class GoalsService extends ChangeNotifier {
     if (_userId == null) return [];
 
     try {
-      // Get last 4 weeks of data
+      // Get last 4 weeks of data (limit for performance)
       final fourWeeksAgo = DateTime.now().subtract(const Duration(days: 28));
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
           .collection('runHistory')
           .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(fourWeeksAgo))
+          .limit(100) // Max runs for suggestions
           .get();
 
       double totalDistance = 0;
@@ -254,14 +256,14 @@ class GoalsService extends ChangeNotifier {
       }
 
       // Standard monthly distance goals
-      suggestions.add(GoalSuggestion(
+      suggestions.add(const GoalSuggestion(
         type: GoalType.distance,
         period: GoalPeriod.monthly,
         suggestedValue: 50,
         reason: 'A great starting monthly goal',
       ));
 
-      suggestions.add(GoalSuggestion(
+      suggestions.add(const GoalSuggestion(
         type: GoalType.distance,
         period: GoalPeriod.monthly,
         suggestedValue: 100,

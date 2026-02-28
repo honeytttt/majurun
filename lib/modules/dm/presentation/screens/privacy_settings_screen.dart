@@ -1,3 +1,6 @@
+// ignore_for_file: deprecated_member_use
+// Note: Radio groupValue/onChanged deprecated in v3.32.0
+// TODO: Migrate to RadioGroup when stable
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
