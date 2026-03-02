@@ -6,12 +6,14 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
-import 'package:majurun/core/services/analytics_service.dart';
-import 'package:majurun/core/services/crash_reporting_service.dart';
+import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
+
+/// Callback type for UI notifications - avoids storing BuildContext in controller
+typedef ShowSnackBarCallback = void Function(SnackBar snackBar);
 
 /// Production-grade run controller with full error handling,
 /// background tracking support, and auto-pause functionality.
@@ -20,15 +22,18 @@ class RunController extends ChangeNotifier {
   final VoiceController voiceController = VoiceController();
   final PostController postController = PostController();
   final StatsController statsController = StatsController();
-  final AnalyticsService _analytics = AnalyticsService();
-  final CrashReportingService _crashReporting = CrashReportingService();
+
+  // Use singleton services from ServiceLocator - NOT new instances
+  final _analytics = serviceLocator.analyticsService;
+  final _crashReporting = serviceLocator.crashReportingService;
 
   // Recovery properties
   Timer? _autoSaveTimer;
   bool _hasShownRecoveryDialog = false;
 
-  // UI context for showing SnackBars
-  BuildContext? _uiContext;
+  // UI notification callbacks - avoids storing BuildContext
+  ShowSnackBarCallback? _showSnackBar;
+  VoidCallback? _onStopRun;
 
   // Prevent spamming UI with repeated milestone SnackBars
   int _lastMilestoneSnackKm = 0;
@@ -155,24 +160,35 @@ class RunController extends ChangeNotifier {
     await postController.finalizeProPost(aiContent, videoUrl, planTitle: planTitle);
   }
 
-  /// Set context for SnackBars
+  /// Set UI callbacks for notifications - preferred over storing BuildContext
+  void setUICallbacks({
+    ShowSnackBarCallback? showSnackBar,
+    VoidCallback? onStopRun,
+  }) {
+    _showSnackBar = showSnackBar;
+    _onStopRun = onStopRun;
+  }
+
+  /// Legacy method for backwards compatibility - extracts callbacks from context
   void setUiContext(BuildContext context) {
-    _uiContext = context;
+    _showSnackBar = (snackBar) {
+      if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(snackBar);
+      }
+    };
   }
 
   // ============== IDLE & AUTO-PAUSE HANDLING ==============
 
   void _handleIdleDetected() {
-    final ctx = _uiContext;
-    if (ctx == null || !ctx.mounted) {
-      debugPrint("⚠️ No UI context for idle notification");
+    final callback = _showSnackBar;
+    if (callback == null) {
+      debugPrint("⚠️ No UI callback for idle notification");
       return;
     }
 
-    final messenger = ScaffoldMessenger.maybeOf(ctx);
-    if (messenger == null) return;
-
-    messenger.showSnackBar(
+    callback(
       SnackBar(
         duration: const Duration(seconds: 30),
         behavior: SnackBarBehavior.floating,
@@ -192,11 +208,7 @@ class RunController extends ChangeNotifier {
         action: SnackBarAction(
           label: "END RUN",
           textColor: Colors.white,
-          onPressed: () {
-            if (ctx.mounted) {
-              stopRun(ctx);
-            }
-          },
+          onPressed: () => _onStopRun?.call(),
         ),
       ),
     );
@@ -205,14 +217,7 @@ class RunController extends ChangeNotifier {
   }
 
   void _showAutoPauseSnackBar() {
-    final ctx = _uiContext;
-    if (ctx == null || !ctx.mounted) return;
-
-    final messenger = ScaffoldMessenger.maybeOf(ctx);
-    if (messenger == null) return;
-
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    _showSnackBar?.call(
       SnackBar(
         duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
@@ -239,13 +244,7 @@ class RunController extends ChangeNotifier {
   }
 
   void _showErrorSnackBar(String message) {
-    final ctx = _uiContext;
-    if (ctx == null || !ctx.mounted) return;
-
-    final messenger = ScaffoldMessenger.maybeOf(ctx);
-    if (messenger == null) return;
-
-    messenger.showSnackBar(
+    _showSnackBar?.call(
       SnackBar(
         duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
@@ -256,7 +255,8 @@ class RunController extends ChangeNotifier {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                message,
+                // Sanitize error message - don't expose stack traces to user
+                message.split('\n').first,
                 style: const TextStyle(color: Colors.white),
               ),
             ),
@@ -284,8 +284,8 @@ class RunController extends ChangeNotifier {
     if (km <= _lastMilestoneSnackKm) return;
     _lastMilestoneSnackKm = km;
 
-    final ctx = _uiContext;
-    if (ctx == null) {
+    final callback = _showSnackBar;
+    if (callback == null) {
       voiceController.speakKmMilestone(
         km: km,
         totalTime: totalTime,
@@ -296,24 +296,11 @@ class RunController extends ChangeNotifier {
       return;
     }
 
-    final messenger = ScaffoldMessenger.maybeOf(ctx);
-    if (messenger == null) {
-      voiceController.speakKmMilestone(
-        km: km,
-        totalTime: totalTime,
-        lastKmPace: lastKmPace,
-        averagePace: averagePace,
-        comparison: comparison,
-      );
-      return;
-    }
-
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    callback(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 8),
-        content: Text("🎯 ${km}km reached • Tap PLAY to hear update"),
+        content: Text("${km}km reached - Tap PLAY to hear update"),
         action: SnackBarAction(
           label: "PLAY",
           onPressed: () {
@@ -368,17 +355,15 @@ class RunController extends ChangeNotifier {
       ),
     );
 
-    if (shouldRecover == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (shouldRecover == true) {
+      _showSnackBar?.call(
         const SnackBar(
           content: Text('Run recovery is being improved. Starting fresh run.'),
           backgroundColor: Colors.orange,
         ),
       );
-      await RunRecoveryService.clearRecoverableRun();
-    } else {
-      await RunRecoveryService.clearRecoverableRun();
     }
+    await RunRecoveryService.clearRecoverableRun();
   }
 
   String _formatDateTime(DateTime dt) {
@@ -397,18 +382,12 @@ class RunController extends ChangeNotifier {
   }
 
   void _showRunSavedNotification(double distanceKm, int durationSeconds) {
-    final ctx = _uiContext;
-    if (ctx == null || !ctx.mounted) return;
-
-    final messenger = ScaffoldMessenger.maybeOf(ctx);
-    if (messenger == null) return;
-
     final distanceStr = distanceKm.toStringAsFixed(2);
     final minutes = durationSeconds ~/ 60;
     final seconds = durationSeconds % 60;
     final durationStr = "$minutes:${seconds.toString().padLeft(2, '0')}";
 
-    messenger.showSnackBar(
+    _showSnackBar?.call(
       SnackBar(
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,

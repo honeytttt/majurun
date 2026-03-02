@@ -58,7 +58,7 @@ dependencies:
   permission_handler: ^11.3.1
 
   # Sharing & utils ─────────────────────────────────────────
-  share_plus: ^10.0.3
+  share_plus: ^12.0.0
   url_launcher: ^6.3.0
   timeago: ^3.7.0
   uuid: ^4.5.0
@@ -77,6 +77,22 @@ dependencies:
   # WebView for workout videos ─────────────────────────────────
   webview_flutter: ^4.8.0
   webview_flutter_web: ^0.2.3
+
+  # Push Notifications ────────────────────────────────────────
+  firebase_messaging: ^15.0.0
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.2
+
+  # Background Location (critical for accurate run tracking) ──
+  flutter_background_geolocation: ^5.0.0
+
+  # Performance & Monitoring ──────────────────────────────────
+  firebase_performance: ^0.10.0
+  firebase_remote_config: ^5.0.0
+  sentry_flutter: ^9.0.0
+
+  # Deep Linking (share runs, challenges) ─────────────────────
+  app_links: ^6.0.0
 
   # Remove or conditionalize ────────────────────────────────
   # js: ^0.6.7                  # ← REMOVE (only for web)

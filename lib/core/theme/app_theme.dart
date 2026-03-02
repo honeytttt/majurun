@@ -8,12 +8,12 @@ class AppTheme {
   static const Color deepGreen = Color(0xFF1B5E20);          // Forest Green
   static const Color lightGreen = Color(0xFFE8F5E9);         // Light Background
 
-  // Premium Dark Theme Colors
-  static const Color darkBackground = Color(0xFF0A0A0F);     // Rich Black
-  static const Color darkSurface = Color(0xFF151520);        // Dark Card
-  static const Color darkCard = Color(0xFF1A1A2E);           // Elevated Card
-  static const Color darkBorder = Color(0xFF2A2A3E);         // Subtle Border
-  static const Color darkElevated = Color(0xFF252540);       // Elevated Surface
+  // Premium Dark Theme Colors (Softer, less harsh)
+  static const Color darkBackground = Color(0xFF121218);     // Soft Dark Gray
+  static const Color darkSurface = Color(0xFF1C1C26);        // Dark Card
+  static const Color darkCard = Color(0xFF24243A);           // Elevated Card
+  static const Color darkBorder = Color(0xFF3A3A52);         // Subtle Border
+  static const Color darkElevated = Color(0xFF2C2C44);       // Elevated Surface
 
   // Status Colors - Vibrant
   static const Color successGreen = Color(0xFF22C55E);       // Success

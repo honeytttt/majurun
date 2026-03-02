@@ -18,6 +18,16 @@ import 'training_load_service.dart';
 import 'weather_service.dart';
 import 'weekly_summary_service.dart';
 
+// New production services
+import 'push_notification_service.dart';
+import 'background_geolocation_service.dart';
+import 'performance_service.dart';
+import 'remote_config_service.dart';
+import 'deep_link_service.dart';
+import 'sentry_service.dart';
+import 'achievement_service.dart';
+import 'logging_service.dart';
+
 /// Service Locator - Centralized access to all app services
 /// Handles initialization and user context for all services
 class ServiceLocator {
@@ -26,9 +36,19 @@ class ServiceLocator {
   ServiceLocator._internal();
 
   // Core services
+  final loggingService = LoggingService.instance;
   final analyticsService = AnalyticsService();
   final crashReportingService = CrashReportingService();
   final backgroundLocationService = BackgroundLocationService();
+
+  // New production services
+  final pushNotificationService = PushNotificationService();
+  final backgroundGeolocationService = BackgroundGeolocationService();
+  final performanceService = PerformanceService();
+  final remoteConfigService = RemoteConfigService();
+  final deepLinkService = DeepLinkService();
+  final sentryService = SentryService();
+  final achievementService = AchievementService();
 
   // Feature services
   final personalRecordsService = PersonalRecordsService();
@@ -56,8 +76,36 @@ class ServiceLocator {
       // Initialize crash reporting first for error tracking
       await crashReportingService.initialize();
 
+      // Initialize Sentry (marks as initialized)
+      sentryService.markInitialized();
+
+      // Wire up logging service to report errors to Sentry
+      loggingService.onLog = (level, tag, message, error, stackTrace) {
+        if (level == LogLevel.error && error != null) {
+          crashReportingService.recordError(error, stackTrace);
+        }
+      };
+
       // Initialize analytics
       await analyticsService.initialize();
+
+      // Initialize performance monitoring
+      await performanceService.initialize();
+
+      // Initialize remote config (feature flags)
+      await remoteConfigService.initialize();
+
+      // Initialize push notifications
+      await pushNotificationService.initialize();
+
+      // Initialize deep linking
+      await deepLinkService.initialize();
+
+      // Initialize background geolocation
+      await backgroundGeolocationService.initialize();
+
+      // Initialize achievements
+      achievementService.initialize();
 
       // Initialize TTS services
       await intervalTrainingService.initialize();
@@ -81,6 +129,12 @@ class ServiceLocator {
     if (userId != null) {
       analyticsService.setUserId(userId);
       crashReportingService.setUserId(userId);
+
+      // Set Sentry user context
+      sentryService.setUser(user);
+    } else {
+      // Clear user context
+      sentryService.clearUser();
     }
 
     // Services that need explicit user ID setting
@@ -94,7 +148,7 @@ class ServiceLocator {
   }
 
   /// Called after a run completes to update all services
-  Future<void> onRunCompleted({
+  Future<List<Achievement>> onRunCompleted({
     required String runId,
     required double distanceMeters,
     required int durationSeconds,
@@ -103,6 +157,9 @@ class ServiceLocator {
     int? maxHeartRate,
     double? elevationGain,
     int? calories,
+    double? totalDistanceKm,
+    int? totalRuns,
+    int? currentStreak,
   }) async {
     final distanceKm = distanceMeters / 1000;
 
@@ -112,6 +169,14 @@ class ServiceLocator {
       distanceKm: distanceKm,
       durationSeconds: durationSeconds,
       avgPaceMinPerKm: avgPaceMinPerKm,
+    );
+
+    // Track performance
+    await performanceService.trackRunCompletion(
+      distanceKm: distanceKm,
+      durationSeconds: durationSeconds,
+      locationPointCount: 0,
+      avgPaceSecondsPerKm: avgPaceSecondsPerKm,
     );
 
     // Calculate training load
@@ -136,6 +201,19 @@ class ServiceLocator {
         distanceKm,
       );
     }
+
+    // Check achievements
+    final newAchievements = await achievementService.checkAchievements(
+      totalDistanceKm: totalDistanceKm ?? distanceKm,
+      totalRuns: totalRuns ?? 1,
+      currentStreak: currentStreak ?? 1,
+      runDistanceKm: distanceKm,
+      runDurationSeconds: durationSeconds,
+      avgPaceSecondsPerKm: avgPaceSecondsPerKm,
+      elevationGain: elevationGain?.toInt(),
+    );
+
+    return newAchievements;
   }
 
   /// Get shoe alerts for display
@@ -150,6 +228,9 @@ class ServiceLocator {
     backgroundLocationService.dispose();
     intervalTrainingService.dispose();
     audioCoachingService.dispose();
+    pushNotificationService.dispose();
+    backgroundGeolocationService.dispose();
+    deepLinkService.dispose();
     _isInitialized = false;
   }
 }

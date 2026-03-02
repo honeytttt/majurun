@@ -59,10 +59,10 @@ class AppConstants {
   static const String notificationsCollection = 'notifications';
 
   // URLs
-  static const String privacyPolicyUrl = 'https://majurun.app/privacy';
-  static const String termsOfServiceUrl = 'https://majurun.app/terms';
-  static const String supportEmail = 'support@majurun.app';
-  static const String websiteUrl = 'https://majurun.app';
+  static const String privacyPolicyUrl = 'https://www.majurun.com/privacy-policy.html';
+  static const String termsOfServiceUrl = 'https://www.majurun.com/terms-of-service.html';
+  static const String supportEmail = 'admin@majurun.com';
+  static const String websiteUrl = 'https://www.majurun.com';
 }
 
 /// Validation constants

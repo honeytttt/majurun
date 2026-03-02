@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:majurun/core/services/logging_service.dart';
 import 'package:majurun/core/services/notification_service.dart';
 
 class FollowService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
+  final _log = LoggingService.instance.withTag('Follow');
 
   /// Follow a user
   Future<void> followUser(String targetUserId) async {
@@ -33,7 +34,7 @@ class FollowService {
         // Prevent double-follow (and double counter increments)
         final followingSnap = await tx.get(followingRef);
         if (followingSnap.exists) {
-          debugPrint('ℹ️ Already following: $targetUserId');
+          _log.d('Already following: $targetUserId');
           return;
         }
 
@@ -70,13 +71,13 @@ class FollowService {
           followerPhotoUrl: currentUserData?['photoUrl'],
         );
       } catch (notifError) {
-        debugPrint('⚠️ Failed to create follow notification: $notifError');
+        _log.w('Failed to create follow notification', error: notifError);
         // Don't rethrow - follow was successful, notification is optional
       }
 
-      debugPrint('✅ Followed user: $targetUserId');
+      _log.i('Followed user: $targetUserId');
     } catch (e) {
-      debugPrint('❌ Error following user: $e');
+      _log.e('Error following user', error: e);
       rethrow;
     }
   }
@@ -107,7 +108,7 @@ class FollowService {
         // If not following, do nothing
         final followingSnap = await tx.get(followingRef);
         if (!followingSnap.exists) {
-          debugPrint('ℹ️ Not following (nothing to unfollow): $targetUserId');
+          _log.d('Not following (nothing to unfollow): $targetUserId');
           return;
         }
 
@@ -137,9 +138,9 @@ class FollowService {
         });
       });
 
-      debugPrint('✅ Unfollowed user: $targetUserId');
+      _log.i('Unfollowed user: $targetUserId');
     } catch (e) {
-      debugPrint('❌ Error unfollowing user: $e');
+      _log.e('Error unfollowing user', error: e);
       rethrow;
     }
   }
@@ -159,7 +160,7 @@ class FollowService {
 
       return doc.exists;
     } catch (e) {
-      debugPrint('❌ Error checking follow status: $e');
+      _log.e('Error checking follow status', error: e);
       return false;
     }
   }
@@ -170,7 +171,7 @@ class FollowService {
       final doc = await _firestore.collection('users').doc(userId).get();
       return (doc.data()?['followersCount'] as int?) ?? 0;
     } catch (e) {
-      debugPrint('❌ Error getting follower count: $e');
+      _log.e('Error getting follower count', error: e);
       return 0;
     }
   }
@@ -181,7 +182,7 @@ class FollowService {
       final doc = await _firestore.collection('users').doc(userId).get();
       return (doc.data()?['followingCount'] as int?) ?? 0;
     } catch (e) {
-      debugPrint('❌ Error getting following count: $e');
+      _log.e('Error getting following count', error: e);
       return 0;
     }
   }
@@ -262,9 +263,9 @@ class FollowService {
         'followingCount': followingCount.count ?? 0,
       }, SetOptions(merge: true));
 
-      debugPrint('✅ Initialized counters for user: $userId');
+      _log.i('Initialized counters for user: $userId');
     } catch (e) {
-      debugPrint('❌ Error initializing counters: $e');
+      _log.e('Error initializing counters', error: e);
     }
   }
 }

@@ -45,16 +45,48 @@ class _HomeScreenState extends State<HomeScreen> {
   // Stream subscription for proper disposal
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
+  // Pagination state
+  final ScrollController _feedScrollController = ScrollController();
+  final List<AppPost> _allPosts = [];
+  bool _isLoadingMore = false;
+
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
+    _feedScrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _userDataSubscription?.cancel();
+    _feedScrollController.dispose();
     super.dispose();
+  }
+
+  /// Pagination scroll listener
+  void _onScroll() {
+    if (_feedScrollController.position.pixels >=
+            _feedScrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _postRepo.hasMorePosts) {
+      _loadMorePosts();
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+
+    final morePosts = await _postRepo.loadMorePosts();
+    if (morePosts.isNotEmpty && mounted) {
+      setState(() {
+        _allPosts.addAll(morePosts);
+        _isLoadingMore = false;
+      });
+    } else {
+      setState(() => _isLoadingMore = false);
+    }
   }
 
   void _fetchFirebaseUserData() {
@@ -148,8 +180,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const Color brandGreen = Color(0xFF00E676);
-    const Color darkBackground = Color(0xFF0A0A0F);
-    const Color darkSurface = Color(0xFF151520);
+    const Color darkBackground = Color(0xFF121218);
+    const Color darkSurface = Color(0xFF1C1C26);
 
     if (_activeSubPage != null) {
       return Scaffold(
@@ -413,8 +445,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProfessionalHomeFeed(Color brandGreen) {
-    const Color darkBackground = Color(0xFF0A0A0F);
-    const Color darkSurface = Color(0xFF151520);
+    const Color darkBackground = Color(0xFF121218);
+    const Color darkSurface = Color(0xFF1C1C26);
 
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostsStream(),
@@ -445,14 +477,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final posts = snapshot.data ?? [];
 
+        // Update cached posts from stream
+        if (posts.isNotEmpty && _allPosts.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _allPosts.clear();
+                _allPosts.addAll(posts);
+              });
+            }
+          });
+        }
+
+        // Use _allPosts which includes paginated results
+        final displayPosts = _allPosts.isNotEmpty ? _allPosts : posts;
+
         return RefreshIndicator(
           color: brandGreen,
           backgroundColor: darkSurface,
           onRefresh: () async {
+            _postRepo.resetPagination();
+            _allPosts.clear();
             setState(() {});
-            await Future.delayed(const Duration(milliseconds: 500));
+            await Future.delayed(const Duration(milliseconds: 300));
           },
           child: CustomScrollView(
+            controller: _feedScrollController,
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
@@ -497,7 +547,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 16),
                 ],
               ),
-              posts.isEmpty
+              displayPosts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
                         child: Column(
@@ -542,9 +592,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) => FeedItemWrapper(post: posts[index]),
-                        childCount: posts.length,
-                        addAutomaticKeepAlives: false,
+                        (context, index) {
+                          // Show loading indicator as last item
+                          if (index == displayPosts.length) {
+                            return _isLoadingMore
+                                ? Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: brandGreen,
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink();
+                          }
+                          return FeedItemWrapper(
+                            key: ValueKey(displayPosts[index].id),
+                            post: displayPosts[index],
+                          );
+                        },
+                        childCount: displayPosts.length + (_postRepo.hasMorePosts ? 1 : 0),
+                        addAutomaticKeepAlives: true,
                         addRepaintBoundaries: true,
                       ),
                     ),

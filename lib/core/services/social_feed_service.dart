@@ -34,20 +34,22 @@ class SocialFeedService extends ChangeNotifier {
     if (_userId == null) return;
 
     try {
-      // Load following list
+      // Load following list (paginated)
       final followingSnap = await _firestore
           .collection('users')
           .doc(_userId)
           .collection('following')
+          .limit(500) // Max following to load
           .get();
 
       _following = followingSnap.docs.map((d) => d.id).toList();
 
-      // Load followers list
+      // Load followers list (paginated)
       final followersSnap = await _firestore
           .collection('users')
           .doc(_userId)
           .collection('followers')
+          .limit(500) // Max followers to load
           .get();
 
       _followers = followersSnap.docs.map((d) => d.id).toList();
@@ -67,12 +69,30 @@ class SocialFeedService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Get activities from followed users and self
-      final usersToLoad = [..._following, _userId!];
+      // Get activities from followed users and self (limit to 50 users for performance)
+      final usersToLoad = [..._following.take(50), _userId!];
+
+      // Batch fetch all user profiles first to avoid N+1 queries
+      final Map<String, Map<String, dynamic>> userProfiles = {};
+
+      // Firestore whereIn supports max 30 items, so batch if needed
+      for (var i = 0; i < usersToLoad.length; i += 30) {
+        final batch = usersToLoad.skip(i).take(30).toList();
+        if (batch.isEmpty) continue;
+
+        final usersSnap = await _firestore
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+
+        for (final doc in usersSnap.docs) {
+          userProfiles[doc.id] = doc.data();
+        }
+      }
 
       List<FeedActivity> allActivities = [];
 
-      // Load activities for each user (batch query would be better)
+      // Load activities for each user (limited per user)
       for (final userId in usersToLoad) {
         final activitiesSnap = await _firestore
             .collection('users')
@@ -80,12 +100,10 @@ class SocialFeedService extends ChangeNotifier {
             .collection('runHistory')
             .where('isPublic', isEqualTo: true)
             .orderBy('timestamp', descending: true)
-            .limit(10)
+            .limit(5) // Reduced per user for better performance
             .get();
 
-        // Get user profile
-        final userDoc = await _firestore.collection('users').doc(userId).get();
-        final userData = userDoc.data() ?? {};
+        final userData = userProfiles[userId] ?? {};
 
         for (final doc in activitiesSnap.docs) {
           final data = doc.data();
@@ -376,29 +394,46 @@ class SocialFeedService extends ChangeNotifier {
           .doc(activityId)
           .collection('comments')
           .orderBy('timestamp', descending: false)
+          .limit(100) // Max comments to load
           .get();
+
+      // Batch fetch all commenter profiles to avoid N+1 queries
+      final userIds = snapshot.docs
+          .map((doc) => doc.data()['userId'] as String?)
+          .where((id) => id != null)
+          .cast<String>()
+          .toSet()
+          .toList();
+
+      final Map<String, Map<String, dynamic>> userProfiles = {};
+
+      // Firestore whereIn supports max 30 items
+      for (var i = 0; i < userIds.length; i += 30) {
+        final batch = userIds.skip(i).take(30).toList();
+        if (batch.isEmpty) continue;
+
+        final usersSnap = await _firestore
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+
+        for (final doc in usersSnap.docs) {
+          userProfiles[doc.id] = doc.data();
+        }
+      }
 
       List<ActivityComment> comments = [];
 
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final commentUserId = data['userId'] as String?;
-
-        // Get commenter info
-        String userName = 'Runner';
-        String? userPhotoUrl;
-        if (commentUserId != null) {
-          final userDoc = await _firestore.collection('users').doc(commentUserId).get();
-          final userData = userDoc.data() ?? {};
-          userName = userData['displayName'] as String? ?? 'Runner';
-          userPhotoUrl = userData['photoUrl'] as String?;
-        }
+        final userData = commentUserId != null ? userProfiles[commentUserId] ?? {} : {};
 
         comments.add(ActivityComment(
           id: doc.id,
           userId: commentUserId ?? '',
-          userName: userName,
-          userPhotoUrl: userPhotoUrl,
+          userName: userData['displayName'] as String? ?? 'Runner',
+          userPhotoUrl: userData['photoUrl'] as String?,
           text: data['text'] as String? ?? '',
           timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         ));

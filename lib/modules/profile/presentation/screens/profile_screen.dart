@@ -168,14 +168,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         leadingWidth: 100,
         leading: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: widget.onBack,
+            Semantics(
+              button: true,
+              label: 'Go back',
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: widget.onBack,
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.support_agent, color: Color(0xFF00E676)),
-              tooltip: 'Contact Us',
-              onPressed: _navigateToContactUs,
+            Semantics(
+              button: true,
+              label: 'Contact support',
+              child: IconButton(
+                icon: const Icon(Icons.support_agent, color: Color(0xFF00E676)),
+                tooltip: 'Contact Us',
+                onPressed: _navigateToContactUs,
+              ),
             ),
           ],
         ),
@@ -190,22 +198,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
         centerTitle: true,
         actions: [
           // Voice Coach Settings Button
-          IconButton(
-            icon: const Icon(Icons.record_voice_over, color: Colors.blue),
-            tooltip: 'Voice Coach Settings',
-            onPressed: _navigateToVoiceSettings,
+          Semantics(
+            button: true,
+            label: 'Voice coach settings',
+            child: IconButton(
+              icon: const Icon(Icons.record_voice_over, color: Colors.blue),
+              tooltip: 'Voice Coach Settings',
+              onPressed: _navigateToVoiceSettings,
+            ),
           ),
           // Privacy Settings Button
-          IconButton(
-            icon: const Icon(Icons.privacy_tip, color: Colors.black),
-            tooltip: 'Privacy Settings',
-            onPressed: _navigateToPrivacySettings,
+          Semantics(
+            button: true,
+            label: 'Privacy settings',
+            child: IconButton(
+              icon: const Icon(Icons.privacy_tip, color: Colors.black),
+              tooltip: 'Privacy Settings',
+              onPressed: _navigateToPrivacySettings,
+            ),
           ),
           // Sign Out Button
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            tooltip: 'Sign Out',
-            onPressed: () => _showSignOutDialog(context),
+          Semantics(
+            button: true,
+            label: 'Sign out',
+            child: IconButton(
+              icon: const Icon(Icons.logout, color: Colors.red),
+              tooltip: 'Sign Out',
+              onPressed: () => _showSignOutDialog(context),
+            ),
           ),
         ],
       ),
@@ -361,17 +381,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              GestureDetector(
-                onTap: () {},
-                child: _buildStatColumn('Posts', postsCount.toString()),
+              Semantics(
+                label: '$postsCount posts',
+                child: GestureDetector(
+                  onTap: () {},
+                  child: _buildStatColumn('Posts', postsCount.toString()),
+                ),
               ),
-              GestureDetector(
-                onTap: () => _navigateToFollowersFollowing(true, userId, name),
-                child: _buildStatColumn('Followers', followersCount.toString()),
+              Semantics(
+                button: true,
+                label: '$followersCount followers, tap to view',
+                child: GestureDetector(
+                  onTap: () => _navigateToFollowersFollowing(true, userId, name),
+                  child: _buildStatColumn('Followers', followersCount.toString()),
+                ),
               ),
-              GestureDetector(
-                onTap: () => _navigateToFollowersFollowing(false, userId, name),
-                child: _buildStatColumn('Following', followingCount.toString()),
+              Semantics(
+                button: true,
+                label: '$followingCount following, tap to view',
+                child: GestureDetector(
+                  onTap: () => _navigateToFollowersFollowing(false, userId, name),
+                  child: _buildStatColumn('Following', followingCount.toString()),
+                ),
               ),
             ],
           ),
@@ -380,28 +411,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Edit Profile Button
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _navigateToSettings(
-                name: name,
-                bio: bio,
-                imageUrl: imageUrl,
-                email: email,
-                location: location,
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00E676),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Semantics(
+              button: true,
+              label: 'Edit your profile',
+              child: ElevatedButton(
+                onPressed: () => _navigateToSettings(
+                  name: name,
+                  bio: bio,
+                  imageUrl: imageUrl,
+                  email: email,
+                  location: location,
                 ),
-                elevation: 2,
-              ),
-              child: const Text(
-                'Edit Profile',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E676),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                child: const Text(
+                  'Edit Profile',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -413,34 +448,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => setState(() => _showPosts = true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _showPosts ? const Color(0xFF00E676) : Colors.grey[200],
-                    foregroundColor: _showPosts ? Colors.white : Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: Semantics(
+                  button: true,
+                  selected: _showPosts,
+                  label: 'Show posts${_showPosts ? ", selected" : ""}',
+                  child: ElevatedButton(
+                    onPressed: () => setState(() => _showPosts = true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _showPosts ? const Color(0xFF00E676) : Colors.grey[200],
+                      foregroundColor: _showPosts ? Colors.white : Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
                     ),
-                    elevation: 0,
+                    child: const Text('Posts', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  child: const Text('Posts', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => setState(() => _showPosts = false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: !_showPosts ? const Color(0xFF00E676) : Colors.grey[200],
-                    foregroundColor: !_showPosts ? Colors.white : Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: Semantics(
+                  button: true,
+                  selected: !_showPosts,
+                  label: 'Show stats${!_showPosts ? ", selected" : ""}',
+                  child: ElevatedButton(
+                    onPressed: () => setState(() => _showPosts = false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: !_showPosts ? const Color(0xFF00E676) : Colors.grey[200],
+                      foregroundColor: !_showPosts ? Colors.white : Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
                     ),
-                    elevation: 0,
+                    child: const Text('Stats', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  child: const Text('Stats', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

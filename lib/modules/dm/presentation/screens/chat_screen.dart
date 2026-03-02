@@ -88,14 +88,21 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leading: Semantics(
+          button: true,
+          label: 'Go back',
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         titleSpacing: 0,
-        title: GestureDetector(
-          onTap: () => _navigateToProfile(),
-          child: Row(
+        title: Semantics(
+          button: true,
+          label: 'View ${widget.otherUserName} profile',
+          child: GestureDetector(
+            onTap: () => _navigateToProfile(),
+            child: Row(
             children: [
               CircleAvatar(
                 radius: 18,
@@ -131,10 +138,15 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
         ),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black),
-            onPressed: () => _showOptions(),
+          Semantics(
+            button: true,
+            label: 'More options',
+            child: IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.black),
+              onPressed: () => _showOptions(),
+            ),
           ),
         ],
       ),

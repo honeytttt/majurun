@@ -538,15 +538,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           final bool isLocked = requiresPro && !_isPro;
           final Color catColor = category['color'] as Color;
 
-          return GestureDetector(
-            onTap: () {
-              if (isLocked) {
-                _showProDialog(context);
-              } else {
-                setState(() => _selectedCategoryIndex = index);
-              }
-            },
-            child: AnimatedContainer(
+          return Semantics(
+            button: true,
+            selected: isSelected,
+            label: '${category['name']} category${isSelected ? ', selected' : ''}${isLocked ? ', locked, pro required' : ''}',
+            child: GestureDetector(
+              onTap: () {
+                if (isLocked) {
+                  _showProDialog(context);
+                } else {
+                  setState(() => _selectedCategoryIndex = index);
+                }
+              },
+              child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -599,6 +603,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
               ),
             ),
+          ),
           );
         },
       ),
@@ -616,27 +621,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           final bool isSelected = index == _selectedLevelIndex;
           final Color levelColor = level['color'] as Color;
 
-          return GestureDetector(
-            onTap: () => setState(() => _selectedLevelIndex = index),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: isSelected ? levelColor.withValues(alpha: 0.2) : const Color(0xFF151520),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isSelected ? levelColor : const Color(0xFF2A2A3E),
-                  width: isSelected ? 1.5 : 1,
+          return Semantics(
+            button: true,
+            selected: isSelected,
+            label: '${level['name']} level${isSelected ? ', selected' : ''}',
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedLevelIndex = index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: isSelected ? levelColor.withValues(alpha: 0.2) : const Color(0xFF151520),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected ? levelColor : const Color(0xFF2A2A3E),
+                    width: isSelected ? 1.5 : 1,
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Text(
-                  level['name'] as String,
-                  style: TextStyle(
-                    color: isSelected ? levelColor : Colors.white70,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 12,
+                child: Center(
+                  child: Text(
+                    level['name'] as String,
+                    style: TextStyle(
+                      color: isSelected ? levelColor : Colors.white70,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
@@ -762,9 +772,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _buildFeaturedCard() {
     final featuredWorkout = _workouts.firstWhere((w) => w['featured'] == true);
 
-    return GestureDetector(
-      onTap: () => _openWorkout(featuredWorkout),
-      child: Container(
+    return Semantics(
+      button: true,
+      label: 'Featured workout: ${featuredWorkout['name']}, ${featuredWorkout['duration']}, ${featuredWorkout['level']} level',
+      child: GestureDetector(
+        onTap: () => _openWorkout(featuredWorkout),
+        child: Container(
         width: double.infinity,
         height: 200,
         decoration: BoxDecoration(
@@ -903,6 +916,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -999,21 +1013,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final String? thumbnailUrl = workout['thumbnail'] as String?;
     final IconData iconData = workout['icon'] as IconData;
 
-    return GestureDetector(
-      onTap: () => _openWorkout(workout),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: const Color(0xFF151520),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isLocked
-                ? const Color(0xFF2A2A3E)
-                : accentColor.withValues(alpha: 0.3),
-            width: 1,
+    return Semantics(
+      button: true,
+      label: '${workout['name']}, ${workout['duration']}, ${workout['level']} level${isLocked ? ', locked, pro required' : ''}',
+      child: GestureDetector(
+        onTap: () => _openWorkout(workout),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: const Color(0xFF151520),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isLocked
+                  ? const Color(0xFF2A2A3E)
+                  : accentColor.withValues(alpha: 0.3),
+              width: 1,
+            ),
           ),
-        ),
-        child: Stack(
+          child: Stack(
           children: [
             // Thumbnail Image
             if (thumbnailUrl != null)
@@ -1199,6 +1216,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -317,7 +317,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
 Keep moving 💪
 ''';
 
-    Share.share(shareText);
+    SharePlus.instance.share(ShareParams(text: shareText));
   }
 
   Widget _badge({required String label, required IconData icon}) {

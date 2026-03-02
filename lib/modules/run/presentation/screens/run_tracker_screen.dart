@@ -105,76 +105,88 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           child: Row(
             children: [
               // TRAINING text button instead of menu
-              TextButton(
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  backgroundColor: const Color(0xFF2D7A3E).withValues(alpha: 0.2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              Semantics(
+                button: true,
+                label: 'Open training plans menu',
+                child: TextButton(
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    backgroundColor: const Color(0xFF2D7A3E).withValues(alpha: 0.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'TRAINING',
-                  style: TextStyle(
-                    color: Color(0xFF2D7A3E),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+                  child: const Text(
+                    'TRAINING',
+                    style: TextStyle(
+                      color: Color(0xFF2D7A3E),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
               ),
               const Spacer(),
-              IconButton(
-                icon: Icon(
-                  runController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                  color: runController.isVoiceEnabled ? const Color(0xFF2D7A3E) : Colors.grey.shade600,
+              Semantics(
+                button: true,
+                label: runController.isVoiceEnabled ? 'Voice coaching on, tap to disable' : 'Voice coaching off, tap to enable',
+                child: IconButton(
+                  icon: Icon(
+                    runController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    color: runController.isVoiceEnabled ? const Color(0xFF2D7A3E) : Colors.grey.shade600,
+                  ),
+                  tooltip: runController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
+                  onPressed: runController.toggleVoice,
                 ),
-                tooltip: runController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
-                onPressed: runController.toggleVoice,
               ),
               const SizedBox(width: 8),
               // Last Run button
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final lastRun = await runController.getLastActivity();
-                    if (!context.mounted) return;
-                    
-                    if (lastRun != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LastActivityScreen(lastRun: lastRun),
-                        ),
-                      );
-                    } else {
+              Semantics(
+                button: true,
+                label: 'View your last run',
+                child: TextButton(
+                  onPressed: () async {
+                    try {
+                      final lastRun = await runController.getLastActivity();
+                      if (!context.mounted) return;
+
+                      if (lastRun != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LastActivityScreen(lastRun: lastRun),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("No activities found yet!"),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("No activities found yet!"),
-                          duration: Duration(seconds: 2),
+                        SnackBar(
+                          content: Text("Error: ${e.toString()}"),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     }
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Error: ${e.toString()}"),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                child: const Text(
-                  'LAST RUN',
-                  style: TextStyle(
-                    color: Color(0xFF2D7A3E),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  child: const Text(
+                    'LAST RUN',
+                    style: TextStyle(
+                      color: Color(0xFF2D7A3E),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -205,21 +217,25 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               ),
             ),
             const SizedBox(height: 40),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2D7A3E),
-                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 22),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 8,
-              ),
-              onPressed: () => _handleStartRun(context),
-              child: const Text(
-                "START",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                  color: Colors.white,
-                  letterSpacing: 1.5,
+            Semantics(
+              button: true,
+              label: 'Start a new run',
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2D7A3E),
+                  padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 22),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 8,
+                ),
+                onPressed: () => _handleStartRun(context),
+                child: const Text(
+                  "START",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: Colors.white,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -404,20 +420,24 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildFooterLink(BuildContext context) {
-    return TextButton(
-      onPressed: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+    return Semantics(
+      button: true,
+      label: 'View run history',
+      child: TextButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+          ),
         ),
-      ),
-      child: const Text(
-        'HISTORY →',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: Color(0xFF2D7A3E),
-          letterSpacing: 1,
+        child: const Text(
+          'HISTORY →',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Color(0xFF2D7A3E),
+            letterSpacing: 1,
+          ),
         ),
       ),
     );

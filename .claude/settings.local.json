@@ -12,7 +12,15 @@
       "Bash(winget upgrade:*)",
       "Bash(dart analyze:*)",
       "Bash(find:*)",
-      "Bash(flutter test:*)"
+      "Bash(flutter test:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter pub:*)",
+      "Bash(/dev/null -exec grep -l \"NotificationPriority\" {} ;)",
+      "Bash(ls:*)",
+      "Bash(for dir in mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi)",
+      "Bash(do cp \"$dir/ic_launcher.png\" \"$dir/ic_launcher_round.png\")",
+      "Bash(done)",
+      "Bash(grep:*)"
     ]
   }
 }

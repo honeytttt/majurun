@@ -1006,7 +1006,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 ⚡ Streak: ${stats['streak']} days
 Built with MajuRun 💪
 """;
-    Share.share(message);
+    SharePlus.instance.share(ShareParams(text: message));
   }
 
   // ---------------- existing mini map (mobile only) ----------------

@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:majurun/core/services/logging_service.dart';
 import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _log = LoggingService.instance.withTag('Notifications');
 
   /// Get the current user's notification collection reference
   CollectionReference<Map<String, dynamic>> _notificationsRef(String userId) {
@@ -62,9 +63,9 @@ class NotificationService {
       );
 
       await _notificationsRef(targetUserId).add(notification.toMap());
-      debugPrint('🔔 Notification created for $targetUserId: $message');
+      _log.d('Notification created for $targetUserId: $message');
     } catch (e) {
-      debugPrint('❌ Error creating notification: $e');
+      _log.e('Error creating notification', error: e);
     }
   }
 
@@ -146,9 +147,9 @@ class NotificationService {
 
     try {
       await _notificationsRef(userId).doc(notificationId).update({'read': true});
-      debugPrint('✅ Notification marked as read: $notificationId');
+      _log.d('Notification marked as read: $notificationId');
     } catch (e) {
-      debugPrint('❌ Error marking notification as read: $e');
+      _log.e('Error marking notification as read', error: e);
     }
   }
 
@@ -168,9 +169,9 @@ class NotificationService {
       }
 
       await batch.commit();
-      debugPrint('✅ All notifications marked as read');
+      _log.i('All notifications marked as read');
     } catch (e) {
-      debugPrint('❌ Error marking all notifications as read: $e');
+      _log.e('Error marking all notifications as read', error: e);
     }
   }
 
@@ -181,9 +182,9 @@ class NotificationService {
 
     try {
       await _notificationsRef(userId).doc(notificationId).delete();
-      debugPrint('🗑️ Notification deleted: $notificationId');
+      _log.d('Notification deleted: $notificationId');
     } catch (e) {
-      debugPrint('❌ Error deleting notification: $e');
+      _log.e('Error deleting notification', error: e);
     }
   }
 
@@ -204,9 +205,9 @@ class NotificationService {
         'subscribedUsers': FieldValue.arrayUnion([targetUserId]),
       }, SetOptions(merge: true));
 
-      debugPrint('🔔 Subscribed to user: $targetUserId');
+      _log.i('Subscribed to user: $targetUserId');
     } catch (e) {
-      debugPrint('❌ Error subscribing to user: $e');
+      _log.e('Error subscribing to user', error: e);
     }
   }
 
@@ -223,9 +224,9 @@ class NotificationService {
         'subscribedUsers': FieldValue.arrayRemove([targetUserId]),
       });
 
-      debugPrint('🔕 Unsubscribed from user: $targetUserId');
+      _log.i('Unsubscribed from user: $targetUserId');
     } catch (e) {
-      debugPrint('❌ Error unsubscribing from user: $e');
+      _log.e('Error unsubscribing from user', error: e);
     }
   }
 
@@ -248,7 +249,7 @@ class NotificationService {
 
       return subscribedUsers.contains(targetUserId);
     } catch (e) {
-      debugPrint('❌ Error checking subscription: $e');
+      _log.e('Error checking subscription', error: e);
       return false;
     }
   }
@@ -281,7 +282,7 @@ class NotificationService {
 
       return snapshot.docs.map((doc) => doc.id).toList();
     } catch (e) {
-      debugPrint('❌ Error getting subscribers: $e');
+      _log.e('Error getting subscribers', error: e);
       return [];
     }
   }
@@ -306,9 +307,9 @@ class NotificationService {
         );
       }
 
-      debugPrint('🔔 Notified ${subscribers.length} subscribers of new post');
+      _log.i('Notified ${subscribers.length} subscribers of new post');
     } catch (e) {
-      debugPrint('❌ Error notifying subscribers: $e');
+      _log.e('Error notifying subscribers', error: e);
     }
   }
 }

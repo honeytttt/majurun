@@ -1084,7 +1084,7 @@ ${_newPRs?.isNotEmpty ?? false ? '🏆 New Personal Records achieved!' : ''}
 #MajuRun #Running #Fitness
 ''';
 
-    Share.share(text);
+    SharePlus.instance.share(ShareParams(text: text));
   }
 
   LatLng _getCenterPoint() {

@@ -143,7 +143,7 @@ class LiveTrackingService {
     final message = customMessage ??
         "I'm running! Track my location live: $link\n\nPowered by MajuRun 🏃";
 
-    await Share.share(message);
+    await SharePlus.instance.share(ShareParams(text: message));
   }
 
   /// Send to emergency contacts
@@ -158,7 +158,7 @@ class LiveTrackingService {
     debugPrint('📱 Notifying ${_emergencyContacts.length} emergency contacts');
 
     // For now, just share
-    await Share.share(message);
+    await SharePlus.instance.share(ShareParams(text: message));
   }
 
   /// Watch a live session (for viewers)
@@ -269,7 +269,7 @@ ${additionalMessage ?? 'SOS triggered from MajuRun app.'}
 This is an automated alert.
 ''';
 
-    await Share.share(sosMessage);
+    await SharePlus.instance.share(ShareParams(text: sosMessage));
   }
 
   void dispose() {

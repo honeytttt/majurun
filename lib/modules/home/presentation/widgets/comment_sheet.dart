@@ -88,7 +88,7 @@ class _CommentSheetState extends State<CommentSheet> {
 
   Future<void> _shareCommentExternally(String content, String author) async {
     final String shareText = 'Check out this comment by $author on Majurun: "$content"';
-    await Share.share(shareText, subject: 'Majurun Comment');
+    await SharePlus.instance.share(ShareParams(text: shareText, subject: 'Majurun Comment'));
   }
 
   @override

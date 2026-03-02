@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:majurun/core/constants/firestore_paths.dart';
+import 'package:majurun/core/services/logging_service.dart';
 import 'package:majurun/core/services/user_stats_service.dart';
 import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
@@ -10,8 +11,29 @@ import '../../domain/entities/post.dart';
 
 class PostRepositoryImpl {
   final FirebaseFirestore _db;
+  final _log = LoggingService.instance.withTag('PostRepo');
+
+  // Pagination state
+  static const int _pageSize = 20;
+  DocumentSnapshot? _lastDocument;
+  bool _hasMorePosts = true;
+  final List<AppPost> _cachedPosts = [];
+
   PostRepositoryImpl({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
+
+  /// Check if more posts are available
+  bool get hasMorePosts => _hasMorePosts;
+
+  /// Get cached posts count
+  int get cachedPostsCount => _cachedPosts.length;
+
+  /// Reset pagination state (call on refresh)
+  void resetPagination() {
+    _lastDocument = null;
+    _hasMorePosts = true;
+    _cachedPosts.clear();
+  }
 
   AppPost _mapDocToAppPost(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -67,27 +89,80 @@ class PostRepositoryImpl {
 
   Stream<List<AppPost>> getPostsStream() => getPostStream();
 
+  /// Real-time stream for initial page of posts
   Stream<List<AppPost>> getPostStream() {
-    debugPrint("📰 Fetching posts stream...");
+    _log.d('Fetching posts stream (limit $_pageSize)');
     return _db
-        .collection('posts')
-        .orderBy('createdAt', descending: true)
-        .limit(50) // Pagination: limit initial load
+        .collection(FirestoreCollections.posts)
+        .orderBy(PostFields.createdAt, descending: true)
+        .limit(_pageSize)
         .snapshots()
         .map((snapshot) {
-      debugPrint("📰 Received ${snapshot.docs.length} posts from Firestore");
+      _log.d('Received ${snapshot.docs.length} posts');
       final posts = <AppPost>[];
       for (final doc in snapshot.docs) {
         try {
           posts.add(_mapDocToAppPost(doc));
         } catch (e) {
-          debugPrint("❌ Error mapping post ${doc.id}: $e");
+          _log.w('Error mapping post ${doc.id}', error: e);
         }
       }
-      debugPrint("📰 Successfully mapped ${posts.length} posts");
+
+      // Update pagination state
+      if (snapshot.docs.isNotEmpty) {
+        _lastDocument = snapshot.docs.last;
+        _hasMorePosts = snapshot.docs.length >= _pageSize;
+      }
+      _cachedPosts
+        ..clear()
+        ..addAll(posts);
+
       return posts;
     });
   }
+
+  /// Load more posts for infinite scroll - cursor-based pagination
+  Future<List<AppPost>> loadMorePosts() async {
+    if (!_hasMorePosts || _lastDocument == null) {
+      _log.d('No more posts to load');
+      return [];
+    }
+
+    try {
+      _log.d('Loading more posts after ${_lastDocument!.id}');
+      final snapshot = await _db
+          .collection(FirestoreCollections.posts)
+          .orderBy(PostFields.createdAt, descending: true)
+          .startAfterDocument(_lastDocument!)
+          .limit(_pageSize)
+          .get();
+
+      final newPosts = <AppPost>[];
+      for (final doc in snapshot.docs) {
+        try {
+          newPosts.add(_mapDocToAppPost(doc));
+        } catch (e) {
+          _log.w('Error mapping post ${doc.id}', error: e);
+        }
+      }
+
+      // Update pagination state
+      if (snapshot.docs.isNotEmpty) {
+        _lastDocument = snapshot.docs.last;
+        _cachedPosts.addAll(newPosts);
+      }
+      _hasMorePosts = snapshot.docs.length >= _pageSize;
+
+      _log.d('Loaded ${newPosts.length} more posts, hasMore: $_hasMorePosts');
+      return newPosts;
+    } catch (e) {
+      _log.e('Error loading more posts', error: e);
+      return [];
+    }
+  }
+
+  /// Get all currently cached posts
+  List<AppPost> getCachedPosts() => List.unmodifiable(_cachedPosts);
 
   Future<void> createPost(
     AppPost post, {
@@ -98,25 +173,25 @@ class PostRepositoryImpl {
     bool updateUserStats = true, // new optional (won't break callers)
   }) async {
     try {
-      await _db.collection('posts').doc(post.id).set({
-        'userId': post.userId,
-        'username': post.username,
-        'content': post.content,
-        'distance': numericDistance,
-        'avgBpm': avgBpm,
-        'splits': splits,
-        'type': type,
-        'media': post.media
+      await _db.collection(FirestoreCollections.posts).doc(post.id).set({
+        PostFields.userId: post.userId,
+        PostFields.username: post.username,
+        PostFields.content: post.content,
+        PostFields.distance: numericDistance,
+        PostFields.avgBpm: avgBpm,
+        PostFields.splits: splits,
+        PostFields.type: type,
+        PostFields.media: post.media
             .map((m) => {
                   'url': m.url,
                   'type': m.type == MediaType.video ? 'video' : 'image'
                 })
             .toList(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'likes': [],
-        if (post.quotedPostId != null) 'quotedPostId': post.quotedPostId,
+        PostFields.createdAt: FieldValue.serverTimestamp(),
+        PostFields.likes: [],
+        if (post.quotedPostId != null) PostFields.quotedPostId: post.quotedPostId,
         if (post.routePoints != null)
-          'routePoints': post.routePoints!
+          PostFields.routePoints: post.routePoints!
               .map((p) => {'lat': p.latitude, 'lng': p.longitude})
               .toList(),
       });
@@ -136,57 +211,57 @@ class PostRepositoryImpl {
             posterPhotoUrl: currentUser.photoURL,
             postId: post.id,
           );
-          debugPrint('📬 Notified subscribers of new post');
+          _log.i('Notified subscribers of new post');
         }
       } catch (e) {
-        debugPrint('❌ Error notifying subscribers: $e');
+        _log.w('Error notifying subscribers', error: e);
       }
     } catch (e) {
-      debugPrint("Error creating post: $e");
+      _log.e('Error creating post', error: e);
     }
   }
 
   Future<void> deletePost(String postId) async {
     try {
-      await _db.collection('posts').doc(postId).delete();
+      await _db.collection(FirestoreCollections.posts).doc(postId).delete();
     } catch (e) {
-      debugPrint("Error deleting post: $e");
+      _log.e('Error deleting post', error: e);
     }
   }
 
   Future<AppPost?> getPostById(String postId) async {
     try {
-      final doc = await _db.collection('posts').doc(postId).get();
+      final doc = await _db.collection(FirestoreCollections.posts).doc(postId).get();
       if (!doc.exists) return null;
       return _mapDocToAppPost(doc);
     } catch (e) {
-      debugPrint("Error fetching post: $e");
+      _log.e('Error fetching post', error: e);
       return null;
     }
   }
 
   Future<void> toggleLike(String postId, String userId) async {
-    final docRef = _db.collection('posts').doc(postId);
-    
+    final docRef = _db.collection(FirestoreCollections.posts).doc(postId);
+
     bool wasLiked = false;
     String? postOwnerId;
-    
+
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;
-      
+
       // Get post owner
-      postOwnerId = snapshot.data()?['userId'];
-      
-      List<String> likes = List<String>.from(snapshot.data()?['likes'] ?? []);
+      postOwnerId = snapshot.data()?[PostFields.userId];
+
+      List<String> likes = List<String>.from(snapshot.data()?[PostFields.likes] ?? []);
       wasLiked = likes.contains(userId);
-      
+
       if (wasLiked) {
         likes.remove(userId);
       } else {
         likes.add(userId);
       }
-      transaction.update(docRef, {'likes': likes});
+      transaction.update(docRef, {PostFields.likes: likes});
     });
     
     // ✅ Create like notification (only when liking, not unliking, and not own post)
@@ -203,10 +278,10 @@ class PostRepositoryImpl {
             message: 'liked your post',
             metadata: {'postId': postId},
           );
-          debugPrint('💖 Like notification sent to $postOwnerId');
+          _log.i('Like notification sent to $postOwnerId');
         }
       } catch (e) {
-        debugPrint('❌ Error creating like notification: $e');
+        _log.w('Error creating like notification', error: e);
       }
     }
   }
@@ -218,28 +293,28 @@ class PostRepositoryImpl {
           ? originalPost.quotedPostId!
           : originalPost.id;
 
-      await _db.collection('posts').add({
-        'userId': userId,
-        'username': username,
-        'content': '',
-        'media': [],
-        'createdAt': FieldValue.serverTimestamp(),
-        'likes': [],
-        'quotedPostId': targetId,
+      await _db.collection(FirestoreCollections.posts).add({
+        PostFields.userId: userId,
+        PostFields.username: username,
+        PostFields.content: '',
+        PostFields.media: [],
+        PostFields.createdAt: FieldValue.serverTimestamp(),
+        PostFields.likes: [],
+        PostFields.quotedPostId: targetId,
       });
 
       // NOTE: If you want reposts to count as posts, add incrementPosts(userId) here.
     } catch (e) {
-      debugPrint("Error during reposting: $e");
+      _log.e('Error during reposting', error: e);
     }
   }
 
   Stream<List<Map<String, dynamic>>> getCommentsStream(String postId) {
     return _db
-        .collection('posts')
+        .collection(FirestoreCollections.posts)
         .doc(postId)
-        .collection('comments')
-        .orderBy('createdAt', descending: false)
+        .collection(FirestoreCollections.comments)
+        .orderBy(CommentFields.createdAt, descending: false)
         .snapshots()
         .map((snap) => snap.docs
             .map((doc) => {...doc.data(), 'id': doc.id})
@@ -255,21 +330,21 @@ class PostRepositoryImpl {
     List<Map<String, dynamic>>? media,
   }) async {
     // Add comment
-    await _db.collection('posts').doc(postId).collection('comments').add({
-      'userId': userId,
-      'username': username,
-      'content': content,
-      'parentId': parentId,
-      'media': media ?? [],
-      'likes': [],
-      'createdAt': FieldValue.serverTimestamp(),
+    await _db.collection(FirestoreCollections.posts).doc(postId).collection(FirestoreCollections.comments).add({
+      CommentFields.userId: userId,
+      CommentFields.username: username,
+      CommentFields.content: content,
+      CommentFields.parentId: parentId,
+      CommentFields.media: media ?? [],
+      CommentFields.likes: [],
+      CommentFields.createdAt: FieldValue.serverTimestamp(),
     });
-    
-    // ✅ Create comment notification
+
+    // Create comment notification
     try {
       // Get post owner
-      final postDoc = await _db.collection('posts').doc(postId).get();
-      final postOwnerId = postDoc.data()?['userId'];
+      final postDoc = await _db.collection(FirestoreCollections.posts).doc(postId).get();
+      final postOwnerId = postDoc.data()?[PostFields.userId];
       
       // Only notify if commenting on someone else's post
       if (postOwnerId != null && postOwnerId != userId) {
@@ -283,29 +358,29 @@ class PostRepositoryImpl {
           message: 'commented on your post',
           metadata: {'postId': postId},
         );
-        debugPrint('💬 Comment notification sent to $postOwnerId');
+        _log.i('Comment notification sent to $postOwnerId');
       }
     } catch (e) {
-      debugPrint('❌ Error creating comment notification: $e');
+      _log.w('Error creating comment notification', error: e);
     }
   }
 
   Future<void> toggleCommentLike(String postId, String commentId, String userId) async {
     final docRef = _db
-        .collection('posts')
+        .collection(FirestoreCollections.posts)
         .doc(postId)
-        .collection('comments')
+        .collection(FirestoreCollections.comments)
         .doc(commentId);
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;
-      List<String> likes = List<String>.from(snapshot.data()?['likes'] ?? []);
+      List<String> likes = List<String>.from(snapshot.data()?[CommentFields.likes] ?? []);
       if (likes.contains(userId)) {
         likes.remove(userId);
       } else {
         likes.add(userId);
       }
-      transaction.update(docRef, {'likes': likes});
+      transaction.update(docRef, {CommentFields.likes: likes});
     });
   }
 }
