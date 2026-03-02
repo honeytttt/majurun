@@ -21,6 +21,7 @@ import 'package:majurun/modules/search/presentation/screens/search_screen.dart';
 import 'package:majurun/modules/notifications/presentation/screens/notifications_screen.dart';
 import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/core/theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -42,10 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _profileImageUrl = "";
   String _email = "";
 
-  // Stream subscription for proper disposal
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
-  // Pagination state
   final ScrollController _feedScrollController = ScrollController();
   final List<AppPost> _allPosts = [];
   bool _isLoadingMore = false;
@@ -64,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  /// Pagination scroll listener
   void _onScroll() {
     if (_feedScrollController.position.pixels >=
             _feedScrollController.position.maxScrollExtent - 200 &&
@@ -179,48 +177,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color brandGreen = Color(0xFF00E676);
-    const Color darkBackground = Color(0xFF121218);
-    const Color darkSurface = Color(0xFF1C1C26);
+    final theme = Theme.of(context);
+    final brandGreen = theme.primaryColor;
+    final backgroundColor = theme.scaffoldBackgroundColor;
 
     if (_activeSubPage != null) {
       return Scaffold(
         key: _scaffoldKey,
-        backgroundColor: darkBackground,
+        backgroundColor: backgroundColor,
         body: _activeSubPage,
       );
     }
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: darkBackground,
+      backgroundColor: backgroundColor,
       drawer: TrainingDrawer(
         onSubPageSelected: (Widget? page) => setState(() => _activeSubPage = page),
       ),
       body: IndexedStack(
         index: _selectedIndex,
-        children: [
-          _buildProfessionalHomeFeed(brandGreen),
-          const WorkoutScreen(),
-          const CreatePostScreen(),
-          const EventsScreen(),
-          const RunTrackerScreen(),
+        children: const <Widget>[
+          HomeFeedContent(),
+          WorkoutScreen(),
+          CreatePostScreen(),
+          EventsScreen(),
+          RunTrackerScreen(),
         ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: darkSurface,
-          border: Border(
+          color: Colors.white,
+          border: const Border(
             top: BorderSide(
-              color: brandGreen.withValues(alpha: 0.1),
+              color: AppTheme.silverMedium,
               width: 1,
             ),
           ),
-          boxShadow: [
+          boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
@@ -229,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
+              children: <Widget>[
                 _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', brandGreen),
                 _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen),
                 _buildCenterNavItem(brandGreen),
@@ -245,6 +243,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
     final isSelected = _selectedIndex == index;
+    final textSecondary = AppTheme.textSecondary;
+    
     return Semantics(
       button: true,
       selected: isSelected,
@@ -252,33 +252,33 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         onTap: () => _onItemTapped(index),
         child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? brandGreen.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? selectedIcon : unselectedIcon,
-              color: isSelected ? brandGreen : Colors.white38,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? brandGreen : Colors.white38,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? brandGreen.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                isSelected ? selectedIcon : unselectedIcon,
+                color: isSelected ? brandGreen : textSecondary,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? brandGreen : textSecondary,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -289,96 +289,105 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         onTap: () => _onItemTapped(2),
         child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [brandGreen, brandGreen.withValues(alpha: 0.8)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: brandGreen.withValues(alpha: 0.4),
-              blurRadius: 12,
-              spreadRadius: 0,
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[brandGreen, brandGreen.withValues(alpha: 0.8)],
             ),
-          ],
-        ),
-        child: const Icon(
-          Icons.add_rounded,
-          color: Colors.black,
-          size: 28,
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: brandGreen.withValues(alpha: 0.3),
+                blurRadius: 12,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.add_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
         ),
       ),
-    ),
     );
   }
 
   Widget _buildBranding(Color brandGreen) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.asset(
-        'assets/images/majurun-logo.jpg',
-        height: 48,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          // Fallback to text if image fails
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 4,
-                height: 32,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [brandGreen, brandGreen.withValues(alpha: 0.5)],
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: 120,
+      width: double.infinity,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        child: Image.asset(
+          'assets/images/majurun-logo.jpg',
+          height: 120,
+          width: double.infinity,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "MAJU",
-                    style: TextStyle(
-                      color: brandGreen,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
-                      letterSpacing: 2,
-                      height: 1,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Container(
+                    width: 8,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: <Color>[brandGreen, brandGreen.withValues(alpha: 0.5)],
+                      ),
+                      borderRadius: const BorderRadius.all(Radius.circular(4)),
                     ),
                   ),
-                  const Text(
-                    "RUN",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
-                      letterSpacing: 2,
-                      height: 1,
-                    ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        "MAJU",
+                        style: TextStyle(
+                          color: brandGreen,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 40,
+                          letterSpacing: 3,
+                          height: 1,
+                        ),
+                      ),
+                      const Text(
+                        "RUN",
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 40,
+                          letterSpacing: 3,
+                          height: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildNotificationIcon() {
+  Widget _buildNotificationIcon(BuildContext context) {
     return StreamBuilder<int>(
       stream: _notificationService.getUnreadCountStream(),
       builder: (context, snapshot) {
         final unreadCount = snapshot.data ?? 0;
+        final silverLight = AppTheme.silverLight;
+        final silverMedium = AppTheme.silverMedium;
 
         return Semantics(
           button: true,
@@ -386,72 +395,125 @@ class _HomeScreenState extends State<HomeScreen> {
               ? 'Notifications, $unreadCount unread'
               : 'Notifications',
           child: Stack(
-            children: [
+            children: <Widget>[
               Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A2E),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF2A2A3E),
-                  width: 1,
-                ),
-              ),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white70, size: 22),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
-                  );
-                },
-              ),
-            ),
-            if (unreadCount > 0)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-                    ),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF0A0A0F), width: 2),
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  child: Text(
-                    unreadCount > 99 ? '99+' : unreadCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: silverLight,
+                  borderRadius: const BorderRadius.all(Radius.circular(14)),
+                  border: Border.all(
+                    color: silverMedium,
+                    width: 1,
                   ),
                 ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.textSecondary, size: 24),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                    );
+                  },
+                ),
               ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: <Color>[Color(0xFFEF4444), Color(0xFFDC2626)],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
             ],
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildProfessionalHomeFeed(Color brandGreen) {
-    const Color darkBackground = Color(0xFF121218);
-    const Color darkSurface = Color(0xFF1C1C26);
+class HomeFeedContent extends StatefulWidget {
+  const HomeFeedContent({super.key});
+
+  @override
+  State<HomeFeedContent> createState() => _HomeFeedContentState();
+}
+
+class _HomeFeedContentState extends State<HomeFeedContent> {
+  final PostRepositoryImpl _postRepo = PostRepositoryImpl();
+  final ScrollController _feedScrollController = ScrollController();
+  final List<AppPost> _allPosts = [];
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _feedScrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _feedScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_feedScrollController.position.pixels >=
+            _feedScrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _postRepo.hasMorePosts) {
+      _loadMorePosts();
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+
+    final morePosts = await _postRepo.loadMorePosts();
+    if (morePosts.isNotEmpty && mounted) {
+      setState(() {
+        _allPosts.addAll(morePosts);
+        _isLoadingMore = false;
+      });
+    } else {
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final brandGreen = theme.primaryColor;
+    final backgroundColor = theme.scaffoldBackgroundColor;
+    final silverLight = AppTheme.silverLight;
+    final silverMedium = AppTheme.silverMedium;
 
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostsStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && _allPosts.isEmpty) {
           return Center(
             child: CircularProgressIndicator(
               color: brandGreen,
@@ -463,12 +525,12 @@ class _HomeScreenState extends State<HomeScreen> {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+              children: <Widget>[
                 Icon(Icons.error_outline, size: 48, color: brandGreen),
                 const SizedBox(height: 16),
                 Text(
                   "Error: ${snapshot.error}",
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: AppTheme.textSecondary),
                 ),
               ],
             ),
@@ -477,7 +539,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final posts = snapshot.data ?? [];
 
-        // Update cached posts from stream
         if (posts.isNotEmpty && _allPosts.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -489,16 +550,16 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
 
-        // Use _allPosts which includes paginated results
         final displayPosts = _allPosts.isNotEmpty ? _allPosts : posts;
 
         return RefreshIndicator(
           color: brandGreen,
-          backgroundColor: darkSurface,
+          backgroundColor: Colors.white,
           onRefresh: () async {
             _postRepo.resetPagination();
-            _allPosts.clear();
-            setState(() {});
+            setState(() {
+              _allPosts.clear();
+            });
             await Future.delayed(const Duration(milliseconds: 300));
           },
           child: CustomScrollView(
@@ -506,35 +567,43 @@ class _HomeScreenState extends State<HomeScreen> {
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
-            slivers: [
+            slivers: <Widget>[
               SliverAppBar(
                 floating: true,
                 snap: true,
                 pinned: false,
                 elevation: 0,
-                toolbarHeight: 80,
-                backgroundColor: darkBackground,
+                toolbarHeight: 140,
+                backgroundColor: backgroundColor,
                 surfaceTintColor: Colors.transparent,
                 centerTitle: true,
-                leadingWidth: 80,
-                leading: AppBarLeading(onProfilePressed: _showProfile),
-                title: _buildBranding(brandGreen),
-                actions: [
+                leadingWidth: 100,
+                leading: AppBarLeading(
+                  onProfilePressed: () {
+                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                    homeState?._showProfile();
+                  },
+                ),
+                title: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: _buildBranding(brandGreen),
+                ),
+                actions: <Widget>[
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
-                      color: darkSurface,
-                      borderRadius: BorderRadius.circular(12),
+                      color: silverLight,
+                      borderRadius: const BorderRadius.all(Radius.circular(14)),
                       border: Border.all(
-                        color: const Color(0xFF2A2A3E),
+                        color: silverMedium,
                         width: 1,
                       ),
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.search_rounded, color: Colors.white70, size: 22),
+                      icon: const Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 24),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -543,8 +612,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                   ),
-                  _buildNotificationIcon(),
-                  const SizedBox(width: 16),
+                  _buildNotificationIcon(context),
+                  const SizedBox(width: 20),
                 ],
               ),
               displayPosts.isEmpty
@@ -552,16 +621,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
+                          children: <Widget>[
                             Container(
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
-                                color: darkSurface,
-                                borderRadius: BorderRadius.circular(24),
+                                color: Colors.white,
+                                borderRadius: const BorderRadius.all(Radius.circular(24)),
                                 border: Border.all(
-                                  color: const Color(0xFF2A2A3E),
+                                  color: silverMedium,
                                   width: 1,
                                 ),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 10,
+                                    spreadRadius: 0,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: Icon(
                                 Icons.feed_outlined,
@@ -575,15 +652,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
+                            const Text(
                               'Be the first to share your run!',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ],
@@ -593,23 +670,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          // Show loading indicator as last item
                           if (index == displayPosts.length) {
                             return _isLoadingMore
-                                ? Padding(
-                                    padding: const EdgeInsets.all(16),
+                                ? const Padding(
+                                    padding: EdgeInsets.all(16),
                                     child: Center(
                                       child: CircularProgressIndicator(
-                                        color: brandGreen,
                                         strokeWidth: 2,
                                       ),
                                     ),
                                   )
                                 : const SizedBox.shrink();
                           }
-                          return FeedItemWrapper(
-                            key: ValueKey(displayPosts[index].id),
-                            post: displayPosts[index],
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: FeedItemWrapper(
+                              key: ValueKey(displayPosts[index].id),
+                              post: displayPosts[index],
+                            ),
                           );
                         },
                         childCount: displayPosts.length + (_postRepo.hasMorePosts ? 1 : 0),
@@ -624,11 +702,148 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
+  Widget _buildBranding(Color brandGreen) {
+    return SizedBox(
+      height: 120,
+      width: double.infinity,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        child: Image.asset(
+          'assets/images/majurun-logo.jpg',
+          height: 120,
+          width: double.infinity,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Container(
+                    width: 8,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: <Color>[brandGreen, brandGreen.withValues(alpha: 0.5)],
+                      ),
+                      borderRadius: const BorderRadius.all(Radius.circular(4)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        "MAJU",
+                        style: TextStyle(
+                          color: brandGreen,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 40,
+                          letterSpacing: 3,
+                          height: 1,
+                        ),
+                      ),
+                      const Text(
+                        "RUN",
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 40,
+                          letterSpacing: 3,
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationIcon(BuildContext context) {
+    final notificationService = NotificationService();
+    
+    return StreamBuilder<int>(
+      stream: notificationService.getUnreadCountStream(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return Semantics(
+          button: true,
+          label: unreadCount > 0
+              ? 'Notifications, $unreadCount unread'
+              : 'Notifications',
+          child: Stack(
+            children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.silverLight,
+                  borderRadius: const BorderRadius.all(Radius.circular(14)),
+                  border: Border.all(
+                    color: AppTheme.silverMedium,
+                    width: 1,
+                  ),
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.textSecondary, size: 24),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                    );
+                  },
+                ),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: <Color>[Color(0xFFEF4444), Color(0xFFDC2626)],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class RunHistoryScreenWrapper extends StatelessWidget {
   final VoidCallback onBack;
   const RunHistoryScreenWrapper({super.key, required this.onBack});
+  
   @override
   Widget build(BuildContext context) {
     return RunHistoryScreen(onBack: onBack);
