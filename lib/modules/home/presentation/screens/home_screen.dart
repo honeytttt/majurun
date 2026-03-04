@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
   final StorageService _storageService = StorageService();
-  final NotificationService _notificationService = NotificationService();
 
   String _userName = "Loading...";
   String _userBio = "Loading...";
@@ -179,19 +178,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brandGreen = theme.primaryColor;
-    final backgroundColor = theme.scaffoldBackgroundColor;
 
     if (_activeSubPage != null) {
       return Scaffold(
         key: _scaffoldKey,
-        backgroundColor: backgroundColor,
+        backgroundColor: Colors.white,
         body: _activeSubPage,
       );
     }
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: backgroundColor,
+      backgroundColor: Colors.white,
       drawer: TrainingDrawer(
         onSubPageSelected: (Widget? page) => setState(() => _activeSubPage = page),
       ),
@@ -243,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
     final isSelected = _selectedIndex == index;
-    final textSecondary = AppTheme.textSecondary;
+    const textSecondary = AppTheme.textSecondary;
     
     return Semantics(
       button: true,
@@ -282,6 +280,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Removed unused _buildBranding and _buildNotificationIcon methods
+  // They are now only in _HomeFeedContentState
+
   Widget _buildCenterNavItem(Color brandGreen) {
     return Semantics(
       button: true,
@@ -316,141 +317,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBranding(Color brandGreen) {
-    return SizedBox(
-      height: 120,
-      width: double.infinity,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
-        child: Image.asset(
-          'assets/images/majurun-logo.jpg',
-          height: 120,
-          width: double.infinity,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Container(
-                    width: 8,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: <Color>[brandGreen, brandGreen.withValues(alpha: 0.5)],
-                      ),
-                      borderRadius: const BorderRadius.all(Radius.circular(4)),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        "MAJU",
-                        style: TextStyle(
-                          color: brandGreen,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 40,
-                          letterSpacing: 3,
-                          height: 1,
-                        ),
-                      ),
-                      const Text(
-                        "RUN",
-                        style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 40,
-                          letterSpacing: 3,
-                          height: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotificationIcon(BuildContext context) {
-    return StreamBuilder<int>(
-      stream: _notificationService.getUnreadCountStream(),
-      builder: (context, snapshot) {
-        final unreadCount = snapshot.data ?? 0;
-        final silverLight = AppTheme.silverLight;
-        final silverMedium = AppTheme.silverMedium;
-
-        return Semantics(
-          button: true,
-          label: unreadCount > 0
-              ? 'Notifications, $unreadCount unread'
-              : 'Notifications',
-          child: Stack(
-            children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: silverLight,
-                  borderRadius: const BorderRadius.all(Radius.circular(14)),
-                  border: Border.all(
-                    color: silverMedium,
-                    width: 1,
-                  ),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.textSecondary, size: 24),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
-                    );
-                  },
-                ),
-              ),
-              if (unreadCount > 0)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: <Color>[Color(0xFFEF4444), Color(0xFFDC2626)],
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 20,
-                      minHeight: 20,
-                    ),
-                    child: Text(
-                      unreadCount > 99 ? '99+' : unreadCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 class HomeFeedContent extends StatefulWidget {
@@ -506,9 +372,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brandGreen = theme.primaryColor;
-    final backgroundColor = theme.scaffoldBackgroundColor;
-    final silverLight = AppTheme.silverLight;
-    final silverMedium = AppTheme.silverMedium;
+    const silverLight = AppTheme.silverLight;
+    const silverMedium = AppTheme.silverMedium;
 
     return StreamBuilder<List<AppPost>>(
       stream: _postRepo.getPostsStream(),
@@ -573,8 +438,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                 snap: true,
                 pinned: false,
                 elevation: 0,
-                toolbarHeight: 140,
-                backgroundColor: backgroundColor,
+                toolbarHeight: 90,
+                backgroundColor: Colors.white,
                 surfaceTintColor: Colors.transparent,
                 centerTitle: true,
                 leadingWidth: 100,
@@ -615,6 +480,13 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   _buildNotificationIcon(context),
                   const SizedBox(width: 20),
                 ],
+              ),
+              // Thin silver line below app bar
+              SliverToBoxAdapter(
+                child: Container(
+                  height: 1,
+                  color: silverMedium,
+                ),
               ),
               displayPosts.isEmpty
                   ? SliverFillRemaining(
@@ -682,8 +554,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                                   )
                                 : const SizedBox.shrink();
                           }
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          // No padding around posts - full width
+                          return Container(
+                            color: Colors.white, // Force white background
                             child: FeedItemWrapper(
                               key: ValueKey(displayPosts[index].id),
                               post: displayPosts[index],
@@ -705,13 +578,13 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
   Widget _buildBranding(Color brandGreen) {
     return SizedBox(
-      height: 120,
+      height: 70,
       width: double.infinity,
       child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
         child: Image.asset(
           'assets/images/majurun-logo.jpg',
-          height: 120,
+          height: 70,
           width: double.infinity,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
@@ -721,18 +594,18 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   Container(
-                    width: 8,
-                    height: 64,
+                    width: 6,
+                    height: 48,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: <Color>[brandGreen, brandGreen.withValues(alpha: 0.5)],
                       ),
-                      borderRadius: const BorderRadius.all(Radius.circular(4)),
+                      borderRadius: const BorderRadius.all(Radius.circular(3)),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -742,8 +615,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         style: TextStyle(
                           color: brandGreen,
                           fontWeight: FontWeight.w900,
-                          fontSize: 40,
-                          letterSpacing: 3,
+                          fontSize: 28,
+                          letterSpacing: 2,
                           height: 1,
                         ),
                       ),
@@ -752,8 +625,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w900,
-                          fontSize: 40,
-                          letterSpacing: 3,
+                          fontSize: 28,
+                          letterSpacing: 2,
                           height: 1,
                         ),
                       ),

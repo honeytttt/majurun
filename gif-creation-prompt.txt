@@ -1,0 +1,329 @@
+  Workout GIF Prompts for OpenArt.ai
+
+  Here are professional, reusable prompts with character consistency. I've organized them to maximize reuse while maintaining variety:
+
+  BASE CHARACTER DEFINITION (Use for all prompts)
+
+  The SAME athletic adult [GENDER] fitness model with dark hair tied back in a ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted
+  neutral grey athletic t-shirt, grey athletic shorts, and white training shoes.
+
+  ENVIRONMENT TEMPLATES
+
+  Studio (Indoor):
+  The model stands on a flat light grey studio floor. Soft even studio lighting from above, no shadows, no reflections, no floor shine. Static front-facing camera, centered
+   vertical composition, full body completely visible from head to toe with extra space above head and below feet.
+
+  Outdoor (Park):
+  The model stands on a flat grass surface in an open park setting with blurred green trees in the background. Natural daylight, soft outdoor lighting. Static front-facing
+  camera, centered vertical composition, full body completely visible.
+
+  Meditation/Yoga:
+  The model sits/stands on a clean yoga mat on a minimalist wooden floor. Warm soft ambient lighting, calming atmosphere. Static front-facing camera, centered composition,
+  full body visible.
+
+  ---
+  WORKOUT PROMPTS BY CATEGORY
+
+  STRENGTH (8 prompts - ~800 credits)
+
+  1. Squats
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing bodyweight squats. The female model has dark hair tied back in a ponytail, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model
+  stands on a flat light grey studio floor. Soft even studio lighting from above, no shadows, no reflections. Static front-facing camera, centered vertical composition,
+  full body completely visible from head to toe with extra space above and below. Realistic professional exercise form, feet shoulder-width apart, lowering into squat
+  position with chest up, then returning to standing. The animation begins and ends at the exact same neutral standing pose. No flickering, no flash, no lighting changes
+  between frames. No text, no branding, no logos, no camera movement. Minimalist premium fitness app style. 720p. Smooth seamless loop. Seamless perfect looping motion with
+   identical first and last frame.
+
+  2. Push-ups
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing push-ups. The male model has short dark hair, clean natural face, lean muscular
+  build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model on a flat light grey studio
+  floor. Soft even studio lighting from above, no shadows. Static side-angle camera, centered horizontal composition, full body completely visible. Realistic professional
+  exercise form, plank position, lowering chest to floor, pressing back up. The animation begins and ends at the top push-up position. No flickering, no flash, no lighting
+  changes. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop with identical first and last frame.
+
+  3. Lunges
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing alternating forward lunges. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes.
+   The model stands on a flat light grey studio floor. Soft even studio lighting from above. Static front-facing camera, centered vertical composition, full body visible.
+  Realistic professional exercise form, stepping forward into lunge, returning to standing, alternating legs. The animation begins and ends at neutral standing pose. No
+  flickering, no flash. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  4. Dumbbell Bicep Curls
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing dumbbell bicep curls. The male model has short dark hair, clean natural face, lean
+  muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, white training shoes, holding small grey dumbbells. The
+  model stands on a flat light grey studio floor. Soft even studio lighting. Static front-facing camera, centered composition, full body visible. Realistic professional
+  exercise form, alternating arm curls with controlled motion. Animation begins and ends at arms down position. No flickering, no flash. No text, no branding. Minimalist
+  premium fitness app style. 720p. Smooth seamless loop.
+
+  5. Plank Hold (slight movement)
+  A seamless 3D animation loop of the SAME athletic adult female fitness model holding a plank position with slight breathing movement. The female model has dark hair tied
+  back in a ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white
+  training shoes. The model on a flat light grey studio floor. Soft even studio lighting. Static side-angle camera, horizontal composition, full body visible. Realistic
+  professional exercise form, forearm plank position, subtle breathing movement in torso. No flickering, no flash. No text, no branding. Minimalist premium fitness app
+  style. 720p. Smooth seamless loop.
+
+  6. Deadlift
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing Romanian deadlifts with dumbbells. The male model has short dark hair, clean natural
+   face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, white training shoes, holding grey dumbbells.
+  The model stands on a flat light grey studio floor. Soft even studio lighting. Static side-angle camera, full body visible. Realistic professional exercise form, hinging
+  at hips, lowering dumbbells along legs, returning to standing. Animation begins and ends at standing position. No flickering. No text, no branding. Minimalist premium
+  fitness app style. 720p. Smooth seamless loop.
+
+  7. Shoulder Press
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing overhead shoulder press with dumbbells. The female model has dark hair tied back
+  in a ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, white training
+  shoes, holding small grey dumbbells. The model stands on a flat light grey studio floor. Soft even studio lighting. Static front-facing camera, full body visible.
+  Realistic professional exercise form, pressing dumbbells overhead, lowering to shoulders. Animation begins and ends at shoulder level. No flickering. No text, no
+  branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  8. Tricep Dips
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing tricep dips on a bench. The male model has short dark hair, clean natural face, lean
+   muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, white training shoes. The model on a grey minimalist bench.
+   Soft even studio lighting. Static side-angle camera, full body visible. Realistic professional exercise form, lowering body by bending elbows, pressing back up.
+  Animation begins and ends at top position. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  ---
+  YOGA (6 prompts - ~600 credits)
+
+  1. Sun Salutation Flow
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing a slow sun salutation flow. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted muted sage green yoga top, grey yoga leggings, barefoot. The model stands on a
+   clean yoga mat on a minimalist light wooden floor. Warm soft ambient lighting, calming atmosphere. Static front-facing camera, centered composition, full body visible.
+  Graceful flowing motion through mountain pose to forward fold to halfway lift to forward fold to mountain pose. Animation begins and ends at mountain pose. No flickering,
+   no flash. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  2. Warrior I to Warrior II Flow
+  A seamless 3D animation loop of the SAME athletic adult female fitness model flowing between Warrior I and Warrior II poses. The female model has dark hair tied back in a
+   ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted muted sage green yoga top, grey yoga leggings, barefoot. The model on a clean
+   yoga mat on a minimalist light wooden floor. Warm soft ambient lighting. Static front-facing camera, full body visible. Graceful transition between warrior poses with
+  controlled breathing rhythm. Animation begins and ends at Warrior I. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless
+  loop.
+
+  3. Tree Pose Balance
+  A seamless 3D animation loop of the SAME athletic adult female fitness model holding tree pose with gentle swaying movement. The female model has dark hair tied back in a
+   ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted muted sage green yoga top, grey yoga leggings, barefoot. The model on a clean
+   yoga mat on a minimalist light wooden floor. Warm soft ambient lighting. Static front-facing camera, full body visible. Balancing on one leg, arms raised overhead in
+  prayer position, subtle natural balance adjustments. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  4. Cat-Cow Stretch
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing cat-cow stretches on hands and knees. The female model has dark hair tied back in
+  a ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted muted sage green yoga top, grey yoga leggings, barefoot. The model on a
+  clean yoga mat on a minimalist light wooden floor. Warm soft ambient lighting. Static side-angle camera, full body visible. Slow alternating between arching back (cow)
+  and rounding spine (cat). Animation begins and ends at neutral tabletop. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless
+   loop.
+
+  5. Downward Dog to Cobra Flow
+  A seamless 3D animation loop of the SAME athletic adult female fitness model flowing between downward dog and cobra pose. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted muted sage green yoga top, grey yoga leggings, barefoot. The model on a clean
+  yoga mat on a minimalist light wooden floor. Warm soft ambient lighting. Static side-angle camera, full body visible. Flowing through plank to lower to cobra to push back
+   to downward dog. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  6. Seated Forward Fold
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing seated forward fold with gentle breathing movement. The female model has dark hair
+   tied back in a ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted muted sage green yoga top, grey yoga leggings, barefoot. The
+  model seated on a clean yoga mat on a minimalist light wooden floor. Warm soft ambient lighting. Static side-angle camera, full body visible. Slowly folding forward over
+  extended legs, gently releasing and deepening with breath. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  ---
+  HIIT (8 prompts - ~800 credits)
+
+  1. Butt Kicks (your reference)
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing butt kicks. The female model has dark hair tied back in a ponytail, clean natural
+  face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model stands on a
+  flat light grey studio floor. Soft even studio lighting from above, no shadows, no reflections, no floor shine. Static front-facing camera, centered vertical composition,
+   full body completely visible from head to toe with extra space above head and below feet. Realistic professional exercise form, steady upright torso, alternating knees
+  lifting to hip height. The animation begins and ends at the exact same neutral standing pose mid-stride. No flickering, no flash, no lighting changes between frames. No
+  text, no branding, no logos, no camera movement. Minimalist premium fitness app style. 720p. Smooth seamless loop. Seamless perfect looping motion with identical first
+  and last frame.
+
+  2. High Knees
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing high knees. The male model has short dark hair, clean natural face, lean muscular
+  build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model stands on a flat light grey
+  studio floor. Soft even studio lighting from above, no shadows. Static front-facing camera, centered vertical composition, full body completely visible. Realistic
+  professional exercise form, running in place with knees driving high to hip level, pumping arms. Animation begins and ends mid-stride. No flickering, no flash. No text,
+  no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  3. Jumping Jacks
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing jumping jacks. The female model has dark hair tied back in a ponytail, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model
+  stands on a flat light grey studio floor. Soft even studio lighting. Static front-facing camera, centered composition, full body visible. Realistic professional exercise
+  form, jumping from feet together arms down to feet apart arms overhead. Animation begins and ends at neutral standing. No flickering. No text, no branding. Minimalist
+  premium fitness app style. 720p. Smooth seamless loop.
+
+  4. Burpees
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing burpees. The male model has short dark hair, clean natural face, lean muscular
+  build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model on a flat light grey studio
+  floor. Soft even studio lighting. Static side-angle camera, full body visible. Realistic professional exercise form, standing to squat to plank to push-up to jump to
+  standing. Animation begins and ends at standing position. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  5. Mountain Climbers
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing mountain climbers. The female model has dark hair tied back in a ponytail, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model on a
+  flat light grey studio floor. Soft even studio lighting. Static side-angle camera, full body visible. Realistic professional exercise form, plank position alternating
+  driving knees toward chest rapidly. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  6. Squat Jumps
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing squat jumps. The male model has short dark hair, clean natural face, lean muscular
+  build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model stands on a flat light grey
+  studio floor. Soft even studio lighting. Static front-facing camera, full body visible. Realistic professional exercise form, squatting down then explosively jumping up
+  with arms reaching overhead. Animation begins and ends at standing. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  7. Lateral Shuffles
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing lateral shuffles. The female model has dark hair tied back in a ponytail, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model
+  stands on a flat light grey studio floor. Soft even studio lighting. Static front-facing camera, full body visible. Realistic professional exercise form, athletic stance
+  shuffling side to side with quick feet. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  8. Tuck Jumps
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing tuck jumps. The male model has short dark hair, clean natural face, lean muscular
+  build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model stands on a flat light grey
+  studio floor. Soft even studio lighting. Static front-facing camera, full body visible. Realistic professional exercise form, jumping and tucking knees to chest mid-air,
+  landing softly. Animation begins and ends at standing. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  ---
+  MEDITATION (4 prompts - ~400 credits)
+
+  1. Seated Breathing
+  A seamless 3D animation loop of the SAME athletic adult female fitness model in seated meditation with gentle breathing movement. The female model has dark hair tied back
+   in a ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted soft cream colored meditation top, grey comfortable pants, barefoot. The
+   model sits cross-legged on a cushion on a minimalist light wooden floor. Warm soft ambient lighting with subtle warm glow. Static front-facing camera, centered
+  composition, full body visible. Eyes closed, hands resting on knees, subtle rise and fall of chest with deep breathing. Animation seamlessly loops breathing rhythm. No
+  flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  2. Standing Body Scan
+  A seamless 3D animation loop of the SAME athletic adult male fitness model in standing meditation with arms gently raised at sides. The male model has short dark hair,
+  clean natural face, lean muscular build, warm natural skin tone, wearing a fitted soft cream colored top, grey comfortable pants, barefoot. The model stands on a
+  minimalist light wooden floor. Warm soft ambient lighting. Static front-facing camera, full body visible. Eyes closed, arms slowly raising and lowering with breath,
+  subtle body sway. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  3. Lying Relaxation
+  A seamless 3D animation loop of the SAME athletic adult female fitness model in savasana corpse pose with gentle breathing. The female model has dark hair loose, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted soft cream colored top, grey comfortable pants, barefoot. The model lies on a clean yoga mat
+  on a minimalist light wooden floor. Warm soft ambient lighting. Static overhead-angle camera, full body visible. Eyes closed, arms at sides, palms up, subtle chest rise
+  and fall with breathing. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  4. Gratitude Pose
+  A seamless 3D animation loop of the SAME athletic adult female fitness model in seated position with hands at heart center. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted soft cream colored meditation top, grey comfortable pants, barefoot. The model
+   sits cross-legged on a minimalist light wooden floor. Warm soft ambient lighting. Static front-facing camera, full body visible. Eyes closed, palms pressed together at
+  chest, subtle breathing movement. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium wellness app style. 720p. Smooth seamless loop.
+
+  ---
+  OUTDOORS (6 prompts - ~600 credits)
+
+  1. Outdoor Running
+  A seamless 3D animation loop of the SAME athletic adult male fitness model running in place outdoors. The male model has short dark hair, clean natural face, lean
+  muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model stands on a flat grass
+  surface in an open park setting with blurred green trees in the background. Natural daylight, soft outdoor lighting. Static front-facing camera, centered composition,
+  full body visible. Realistic running form in place, pumping arms and lifting knees. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium
+  fitness app style. 720p. Smooth seamless loop.
+
+  2. Outdoor Lunges
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing walking lunges outdoors. The female model has dark hair tied back in a ponytail,
+  clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic leggings, and white training shoes. The
+  model on a flat park path with blurred green nature in background. Natural daylight. Static side-angle camera, full body visible. Realistic professional exercise form,
+  stepping forward into deep lunges. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  3. Park Bench Step-Ups
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing step-ups on a park bench outdoors. The male model has short dark hair, clean natural
+   face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model stepping on
+  a wooden park bench with blurred green trees in background. Natural daylight. Static side-angle camera, full body visible. Alternating legs stepping up and down.
+  Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  4. Outdoor Sprints (running in place dynamically)
+  A seamless 3D animation loop of the SAME athletic adult female fitness model sprinting in place outdoors with high energy. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes.
+   The model on a flat grass surface in a park with blurred nature background. Natural daylight. Static front-facing camera, full body visible. Explosive running motion in
+  place, high knees, pumping arms. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  5. Hill Climber Simulation
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing incline running motion on slight hill. The male model has short dark hair, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model on a
+  slight grass incline outdoors with blurred park in background. Natural daylight. Static side-angle camera, full body visible. Leaning forward, driving knees high in
+  climbing motion. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  6. Outdoor Cool Down Stretch
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing standing quad stretch outdoors. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic leggings, and white training
+  shoes. The model stands on grass in park with blurred trees in background. Natural daylight. Static front-facing camera, full body visible. Alternating pulling foot to
+  glutes in standing quad stretch. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  ---
+  INDOORS (6 prompts - ~600 credits)
+
+  1. Treadmill Running
+  A seamless 3D animation loop of the SAME athletic adult male fitness model running on a minimalist grey treadmill. The male model has short dark hair, clean natural face,
+   lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model in a clean
+  minimalist gym setting with light grey walls. Soft even indoor lighting. Static side-angle camera, full body visible. Realistic running form on treadmill. Animation
+  seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  2. Stationary Bike
+  A seamless 3D animation loop of the SAME athletic adult female fitness model cycling on a minimalist stationary bike. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic leggings, and white training
+  shoes. The model in a clean minimalist gym setting. Soft even indoor lighting. Static side-angle camera, full body visible. Realistic cycling motion with pedaling legs.
+  Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  3. Rowing Machine
+  A seamless 3D animation loop of the SAME athletic adult male fitness model rowing on a minimalist rowing machine. The male model has short dark hair, clean natural face,
+  lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes. The model in a clean
+  minimalist gym setting. Soft even indoor lighting. Static side-angle camera, full body visible. Realistic rowing motion, driving with legs, pulling handle to chest.
+  Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  4. Battle Ropes
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing battle rope waves. The female model has dark hair tied back in a ponytail, clean
+  natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes, holding thick
+  grey battle ropes. The model in a clean minimalist gym setting. Soft even indoor lighting. Static front-facing camera, full body visible. Creating alternating waves with
+  ropes in athletic stance. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  5. Kettlebell Swings
+  A seamless 3D animation loop of the SAME athletic adult male fitness model performing kettlebell swings. The male model has short dark hair, clean natural face, lean
+  muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes, holding a grey kettlebell. The
+  model in a clean minimalist gym setting. Soft even indoor lighting. Static side-angle camera, full body visible. Hip hinge swinging kettlebell between legs to chest
+  height. Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  6. Box Jumps
+  A seamless 3D animation loop of the SAME athletic adult female fitness model performing box jumps onto a grey plyo box. The female model has dark hair tied back in a
+  ponytail, clean natural face, lean muscular build, warm natural skin tone, wearing a fitted neutral grey athletic t-shirt, grey athletic shorts, and white training shoes.
+   The model in a clean minimalist gym setting. Soft even indoor lighting. Static side-angle camera, full body visible. Explosive jump onto box, stepping down, resetting.
+  Animation seamlessly loops. No flickering. No text, no branding. Minimalist premium fitness app style. 720p. Smooth seamless loop.
+
+  ---
+  CREDIT ESTIMATION SUMMARY
+  ┌────────────┬───────┬──────────────┐
+  │  Category  │ Count │ Est. Credits │
+  ├────────────┼───────┼──────────────┤
+  │ Strength   │ 8     │ ~800         │
+  ├────────────┼───────┼──────────────┤
+  │ Yoga       │ 6     │ ~600         │
+  ├────────────┼───────┼──────────────┤
+  │ HIIT       │ 8     │ ~800         │
+  ├────────────┼───────┼──────────────┤
+  │ Meditation │ 4     │ ~400         │
+  ├────────────┼───────┼──────────────┤
+  │ Outdoors   │ 6     │ ~600         │
+  ├────────────┼───────┼──────────────┤
+  │ Indoors    │ 6     │ ~600         │
+  ├────────────┼───────┼──────────────┤
+  │ TOTAL      │ 38    │ ~3,800       │
+  └────────────┴───────┴──────────────┘
+  You have 10,215 credits - this leaves ~6,400 credits for:
+  - Re-generations if needed
+  - Additional variations
+  - PRO-specific workouts
+
+  REUSABILITY TIPS
+
+  1. Same character across categories - Female model in grey for most, male for variety
+  2. Yoga/Meditation share sage green wardrobe - Visual consistency for calming exercises
+  3. HIIT/Strength share grey studio environment - Unified look
+  4. Outdoor exercises share park setting - Consistent location
+  5. Indoor exercises share gym setting - Unified gym aesthetic
+
+✻ Churned for 5m 46s
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ accept edits on (shift+tab to cycle) · 4 files +90 -210                                                    Update available! Run: winget upgrade Anthropic.ClaudeCode
+

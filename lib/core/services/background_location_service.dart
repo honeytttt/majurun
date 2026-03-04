@@ -106,6 +106,7 @@ class BackgroundLocationService {
   final KalmanFilter _kalmanFilter = KalmanFilter();
 
   FilteredPosition? _lastPosition;
+  Position? _lastRawPosition; // Track raw position for accurate distance calculation
   double _totalDistance = 0;
   int _stationarySeconds = 0;
   bool _isTracking = false;
@@ -192,6 +193,7 @@ class BackgroundLocationService {
     _stationarySeconds = 0;
     _routePoints.clear();
     _lastPosition = null;
+    _lastRawPosition = null;
     _kalmanFilter.reset();
     _discardedReadings = 0;
     _totalReadings = 0;
@@ -212,6 +214,7 @@ class BackgroundLocationService {
       _routePoints.add(_lastPosition!);
       onGpsQualityChanged?.call(_lastPosition!.quality);
 
+      _lastRawPosition = initialPosition; // Store raw position for distance calculation
       debugPrint('✅ Initial position: ${initialPosition.latitude}, ${initialPosition.longitude} (accuracy: ${initialPosition.accuracy}m)');
     } catch (e) {
       onError?.call('Failed to get initial GPS position. Please ensure GPS is enabled.');
@@ -311,24 +314,25 @@ class BackgroundLocationService {
       return;
     }
 
-    // Calculate distance from last position
-    if (_lastPosition != null) {
-      final distance = Geolocator.distanceBetween(
-        _lastPosition!.latitude,
-        _lastPosition!.longitude,
-        filteredPosition.latitude,
-        filteredPosition.longitude,
+    // Calculate distance from last RAW position (not filtered) for accurate distance
+    // Kalman filtering causes path shortening which underreports actual distance
+    if (_lastRawPosition != null) {
+      final rawDistance = Geolocator.distanceBetween(
+        _lastRawPosition!.latitude,
+        _lastRawPosition!.longitude,
+        position.latitude,
+        position.longitude,
       );
 
-      // Check for GPS jump
-      if (distance > _gpsJumpThreshold) {
+      // Check for GPS jump using raw positions
+      if (rawDistance > _gpsJumpThreshold) {
         _discardedReadings++;
-        debugPrint('⚠️ GPS jump detected: ${distance.toStringAsFixed(1)}m - discarding');
+        debugPrint('⚠️ GPS jump detected: ${rawDistance.toStringAsFixed(1)}m - discarding');
         return;
       }
 
-      // Check for stationary state (auto-pause)
-      if (position.speed < _stationaryThreshold && distance < 2) {
+      // Check for stationary state (auto-pause) using raw distance
+      if (position.speed < _stationaryThreshold && rawDistance < 2) {
         _stationarySeconds++;
         if (_stationarySeconds >= _stationaryTimeThreshold && !_autoPaused) {
           _autoPaused = true;
@@ -344,11 +348,14 @@ class BackgroundLocationService {
         _stationarySeconds = 0;
       }
 
-      // Only add distance if not auto-paused
+      // Only add distance if not auto-paused - use RAW distance for accuracy
       if (!_autoPaused) {
-        _totalDistance += distance;
+        _totalDistance += rawDistance;
       }
     }
+
+    // Update raw position for next distance calculation
+    _lastRawPosition = position;
 
     // Memory management: compress old route points if getting too large
     if (_routePoints.length >= _maxRoutePointsInMemory) {
@@ -362,10 +369,10 @@ class BackgroundLocationService {
     _positionController.add(filteredPosition);
     onPositionUpdate?.call(filteredPosition, _totalDistance);
 
-    debugPrint('📍 Position: ${filteredLat.toStringAsFixed(6)}, ${filteredLng.toStringAsFixed(6)} | '
-        'Accuracy: ${position.accuracy.toStringAsFixed(1)}m | '
-        'Speed: ${position.speed.toStringAsFixed(1)}m/s | '
-        'Total: ${(_totalDistance/1000).toStringAsFixed(2)}km');
+    debugPrint('📍 Pos: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} | '
+        'Acc: ${position.accuracy.toStringAsFixed(1)}m | '
+        'Spd: ${(position.speed * 3.6).toStringAsFixed(1)}km/h | '
+        'Dist: ${(_totalDistance/1000).toStringAsFixed(3)}km');
   }
 
   void _handleStreamError(dynamic error) {

@@ -1,5 +1,6 @@
 // Run with: dart run scripts/migrate_to_logging.dart
 // This script helps migrate debugPrint calls to LoggingService
+// ignore_for_file: avoid_print
 
 import 'dart:io';
 
@@ -18,21 +19,20 @@ void main() async {
       // Skip the logging service itself
       if (entity.path.contains('logging_service.dart')) continue;
 
-      var content = await entity.readAsString();
-      final originalContent = content;
+      final content = await entity.readAsString();
 
       // Check if file has debugPrint
       if (!content.contains('debugPrint')) continue;
 
       // Extract class name for tag (if exists)
       final classMatch = RegExp(r'class\s+(\w+)').firstMatch(content);
-      final className = classMatch?.group(1) ?? 'App';
+      final tag = classMatch?.group(1) ?? 'App';
 
       // Count replacements
       final matches = RegExp(r'debugPrint\s*\(').allMatches(content).length;
       if (matches == 0) continue;
 
-      print('${entity.path}: $matches debugPrint calls');
+      print('${entity.path}: $matches debugPrint calls (suggested tag: $tag)');
       totalFiles++;
       totalReplacements += matches;
     }

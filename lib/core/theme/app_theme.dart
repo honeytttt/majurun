@@ -146,9 +146,9 @@ class AppTheme {
         color: surfaceWhite,
         shadowColor: Colors.black.withValues(alpha: 0.05),
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
-          side: const BorderSide(color: silverMedium, width: 1),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: silverMedium, width: 1),
         ),
         margin: const EdgeInsets.symmetric(vertical: 8),
       ),
@@ -159,36 +159,36 @@ class AppTheme {
         circularTrackColor: silverMedium,
       ),
 
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme: const InputDecorationTheme(
         filled: true,
         fillColor: silverLight,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          borderSide: const BorderSide(color: borderSilver),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: borderSilver),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          borderSide: const BorderSide(color: borderSilver),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: borderSilver),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          borderSide: const BorderSide(color: primaryGreen, width: 2),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: primaryGreen, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          borderSide: const BorderSide(color: errorRed),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: errorRed),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          borderSide: const BorderSide(color: errorRed, width: 2),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: errorRed, width: 2),
         ),
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontFamily: fontFamily,
           color: textSecondary,
           fontSize: 14,
         ),
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontFamily: fontFamily,
           color: textHint,
           fontSize: 14,
@@ -202,18 +202,18 @@ class AppTheme {
         size: 24,
       ),
 
-      chipTheme: ChipThemeData(
+      chipTheme: const ChipThemeData(
         backgroundColor: silverLight,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontFamily: fontFamily,
           fontSize: 13,
           fontWeight: FontWeight.w500,
           color: textPrimary,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
-          side: const BorderSide(color: silverDark),
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+          side: BorderSide(color: silverDark),
         ),
       ),
 
@@ -241,33 +241,33 @@ class AppTheme {
         ),
       ),
 
-      snackBarTheme: SnackBarThemeData(
+      snackBarTheme: const SnackBarThemeData(
         backgroundColor: surfaceWhite,
-        contentTextStyle: const TextStyle(
+        contentTextStyle: TextStyle(
           fontFamily: fontFamily,
           fontSize: 14,
           color: textPrimary,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          side: const BorderSide(color: silverMedium),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          side: BorderSide(color: silverMedium),
         ),
         behavior: SnackBarBehavior.floating,
       ),
 
-      dialogTheme: DialogThemeData(
+      dialogTheme: const DialogThemeData(
         backgroundColor: surfaceWhite,
         shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(24)),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
         ),
         elevation: 8,
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           fontFamily: fontFamily,
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
-        contentTextStyle: const TextStyle(
+        contentTextStyle: TextStyle(
           fontFamily: fontFamily,
           fontSize: 15,
           color: textSecondary,
