@@ -106,12 +106,50 @@
   }
 
   .video-container {
-    width: 100%; aspect-ratio: 16/9;
-    background: var(--card); border: 2px solid var(--green);
-    border-radius: 16px; margin-bottom: 20px;
-    display: flex; align-items: center; justify-content: center;
+    width: 100%;
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    background: var(--card);
+    border: 2px solid var(--green);
+    border-radius: 16px;
+    margin-bottom: 20px;
     box-shadow: 0 0 30px rgba(0,230,118,0.2);
-    overflow: hidden; position: relative;
+    overflow: hidden;
+  }
+
+  .video-container video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 14px;
+    background: var(--card);
+  }
+
+  .video-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--card);
+    color: var(--green);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .video-fallback-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.8;
   }
 
   .video-placeholder {
@@ -302,9 +340,12 @@
     <div class="exercise-title">LEG SWINGS</div>
     <div class="exercise-subtitle">Hip Mobility - 15 each leg</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🦵</div>
-        <div>leg_swings.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/leg_swings.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🦵</div>
+        <div>Leg Swings</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -330,9 +371,12 @@
     <div class="exercise-title">HIGH KNEES</div>
     <div class="exercise-subtitle">Warm Up - 30 seconds</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🏃</div>
-        <div>high_knees.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/high_knees.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🏃</div>
+        <div>High Knees</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -358,9 +402,12 @@
     <div class="exercise-title">HIP CIRCLES</div>
     <div class="exercise-subtitle">Hip Mobility - 10 each direction</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🔄</div>
-        <div>hip_circles.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/hip_circles.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🔄</div>
+        <div>Hip Circles</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -386,9 +433,12 @@
     <div class="exercise-title">WALKING<br>LUNGES</div>
     <div class="exercise-subtitle">Leg Activation - 10 each leg</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🚶</div>
-        <div>walking_lunges.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/lunges.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🦿</div>
+        <div>Walking Lunges</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -414,9 +464,12 @@
     <div class="exercise-title">BUTT KICKS</div>
     <div class="exercise-subtitle">Final Warm Up - 30 seconds</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">⚡</div>
-        <div>butt_kicks.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/butt_kicks.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🏃</div>
+        <div>Butt Kicks</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -532,6 +585,30 @@ document.getElementById('play-overlay').addEventListener('click', () => {
     switchScene(0);
     animationFrame = requestAnimationFrame(animate);
   }, 500);
+});
+
+// Video playback handling
+document.querySelectorAll('video').forEach(video => {
+  const fallback = video.parentElement.querySelector('.video-fallback');
+
+  video.addEventListener('error', () => {
+    video.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  });
+
+  video.querySelector('source')?.addEventListener('error', () => {
+    video.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  });
+
+  video.addEventListener('canplay', () => {
+    video.play().catch(() => {});
+  });
+
+  video.load();
+  setTimeout(() => {
+    video.play().catch(() => {});
+  }, 100);
 });
 </script>
 </body>

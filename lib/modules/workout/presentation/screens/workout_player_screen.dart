@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 import 'package:majurun/modules/workout/data/workout_videos.dart';
 
 class WorkoutPlayerScreen extends StatefulWidget {
@@ -37,6 +38,10 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   int _timeRemaining = 0;
   int _elapsedTime = 0;
   Timer? _timer;
+
+  // Video controllers
+  final Map<int, VideoPlayerController> _videoControllers = {};
+  bool _videoInitialized = false;
 
   // Animation
   late AnimationController _pulseController;
@@ -95,12 +100,53 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
     if (_exercises.isNotEmpty) {
       _timeRemaining = (_exercises[0]['duration'] as int?) ?? 30;
     }
+
+    // Initialize video controller for first exercise
+    _initializeVideoController(0);
+  }
+
+  Future<void> _initializeVideoController(int index) async {
+    if (index >= _exercises.length) return;
+
+    final exercise = _exercises[index];
+    final videoUrl = exercise['videoUrl'] as String? ?? exercise['gifUrl'] as String?;
+
+    if (videoUrl == null || !videoUrl.endsWith('.mp4')) return;
+
+    // Dispose existing controller for this index
+    _videoControllers[index]?.dispose();
+
+    try {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      _videoControllers[index] = controller;
+
+      await controller.initialize();
+      controller.setLooping(true);
+      controller.setVolume(0); // Muted
+      controller.play();
+
+      if (mounted) {
+        setState(() => _videoInitialized = true);
+      }
+
+      // Pre-initialize next video
+      if (index + 1 < _exercises.length) {
+        _initializeVideoController(index + 1);
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
+    // Dispose all video controllers
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
+    _videoControllers.clear();
     if (!kIsWeb) {
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.edgeToEdge,
@@ -221,21 +267,34 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
 
   void _skipExercise() {
     if (_currentExerciseIndex < _exercises.length - 1) {
+      // Pause current video
+      _videoControllers[_currentExerciseIndex]?.pause();
+
       setState(() {
         _currentExerciseIndex++;
         _isResting = false;
         _timeRemaining = (_exercises[_currentExerciseIndex]['duration'] as int?) ?? 30;
       });
+
+      // Initialize and play new video
+      _initializeVideoController(_currentExerciseIndex);
+      _videoControllers[_currentExerciseIndex]?.play();
     }
   }
 
   void _previousExercise() {
     if (_currentExerciseIndex > 0) {
+      // Pause current video
+      _videoControllers[_currentExerciseIndex]?.pause();
+
       setState(() {
         _currentExerciseIndex--;
         _isResting = false;
         _timeRemaining = (_exercises[_currentExerciseIndex]['duration'] as int?) ?? 30;
       });
+
+      // Play previous video
+      _videoControllers[_currentExerciseIndex]?.play();
     }
   }
 
@@ -364,19 +423,20 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   }
 
   Widget _buildExerciseScreen(Map<String, dynamic> exercise) {
-    final gifUrl = exercise['gifUrl'] as String?;
+    final videoUrl = exercise['videoUrl'] as String? ?? exercise['gifUrl'] as String?;
     final thumbnail = exercise['thumbnail'] as String?;
     final name = exercise['name'] as String? ?? 'Exercise';
     final reps = exercise['reps'] as String? ?? '10 reps';
     final sets = exercise['sets'] as int? ?? 3;
     final targetMuscles = (exercise['targetMuscles'] as List?)?.cast<String>() ?? [];
     final difficulty = exercise['difficulty'] as String? ?? 'Beginner';
+    final isVideo = videoUrl != null && videoUrl.endsWith('.mp4');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // GIF Container
+          // Video/GIF Container
           Container(
             width: double.infinity,
             height: 280,
@@ -397,10 +457,18 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // GIF or Thumbnail
-                  if (gifUrl != null && gifUrl.isNotEmpty)
+                  // Video Player or Fallback
+                  if (isVideo && _videoControllers.containsKey(_currentExerciseIndex) &&
+                      _videoControllers[_currentExerciseIndex]!.value.isInitialized)
+                    Center(
+                      child: AspectRatio(
+                        aspectRatio: _videoControllers[_currentExerciseIndex]!.value.aspectRatio,
+                        child: VideoPlayer(_videoControllers[_currentExerciseIndex]!),
+                      ),
+                    )
+                  else if (videoUrl != null && videoUrl.isNotEmpty && !isVideo)
                     CachedNetworkImage(
-                      imageUrl: gifUrl,
+                      imageUrl: videoUrl,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => _buildGifPlaceholder(thumbnail),
                       errorWidget: (context, url, error) => _buildGifPlaceholder(thumbnail),
@@ -413,7 +481,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
                       errorWidget: (context, url, error) => _buildGifPlaceholder(null),
                     )
                   else
-                    _buildGifPlaceholder(null),
+                    _buildVideoLoadingPlaceholder(name),
 
                   // Gradient overlay at bottom
                   Positioned(
@@ -559,6 +627,41 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
             const SizedBox(height: 12),
             Text(
               'Loading...',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoLoadingPlaceholder(String exerciseName) {
+    return Container(
+      color: darkSurface,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 50,
+              height: 50,
+              child: CircularProgressIndicator(
+                color: widget.accentColor,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              exerciseName,
+              style: TextStyle(
+                color: widget.accentColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Loading video...',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
             ),
           ],

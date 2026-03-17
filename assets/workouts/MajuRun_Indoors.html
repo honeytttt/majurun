@@ -107,12 +107,50 @@
   }
 
   .video-container {
-    width: 100%; aspect-ratio: 16/9;
-    background: var(--card); border: 2px solid var(--blue);
-    border-radius: 16px; margin-bottom: 20px;
-    display: flex; align-items: center; justify-content: center;
+    width: 100%;
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    background: var(--card);
+    border: 2px solid var(--blue);
+    border-radius: 16px;
+    margin-bottom: 20px;
     box-shadow: 0 0 30px rgba(59,130,246,0.2);
     overflow: hidden;
+  }
+
+  .video-container video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 14px;
+    background: var(--card);
+  }
+
+  .video-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--card);
+    color: var(--blue);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .video-fallback-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.8;
   }
 
   .video-placeholder {
@@ -298,9 +336,12 @@
     <div class="exercise-title">BODYWEIGHT<br>SQUATS</div>
     <div class="exercise-subtitle">Lower body foundation - 20 reps</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🦵</div>
-        <div>bodyweight_squats.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/squats.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🦵</div>
+        <div>Bodyweight Squats</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -326,9 +367,12 @@
     <div class="exercise-title">PUSH-UPS</div>
     <div class="exercise-subtitle">Upper body strength - 15 reps</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">💪</div>
-        <div>pushups.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/push_ups.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">💪</div>
+        <div>Push-Ups</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -354,9 +398,12 @@
     <div class="exercise-title">GLUTE<br>BRIDGES</div>
     <div class="exercise-subtitle">Posterior chain activation - 20 reps</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🍑</div>
-        <div>glute_bridges.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/glute_bridges.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🍑</div>
+        <div>Glute Bridges</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -382,9 +429,12 @@
     <div class="exercise-title">PLANK<br>HOLD</div>
     <div class="exercise-subtitle">Core stability - 45 second hold</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🧘</div>
-        <div>plank_hold.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/plank_hold.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🧘</div>
+        <div>Plank Hold</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -410,9 +460,12 @@
     <div class="exercise-title">REVERSE<br>LUNGES</div>
     <div class="exercise-subtitle">Single leg strength - 12 each leg</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🚶</div>
-        <div>reverse_lunges.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/lunges.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🦿</div>
+        <div>Reverse Lunges</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -438,9 +491,12 @@
     <div class="exercise-title">SUPERMAN<br>HOLD</div>
     <div class="exercise-subtitle">Lower back strength - 30 sec hold</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">🦸</div>
-        <div>superman_hold.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/superman_hold.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🦸</div>
+        <div>Superman Hold</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -466,9 +522,12 @@
     <div class="exercise-title">BURPEES</div>
     <div class="exercise-subtitle">Full body finisher - 10 reps</div>
     <div class="video-container">
-      <div class="video-placeholder">
-        <div class="video-placeholder-icon">⚡</div>
-        <div>burpees.mp4</div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/burpees.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🔥</div>
+        <div>Burpees</div>
       </div>
     </div>
     <div class="exercise-instructions">
@@ -549,6 +608,30 @@ pauseBtn.onclick = () => {
 document.getElementById('play-overlay').addEventListener('click', () => {
   document.getElementById('play-overlay').classList.add('hidden');
   setTimeout(() => { document.getElementById('play-overlay').style.display = 'none'; switchScene(0); animationFrame = requestAnimationFrame(animate); }, 500);
+});
+
+// Video playback handling
+document.querySelectorAll('video').forEach(video => {
+  const fallback = video.parentElement.querySelector('.video-fallback');
+
+  video.addEventListener('error', () => {
+    video.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  });
+
+  video.querySelector('source')?.addEventListener('error', () => {
+    video.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  });
+
+  video.addEventListener('canplay', () => {
+    video.play().catch(() => {});
+  });
+
+  video.load();
+  setTimeout(() => {
+    video.play().catch(() => {});
+  }, 100);
 });
 </script>
 </body>

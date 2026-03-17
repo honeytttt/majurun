@@ -105,25 +105,56 @@
   }
 
   .video-container {
-    width: 100%; aspect-ratio: 16/9;
-    background: var(--card); border: 2px solid var(--purple);
-    border-radius: 16px; margin-bottom: 20px;
-    display: flex; align-items: center; justify-content: center;
+    width: 100%;
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    background: var(--card);
+    border: 2px solid var(--purple);
+    border-radius: 16px;
+    margin-bottom: 20px;
     box-shadow: 0 0 30px rgba(168,85,247,0.2);
     overflow: hidden;
-    position: relative;
   }
 
-  .exercise-gif {
-    width: 100%; height: 100%;
+  .exercise-gif, .video-container video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     border-radius: 14px;
+    background: var(--card);
   }
 
   .exercise-gif-overlay {
     position: absolute; inset: 0;
     background: linear-gradient(180deg, transparent 50%, rgba(4,4,4,0.8) 100%);
     pointer-events: none;
+  }
+
+  .video-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--card);
+    color: var(--purple);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .video-fallback-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.8;
   }
 
   .video-placeholder {
@@ -309,8 +340,13 @@
     <div class="exercise-title">MOUNTAIN<br>POSE</div>
     <div class="exercise-subtitle">Tadasana - Foundation & Alignment</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/l0MYMizzoFwjRUHGE/giphy.gif" alt="Mountain Pose" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/mountain_pose.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🧘</div>
+        <div>Mountain Pose</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Stand with feet together, arms at sides</div></div>
@@ -335,8 +371,13 @@
     <div class="exercise-title">DOWNWARD<br>DOG</div>
     <div class="exercise-subtitle">Adho Mukha Svanasana - Full Body Stretch</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/3oKIPavRPgJYaNI97W/giphy.gif" alt="Downward Dog" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/downward_dog.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🐕</div>
+        <div>Downward Dog</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Start on hands and knees, tuck toes</div></div>
@@ -361,8 +402,13 @@
     <div class="exercise-title">WARRIOR I</div>
     <div class="exercise-subtitle">Virabhadrasana I - Strength & Power</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/xT9KVmZwJl7fvQ4bMQ/giphy.gif" alt="Warrior I" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/warrior_one.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">⚔️</div>
+        <div>Warrior I</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Step one foot back, angling it 45 degrees</div></div>
@@ -387,8 +433,13 @@
     <div class="exercise-title">WARRIOR II</div>
     <div class="exercise-subtitle">Virabhadrasana II - Open Hips</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/l4FGpP4lxGGgK5CBW/giphy.gif" alt="Warrior II" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/warrior_two.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">⚔️</div>
+        <div>Warrior II</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">From Warrior I, open hips to the side</div></div>
@@ -413,8 +464,13 @@
     <div class="exercise-title">TREE POSE</div>
     <div class="exercise-subtitle">Vrksasana - Balance & Focus</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/26DMVKJBxjKmneRUY/giphy.gif" alt="Tree Pose" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/tree_pose.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🌲</div>
+        <div>Tree Pose</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Shift weight to one foot, find your balance</div></div>
@@ -439,8 +495,13 @@
     <div class="exercise-title">CHILD'S<br>POSE</div>
     <div class="exercise-subtitle">Balasana - Rest & Restore</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/l378zKVk7Eh3yHoJi/giphy.gif" alt="Child's Pose" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/childs_pose.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">🙏</div>
+        <div>Child's Pose</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Kneel, sit back on heels, knees wide or together</div></div>
@@ -465,8 +526,13 @@
     <div class="exercise-title">CORPSE<br>POSE</div>
     <div class="exercise-subtitle">Savasana - Final Relaxation</div>
     <div class="video-container">
-      <img class="exercise-gif" src="https://media.giphy.com/media/fUYhyT9IjftxrxJXcE/giphy.gif" alt="Savasana" onerror="this.style.display='none'">
-      <div class="exercise-gif-overlay"></div>
+      <video autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+        <source src="https://d2l9qmb66ije49.cloudfront.net/gif-mp4-videos/corpse_pose.mp4" type="video/mp4">
+      </video>
+      <div class="video-fallback" style="display:none;">
+        <div class="video-fallback-icon">😌</div>
+        <div>Corpse Pose</div>
+      </div>
     </div>
     <div class="exercise-instructions">
       <div class="instruction-item"><div class="instruction-icon">1</div><div class="instruction-text">Lie flat on back, legs extended, arms by sides</div></div>
@@ -546,6 +612,30 @@ pauseBtn.onclick = () => {
 document.getElementById('play-overlay').addEventListener('click', () => {
   document.getElementById('play-overlay').classList.add('hidden');
   setTimeout(() => { document.getElementById('play-overlay').style.display = 'none'; switchScene(0); animationFrame = requestAnimationFrame(animate); }, 500);
+});
+
+// Video playback handling
+document.querySelectorAll('video').forEach(video => {
+  const fallback = video.parentElement.querySelector('.video-fallback');
+
+  video.addEventListener('error', () => {
+    video.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  });
+
+  video.querySelector('source')?.addEventListener('error', () => {
+    video.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  });
+
+  video.addEventListener('canplay', () => {
+    video.play().catch(() => {});
+  });
+
+  video.load();
+  setTimeout(() => {
+    video.play().catch(() => {});
+  }, 100);
 });
 </script>
 </body>
