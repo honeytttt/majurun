@@ -21,7 +21,10 @@
       "Bash(do cp \"$dir/ic_launcher.png\" \"$dir/ic_launcher_round.png\")",
       "Bash(done)",
       "Bash(grep:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(./gradlew:*)",
+      "Bash(timeout:*)",
+      "Bash(git status:*)"
     ]
   }
 }
