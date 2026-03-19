@@ -50,18 +50,13 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   Future<void> _autoSaveRun() async {
     try {
-      final runController = Provider.of<RunController>(context, listen: false);
-      
-      // If running, pause it first
-      if (runController.state == RunState.running) {
-        runController.pauseRun();
-      }
-      
+      // DO NOT pause the run when app goes to background!
+      // Background location tracking should continue when phone is locked.
       // The auto-save is already handled by RunController's _autoSaveTimer
       // It saves every 10 seconds automatically when run is active
       // So when app closes, the most recent state (within 10 seconds) is saved
-      
-      debugPrint('✅ Run state preserved (auto-saved by RunController)');
+
+      debugPrint('✅ Run state preserved (auto-saved by RunController) - background tracking continues');
     } catch (e) {
       debugPrint('❌ Auto-save check failed: $e');
     }

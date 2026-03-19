@@ -466,7 +466,11 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
                         child: VideoPlayer(_videoControllers[_currentExerciseIndex]!),
                       ),
                     )
-                  else if (videoUrl != null && videoUrl.isNotEmpty && !isVideo)
+                  else if (isVideo)
+                    // Video is loading - show loading placeholder
+                    _buildVideoLoadingPlaceholder(name)
+                  else if (videoUrl != null && videoUrl.isNotEmpty)
+                    // GIF or image URL
                     CachedNetworkImage(
                       imageUrl: videoUrl,
                       fit: BoxFit.cover,

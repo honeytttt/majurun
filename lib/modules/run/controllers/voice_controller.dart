@@ -180,10 +180,22 @@ class VoiceController extends ChangeNotifier {
       await _playMilestoneSound(km);
     }
 
-    // Parse totalTime (format: "32:15" = 32 minutes 15 seconds)
+    // Parse totalTime (format: "32:15" = MM:SS or "01:12:00" = HH:MM:SS)
     final timeParts = totalTime.split(':');
-    final minutes = int.tryParse(timeParts[0]) ?? 0;
-    final seconds = int.tryParse(timeParts.length > 1 ? timeParts[1] : '0') ?? 0;
+    int hours = 0;
+    int minutes = 0;
+    int seconds = 0;
+
+    if (timeParts.length == 3) {
+      // HH:MM:SS format
+      hours = int.tryParse(timeParts[0]) ?? 0;
+      minutes = int.tryParse(timeParts[1]) ?? 0;
+      seconds = int.tryParse(timeParts[2]) ?? 0;
+    } else if (timeParts.length == 2) {
+      // MM:SS format
+      minutes = int.tryParse(timeParts[0]) ?? 0;
+      seconds = int.tryParse(timeParts[1]) ?? 0;
+    }
 
     // Parse average pace (format: "5:30" = 5 minutes 30 seconds per km)
     final avgPaceParts = averagePace.split(':');
@@ -212,14 +224,21 @@ class VoiceController extends ChangeNotifier {
 
     // Time (if enabled)
     if (_settings.totalTime) {
-      announcement.write("Your total time is $minutes ");
-      announcement.write(minutes == 1 ? "minute " : "minutes ");
-      if (seconds > 0) {
-        announcement.write("and $seconds ");
-        announcement.write(seconds == 1 ? "second. " : "seconds. ");
-      } else {
-        announcement.write(". ");
+      announcement.write("Your total time is ");
+      if (hours > 0) {
+        announcement.write("$hours ");
+        announcement.write(hours == 1 ? "hour " : "hours ");
       }
+      if (minutes > 0 || hours == 0) {
+        if (hours > 0) announcement.write("and ");
+        announcement.write("$minutes ");
+        announcement.write(minutes == 1 ? "minute" : "minutes");
+      }
+      if (seconds > 0 && hours == 0) {
+        announcement.write(" and $seconds ");
+        announcement.write(seconds == 1 ? "second" : "seconds");
+      }
+      announcement.write(". ");
     }
 
     // Last km pace (if enabled)

@@ -37,16 +37,13 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Initialize Firebase App Check BEFORE using any protected Firebase APIs
-    // Web: Use reCAPTCHA Enterprise provider with your site key
-    // Configure via: flutter build --dart-define=RECAPTCHA_KEY=your_key
-    await FirebaseAppCheck.instance.activate(
-      webProvider: ReCaptchaEnterpriseProvider(AppConfig.recaptchaSiteKey),
-      // Android: Use Play Integrity for production
-      androidProvider: AndroidProvider.playIntegrity,
-      // iOS: Use App Attest with Device Check fallback
-      appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
-    );
+    // Firebase App Check - DISABLED for testing
+    // TODO: Re-enable for production with proper Play Integrity setup
+    // await FirebaseAppCheck.instance.activate(
+    //   webProvider: ReCaptchaEnterpriseProvider(AppConfig.recaptchaSiteKey),
+    //   androidProvider: AndroidProvider.playIntegrity,
+    //   appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+    // );
 
     // Initialize ServiceLocator (handles all core services)
     await serviceLocator.initialize();

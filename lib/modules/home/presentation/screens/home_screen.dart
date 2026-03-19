@@ -404,15 +404,26 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
         final posts = snapshot.data ?? [];
 
-        if (posts.isNotEmpty && _allPosts.isEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() {
-                _allPosts.clear();
-                _allPosts.addAll(posts);
-              });
-            }
-          });
+        // Update _allPosts whenever stream emits new data
+        // This ensures new posts appear immediately without manual refresh
+        if (posts.isNotEmpty) {
+          final newPostIds = posts.map((p) => p.id).toSet();
+          final currentPostIds = _allPosts.map((p) => p.id).toSet();
+
+          // Check if there are new posts or if this is initial load
+          if (!newPostIds.every((id) => currentPostIds.contains(id)) || _allPosts.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  // Merge new posts at the beginning, keep pagination posts
+                  final paginatedPosts = _allPosts.where((p) => !newPostIds.contains(p.id)).toList();
+                  _allPosts.clear();
+                  _allPosts.addAll(posts);
+                  _allPosts.addAll(paginatedPosts);
+                });
+              }
+            });
+          }
         }
 
         final displayPosts = _allPosts.isNotEmpty ? _allPosts : posts;
