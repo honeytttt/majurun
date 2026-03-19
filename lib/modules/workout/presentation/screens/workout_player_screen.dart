@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import 'package:majurun/modules/workout/data/workout_videos.dart';
 
 class WorkoutPlayerScreen extends StatefulWidget {
@@ -41,6 +42,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
 
   // Video controllers
   final Map<int, VideoPlayerController> _videoControllers = {};
+  final Map<int, ChewieController> _chewieControllers = {};
   bool _videoInitialized = false;
 
   // Animation
@@ -111,39 +113,117 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
     final exercise = _exercises[index];
     final videoUrl = exercise['videoUrl'] as String? ?? exercise['gifUrl'] as String?;
 
-    if (videoUrl == null || !videoUrl.endsWith('.mp4')) return;
+    if (videoUrl == null || !videoUrl.endsWith('.mp4')) {
+      debugPrint('⚠️ Exercise $index: No valid MP4 URL - $videoUrl');
+      return;
+    }
 
-    // Dispose existing controller for this index
+    // Dispose existing controllers for this index
+    _chewieControllers[index]?.dispose();
+    _chewieControllers.remove(index);
+    _videoControllers[index]?.removeListener(_onVideoStateChanged);
     _videoControllers[index]?.dispose();
 
     try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-      _videoControllers[index] = controller;
+      debugPrint('🎬 Initializing video $index: $videoUrl');
+      final videoController = VideoPlayerController.networkUrl(
+        Uri.parse(videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      _videoControllers[index] = videoController;
 
-      await controller.initialize();
-      controller.setLooping(true);
-      controller.setVolume(0); // Muted
-      controller.play();
+      // Add listener to update UI when video state changes
+      videoController.addListener(_onVideoStateChanged);
+
+      await videoController.initialize();
+
+      if (!videoController.value.isInitialized) {
+        debugPrint('❌ Video $index failed to initialize');
+        return;
+      }
+
+      debugPrint('✅ Video $index initialized: ${videoController.value.duration}');
+
+      // Create Chewie controller for better playback handling
+      final chewieController = ChewieController(
+        videoPlayerController: videoController,
+        autoPlay: index == _currentExerciseIndex,
+        looping: true,
+        showControls: false, // We have our own controls
+        allowFullScreen: false,
+        allowMuting: false,
+        allowPlaybackSpeedChanging: false,
+        placeholder: Container(color: darkSurface),
+        errorBuilder: (context, errorMessage) {
+          debugPrint('❌ Chewie error: $errorMessage');
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, color: Colors.red.withValues(alpha: 0.7), size: 42),
+                const SizedBox(height: 8),
+                Text(
+                  'Video failed to load',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      _chewieControllers[index] = chewieController;
 
       if (mounted) {
         setState(() => _videoInitialized = true);
       }
 
-      // Pre-initialize next video
+      // Pre-initialize next video (with delay to avoid overwhelming)
       if (index + 1 < _exercises.length) {
-        _initializeVideoController(index + 1);
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _initializeVideoController(index + 1);
+        });
       }
     } catch (e) {
-      debugPrint('Error initializing video: $e');
+      debugPrint('❌ Error initializing video $index: $e');
+      // Remove failed controller
+      _chewieControllers.remove(index);
+      _videoControllers.remove(index);
     }
+  }
+
+  void _onVideoStateChanged() {
+    if (!mounted) return;
+
+    final videoController = _videoControllers[_currentExerciseIndex];
+    final chewieController = _chewieControllers[_currentExerciseIndex];
+    if (videoController == null || chewieController == null) return;
+
+    // If workout is playing but video stopped/ended, restart it
+    if (_isPlaying && videoController.value.isInitialized && !videoController.value.isPlaying) {
+      // Check if it's not just buffering
+      if (!videoController.value.isBuffering &&
+          videoController.value.position < videoController.value.duration) {
+        debugPrint('🔄 Video stopped unexpectedly, restarting...');
+        chewieController.play();
+      }
+    }
+
+    // Trigger rebuild when video state changes
+    setState(() {});
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
-    // Dispose all video controllers
+    // Dispose all Chewie controllers first
+    for (final controller in _chewieControllers.values) {
+      controller.dispose();
+    }
+    _chewieControllers.clear();
+    // Then dispose video controllers
     for (final controller in _videoControllers.values) {
+      controller.removeListener(_onVideoStateChanged);
       controller.dispose();
     }
     _videoControllers.clear();
@@ -159,11 +239,31 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   void _startWorkout() {
     setState(() => _isPlaying = true);
     _startTimer();
+    // Ensure current video is playing
+    _playCurrentVideo();
   }
 
   void _pauseWorkout() {
     setState(() => _isPlaying = false);
     _timer?.cancel();
+    // Pause current video
+    _pauseCurrentVideo();
+  }
+
+  void _playCurrentVideo() {
+    final chewie = _chewieControllers[_currentExerciseIndex];
+    if (chewie != null) {
+      chewie.play();
+      debugPrint('▶️ Playing video for exercise $_currentExerciseIndex');
+    }
+  }
+
+  void _pauseCurrentVideo() {
+    final chewie = _chewieControllers[_currentExerciseIndex];
+    if (chewie != null) {
+      chewie.pause();
+      debugPrint('⏸️ Paused video for exercise $_currentExerciseIndex');
+    }
   }
 
   void _startTimer() {
@@ -268,7 +368,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   void _skipExercise() {
     if (_currentExerciseIndex < _exercises.length - 1) {
       // Pause current video
-      _videoControllers[_currentExerciseIndex]?.pause();
+      _pauseCurrentVideo();
 
       setState(() {
         _currentExerciseIndex++;
@@ -276,16 +376,21 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
         _timeRemaining = (_exercises[_currentExerciseIndex]['duration'] as int?) ?? 30;
       });
 
-      // Initialize and play new video
-      _initializeVideoController(_currentExerciseIndex);
-      _videoControllers[_currentExerciseIndex]?.play();
+      // Play new video (if already initialized) or initialize it
+      final chewieController = _chewieControllers[_currentExerciseIndex];
+      if (chewieController != null) {
+        chewieController.play();
+      } else {
+        // Will auto-play when initialized since it's now current exercise
+        _initializeVideoController(_currentExerciseIndex);
+      }
     }
   }
 
   void _previousExercise() {
     if (_currentExerciseIndex > 0) {
       // Pause current video
-      _videoControllers[_currentExerciseIndex]?.pause();
+      _pauseCurrentVideo();
 
       setState(() {
         _currentExerciseIndex--;
@@ -293,8 +398,8 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
         _timeRemaining = (_exercises[_currentExerciseIndex]['duration'] as int?) ?? 30;
       });
 
-      // Play previous video
-      _videoControllers[_currentExerciseIndex]?.play();
+      // Play previous video (should already be initialized)
+      _playCurrentVideo();
     }
   }
 
@@ -458,34 +563,82 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
                 fit: StackFit.expand,
                 children: [
                   // Video Player or Fallback
-                  if (isVideo && _videoControllers.containsKey(_currentExerciseIndex) &&
-                      _videoControllers[_currentExerciseIndex]!.value.isInitialized)
-                    Center(
-                      child: AspectRatio(
-                        aspectRatio: _videoControllers[_currentExerciseIndex]!.value.aspectRatio,
-                        child: VideoPlayer(_videoControllers[_currentExerciseIndex]!),
-                      ),
-                    )
-                  else if (isVideo)
-                    // Video is loading - show loading placeholder
-                    _buildVideoLoadingPlaceholder(name)
-                  else if (videoUrl != null && videoUrl.isNotEmpty)
-                    // GIF or image URL
-                    CachedNetworkImage(
-                      imageUrl: videoUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => _buildGifPlaceholder(thumbnail),
-                      errorWidget: (context, url, error) => _buildGifPlaceholder(thumbnail),
-                    )
-                  else if (thumbnail != null)
-                    CachedNetworkImage(
-                      imageUrl: thumbnail,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => _buildGifPlaceholder(null),
-                      errorWidget: (context, url, error) => _buildGifPlaceholder(null),
-                    )
-                  else
-                    _buildVideoLoadingPlaceholder(name),
+                  Builder(
+                    builder: (context) {
+                      final chewieController = _chewieControllers[_currentExerciseIndex];
+                      final videoController = _videoControllers[_currentExerciseIndex];
+                      final hasVideo = isVideo && chewieController != null &&
+                          videoController != null && videoController.value.isInitialized;
+
+                      if (hasVideo) {
+                        // Use Chewie for better video playback
+                        return Center(
+                          key: ValueKey('chewie_$_currentExerciseIndex'),
+                          child: AspectRatio(
+                            aspectRatio: videoController.value.aspectRatio,
+                            child: Chewie(controller: chewieController),
+                          ),
+                        );
+                      } else if (isVideo) {
+                        // Video is loading - show loading placeholder with thumbnail background
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (thumbnail != null)
+                              CachedNetworkImage(
+                                imageUrl: thumbnail,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => _buildIconPlaceholder(),
+                                errorWidget: (context, url, error) => _buildIconPlaceholder(),
+                              ),
+                            Container(
+                              color: Colors.black54,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: CircularProgressIndicator(
+                                        color: widget.accentColor,
+                                        strokeWidth: 3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Loading video...',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.8),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      } else if (videoUrl != null && videoUrl.isNotEmpty) {
+                        // GIF or image URL
+                        return CachedNetworkImage(
+                          imageUrl: videoUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => _buildGifPlaceholder(thumbnail),
+                          errorWidget: (context, url, error) => _buildGifPlaceholder(thumbnail),
+                        );
+                      } else if (thumbnail != null) {
+                        return CachedNetworkImage(
+                          imageUrl: thumbnail,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => _buildGifPlaceholder(null),
+                          errorWidget: (context, url, error) => _buildGifPlaceholder(null),
+                        );
+                      } else {
+                        return _buildVideoLoadingPlaceholder(name);
+                      }
+                    },
+                  ),
 
                   // Gradient overlay at bottom
                   Positioned(

@@ -20,7 +20,8 @@
       "Bash(for dir in mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi)",
       "Bash(do cp \"$dir/ic_launcher.png\" \"$dir/ic_launcher_round.png\")",
       "Bash(done)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git check-ignore:*)"
     ]
   }
 }

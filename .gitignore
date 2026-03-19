@@ -49,3 +49,8 @@ app.*.map.json
 .env.local
 .env.production
 *.env
+
+# API Keys and secrets
+**/local.properties
+**/key.properties
+**/secrets.properties
