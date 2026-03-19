@@ -58,30 +58,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "648836412000-7mnmjnufeocef13f014tmv41jfjap691.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.majurun.app",
-            "certificate_hash": "93f356bbfbda84a754f398eef44d2d54c300b46a"
-          }
-        },
-        {
-          "client_id": "648836412000-a3m147kvuolk9k298hkhv2p0pfbgolpv.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.majurun.app",
-            "certificate_hash": "f1b801f055de583b2f89cbdc0e53d1332875b11e"
-          }
-        },
-        {
-          "client_id": "648836412000-hsvf57tjplage82aejvp0jenjl3nrbrj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.majurun.app",
-            "certificate_hash": "a9e8de138f8db700bc04c7354d3cee856cbd0608"
-          }
-        },
-        {
           "client_id": "648836412000-34gp8btbnp7ukhfn904gla9pcm37nqsv.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -17,6 +17,7 @@ import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
 import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
+import 'package:majurun/modules/profile/presentation/screens/about_screen.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -155,6 +156,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _navigateToAbout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AboutScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -165,7 +175,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leadingWidth: 100,
+        leadingWidth: 140,
         leading: Row(
           children: [
             Semantics(
@@ -174,6 +184,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
                 onPressed: widget.onBack,
+              ),
+            ),
+            Semantics(
+              button: true,
+              label: 'About app',
+              child: IconButton(
+                icon: const Icon(Icons.info_outline, color: Color(0xFF00E676)),
+                tooltip: 'About',
+                onPressed: _navigateToAbout,
               ),
             ),
             Semantics(
