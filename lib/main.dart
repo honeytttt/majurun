@@ -33,9 +33,17 @@ Future<void> main() async {
   await SentryService.initializeApp(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Initialize Firebase - handle duplicate-app error gracefully
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      // Firebase already initialized by native code, ignore
+      if (!e.toString().contains('duplicate-app')) {
+        rethrow;
+      }
+    }
 
     // Firebase App Check - DISABLED for testing
     // TODO: Re-enable for production with proper Play Integrity setup
