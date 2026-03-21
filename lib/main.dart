@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
-// App Check
-import 'package:firebase_app_check/firebase_app_check.dart';
+// App Check - DISABLED for iOS build compatibility
+// import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Core services - Use ServiceLocator for singleton access
 import 'core/services/analytics_service.dart';
