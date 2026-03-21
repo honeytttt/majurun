@@ -54,3 +54,5 @@ app.*.map.json
 **/local.properties
 **/key.properties
 **/secrets.properties
+*.p12
+*.mobileprovision
