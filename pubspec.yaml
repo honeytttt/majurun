@@ -126,5 +126,8 @@ flutter:
 
 # Optional: helps with dependency resolution in some cases
 dependency_overrides:
+  # Pin in_app_purchase_storekit to avoid iOS 18/Xcode 16 API requirements
+  # Version 0.3.17 doesn't use winBackOffers API that requires iOS 18 SDK
+  in_app_purchase_storekit: 0.3.17
   # androidx.appcompat:appcompat: 1.7.0
   # androidx.core:core: 1.13.1
