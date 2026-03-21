@@ -58,7 +58,14 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix iOS dependency conflicts for Xcode 15 build\n\n- Disable firebase_app_check \\(causes AppCheckCore version conflicts\\)\n- Downgrade google_sign_in to 6.1.6 \\(uses GoogleSignIn 7.x SDK\\)\n- This makes Firebase 10.29.0 compatible with all dependencies\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23381799722 --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23381799722 --log-failed --repo honeytttt/majurun)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git rm:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23381902457 --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68022597143 --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23381902457 --log-failed --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23382330810 --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68023653044 --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23382330810 --log-failed --repo honeytttt/majurun)"
     ]
   }
 }
