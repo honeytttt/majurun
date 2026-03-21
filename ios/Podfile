@@ -30,6 +30,10 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
+  # Pin Firebase iOS SDK to 10.x to support Xcode 15 (Swift 5)
+  # Firebase 11.x+ uses Swift 6 features (sending keyword) requiring Xcode 16
+  $FirebaseSDKVersion = '10.29.0'
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths

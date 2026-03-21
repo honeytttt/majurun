@@ -16,7 +16,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-15
+    runs-on: macos-14
     timeout-minutes: 60
 
     steps:
@@ -24,19 +24,10 @@ jobs:
         run: |
           # List available Xcode versions
           ls /Applications | grep Xcode
-          # Check default Xcode first (should have iOS SDK pre-installed)
+          # Use Xcode 15.4 (has iOS SDK pre-installed, works with Firebase 10.x/Swift 5)
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
-          echo "Available SDKs with default Xcode:"
-          xcodebuild -showsdks | grep -E "(iOS|iphoneos)" || echo "No iOS SDK found"
-          # Try Xcode 16.1 which may have iOS SDK pre-installed
-          if [ -d "/Applications/Xcode_16.1.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
-            echo "Switched to Xcode 16.1"
-            xcodebuild -version
-            xcodebuild -showsdks | grep -E "(iOS|iphoneos)" || echo "No iOS SDK in 16.1"
-          fi
-          # Fallback to default if needed
-          xcodebuild -showsdks | grep iphoneos || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -showsdks | grep iOS
 
       - name: Checkout repository
         uses: actions/checkout@v4
