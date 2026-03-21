@@ -24,16 +24,19 @@ jobs:
         run: |
           # List available Xcode versions
           ls /Applications | grep Xcode
-          # Use Xcode 16.2 for Swift 6 support (required by Firebase SDK)
-          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          # Check default Xcode first (should have iOS SDK pre-installed)
           xcodebuild -version
-
-      - name: Install iOS Platform SDK
-        run: |
-          # Download iOS platform if not present
-          xcodebuild -downloadPlatform iOS
-          # Show available iOS SDKs
-          xcodebuild -showsdks | grep iOS
+          echo "Available SDKs with default Xcode:"
+          xcodebuild -showsdks | grep -E "(iOS|iphoneos)" || echo "No iOS SDK found"
+          # Try Xcode 16.1 which may have iOS SDK pre-installed
+          if [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+            echo "Switched to Xcode 16.1"
+            xcodebuild -version
+            xcodebuild -showsdks | grep -E "(iOS|iphoneos)" || echo "No iOS SDK in 16.1"
+          fi
+          # Fallback to default if needed
+          xcodebuild -showsdks | grep iphoneos || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
       - name: Checkout repository
         uses: actions/checkout@v4
