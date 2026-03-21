@@ -16,7 +16,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
     steps:
@@ -24,8 +24,8 @@ jobs:
         run: |
           # List available Xcode versions
           ls /Applications | grep Xcode
-          # Use latest Xcode available
-          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          # Use Xcode 16.2 for Swift 6 support (required by Firebase SDK)
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
           # Show available iOS SDKs
           xcodebuild -showsdks | grep iOS
