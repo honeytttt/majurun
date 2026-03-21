@@ -1,0 +1,137 @@
+name: iOS Build
+
+# Manual trigger only - saves minutes
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 'Build mode'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - profile
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Install Apple Certificate
+        env:
+          P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          # Create paths
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+
+          # Decode certificate
+          echo -n "$P12_BASE64" | base64 --decode > $CERTIFICATE_PATH
+
+          # Create and configure keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          security import $CERTIFICATE_PATH \
+            -P "$P12_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k $KEYCHAIN_PATH
+
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          echo "Certificate installed successfully"
+
+      - name: Install Provisioning Profile
+        env:
+          PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+
+          echo -n "$PROFILE_BASE64" | base64 --decode > $PROFILE_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+          # Get UUID from profile
+          UUID=$(security cms -D -i $PROFILE_PATH | plutil -extract UUID raw -)
+          cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+
+          echo "Provisioning profile installed: $UUID"
+
+      - name: Update iOS project settings
+        run: |
+          cd ios
+
+          # Update bundle identifier if needed
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.majurun.app" Runner/Info.plist || true
+
+          echo "iOS project settings updated"
+
+      - name: Build Flutter iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Build and Archive
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd ios
+
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="MajuRun AppStore" \
+            -allowProvisioningUpdates
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export \
+            -allowProvisioningUpdates
+
+          echo "IPA exported successfully"
+          ls -la $RUNNER_TEMP/export/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MajuRun-iOS-${{ github.run_number }}
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 14
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/build.keychain-db || true
