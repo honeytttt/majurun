@@ -16,7 +16,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-15
+    runs-on: macos-14
     timeout-minutes: 60
 
     steps:
@@ -24,9 +24,11 @@ jobs:
         run: |
           # List available Xcode versions
           ls /Applications | grep Xcode
-          # Use Xcode 16.0 which includes iOS SDK
-          sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          # Use latest Xcode available
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+          # Show available iOS SDKs
+          xcodebuild -showsdks | grep iOS
 
       - name: Checkout repository
         uses: actions/checkout@v4
