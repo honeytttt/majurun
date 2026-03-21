@@ -27,6 +27,11 @@ jobs:
           # Use Xcode 16.2 for Swift 6 support (required by Firebase SDK)
           sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+
+      - name: Install iOS Platform SDK
+        run: |
+          # Download iOS platform if not present
+          xcodebuild -downloadPlatform iOS
           # Show available iOS SDKs
           xcodebuild -showsdks | grep iOS
 
