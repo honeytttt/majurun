@@ -16,18 +16,27 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-14
-    timeout-minutes: 60
+    runs-on: macos-15
+    timeout-minutes: 90
 
     steps:
-      - name: Select Xcode version
+      - name: Select Xcode version and install iOS SDK
         run: |
           # List available Xcode versions
           ls /Applications | grep Xcode
-          # Use Xcode 15.4 (has iOS SDK pre-installed, works with Firebase 10.x/Swift 5)
-          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          # Use Xcode 16.2 for Swift 6 support (required by Firebase 11.x)
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           xcodebuild -version
-          xcodebuild -showsdks | grep iOS
+
+          # Accept Xcode license
+          sudo xcodebuild -license accept
+
+          # Install iOS platform SDK (may take several minutes)
+          echo "Installing iOS SDK..."
+          xcodebuild -downloadPlatform iOS || echo "SDK download failed, checking if already available..."
+
+          # Show available iOS SDKs
+          xcodebuild -showsdks | grep iOS || echo "Warning: iOS SDK may not be available"
 
       - name: Checkout repository
         uses: actions/checkout@v4
