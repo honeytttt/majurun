@@ -26,7 +26,8 @@ dependencies:
   font_awesome_flutter: ^10.7.0
 
   # Auth / Social login ─────────────────────────────────────
-  google_sign_in: ^6.3.0
+  # Pin to 6.1.x for GoogleSignIn 7.x SDK (compatible with Firebase 10.x)
+  google_sign_in: 6.1.6
   # flutter_facebook_auth: ^7.1.1
   twitter_login: ^4.4.2
 
