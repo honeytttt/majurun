@@ -30,12 +30,6 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
-  # Pin Firebase to 10.29.0 for Xcode 15.4 compatibility (Swift 5)
-  $FirebaseSDKVersion = '10.29.0'
-
-  # Pin GoogleSignIn to 7.x for Firebase 10.x compatibility
-  pod 'GoogleSignIn', '~> 7.1'
-
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths
