@@ -30,6 +30,18 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
+  # Pin Firebase to 10.x for Swift 5 / Xcode 15.4 compatibility
+  # Firebase 11.x uses Swift 6 'sending' keyword which requires Xcode 16+
+  pod 'Firebase/Core', '~> 10.29'
+  pod 'Firebase/Auth', '~> 10.29'
+  pod 'Firebase/Firestore', '~> 10.29'
+  pod 'Firebase/Analytics', '~> 10.29'
+  pod 'Firebase/Crashlytics', '~> 10.29'
+  pod 'Firebase/Messaging', '~> 10.29'
+  pod 'Firebase/Performance', '~> 10.29'
+  pod 'Firebase/RemoteConfig', '~> 10.29'
+  pod 'Firebase/Functions', '~> 10.29'
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths
