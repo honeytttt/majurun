@@ -32,9 +32,34 @@ jobs:
           xcodebuild -showsdks
 
       - name: Download iOS Platform
+        timeout-minutes: 10
         run: |
-          # Download iOS platform if not available
-          xcodebuild -downloadPlatform iOS || echo "Platform download may require auth, trying build anyway..."
+          # Check available Xcode platforms
+          echo "=== Checking installed SDKs ==="
+          xcodebuild -showsdks
+
+          echo "=== Checking SDK paths ==="
+          xcrun --sdk iphoneos --show-sdk-path 2>&1 || true
+          xcrun --sdk iphoneos --show-sdk-version 2>&1 || true
+
+          # Try downloading iOS platform with retries
+          echo "=== Attempting iOS platform download ==="
+          for i in 1 2 3; do
+            echo "Attempt $i..."
+            if xcodebuild -downloadPlatform iOS 2>&1; then
+              echo "Download successful"
+              break
+            fi
+            echo "Attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
+
+          # Verify platform is available by checking for iphoneos SDK
+          if xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
+            echo "iOS SDK is available at: $(xcrun --sdk iphoneos --show-sdk-path)"
+          else
+            echo "WARNING: iOS SDK may not be properly installed"
+          fi
 
       - name: Checkout repository
         uses: actions/checkout@v4
