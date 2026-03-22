@@ -24,6 +24,7 @@ jobs:
         run: |
           # List available Xcode versions
           ls /Applications | grep Xcode
+
           # Use Xcode 16.2 for Swift 6 support (required by Firebase 11.x)
           sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           xcodebuild -version
@@ -31,12 +32,40 @@ jobs:
           # Accept Xcode license
           sudo xcodebuild -license accept
 
-          # Install iOS platform SDK (may take several minutes)
-          echo "Installing iOS SDK..."
-          xcodebuild -downloadPlatform iOS || echo "SDK download failed, checking if already available..."
+          # Check if iOS SDK already available
+          if xcodebuild -showsdks 2>/dev/null | grep -q "iphoneos"; then
+            echo "iOS SDK already available"
+            xcodebuild -showsdks | grep iOS
+          else
+            echo "iOS SDK not found, attempting download..."
+            # Try downloading iOS platform (requires Apple auth, may fail)
+            xcodebuild -downloadPlatform iOS || true
 
-          # Show available iOS SDKs
-          xcodebuild -showsdks | grep iOS || echo "Warning: iOS SDK may not be available"
+            # Check again
+            if xcodebuild -showsdks 2>/dev/null | grep -q "iphoneos"; then
+              echo "iOS SDK installed successfully"
+              xcodebuild -showsdks | grep iOS
+            else
+              echo "ERROR: iOS SDK not available and download failed"
+              echo "Trying alternate Xcode versions..."
+
+              # Try Xcode 16.1
+              if [ -d "/Applications/Xcode_16.1.app" ]; then
+                sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+                echo "Switched to Xcode 16.1"
+                xcodebuild -version
+                xcodebuild -showsdks | grep iOS || true
+              fi
+
+              # Try default Xcode
+              if ! xcodebuild -showsdks 2>/dev/null | grep -q "iphoneos"; then
+                sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+                echo "Switched to default Xcode"
+                xcodebuild -version
+                xcodebuild -showsdks | grep iOS || exit 1
+              fi
+            fi
+          fi
 
       - name: Checkout repository
         uses: actions/checkout@v4
