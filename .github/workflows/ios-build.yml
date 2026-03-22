@@ -120,7 +120,10 @@ jobs:
 
           echo "iOS project settings updated"
 
-      - name: Configure Signing
+      - name: Build Flutter iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Build and Sign Archive
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
@@ -131,30 +134,54 @@ jobs:
           PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract UUID raw -)
           echo "Provisioning Profile UUID: $PROFILE_UUID"
 
-          # Update project.pbxproj settings
-          PROJECT_FILE="Runner.xcodeproj/project.pbxproj"
+          # Create an xcconfig file to override signing settings
+          # This only applies to targets that support code signing
+          cat > SigningOverrides.xcconfig << EOF
+          // Override for manual signing
+          CODE_SIGN_STYLE = Manual
+          CODE_SIGN_IDENTITY = Apple Distribution
+          DEVELOPMENT_TEAM = $TEAM_ID
+          PROVISIONING_PROFILE_SPECIFIER = MajuRun Distribution
+          OTHER_CODE_SIGN_FLAGS = --keychain $RUNNER_TEMP/build.keychain-db
+          EOF
 
-          # Set ProvisioningStyle to Manual
-          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PROJECT_FILE"
+          # Build archive without codesign first, then resign
+          xcodebuild archive \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | head -200
 
-          echo "Signing configured"
+          echo "=== Archive created without signing ==="
+          ls -la $RUNNER_TEMP/Runner.xcarchive/Products/Applications/ || true
 
-      - name: Build IPA
-        env:
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Now sign the app manually
+          APP_PATH="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app"
+
+          # Sign all frameworks first
+          find "$APP_PATH/Frameworks" -name "*.framework" -exec codesign --force --sign "Apple Distribution" --keychain "$RUNNER_TEMP/build.keychain-db" {} \; 2>/dev/null || true
+
+          # Sign the main app with entitlements
+          codesign --force --sign "Apple Distribution" \
+            --keychain "$RUNNER_TEMP/build.keychain-db" \
+            --entitlements Runner/Runner.entitlements \
+            "$APP_PATH"
+
+          echo "Archive signed"
+
+      - name: Export IPA
         run: |
-          # Use flutter build ipa which handles signing properly
-          flutter build ipa \
-            --release \
-            --export-options-plist=ios/ExportOptions.plist
+          cd ios
 
-          echo "IPA built successfully"
-          ls -la build/ios/ipa/
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export
 
-      - name: Copy IPA to temp
-        run: |
-          mkdir -p $RUNNER_TEMP/export
-          cp build/ios/ipa/*.ipa $RUNNER_TEMP/export/
+          echo "IPA exported successfully"
           ls -la $RUNNER_TEMP/export/
 
       - name: Upload IPA artifact
