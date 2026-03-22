@@ -3,10 +3,15 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>development</string>
+    <string>app-store</string>
     <key>teamID</key>
     <string>RG52X42W22</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.majurun.app</key>
+        <string>MajuRun Distribution</string>
+    </dict>
 </dict>
 </plist>

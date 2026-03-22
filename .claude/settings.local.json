@@ -65,7 +65,8 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23381902457 --log-failed --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23382330810 --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68023653044 --repo honeytttt/majurun)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23382330810 --log-failed --repo honeytttt/majurun)"
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23382330810 --log-failed --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23382784736 --repo honeytttt/majurun)"
     ]
   }
 }
