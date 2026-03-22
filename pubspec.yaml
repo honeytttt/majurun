@@ -126,6 +126,6 @@ flutter:
 
 # Optional: helps with dependency resolution in some cases
 dependency_overrides:
-  # Using Xcode 16 now, no overrides needed
-  # androidx.appcompat:appcompat: 1.7.0
-  # androidx.core:core: 1.13.1
+  # Fix StoreKit2 winBackOffers API not available with Xcode 15.4 (iOS 17 SDK)
+  # The newer versions use iOS 18 APIs that require Xcode 16+
+  in_app_purchase_storekit: 0.3.17
