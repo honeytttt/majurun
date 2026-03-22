@@ -107,7 +107,15 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run watch 23403605959 --repo honeytttt/majurun --interval 60 --exit-status)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23403605959 --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68078740533 --repo honeytttt/majurun)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23403605959 --repo honeytttt/majurun --log-failed)"
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23403605959 --repo honeytttt/majurun --log-failed)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api /user/settings/billing/actions --jq '{total_minutes_used: .total_minutes_used, included_minutes: .included_minutes, minutes_used_breakdown: .minutes_used_breakdown}')",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api user/settings/billing/actions)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api \"repos/honeytttt/majurun/actions/runs?per_page=20\" --jq '.workflow_runs[] | select\\(.name==\"\"iOS Build\"\"\\) | {run_number: .run_number, status: .status, conclusion: .conclusion, created_at: .created_at, run_started_at: .run_started_at}')",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api \"repos/honeytttt/majurun/actions/runs?per_page=50\" --jq '[.workflow_runs[] | select\\(.name==\"\"iOS Build\"\" and .conclusion!=null\\) | {run: .run_number, minutes: \\(\\(.updated_at | fromdateiso8601\\) - \\(.run_started_at | fromdateiso8601\\)\\) / 60}] | add | {total_ios_runs: length, estimated_total_minutes: [.[].minutes] | add | floor}')",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --repo honeytttt/majurun --workflow ios-build.yml --limit 50 --json databaseId,status,conclusion,createdAt,updatedAt)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23404206089 --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68080281522 --repo honeytttt/majurun)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/honeytttt/majurun/contents/ios/Runner/Info.plist --jq '.content')"
     ]
   }
 }

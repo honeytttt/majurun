@@ -229,6 +229,37 @@ jobs:
           path: ${{ runner.temp }}/export/*.ipa
           retention-days: 14
 
+      - name: Upload to App Store Connect
+        if: success()
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          # Skip if secrets not configured
+          if [ -z "$APP_STORE_CONNECT_KEY_ID" ]; then
+            echo "App Store Connect credentials not configured. Skipping upload."
+            echo "To enable auto-upload, add APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, and APP_STORE_CONNECT_PRIVATE_KEY secrets."
+            exit 0
+          fi
+
+          # Create API key file
+          mkdir -p ~/private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+
+          # Find the IPA
+          IPA_PATH=$(find $RUNNER_TEMP/export -name "*.ipa" | head -1)
+          echo "Uploading IPA: $IPA_PATH"
+
+          # Upload using xcrun altool
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+          echo "✅ Successfully uploaded to App Store Connect!"
+
       - name: Cleanup keychain
         if: always()
         run: |
