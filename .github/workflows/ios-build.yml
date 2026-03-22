@@ -120,37 +120,41 @@ jobs:
 
           echo "iOS project settings updated"
 
-      - name: Build Flutter iOS (no codesign)
-        run: flutter build ios --release --no-codesign
-
-      - name: Build and Archive
+      - name: Configure Signing
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios
 
-          # Archive without global provisioning profile (Pods don't support it)
-          # Signing will be handled during export via ExportOptions.plist
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -sdk iphoneos \
-            -configuration Release \
-            -archivePath $RUNNER_TEMP/Runner.xcarchive \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            -allowProvisioningUpdates
+          # Get the provisioning profile UUID
+          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -1)
+          PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract UUID raw -)
+          echo "Provisioning Profile UUID: $PROFILE_UUID"
 
-      - name: Export IPA
+          # Update project.pbxproj settings
+          PROJECT_FILE="Runner.xcodeproj/project.pbxproj"
+
+          # Set ProvisioningStyle to Manual
+          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PROJECT_FILE"
+
+          echo "Signing configured"
+
+      - name: Build IPA
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcodebuild -exportArchive \
-            -archivePath $RUNNER_TEMP/Runner.xcarchive \
-            -exportOptionsPlist ios/ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/export \
-            -allowProvisioningUpdates
+          # Use flutter build ipa which handles signing properly
+          flutter build ipa \
+            --release \
+            --export-options-plist=ios/ExportOptions.plist
 
-          echo "IPA exported successfully"
+          echo "IPA built successfully"
+          ls -la build/ios/ipa/
+
+      - name: Copy IPA to temp
+        run: |
+          mkdir -p $RUNNER_TEMP/export
+          cp build/ios/ipa/*.ipa $RUNNER_TEMP/export/
           ls -la $RUNNER_TEMP/export/
 
       - name: Upload IPA artifact
