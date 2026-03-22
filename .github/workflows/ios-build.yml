@@ -129,6 +129,8 @@ jobs:
         run: |
           cd ios
 
+          # Archive without global provisioning profile (Pods don't support it)
+          # Signing will be handled during export via ExportOptions.plist
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -sdk iphoneos \
@@ -138,7 +140,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="MajuRun Distribution"
+            -allowProvisioningUpdates
 
       - name: Export IPA
         run: |
