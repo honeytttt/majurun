@@ -31,6 +31,11 @@ jobs:
           xcodebuild -showsdks | grep iOS || echo "Checking available platforms..."
           xcodebuild -showsdks
 
+      - name: Download iOS Platform
+        run: |
+          # Download iOS platform if not available
+          xcodebuild -downloadPlatform iOS || echo "Platform download may require auth, trying build anyway..."
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
