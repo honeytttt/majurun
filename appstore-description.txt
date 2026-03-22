@@ -1,0 +1,46 @@
+MajuRun - Your Personal Running Companion
+
+Transform every run into an achievement. MajuRun tracks your runs with precision GPS, syncs with Apple Health, and helps you reach your fitness goals.
+
+▸ TRACK EVERY STEP
+• Real-time GPS tracking with accurate distance, pace, and route mapping
+• Live stats: speed, elevation, calories burned, and heart rate
+• Background tracking - works even when your screen is off
+• Offline mode for trails without signal
+
+▸ VISUALIZE YOUR PROGRESS  
+• Beautiful route maps of every run
+• Weekly and monthly statistics dashboard
+• Pace charts and split analysis
+• Personal records and trending metrics
+
+▸ APPLE HEALTH INTEGRATION
+• Seamlessly syncs workouts to Apple Health
+• Import your fitness history
+• Track steps, calories, and activity rings
+• Heart rate monitoring support
+
+▸ STAY MOTIVATED
+• Achievement badges and milestones
+• Running streaks to build consistency  
+• Weekly goals and challenges
+• Share your accomplishments with friends
+
+▸ AUDIO COACHING
+• Voice feedback for pace, distance, and time
+• Customizable audio cues
+• Keep your phone in your pocket
+
+▸ DESIGNED FOR RUNNERS
+• Clean, glanceable interface while running
+• Dark mode for early morning runs
+• Apple Watch companion (coming soon)
+• Works with Bluetooth heart rate monitors
+
+Whether you're training for your first 5K or your next marathon, MajuRun gives you the insights you need to run stronger, faster, and smarter.
+
+Start your running journey today. Download MajuRun - it's free to get started!
+
+---
+Questions or feedback? Contact us at admin@majurun.com
+Privacy Policy: https://www.majurun.com/privacy-policy.html

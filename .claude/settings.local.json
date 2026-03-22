@@ -115,7 +115,8 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --repo honeytttt/majurun --workflow ios-build.yml --limit 50 --json databaseId,status,conclusion,createdAt,updatedAt)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23404206089 --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68080281522 --repo honeytttt/majurun)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/honeytttt/majurun/contents/ios/Runner/Info.plist --jq '.content')"
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/honeytttt/majurun/contents/ios/Runner/Info.plist --jq '.content')",
+      "WebFetch(domain:www.majurun.com)"
     ]
   }
 }
