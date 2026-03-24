@@ -119,11 +119,24 @@ class _OtpScreenState extends State<OtpScreen> {
     if (code.length < 6) return;
 
     setState(() => _isLoading = true);
-    await widget.onVerify(code);
-    if (mounted) setState(() => _isLoading = false);
+    try {
+      await widget.onVerify(code);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Widget _otpBox(int index) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       width: 48,
       child: TextField(
@@ -133,15 +146,30 @@ class _OtpScreenState extends State<OtpScreen> {
         keyboardType: TextInputType.number,
         textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
         maxLength: 1,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: cs.onSurface,
+        ),
         // IMPORTANT: do NOT make this list const, since not all formatters are const
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
           LengthLimitingTextInputFormatter(1),
         ],
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           counterText: "",
+          filled: true,
+          fillColor: cs.surfaceContainerHighest,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: cs.outline),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: cs.primary, width: 2),
           ),
         ),
         onTap: () {

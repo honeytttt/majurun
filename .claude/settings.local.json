@@ -116,7 +116,9 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23404206089 --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view --job=68080281522 --repo honeytttt/majurun)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/honeytttt/majurun/contents/ios/Runner/Info.plist --jq '.content')",
-      "WebFetch(domain:www.majurun.com)"
+      "WebFetch(domain:www.majurun.com)",
+      "Bash(keytool -list:*)",
+      "Bash(git -C \"C:/Users/phoeb/majurun\" ls-files)"
     ]
   }
 }

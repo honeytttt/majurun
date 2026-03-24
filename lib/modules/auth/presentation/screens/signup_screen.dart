@@ -49,7 +49,9 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   String _e164() {
-    final digits = _phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    var digits = _phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    // Strip leading zero (common in MY/ID/PH number entry style)
+    if (digits.startsWith('0')) digits = digits.substring(1);
     return '${_selectedCountry.dialCode}$digits';
   }
 
@@ -118,6 +120,10 @@ class _SignupScreenState extends State<SignupScreen> {
     final authRepo = context.read<AuthRepository>();
 
     try {
+      final nameParts = _fullName.text.trim().split(RegExp(r'\s+'));
+      final firstName = nameParts.first;
+      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
       await authRepo.verifyPhoneNumber(
         phoneNumber: e164,
         onCodeSent: (verificationId) {
@@ -133,7 +139,15 @@ class _SignupScreenState extends State<SignupScreen> {
                     verificationId: verificationId,
                     smsCode: code,
                   );
-                  // AuthWrapper should react to sign-in success.
+                  await authRepo.signUpWithEmail(
+                    email: _email.text.trim(),
+                    password: _password.text.trim(),
+                    firstName: firstName,
+                    lastName: lastName,
+                    dob: _dob!,
+                    gender: _gender!,
+                    phoneNumber: e164,
+                  );
                 },
               ),
             ),

@@ -1,0 +1,98 @@
+name: Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 'Build type'
+        required: true
+        default: 'appbundle'
+        type: choice
+        options:
+          - appbundle
+          - apk
+
+jobs:
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Inject google-services.json from GitHub Secret
+      - name: Inject google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+          echo "google-services.json injected"
+
+      # Decode and set up release keystore
+      - name: Setup keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/majurun-release.jks
+          cat > android/key.properties << EOF
+          storeFile=../majurun-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          echo "Keystore configured"
+
+      - name: Build App Bundle
+        if: ${{ github.event.inputs.build_mode == 'appbundle' }}
+        run: flutter build appbundle --release --dart-define=ENV=prod
+
+      - name: Build APK
+        if: ${{ github.event.inputs.build_mode == 'apk' }}
+        run: flutter build apk --release --dart-define=ENV=prod
+
+      - name: Upload App Bundle artifact
+        if: ${{ github.event.inputs.build_mode == 'appbundle' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MajuRun-Android-AAB-${{ github.run_number }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+      - name: Upload APK artifact
+        if: ${{ github.event.inputs.build_mode == 'apk' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MajuRun-Android-APK-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+      - name: Upload to Play Store (Internal Testing)
+        if: ${{ github.event.inputs.build_mode == 'appbundle' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.majurun.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed

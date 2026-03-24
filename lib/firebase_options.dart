@@ -40,8 +40,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCUFtzTIG2_dI09vZcI0DL4sY5_R5x1-BA',
-    appId: '1:648836412000:android:d6af7bffe4374005ac8905',
+    apiKey: 'AIzaSyAVMfuJWtuUeyiW69OZr-qlySyCgk23-vk',
+    appId: '1:648836412000:android:015b64300bfff880ac8905',
     messagingSenderId: '648836412000',
     projectId: 'majurun-8d8b5',
     storageBucket: 'majurun-8d8b5.firebasestorage.app',

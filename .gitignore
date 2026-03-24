@@ -56,3 +56,10 @@ app.*.map.json
 **/secrets.properties
 *.p12
 *.mobileprovision
+*.jks
+*.keystore
+
+# Firebase config - managed by CI/CD via secrets
+**/google-services.json
+**/google-services.json-*
+**/GoogleService-Info.plist
