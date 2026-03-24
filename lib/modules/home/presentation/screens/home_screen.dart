@@ -98,7 +98,8 @@ class _HomeScreenState extends State<HomeScreen> {
         .snapshots()
         .listen((doc) {
       if (doc.exists && mounted) {
-        final data = doc.data()!;
+        final data = doc.data();
+        if (data == null) return;
         setState(() {
           _userName = data['displayName'] ?? "No Name";
           _userBio = data['bio'] ?? "No Bio";

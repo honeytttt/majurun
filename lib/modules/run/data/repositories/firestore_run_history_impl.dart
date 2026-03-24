@@ -161,7 +161,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
   }
 
   RunHistory _mapDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+    final data = doc.data() ?? {};
     final distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
 
     // Parse routePoints from Firestore

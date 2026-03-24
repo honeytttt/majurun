@@ -173,8 +173,8 @@ class SearchService {
     if (query.isEmpty) return {'users': [], 'posts': []};
 
     final results = await Future.wait([
-      searchUsers(query),
-      searchPosts(query),
+      searchUsers(query).catchError((_) => <SearchResult>[]),
+      searchPosts(query).catchError((_) => <SearchResult>[]),
     ]);
 
     return {

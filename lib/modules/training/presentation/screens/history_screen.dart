@@ -107,6 +107,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       .orderBy('completedAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) return const Center(child: Text("Failed to load sessions."));
                     if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
                     final docs = snapshot.data!.docs;

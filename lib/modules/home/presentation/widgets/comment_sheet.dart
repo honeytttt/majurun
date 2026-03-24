@@ -77,6 +77,7 @@ class _CommentSheetState extends State<CommentSheet> {
       media: mediaList,
     );
 
+    if (!mounted) return;
     _controller.clear();
     setState(() {
       replyingToId = null;

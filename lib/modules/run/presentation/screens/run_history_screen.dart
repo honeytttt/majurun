@@ -47,7 +47,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   }
 
   Future<void> _syncHealthData() async {
-    if (_isSyncing) return;
+    if (_isSyncing || !mounted) return;
 
     setState(() => _isSyncing = true);
 

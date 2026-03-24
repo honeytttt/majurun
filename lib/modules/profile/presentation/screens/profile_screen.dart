@@ -785,7 +785,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final data = doc.data() as Map<String, dynamic>? ?? {};
               
               final post = AppPost(
                 id: doc.id,

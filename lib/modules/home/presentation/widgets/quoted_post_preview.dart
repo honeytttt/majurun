@@ -33,7 +33,7 @@ class QuotedPostPreview extends StatelessWidget {
           );
         }
 
-        if (!snapshot.hasData || snapshot.data == null) {
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
           return Container(
              width: double.infinity,
              padding: const EdgeInsets.all(12),
