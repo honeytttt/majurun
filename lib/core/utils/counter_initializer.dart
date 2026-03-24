@@ -61,44 +61,47 @@ class CounterInitializer {
     }
   }
 
-  /// Initialize counters for ALL users in your database
-  /// ⚠️ USE CAREFULLY - This will process every user
+  /// Initialize counters for ALL users — paginated to avoid loading all users at once
+  /// ⚠️ ADMIN USE ONLY — Run once, then remove call
   static Future<void> initializeAllUsersCounters() async {
     try {
-      debugPrint('🔄 Starting bulk initialization...');
-      
-      final usersSnapshot = await _firestore.collection('users').get();
+      debugPrint('🔄 Starting paginated bulk initialization...');
       int processed = 0;
-      
-      for (final userDoc in usersSnapshot.docs) {
-        final userId = userDoc.id;
-        
-        // Count followers
-        final followersSnapshot = await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('followers')
-            .get();
-        
-        // Count following
-        final followingSnapshot = await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('following')
-            .get();
-        
-        // Update document
-        await _firestore.collection('users').doc(userId).set({
-          'followersCount': followersSnapshot.docs.length,
-          'followingCount': followingSnapshot.docs.length,
-        }, SetOptions(merge: true));
-        
-        processed++;
-        debugPrint('✅ Processed user $processed/${usersSnapshot.docs.length}');
+      DocumentSnapshot? lastDoc;
+      const pageSize = 100;
+
+      while (true) {
+        // Fetch next page of users
+        Query query = _firestore.collection('users').limit(pageSize);
+        if (lastDoc != null) query = query.startAfterDocument(lastDoc);
+
+        final usersSnapshot = await query.get();
+        if (usersSnapshot.docs.isEmpty) break;
+
+        for (final userDoc in usersSnapshot.docs) {
+          final userId = userDoc.id;
+
+          final followersSnapshot = await _firestore
+              .collection('users').doc(userId).collection('followers').get();
+          final followingSnapshot = await _firestore
+              .collection('users').doc(userId).collection('following').get();
+
+          await _firestore.collection('users').doc(userId).set({
+            'followersCount': followersSnapshot.docs.length,
+            'followingCount': followingSnapshot.docs.length,
+          }, SetOptions(merge: true));
+
+          processed++;
+        }
+
+        debugPrint('✅ Processed $processed users so far...');
+        lastDoc = usersSnapshot.docs.last;
+
+        // All users in this page processed — stop if last page
+        if (usersSnapshot.docs.length < pageSize) break;
       }
-      
-      debugPrint('✅ Bulk initialization complete! Processed $processed users');
-      
+
+      debugPrint('✅ Bulk initialization complete! Total: $processed users');
     } catch (e) {
       debugPrint('❌ Error in bulk initialization: $e');
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/cloudinary_service.dart';
 import 'user_avatar_impl.dart'
     if (dart.library.io) 'user_avatar_io.dart'
     if (dart.library.js_interop) 'user_avatar_web.dart';
@@ -35,42 +36,40 @@ class UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (userId.isEmpty) {
-      return _buildFallback();
-    }
-    
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
+    if (userId.isEmpty) return _buildFallback();
+
+    // Use .get() not .snapshots() — avatars don't need a permanent live listener.
+    // snapshots() keeps a Firestore connection open per avatar in the feed,
+    // which multiplies quickly (20 posts = 20 open connections).
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
-          .snapshots(),
+          .get(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoading();
         }
-        
         if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
           return _buildFallback();
         }
-        
         final data = snapshot.data!.data() as Map<String, dynamic>?;
-        
-        if (data == null) {
-          return _buildFallback();
-        }
-        
+        if (data == null) return _buildFallback();
+
         final photoUrl = data['photoUrl'] as String? ?? '';
-        
         if (photoUrl.isEmpty || !photoUrl.trim().startsWith('http')) {
           return _buildFallback();
         }
-        
-        // ✅ USE PLATFORM-SPECIFIC IMPLEMENTATION
-        return _buildImageAvatar(photoUrl.trim());
+        // Apply Cloudinary thumbnail optimization — serve small image for avatars
+        final optimizedUrl = CloudinaryService.thumbnailUrl(
+          photoUrl.trim(),
+          size: (radius * 2).toInt(),
+        );
+        return _buildImageAvatar(optimizedUrl);
       },
     );
   }
-  
+
   /// Build avatar with platform-specific rendering
   Widget _buildImageAvatar(String imageUrl) {
     final avatar = buildUserAvatar(
@@ -164,10 +163,13 @@ class DirectUrlAvatar extends StatelessWidget {
     if (cleanUrl.isEmpty || !cleanUrl.startsWith('http')) {
       return _buildFallback();
     }
-    
-    // ✅ USE PLATFORM-SPECIFIC IMPLEMENTATION
+
+    final optimizedUrl = CloudinaryService.thumbnailUrl(
+      cleanUrl,
+      size: (radius * 2).toInt(),
+    );
     final avatar = buildUserAvatar(
-      photoUrl: cleanUrl,
+      photoUrl: optimizedUrl,
       radius: radius,
     );
     

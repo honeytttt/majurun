@@ -52,93 +52,82 @@ class AccountDeletionService {
     }
   }
 
+  // Firestore batch max is 500 ops — commit in safe chunks of 400
+  Future<void> _commitRefs(List<DocumentReference> refs) async {
+    const chunkSize = 400;
+    for (int i = 0; i < refs.length; i += chunkSize) {
+      final chunk = refs.sublist(i, (i + chunkSize).clamp(0, refs.length));
+      final batch = _firestore.batch();
+      for (final ref in chunk) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+  }
+
   /// Delete all user data from Firestore
   Future<void> _deleteUserData(String userId) async {
-    final batch = _firestore.batch();
-
     try {
-      // 1. Delete user's runs
+      final refs = <DocumentReference>[];
+
+      // 1. User's runs
       final runsSnapshot = await _firestore
           .collection('runs')
           .where('userId', isEqualTo: userId)
           .get();
-      for (final doc in runsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      refs.addAll(runsSnapshot.docs.map((d) => d.reference));
 
-      // 2. Delete user's posts
+      // 2. User's posts + nested comments
       final postsSnapshot = await _firestore
           .collection('posts')
           .where('userId', isEqualTo: userId)
           .get();
       for (final doc in postsSnapshot.docs) {
-        // Delete comments on each post
-        final commentsSnapshot = await doc.reference.collection('comments').get();
-        for (final comment in commentsSnapshot.docs) {
-          batch.delete(comment.reference);
-        }
-        batch.delete(doc.reference);
+        final comments = await doc.reference.collection('comments').get();
+        refs.addAll(comments.docs.map((d) => d.reference));
+        refs.add(doc.reference);
       }
 
-      // 3. Delete user's conversations and messages
-      final conversationsSnapshot = await _firestore
+      // 3. Conversations + nested messages
+      final convsSnapshot = await _firestore
           .collection('conversations')
           .where('participants', arrayContains: userId)
           .get();
-      for (final doc in conversationsSnapshot.docs) {
-        final messagesSnapshot = await doc.reference.collection('messages').get();
-        for (final message in messagesSnapshot.docs) {
-          batch.delete(message.reference);
-        }
-        batch.delete(doc.reference);
+      for (final doc in convsSnapshot.docs) {
+        final messages = await doc.reference.collection('messages').get();
+        refs.addAll(messages.docs.map((d) => d.reference));
+        refs.add(doc.reference);
       }
 
-      // 4. Delete user's notifications
-      final notificationsSnapshot = await _firestore
+      // 4. Notifications
+      final notifSnapshot = await _firestore
           .collection('notifications')
           .doc(userId)
           .collection('items')
           .get();
-      for (final doc in notificationsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      refs.addAll(notifSnapshot.docs.map((d) => d.reference));
 
-      // 5. Delete followers/following relationships
-      final followersSnapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('followers')
-          .get();
-      for (final doc in followersSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      // 5. Followers / following
+      final followersSnap = await _firestore
+          .collection('users').doc(userId).collection('followers').get();
+      refs.addAll(followersSnap.docs.map((d) => d.reference));
 
-      final followingSnapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('following')
-          .get();
-      for (final doc in followingSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      final followingSnap = await _firestore
+          .collection('users').doc(userId).collection('following').get();
+      refs.addAll(followingSnap.docs.map((d) => d.reference));
 
-      // 6. Delete daily/weekly/monthly challenges
-      final dailyChallengesSnapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('dailyChallenges')
-          .get();
-      for (final doc in dailyChallengesSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
+      // 6. Daily challenges
+      final challengesSnap = await _firestore
+          .collection('users').doc(userId).collection('dailyChallenges').get();
+      refs.addAll(challengesSnap.docs.map((d) => d.reference));
 
-      // 7. Delete the user document itself
-      batch.delete(_firestore.collection('users').doc(userId));
+      // 7. User document itself
+      refs.add(_firestore.collection('users').doc(userId));
 
-      // Commit all deletions
-      await batch.commit();
+      // Commit in safe chunks (Firestore batch limit = 500)
+      await _commitRefs(refs);
 
-      debugPrint('AccountDeletion: All Firestore data deleted');
+      debugPrint('AccountDeletion: All Firestore data deleted (${refs.length} docs)');
     } catch (e) {
       debugPrint('AccountDeletion: Error deleting Firestore data: $e');
       rethrow;
