@@ -145,8 +145,42 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       totalRuns: snapshot.docs.length,
       totalDistanceKm: totalDistance,
       totalDurationSeconds: totalDuration,
-      runStreak: snapshot.docs.length,
+      runStreak: _calculateStreak(snapshot.docs),
     );
+  }
+
+  /// Returns the current consecutive-day run streak.
+  /// A day counts if at least one run was completed on that calendar date.
+  /// Streak stays alive if the user ran today or yesterday (prevents breaking
+  /// at midnight before the next run is logged).
+  int _calculateStreak(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    if (docs.isEmpty) return 0;
+
+    // Collect unique run dates as normalised day strings "yyyy-M-d"
+    final runDays = <String>{};
+    for (final doc in docs) {
+      final ts = doc.data()['completedAt'];
+      if (ts is Timestamp) {
+        final d = ts.toDate().toLocal();
+        runDays.add('${d.year}-${d.month}-${d.day}');
+      }
+    }
+    if (runDays.isEmpty) return 0;
+
+    final now = DateTime.now().toLocal();
+    int streak = 0;
+    DateTime check = DateTime(now.year, now.month, now.day);
+
+    while (true) {
+      final key = '${check.year}-${check.month}-${check.day}';
+      if (runDays.contains(key)) {
+        streak++;
+        check = check.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+    return streak;
   }
 
   @override

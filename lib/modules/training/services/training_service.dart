@@ -44,8 +44,10 @@ class TrainingService extends ChangeNotifier {
     
     try {
       final weeks = _activePlan!['weeks'] as List;
+      if (_currentWeek < 1 || _currentWeek > weeks.length) return {};
       final week = weeks[_currentWeek - 1] as Map<String, dynamic>;
       final workouts = week['workouts'] as List;
+      if (_currentDay < 1 || _currentDay > workouts.length) return {};
       final workout = workouts[_currentDay - 1] as Map<String, dynamic>;
       
       return {

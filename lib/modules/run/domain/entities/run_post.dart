@@ -16,7 +16,7 @@ class RunPost {
   });
 
   factory RunPost.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? {};
     // Support both 'createdAt' (new) and 'timestamp' (legacy) fields
     final ts = data['createdAt'] ?? data['timestamp'];
     return RunPost(

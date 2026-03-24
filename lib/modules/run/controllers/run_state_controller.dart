@@ -66,6 +66,7 @@ class RunStateController extends ChangeNotifier {
 
   // Current pace (last 30 seconds)
   double _recentDistance = 0;
+  double _recentStartDistance = 0.0; // total distance at start of current 30s window
   int _recentSeconds = 0;
   String get currentPaceString {
     if (_recentSeconds < 5 || _recentDistance < 10) return paceString;
@@ -103,6 +104,7 @@ class RunStateController extends ChangeNotifier {
   String? lastVideoUrl;
   int currentBpm = 0; // Will be updated from health service
   int totalCalories = 0;
+  double _lastCaloriesDistance = 0.0; // tracks distance at last calorie update
   GpsQuality _gpsQuality = GpsQuality.good;
   GpsQuality get gpsQuality => _gpsQuality;
 
@@ -191,12 +193,14 @@ class RunStateController extends ChangeNotifier {
     _activeRunSeconds = 0;
     _totalDistance = 0.0;
     _recentDistance = 0;
+    _recentStartDistance = 0.0;
     _recentSeconds = 0;
     _polylines.clear();
     hrHistorySpots.clear();
     paceHistorySpots.clear();
     lastVideoUrl = null;
     totalCalories = 0;
+    _lastCaloriesDistance = 0.0;
     _lastAnnouncedKm = 0;
     _lastAnnouncedHalfKm = 0.0;
     _kmSplits.clear();
@@ -280,12 +284,14 @@ class RunStateController extends ChangeNotifier {
     _activeRunSeconds = 0;
     _totalDistance = 0.0;
     _recentDistance = 0;
+    _recentStartDistance = 0.0;
     _recentSeconds = 0;
     _polylines.clear();
     hrHistorySpots.clear();
     paceHistorySpots.clear();
     lastVideoUrl = null;
     totalCalories = 0;
+    _lastCaloriesDistance = 0.0;
     _lastAnnouncedKm = 0;
     _lastAnnouncedHalfKm = 0.0;
     _kmSplits.clear();
@@ -318,25 +324,25 @@ class RunStateController extends ChangeNotifier {
     _activeRunSeconds++;
     _recentSeconds++;
 
-    // Update recent distance for current pace calculation
-    final currentDistance = _totalDistance;
+    // Update recent distance for current pace calculation.
+    // Track distance covered since the start of the current 30s window.
     if (_recentSeconds >= 30) {
-      // Reset recent tracking every 30 seconds
-      _recentDistance = 0;
+      _recentStartDistance = _totalDistance;
       _recentSeconds = 0;
-    } else {
-      _recentDistance = currentDistance - (_totalDistance - _recentDistance);
     }
+    _recentDistance = _totalDistance - _recentStartDistance;
 
     // Check milestones
     _checkMilestones();
 
-    // Calculate calories (more accurate formula based on speed)
-    // Running: ~1 cal per kg per km, assuming 70kg average
-    // Adjusted by pace (faster = more calories)
-    final distanceKm = _totalDistance / 1000;
-    final caloriesPerKm = averageSpeedMs > 2.5 ? 75 : 65; // Higher intensity = more calories
-    totalCalories = (distanceKm * caloriesPerKm).round();
+    // Accumulate calories incrementally so the count never goes backwards.
+    // Running: ~70 kg average; adjusted by intensity (faster = more cal/km).
+    final distanceDeltaKm = (_totalDistance - _lastCaloriesDistance) / 1000;
+    if (distanceDeltaKm > 0) {
+      final caloriesPerKm = averageSpeedMs > 2.5 ? 75 : 65;
+      totalCalories += (distanceDeltaKm * caloriesPerKm).round();
+      _lastCaloriesDistance = _totalDistance;
+    }
 
     // Record performance snapshot every 10 seconds
     if (_secondsElapsed % 10 == 0) {
