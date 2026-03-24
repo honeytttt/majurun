@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_options.dart';
+import 'env/firebase_options_dev.dart' as dev_options;
+import 'env/firebase_options_prod.dart' as prod_options;
 // App Check - DISABLED for iOS build compatibility
 // import 'package:firebase_app_check/firebase_app_check.dart';
 
@@ -33,16 +34,16 @@ Future<void> main() async {
   await SentryService.initializeApp(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize Firebase - handle duplicate-app error gracefully
+    // Initialize Firebase — picks project based on ENVIRONMENT dart-define
+    // Dev:  flutter run  (default)
+    // Prod: flutter build appbundle --dart-define=ENVIRONMENT=production
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      final options = AppConfig.isProduction
+          ? prod_options.DefaultFirebaseOptions.currentPlatform
+          : dev_options.DefaultFirebaseOptions.currentPlatform;
+      await Firebase.initializeApp(options: options);
     } catch (e) {
-      // Firebase already initialized by native code, ignore
-      if (!e.toString().contains('duplicate-app')) {
-        rethrow;
-      }
+      if (!e.toString().contains('duplicate-app')) rethrow;
     }
 
     // Firebase App Check - DISABLED for testing

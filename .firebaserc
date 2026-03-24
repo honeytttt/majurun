@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "majurun-8d8b5"
+    "default": "majurun-dev",
+    "dev": "majurun-dev",
+    "prod": "majurun-8d8b5"
   }
 }

@@ -77,12 +77,10 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # Inject Firebase config from GitHub Secret
+      # Inject Firebase config (prod only for iOS releases)
       - name: Inject GoogleService-Info.plist
-        env:
-          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
         run: |
-          echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_PROD }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
           echo "GoogleService-Info.plist injected"
 
       - name: Install Apple Certificate
