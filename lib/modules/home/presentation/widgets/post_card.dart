@@ -379,6 +379,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                     const Divider(height: 32, color: Color(0xFF2A2A3E)),
 
                     GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () {},
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
