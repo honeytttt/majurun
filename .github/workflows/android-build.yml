@@ -61,6 +61,10 @@ jobs:
           echo "${{ secrets.FIREBASE_OPTIONS_DEV }}" | base64 --decode > lib/env/firebase_options_dev.dart
           echo "${{ secrets.FIREBASE_OPTIONS_PROD }}" | base64 --decode > lib/env/firebase_options_prod.dart
 
+      # ── Maps API key ───────────────────────────────────────────────────────
+      - name: Inject Maps API key
+        run: echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" >> android/local.properties
+
       # ── Keystore setup ─────────────────────────────────────────────────────
       - name: Setup release keystore
         run: |
