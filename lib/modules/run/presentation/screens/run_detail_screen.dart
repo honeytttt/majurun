@@ -5,6 +5,18 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
 
+const String _kRunMapStyle =
+    '[{"featureType":"poi","stylers":[{"visibility":"off"}]},'
+    '{"featureType":"transit","stylers":[{"visibility":"off"}]},'
+    '{"featureType":"landscape","elementType":"geometry.fill","stylers":[{"color":"#f4f4f4"}]},'
+    '{"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#ffffff"}]},'
+    '{"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#d8d8d8"},{"weight":"0.5"}]},'
+    '{"featureType":"road.highway","elementType":"geometry.fill","stylers":[{"color":"#ededed"}]},'
+    '{"featureType":"water","elementType":"geometry.fill","stylers":[{"color":"#aad3df"}]},'
+    '{"featureType":"poi.park","elementType":"geometry.fill","stylers":[{"color":"#d5e8d4"}]},'
+    '{"featureType":"road","elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
+    '{"featureType":"administrative","elementType":"labels.text.fill","stylers":[{"color":"#888888"}]}]';
+
 class RunDetailScreen extends StatefulWidget {
   final Map<String, dynamic> runData;
   const RunDetailScreen({super.key, required this.runData});
@@ -450,8 +462,11 @@ Keep moving 💪
           Polyline(
             polylineId: const PolylineId('route'),
             points: routePoints,
-            color: const Color(0xFF4285F4),
-            width: 5,
+            color: const Color(0xFFFC4C02),
+            width: 6,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
           ),
         },
         markers: {
@@ -475,7 +490,8 @@ Keep moving 💪
         myLocationEnabled: false,
         myLocationButtonEnabled: false,
         onMapCreated: (GoogleMapController controller) {
-          Future.delayed(const Duration(milliseconds: 400), () {
+          controller.setMapStyle(_kRunMapStyle);
+          Future.delayed(const Duration(milliseconds: 800), () {
             if (mounted) {
               controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
             }

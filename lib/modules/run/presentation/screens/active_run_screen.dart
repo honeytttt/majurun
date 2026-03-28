@@ -1,11 +1,26 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
+
+const String _kRunMapStyle =
+    '[{"featureType":"poi","stylers":[{"visibility":"off"}]},'
+    '{"featureType":"transit","stylers":[{"visibility":"off"}]},'
+    '{"featureType":"landscape","elementType":"geometry.fill","stylers":[{"color":"#f4f4f4"}]},'
+    '{"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#ffffff"}]},'
+    '{"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#d8d8d8"},{"weight":"0.5"}]},'
+    '{"featureType":"road.highway","elementType":"geometry.fill","stylers":[{"color":"#ededed"}]},'
+    '{"featureType":"water","elementType":"geometry.fill","stylers":[{"color":"#aad3df"}]},'
+    '{"featureType":"poi.park","elementType":"geometry.fill","stylers":[{"color":"#d5e8d4"}]},'
+    '{"featureType":"road","elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
+    '{"featureType":"administrative","elementType":"labels.text.fill","stylers":[{"color":"#888888"}]}]';
 
 /// Production-grade active run screen with:
 /// - GPS quality indicator
@@ -22,6 +37,7 @@ class ActiveRunScreen extends StatefulWidget {
 class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderStateMixin {
   GoogleMapController? _mapController;
   final GlobalKey _mapKey = GlobalKey();
+  BitmapDescriptor? _avatarMarker;
 
   // Animations
   late AnimationController _pulseController;
@@ -40,6 +56,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    _loadAvatarMarker();
   }
 
   @override
@@ -307,14 +325,15 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                       ),
                       onMapCreated: (controller) {
                         _mapController = controller;
+                        controller.setMapStyle(_kRunMapStyle);
                         _updateCamera(runController);
                       },
                       polylines: {
                         Polyline(
                           polylineId: const PolylineId('route'),
                           points: runController.routePoints,
-                          color: const Color(0xFF7ED957),
-                          width: 5,
+                          color: const Color(0xFFFC4C02),
+                          width: 6,
                           jointType: JointType.round,
                           startCap: Cap.roundCap,
                           endCap: Cap.roundCap,
@@ -329,12 +348,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                             icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
                             anchor: const Offset(0.5, 0.5),
                           ),
-                        // Current position marker
+                        // Current position marker — shows user avatar
                         if (runController.routePoints.isNotEmpty)
                           Marker(
                             markerId: const MarkerId('current'),
                             position: runController.routePoints.last,
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                            icon: _avatarMarker ??
+                                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                            anchor: const Offset(0.5, 0.5),
                           ),
                       },
                       myLocationEnabled: false,
@@ -422,6 +443,87 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         ],
       ),
     );
+  }
+
+  Future<void> _loadAvatarMarker() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final photoUrl = (doc.data()?['photoUrl'] as String?) ?? '';
+      final marker = await _buildAvatarMarker(photoUrl);
+      if (mounted) setState(() => _avatarMarker = marker);
+    } catch (e) {
+      debugPrint('❌ Avatar marker: $e');
+    }
+  }
+
+  Future<BitmapDescriptor> _buildAvatarMarker(String photoUrl) async {
+    const double sz = 96;
+    const double cx = sz / 2;
+    const double border = 4;
+    const double imgR = cx - border - 1;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, sz, sz));
+
+    // Green border ring
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 1,
+      Paint()..color = const Color(0xFF7ED957),
+    );
+
+    bool drawn = false;
+    if (photoUrl.isNotEmpty && photoUrl.startsWith('http')) {
+      try {
+        final resp = await http
+            .get(Uri.parse(photoUrl))
+            .timeout(const Duration(seconds: 5));
+        if (resp.statusCode == 200) {
+          final codec = await ui.instantiateImageCodec(
+            resp.bodyBytes,
+            targetWidth: (imgR * 2).round(),
+            targetHeight: (imgR * 2).round(),
+          );
+          final frame = await codec.getNextFrame();
+          canvas.save();
+          canvas.clipPath(
+            Path()..addOval(Rect.fromCircle(center: const Offset(cx, cx), radius: imgR)),
+          );
+          canvas.drawImageRect(
+            frame.image,
+            Rect.fromLTWH(0, 0, frame.image.width.toDouble(), frame.image.height.toDouble()),
+            Rect.fromCircle(center: const Offset(cx, cx), radius: imgR),
+            Paint(),
+          );
+          canvas.restore();
+          drawn = true;
+        }
+      } catch (_) {}
+    }
+
+    if (!drawn) {
+      // Dark green circle with person silhouette
+      canvas.drawCircle(
+        const Offset(cx, cx),
+        imgR,
+        Paint()..color = const Color(0xFF1B4D2C),
+      );
+      final p = Paint()..color = Colors.white;
+      canvas.drawCircle(const Offset(cx, cx - 12), 10, p);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: const Offset(cx, cx + 10), width: 24, height: 18),
+          const Radius.circular(8),
+        ),
+        p,
+      );
+    }
+
+    final img = await recorder.endRecording().toImage(sz.round(), sz.round());
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List());
   }
 
   void _updateCamera(RunController runController) {
