@@ -8,14 +8,8 @@ abstract class AuthRepository {
   Future<AppUser?> signUpWithEmail({
     required String email,
     required String password,
-    required String firstName,
-    required String lastName,
-    required DateTime dob,
-    required String gender,
-    required String phoneNumber,
   });
 
-  // PROFESSIONAL OTP HANDSHAKE
   Future<void> verifyPhoneNumber({
     required String phoneNumber,
     required Function(String verificationId) onCodeSent,
@@ -29,7 +23,8 @@ abstract class AuthRepository {
 
   Future<AppUser?> signInWithGoogle();
   Future<AppUser?> signInWithFacebook();
-  Future<AppUser?> signInWithTwitter(); // Added Twitter method
-  Future<AppUser?> signInAsGuest(); // Kept for compatibility but will throw
+  Future<AppUser?> signInWithTwitter();
+  Future<AppUser?> signInAsGuest();
   Future<void> signOut();
+  Future<void> sendPasswordResetEmail(String email);
 }

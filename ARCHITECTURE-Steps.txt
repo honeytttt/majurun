@@ -1,0 +1,120 @@
+● Here's the complete day-to-day playbook:
+
+  ---
+  Daily Development Flow
+
+  1. Starting Work
+
+  git checkout -b feature/your-feature-name
+  flutter run                          # → dev Firebase, safe sandbox
+
+  2. Testing on Real Device
+
+  # Use prod Firebase + test accounts only
+  flutter run --dart-define=ENVIRONMENT=production
+  - Sign in with a dedicated test Google account (not your real account)
+  - For phone auth use +65 9689 2876 / OTP 994953
+  - Never enter real user data
+
+  3. Releasing to Play Store / App Store
+
+  git push origin feature/your-feature-name
+  # Create PR → merge to main
+  # GitHub → Actions → android-build.yml → Run workflow → prod + appbundle
+  # GitHub → Actions → ios-build.yml → Run workflow
+  CI handles everything — signing, Firebase config injection, upload.
+
+  ---
+  When Firebase Console Changes
+
+  Rule: Always run these 3 commands after any Firebase change.
+
+  # 1. Regenerate dart configs
+  flutterfire configure --project=majurun-8d8b5 --out=lib/env/firebase_options_prod.dart --platforms=android,ios,web --android-package-name=com.majurun.app
+  --ios-bundle-id=com.majurun.app -y
+
+  flutterfire configure --project=majurun-dev --out=lib/env/firebase_options_dev.dart --platforms=android,ios,web --android-package-name=com.majurun.app
+  --ios-bundle-id=com.majurun.app -y
+
+  # 2. Update GitHub secrets
+  base64 -w 0 android/app/google-services-prod.json | gh secret set GOOGLE_SERVICES_JSON_PROD
+  base64 -w 0 ios/Runner/GoogleService-Info-Prod.plist | gh secret set GOOGLE_SERVICE_INFO_PLIST_PROD
+
+  # 3. Commit
+  git add lib/env/ && git commit -m "chore: update Firebase config"
+
+  ---
+  When Adding a New Feature
+
+  Write code → flutter run (dev) → test on emulator/web
+       ↓
+  flutter run --dart-define=ENVIRONMENT=production → test on real device
+       ↓
+  PR → merge → GitHub Actions builds → Play Store internal track
+       ↓
+  Promote internal → production in Play Console
+
+  ---
+  Troubleshooting Lookup Table
+
+  ┌────────────────────────────────────┬─────────┬─────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │               Error                │ Project │                                               Fix                                               │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ api-key-expired                    │ any     │ Run flutterfire configure + update secrets                                                      │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ app not authorized, sha-1/sha-256  │ prod    │ Add SHA to Firebase Console → com.majurun.app → fingerprints, then flutterfire configure        │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ play_integrity no matching sha-256 │ prod    │ Get Play signing SHA from Play Console → App integrity → add to Firebase                        │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ requests blocked                   │ any     │ Wrong appId — run flutterfire configure to regenerate                                           │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ OTP not received                   │ prod    │ Check Firebase Console → Auth → Usage (quota). Test number: +65 9689 2876 / 994953              │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Google Sign-In fails               │ prod    │ Check OAuth client exists in GCP → Credentials for com.majurun.app                              │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ CI build fails                     │ any     │ Check GitHub Actions logs → secrets tab → verify all 12 secrets exist                           │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Firestore permission denied        │ any     │ Check firestore.rules, deploy with firebase --project majurun-dev deploy --only firestore:rules │
+  ├────────────────────────────────────┼─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Dev data mixed with prod           │ dev     │ You're using prod — switch back to flutter run without --dart-define                            │
+  └────────────────────────────────────┴─────────┴─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  Adding New SHA (e.g. after Play Store first upload)
+
+  # 1. Get SHA from Play Console → App integrity → App signing certificate
+  # 2. Add in Firebase Console → majurun-8d8b5 → com.majurun.app → Add fingerprint
+  # 3. Regenerate
+  flutterfire configure --project=majurun-8d8b5 --out=lib/env/firebase_options_prod.dart --platforms=android,ios,web --android-package-name=com.majurun.app
+  --ios-bundle-id=com.majurun.app -y
+  base64 -w 0 android/app/google-services-prod.json | gh secret set GOOGLE_SERVICES_JSON_PROD
+
+  ---
+  Monthly Checklist (5 mins)
+
+  # Verify secrets still exist
+  gh secret list
+
+  # Verify dev project still has Firestore rules in sync with prod
+  firebase --project majurun-dev deploy --only firestore:rules
+
+  # Check SMS quota hasn't hit limits
+  # Firebase Console → majurun-8d8b5 → Auth → Usage tab
+
+  ---
+  Golden Rules Summary
+
+  1. flutter run          = always dev Firebase  (safe to break)
+  2. --dart-define=ENVIRONMENT=production = prod Firebase (careful)
+  3. Never edit firebase_options_*.dart manually — always flutterfire configure
+  4. Never edit google-services.json manually — always flutterfire configure
+  5. All Firebase Console changes → run the 3 commands above → commit
+  6. Releases always via GitHub Actions — never manual local builds for prod
+
+  Everything is documented permanently in ARCHITECTURE.md in your repo.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ accept edits on (shift+tab to cycle) · PR #1
+

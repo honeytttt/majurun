@@ -49,6 +49,36 @@ service cloud.firestore {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
+
+      // User's saved routes subcollection
+      match /routes/{routeId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      // User's shoes subcollection
+      match /shoes/{shoeId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      // User's goals subcollection
+      match /goals/{goalId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      // User's run history subcollection
+      match /runHistory/{runId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      // User's settings subcollection (voice, notifications, etc.)
+      match /settings/{settingId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
     }
 
     // User privacy settings collection
@@ -127,6 +157,13 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
+    }
+
+    // Challenges collection
+    match /challenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Contact messages collection

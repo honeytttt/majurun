@@ -33,6 +33,10 @@ class _OtpScreenState extends State<OtpScreen> {
   void initState() {
     super.initState();
     _startResendCountdown();
+    // Rebuild when any box gains/loses focus so the highlighted border updates
+    for (final f in _focusNodes) {
+      f.addListener(() { if (mounted) setState(() {}); });
+    }
   }
 
   void _startResendCountdown() {
@@ -115,6 +119,7 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _submitCode() async {
+    if (_isLoading) return;
     final code = _controllers.map((c) => c.text).join();
     if (code.length < 6) return;
 
@@ -122,7 +127,14 @@ class _OtpScreenState extends State<OtpScreen> {
     try {
       await widget.onVerify(code);
     } catch (e) {
-      if (mounted) {
+      if (!mounted) return;
+      final msg = e.toString().toLowerCase();
+      final isEmailExists = msg.contains('email-already-in-use') ||
+          msg.contains('already registered') ||
+          msg.contains('already in use');
+      if (isEmailExists) {
+        _showEmailExistsDialog(e.toString());
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
@@ -135,10 +147,103 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  void _showEmailExistsDialog(String rawError) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.person_pin_rounded, color: Colors.orange.shade700, size: 32),
+        ),
+        title: const Text(
+          'Account Already Exists',
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'This email is already registered with MajuRun.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please sign in with your existing account, or reset your password if you\'ve forgotten it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx); // close dialog
+                  // Pop OTP screen and signup screen back to login
+                  int count = 0;
+                  Navigator.of(context).popUntil((_) => count++ >= 2);
+                },
+                icon: const Icon(Icons.login_rounded),
+                label: const Text('Go to Sign In'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('Try Different Email'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _otpBox(int index) {
     final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 48,
+    final isFocused = _focusNodes[index].hasFocus;
+
+    // Container provides the visible box — TextField inside has NO internal
+    // decoration. This bypasses Samsung/MIUI autofill masking that turns digits
+    // into "•" or makes them invisible when using filled InputDecoration.
+    return Container(
+      width: 52,
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isFocused ? cs.primary : cs.outlineVariant,
+          width: isFocused ? 2.5 : 1.5,
+        ),
+        boxShadow: isFocused
+            ? [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: .18),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      alignment: Alignment.center,
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
@@ -146,31 +251,30 @@ class _OtpScreenState extends State<OtpScreen> {
         keyboardType: TextInputType.number,
         textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
         maxLength: 1,
-        style: TextStyle(
-          fontSize: 20,
+        obscureText: false,       // explicit — prevents autofill from hiding digits
+        autocorrect: false,
+        enableSuggestions: false,
+        autofillHints: const [], // disables Samsung / MIUI autofill masking
+        style: const TextStyle(
+          fontSize: 24,
           fontWeight: FontWeight.bold,
-          color: cs.onSurface,
+          color: Color(0xFF111111), // hardcoded near-black
+          height: 1.0,
         ),
-        // IMPORTANT: do NOT make this list const, since not all formatters are const
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
           LengthLimitingTextInputFormatter(1),
         ],
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           counterText: "",
-          filled: true,
-          fillColor: cs.surfaceContainerHighest,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: cs.outline),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: cs.primary, width: 2),
-          ),
+          border: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          isDense: true,
         ),
         onTap: () {
           _controllers[index].selection = TextSelection(

@@ -42,8 +42,13 @@ class FirebaseAuthImpl implements AuthRepository {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
-          debugPrint("Auto-verification completed (instant verification)");
-          await _auth.signInWithCredential(credential);
+          // Do NOT auto-sign-in here. The signup flow requires additional steps
+          // after phone verification (linking email + writing Firestore profile).
+          // Calling signInWithCredential here consumes the verification session,
+          // which makes the subsequent manual OTP entry fail with "session-expired".
+          // For test numbers Firebase also fires this instantly before the OTP
+          // screen is even shown — same problem.
+          debugPrint("Auto-verification available — skipping auto sign-in, user will complete OTP manually");
         },
         verificationFailed: (FirebaseAuthException e) {
           debugPrint("Verification failed: ${e.code} - ${e.message}");
@@ -92,85 +97,25 @@ class FirebaseAuthImpl implements AuthRepository {
   Future<AppUser?> signUpWithEmail({
     required String email,
     required String password,
-    required String firstName,
-    required String lastName,
-    required DateTime dob,
-    required String gender,
-    required String phoneNumber,
   }) async {
     try {
-      User? user;
-
-      final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        // Phone session already active → try to link email credential
-        final emailAuth = EmailAuthProvider.credential(email: email, password: password);
-        try {
-          final cred = await currentUser.linkWithCredential(emailAuth);
-          user = cred.user;
-          debugPrint("Email credential linked successfully to existing user");
-        } on FirebaseAuthException catch (e) {
-          if (e.code == 'provider-already-linked') {
-            debugPrint("Email already linked to this user");
-            user = currentUser;
-          } else if (e.code == 'email-already-in-use') {
-            debugPrint("Email already in use: ${e.message}");
-            throw "This email is already registered with another account. Please sign in or use a different email.";
-          } else {
-            debugPrint("Linking error: ${e.code} - ${e.message}");
-            rethrow;
-          }
-        }
-      } else {
-        debugPrint("No current user found - creating new email account");
-        final cred = await _auth.createUserWithEmailAndPassword(
-          email: email.trim(),
-          password: password.trim(),
-        );
-        user = cred.user;
-      }
-
-      if (user == null) {
-        throw "Authentication failed - no user returned after linking/creation";
-      }
-
-      // Send verification email
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+      final user = cred.user!;
       await user.sendEmailVerification();
-
-      // Safe Firestore write (merge = true)
-      await _db.collection('users').doc(user.uid).set({
-        'firstName': firstName,
-        'lastName': lastName,
-        'displayName': '$firstName $lastName',
-        'email': email,
-        'dob': dob.toIso8601String(),
-        'gender': gender,
-        'phoneNumber': phoneNumber,
-        'createdAt': FieldValue.serverTimestamp(),
-        'workoutsCount': 0,
-        'totalKm': 0.0,
-        'totalRunSeconds': 0,
-        'totalCalories': 0,
-        'postsCount': 0,
-        'followersCount': 0,
-        'followingCount': 0,
-        'badge5k': 0,
-        'badge10k': 0,
-        'badgeHalf': 0,
-        'badgeFull': 0,
-      }, SetOptions(merge: true));
-
-      await user.updateDisplayName("$firstName $lastName");
-
-      debugPrint("User profile created/updated for UID: ${user.uid}");
-
+      debugPrint("Email account created for UID: ${user.uid}");
       return _mapUser(user);
     } on FirebaseAuthException catch (e) {
       debugPrint("Auth exception during signup: ${e.code} - ${e.message}");
+      if (e.code == 'email-already-in-use') {
+        throw "This email is already registered. Please sign in or reset your password.";
+      }
       throw e.message ?? "Signup failed: ${e.code}";
     } catch (e) {
       debugPrint("Unexpected error during signup: $e");
-      throw "Unexpected error during signup: $e";
+      rethrow;
     }
   }
 
@@ -192,22 +137,11 @@ class FirebaseAuthImpl implements AuthRepository {
     if (userCredential.user != null) {
       final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
       if (!userDoc.exists) {
+        // Minimal doc — OnboardingScreen will complete the profile (dob, gender, name)
         await _db.collection('users').doc(userCredential.user!.uid).set({
-          'displayName': userCredential.user!.displayName ?? 'Runner',
           'email': userCredential.user!.email ?? '',
           'photoUrl': userCredential.user!.photoURL ?? '',
           'createdAt': FieldValue.serverTimestamp(),
-          'workoutsCount': 0,
-          'totalKm': 0.0,
-          'totalRunSeconds': 0,
-          'totalCalories': 0,
-          'postsCount': 0,
-          'followersCount': 0,
-          'followingCount': 0,
-          'badge5k': 0,
-          'badge10k': 0,
-          'badgeHalf': 0,
-          'badgeFull': 0,
         });
       }
     }
@@ -279,5 +213,10 @@ class FirebaseAuthImpl implements AuthRepository {
   Future<void> signOut() async {
     await GoogleSignIn().signOut();
     await _auth.signOut();
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
   }
 }

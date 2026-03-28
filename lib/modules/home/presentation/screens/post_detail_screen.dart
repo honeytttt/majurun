@@ -9,6 +9,7 @@ import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
+import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
 
 /// Post Detail Screen - Full post view with all content
 class PostDetailScreen extends StatefulWidget {
@@ -130,11 +131,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ),
                       );
                     },
-                    child: const DirectUrlAvatar(
-                      imageUrl: '', // Will fetch from Firestore
+                    child: UserAvatar(
+                      userId: widget.post.userId,
                       radius: 24,
                       showBorder: true,
-                      borderColor: Color(0xFF00E676),
+                      borderColor: const Color(0xFF00E676),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -161,6 +162,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
+                              color: Colors.black87,
                             ),
                           ),
                         ),
@@ -189,6 +191,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 style: const TextStyle(
                   fontSize: 16,
                   height: 1.5,
+                  color: Colors.black87,
                 ),
               ),
             ),
@@ -373,15 +376,39 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     final media = widget.post.media.first;
 
+    if (media.type == MediaType.video) {
+      return Container(
+        height: 300,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        child: PostVideoPlayer(videoUrl: media.url),
+      );
+    }
+
     return Container(
       constraints: const BoxConstraints(
         maxHeight: 500,
         minHeight: 200,
       ),
+      color: Colors.grey[100],
       child: Image.network(
         media.url,
         fit: BoxFit.contain,
         width: double.infinity,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 300,
+            color: Colors.grey[100],
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+                color: const Color(0xFF00E676),
+              ),
+            ),
+          );
+        },
         errorBuilder: (_, __, ___) => Container(
           height: 300,
           color: Colors.grey[200],

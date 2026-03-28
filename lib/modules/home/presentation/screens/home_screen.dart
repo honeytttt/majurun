@@ -332,6 +332,36 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   final ScrollController _feedScrollController = ScrollController();
   final List<AppPost> _allPosts = [];
   bool _isLoadingMore = false;
+  bool _bannerDismissed = false;
+  bool _sendingVerification = false;
+
+  bool get _showVerifyBanner {
+    if (_bannerDismissed) return false;
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null || u.emailVerified) return false;
+    return u.providerData.any((p) => p.providerId == 'password');
+  }
+
+  Future<void> _sendVerification() async {
+    setState(() => _sendingVerification = true);
+    try {
+      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+      if (!mounted) return;
+      setState(() => _bannerDismissed = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Verification email sent to ${FirebaseAuth.instance.currentUser?.email ?? ""}',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      // silently ignore — user can retry
+    } finally {
+      if (mounted) setState(() => _sendingVerification = false);
+    }
+  }
 
   @override
   void initState() {
@@ -405,18 +435,29 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
         final posts = snapshot.data ?? [];
 
-        // Update _allPosts whenever stream emits new data
-        // This ensures new posts appear immediately without manual refresh
+        // Only rebuild when meaningful data changes (new/removed posts or like counts).
+        // Do NOT rebuild on every stream event — it recreates FutureBuilders in
+        // child widgets and causes images/maps to reset and reload indefinitely.
         if (posts.isNotEmpty) {
           final newPostIds = posts.map((p) => p.id).toSet();
           final currentPostIds = _allPosts.map((p) => p.id).toSet();
 
-          // Check if there are new posts or if this is initial load
-          if (!newPostIds.every((id) => currentPostIds.contains(id)) || _allPosts.isEmpty) {
+          final idsChanged = newPostIds.length != currentPostIds.length ||
+              !newPostIds.every((id) => currentPostIds.contains(id));
+          final likesChanged = !idsChanged &&
+              posts.any((p) {
+                try {
+                  final existing = _allPosts.firstWhere((e) => e.id == p.id);
+                  return existing.likes.length != p.likes.length;
+                } catch (_) {
+                  return false;
+                }
+              });
+
+          if (_allPosts.isEmpty || idsChanged || likesChanged) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() {
-                  // Merge new posts at the beginning, keep pagination posts
                   final paginatedPosts = _allPosts.where((p) => !newPostIds.contains(p.id)).toList();
                   _allPosts.clear();
                   _allPosts.addAll(posts);
@@ -495,11 +536,68 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               ),
               // Thin silver line below app bar
               SliverToBoxAdapter(
-                child: Container(
-                  height: 1,
-                  color: silverMedium,
-                ),
+                child: Container(height: 1, color: silverMedium),
               ),
+
+              // Soft email-verification nudge (Strava-style — dismissible)
+              if (_showVerifyBanner)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: brandGreen.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: brandGreen.withValues(alpha: .25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.mark_email_unread_outlined,
+                            size: 20, color: brandGreen),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Verify your email to secure your account.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: brandGreen,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _sendingVerification
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: brandGreen),
+                              )
+                            : TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: brandGreen,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: _sendVerification,
+                                child: const Text('Send link',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          color: brandGreen.withValues(alpha: .6),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => setState(() => _bannerDismissed = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
               displayPosts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(

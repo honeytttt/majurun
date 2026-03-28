@@ -28,6 +28,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   ChewieController? _chewieController;
   late String _safeContent;
   bool _hasError = false;
+  // Optimistic like state — updated immediately on tap, not waiting for stream
+  late bool _isLiked;
+  late int _localLikesCount;
 
   @override
   bool get wantKeepAlive => true;
@@ -37,6 +40,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     super.initState();
     _initializeVideo();
     _safeContent = _createSafeString(widget.post.content);
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _isLiked = widget.post.likes.contains(uid);
+    _localLikesCount = widget.post.likes.length;
   }
 
   @override
@@ -45,6 +51,25 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     if (oldWidget.post.content != widget.post.content) {
       _safeContent = _createSafeString(widget.post.content);
     }
+    // Sync like state only when Firestore actually changes the likes list
+    if (oldWidget.post.likes != widget.post.likes) {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      _isLiked = widget.post.likes.contains(uid);
+      _localLikesCount = widget.post.likes.length;
+    }
+  }
+
+  void _toggleLike(PostRepositoryImpl repo, String currentUserId) {
+    setState(() {
+      if (_isLiked) {
+        _isLiked = false;
+        _localLikesCount--;
+      } else {
+        _isLiked = true;
+        _localLikesCount++;
+      }
+    });
+    repo.toggleLike(widget.post.id, currentUserId);
   }
 
   String _createSafeString(String text) {
@@ -134,7 +159,6 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     final isOwnPost = currentUserId.isNotEmpty && widget.post.userId == currentUserId;
     final isAdmin = subscriptionService.isAdmin();
     final canModifyPost = isOwnPost || isAdmin;
-    final isLiked = widget.post.likes.contains(currentUserId);
 
     final isRepost = widget.post.quotedPostId != null &&
         widget.post.quotedPostId!.isNotEmpty &&
@@ -385,11 +409,11 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           _ActionButton(
-                            icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                            label: '${widget.post.likes.length}',
-                            color: isLiked ? Colors.red : Colors.grey[600],
+                            icon: _isLiked ? Icons.favorite : Icons.favorite_border,
+                            label: '$_localLikesCount',
+                            color: _isLiked ? Colors.red : Colors.grey[600],
                             onTap: currentUserId.isNotEmpty
-                                ? () => repo.toggleLike(widget.post.id, currentUserId)
+                                ? () => _toggleLike(repo, currentUserId)
                                 : null,
                           ),
                           _ActionButton(

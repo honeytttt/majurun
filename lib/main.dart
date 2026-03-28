@@ -5,8 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'env/firebase_options_dev.dart' as dev_options;
 import 'env/firebase_options_prod.dart' as prod_options;
-// App Check - DISABLED for iOS build compatibility
-// import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Core services - Use ServiceLocator for singleton access
 import 'core/services/analytics_service.dart';
@@ -46,13 +45,17 @@ Future<void> main() async {
       if (!e.toString().contains('duplicate-app')) rethrow;
     }
 
-    // Firebase App Check - DISABLED for testing
-    // TODO: Re-enable for production with proper Play Integrity setup
-    // await FirebaseAppCheck.instance.activate(
-    //   webProvider: ReCaptchaEnterpriseProvider(AppConfig.recaptchaSiteKey),
-    //   androidProvider: AndroidProvider.playIntegrity,
-    //   appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
-    // );
+    // Firebase App Check — verifies requests come from the real app on a real device.
+    // Android: Play Integrity (debug builds fall back to debug provider automatically)
+    // iOS: App Attest with DeviceCheck fallback
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AppConfig.isProduction
+          ? AndroidProvider.playIntegrity
+          : AndroidProvider.debug,
+      appleProvider: AppConfig.isProduction
+          ? AppleProvider.appAttestWithDeviceCheckFallback
+          : AppleProvider.debug,
+    );
 
     // Initialize ServiceLocator (handles all core services)
     await serviceLocator.initialize();

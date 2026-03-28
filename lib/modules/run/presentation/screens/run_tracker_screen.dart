@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
@@ -201,14 +203,27 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               animation: _pulseController,
               builder: (_, child) {
                 return Transform.scale(
-                  scale: 1.0 + (_pulseController.value * 0.25),
+                  scale: 1.0 + (_pulseController.value * 0.08),
                   child: child,
                 );
               },
-              child: const Icon(
-                Icons.directions_run_rounded,
-                color: Color(0xFF2D7A3E),
-                size: 80,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2D7A3E).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: UserAvatar(
+                  userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                  radius: 48,
+                  showBorder: true,
+                  borderColor: const Color(0xFF2D7A3E),
+                ),
               ),
             ),
             const SizedBox(height: 40),

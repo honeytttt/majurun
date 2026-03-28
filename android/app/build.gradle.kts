@@ -4,6 +4,8 @@ plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
+    id("com.google.firebase.firebase-perf")
+    id("com.google.firebase.crashlytics")
     // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -50,8 +52,16 @@ android {
     }
 
     signingConfigs {
-        // Release signing config - create key.properties file with your keystore details
-        // storeFile, storePassword, keyAlias, keyPassword
+        // Shared debug keystore — same SHA on every machine, registered once in Firebase.
+        // Committed to repo at android/debug.keystore (safe: debug only, not production).
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
+        // Release signing config — loaded from key.properties (not committed)
         create("release") {
             val keystorePropertiesFile = rootProject.file("key.properties")
             if (keystorePropertiesFile.exists()) {

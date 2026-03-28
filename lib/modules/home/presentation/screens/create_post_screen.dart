@@ -25,13 +25,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
+  // Limit state kept only for backend validation in _handlePost — not shown upfront
   Map<String, int> _remainingPosts = {};
-  bool _isLoadingLimits = true;
+  bool _isLoadingLimits = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(() => setState(() {}));
+    // Load limits silently for backend validation only — not shown in UI
     _loadRemainingPosts();
   }
 
@@ -257,7 +259,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Widget build(BuildContext context) {
     final bool hasContent =
         _controller.text.trim().isNotEmpty || _mediaList.isNotEmpty;
-    final bool canPost = hasContent && !_isUploading && _totalRemaining > 0;
+    final bool canPost = hasContent && !_isUploading;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -267,53 +269,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          // ✅ SHOW REMAINING POSTS INDICATOR
-          if (!_isLoadingLimits)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _shouldShowWarning
-                        ? Colors.orange.withValues(alpha: 0.2)
-                        : const Color(0xFF00E676).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _shouldShowWarning
-                          ? Colors.orange.withValues(alpha: 0.5)
-                          : const Color(0xFF00E676).withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _shouldShowWarning
-                            ? Icons.warning_amber
-                            : Icons.check_circle,
-                        size: 16,
-                        color: _shouldShowWarning
-                            ? Colors.orange
-                            : const Color(0xFF00E676),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_totalRemaining left',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _shouldShowWarning
-                              ? Colors.orange
-                              : const Color(0xFF00E676),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          
           // POST BUTTON
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
@@ -343,35 +298,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
       body: Column(
         children: [
-          // ✅ LIMITS INFO BANNER (when approaching limit)
-          if (_shouldShowWarning && !_isLoadingLimits)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: Colors.orange.withValues(alpha: 0.1),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _limitService.getPostLimitMessage(
-                        totalRemaining: _totalRemaining,
-                        imageRemaining: _remainingPosts['image'],
-                        videoRemaining: _remainingPosts['video'],
-                        textRemaining: _remainingPosts['text'],
-                      ),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.orange,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
           // TEXT INPUT
           Expanded(
             child: TextField(

@@ -15,19 +15,63 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 
-class FeedItemWrapper extends StatelessWidget {
+class FeedItemWrapper extends StatefulWidget {
   final AppPost post;
 
   const FeedItemWrapper({super.key, required this.post});
 
-  void _navigateToUserProfile(BuildContext context, String userId, String username, bool isOwnPost) {
+  @override
+  State<FeedItemWrapper> createState() => _FeedItemWrapperState();
+}
+
+class _FeedItemWrapperState extends State<FeedItemWrapper> {
+  late bool _isLiked;
+  late int _localLikesCount;
+  // Cache the future so it survives widget rebuilds — recreating it inline in
+  // build() would reset the FutureBuilder every time the parent calls setState.
+  late Future<String> _userPhotoFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    _isLiked = currentUserId != null && widget.post.likes.contains(currentUserId);
+    _localLikesCount = widget.post.likes.length;
+    _userPhotoFuture = _getUserPhotoUrl(widget.post.userId);
+  }
+
+  @override
+  void didUpdateWidget(FeedItemWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync from stream when server confirms like changes
+    if (oldWidget.post.likes.length != widget.post.likes.length) {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      _isLiked = currentUserId != null && widget.post.likes.contains(currentUserId);
+      _localLikesCount = widget.post.likes.length;
+    }
+  }
+
+  void _toggleLike(BuildContext context, String currentUserId) {
+    setState(() {
+      if (_isLiked) {
+        _isLiked = false;
+        _localLikesCount--;
+      } else {
+        _isLiked = true;
+        _localLikesCount++;
+      }
+    });
+    PostRepositoryImpl().toggleLike(widget.post.id, currentUserId);
+  }
+
+  void _navigateToUserProfile(BuildContext context, bool isOwnPost) {
     if (!isOwnPost) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => UserProfileScreen(
-            userId: userId,
-            username: username,
+            userId: widget.post.userId,
+            username: widget.post.username,
           ),
         ),
       );
@@ -38,19 +82,18 @@ class FeedItemWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final currentUserId = currentUser?.uid;
-    final isOwnPost = currentUserId != null && post.userId == currentUserId;
-    final isLiked = currentUserId != null && post.likes.contains(currentUserId);
-    final isRepost = post.quotedPostId != null && post.content.trim().isEmpty;
+    final isOwnPost = currentUserId != null && widget.post.userId == currentUserId;
+    final isRepost = widget.post.quotedPostId != null && widget.post.content.trim().isEmpty;
 
     // ✅ Wrap entire card in GestureDetector to make it tappable
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        debugPrint('🃏 FeedItem TAPPED! ID: ${post.id}');
+        debugPrint('🃏 FeedItem TAPPED! ID: ${widget.post.id}');
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PostDetailScreen(post: post),
+            builder: (context) => PostDetailScreen(post: widget.post),
           ),
         );
       },
@@ -58,19 +101,19 @@ class FeedItemWrapper extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0.5,
-        color: const Color(0xFF1A1A2E),
+        color: Colors.white,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- Header Section ---
             ListTile(
               leading: GestureDetector(
-                onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
+                onTap: () => _navigateToUserProfile(context, isOwnPost),
                 child: FutureBuilder<String>(
-                  future: _getUserPhotoUrl(post.userId),
+                  future: _userPhotoFuture,
                   builder: (context, snapshot) {
                     final photoUrl = snapshot.data ?? '';
-                    
+
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const CircleAvatar(
                         backgroundColor: Colors.grey,
@@ -85,14 +128,14 @@ class FeedItemWrapper extends StatelessWidget {
                         ),
                       );
                     }
-                    
+
                     if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
                       return const CircleAvatar(
                         backgroundColor: Colors.blueGrey,
                         child: Icon(Icons.person, color: Colors.white),
                       );
                     }
-                    
+
                     return CircleAvatar(
                       radius: 20,
                       backgroundColor: Colors.grey,
@@ -101,16 +144,16 @@ class FeedItemWrapper extends StatelessWidget {
                           photoUrl,
                           width: 40,
                           height: 40,
-                          fit: BoxFit.cover, // ✅ Keep cover for avatars
+                          fit: BoxFit.cover,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) {
-                              debugPrint('✅ FeedItem: Avatar loaded successfully for ${post.userId}');
+                              debugPrint('✅ FeedItem: Avatar loaded successfully for ${widget.post.userId}');
                               return child;
                             }
                             final progress = loadingProgress.expectedTotalBytes != null
                                 ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
                                 : 0.0;
-                            debugPrint('⏳ FeedItem: Loading avatar for ${post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
+                            debugPrint('⏳ FeedItem: Loading avatar for ${widget.post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
                             return Center(
                               child: SizedBox(
                                 width: 20,
@@ -124,7 +167,7 @@ class FeedItemWrapper extends StatelessWidget {
                             );
                           },
                           errorBuilder: (context, error, stackTrace) {
-                            debugPrint('❌ FeedItem: Error loading avatar for ${post.userId}: $error');
+                            debugPrint('❌ FeedItem: Error loading avatar for ${widget.post.userId}: $error');
                             return const CircleAvatar(
                               backgroundColor: Colors.redAccent,
                               child: Icon(Icons.error, color: Colors.white),
@@ -137,13 +180,13 @@ class FeedItemWrapper extends StatelessWidget {
                 ),
               ),
               title: GestureDetector(
-                onTap: () => _navigateToUserProfile(context, post.userId, post.username, isOwnPost),
+                onTap: () => _navigateToUserProfile(context, isOwnPost),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        post.username,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        widget.post.username,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -160,8 +203,8 @@ class FeedItemWrapper extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                timeago.format(post.createdAt),
-                style: const TextStyle(color: Colors.white60),
+                timeago.format(widget.post.createdAt),
+                style: const TextStyle(color: Colors.black45),
               ),
               trailing: isOwnPost
                   ? IconButton(
@@ -172,19 +215,19 @@ class FeedItemWrapper extends StatelessWidget {
             ),
 
             // ✅ UPDATED: Post Text Content with ExpandableText
-            if (post.content.trim().isNotEmpty)
+            if (widget.post.content.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: ExpandableText(
-                  text: post.content,
+                  text: widget.post.content,
                   maxLines: 5,
-                  style: const TextStyle(fontSize: 16, height: 1.35, color: Colors.white),
+                  style: const TextStyle(fontSize: 16, height: 1.35, color: Colors.black87),
                   onTap: () {
                     debugPrint('📱 ExpandableText tapped from FeedItem');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PostDetailScreen(post: post),
+                        builder: (context) => PostDetailScreen(post: widget.post),
                       ),
                     );
                   },
@@ -192,24 +235,24 @@ class FeedItemWrapper extends StatelessWidget {
               ),
 
             // --- NEW: Run Map Preview (If it's a Run Activity) ---
-            if (post.routePoints != null && post.routePoints!.isNotEmpty)
+            if (widget.post.routePoints != null && widget.post.routePoints!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: RunMapPreview(points: post.routePoints!),
+                child: RunMapPreview(points: widget.post.routePoints!),
               ),
 
             // --- Media / Images Section ---
-            if (post.media.isNotEmpty)
+            if (widget.post.media.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                child: _buildMedia(context, post.media.first),
+                child: _buildMedia(context, widget.post.media.first),
               ),
 
             // --- Quoted Post Section ---
-            if (post.quotedPostId != null && post.quotedPostId!.isNotEmpty)
+            if (widget.post.quotedPostId != null && widget.post.quotedPostId!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: QuotedPostPreview(postId: post.quotedPostId!),
+                child: QuotedPostPreview(postId: widget.post.quotedPostId!),
               ),
 
             // ✅ UPDATED: Actions Bar - Prevent tap propagation
@@ -223,42 +266,42 @@ class FeedItemWrapper extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        // Like Button
+                        // Like Button — optimistic state
                         IconButton(
                           icon: Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            _isLiked ? Icons.favorite : Icons.favorite_border,
                             size: 22,
-                            color: isLiked ? Colors.red : Colors.grey[700],
+                            color: _isLiked ? Colors.red : Colors.grey[700],
                           ),
                           onPressed: currentUserId != null
-                              ? () => PostRepositoryImpl().toggleLike(post.id, currentUserId)
+                              ? () => _toggleLike(context, currentUserId)
                               : () => _showLoginSnack(context),
                         ),
                         Text(
-                          "${post.likes.length}",
-                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white70),
+                          "$_localLikesCount",
+                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
                         ),
                         const SizedBox(width: 16),
-                        
+
                         // Comment Button
                         IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white60),
+                          icon: const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black45),
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (_) => CommentSheet(postId: post.id),
+                              builder: (_) => CommentSheet(postId: widget.post.id),
                             );
                           },
                         ),
                         StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: PostRepositoryImpl().getCommentsStream(post.id),
+                          stream: PostRepositoryImpl().getCommentsStream(widget.post.id),
                           builder: (context, snapshot) {
                             final count = snapshot.data?.length ?? 0;
                             return Text(
                               "$count",
-                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white70),
+                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
                             );
                           },
                         ),
@@ -272,7 +315,7 @@ class FeedItemWrapper extends StatelessWidget {
                           onPressed: currentUserId != null
                               ? () {
                                   PostRepositoryImpl().repost(
-                                    post,
+                                    widget.post,
                                     currentUserId,
                                     currentUser?.displayName ?? 'Runner',
                                   );
@@ -286,10 +329,10 @@ class FeedItemWrapper extends StatelessWidget {
                                 }
                               : () => _showLoginSnack(context),
                         ),
-                        
+
                         // Share Button
                         IconButton(
-                          icon: const Icon(Icons.share, size: 20, color: Colors.white60),
+                          icon: const Icon(Icons.share, size: 20, color: Colors.black45),
                           onPressed: () => _handleShare(context),
                         ),
                       ],
@@ -308,25 +351,25 @@ class FeedItemWrapper extends StatelessWidget {
 
   Future<String> _getUserPhotoUrl(String userId) async {
     debugPrint('📡 FeedItem: STARTING fetch for userId="$userId"');
-    
+
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-      
+
       debugPrint('📦 FeedItem: Firestore response for $userId: exists=${userDoc.exists}');
-      
+
       if (userDoc.exists) {
         final data = userDoc.data();
         final photoUrl = data?['photoUrl'] as String?;
-        
+
         debugPrint('📸 FeedItem: Extracted photoUrl for $userId:');
         debugPrint('   photoUrl = "$photoUrl"');
         debugPrint('   length = ${photoUrl?.length}');
         debugPrint('   starts with http = ${photoUrl?.startsWith('http')}');
         debugPrint('   contains amazonaws = ${photoUrl?.contains('amazonaws')}');
-        
+
         return photoUrl ?? '';
       }
-      
+
       debugPrint('⚠️  FeedItem: User doc does not exist for $userId');
       return '';
     } catch (e) {
@@ -347,7 +390,7 @@ class FeedItemWrapper extends StatelessWidget {
         onTap: () => _showFullscreenImage(context, media.url),
         child: Container(
           constraints: const BoxConstraints(
-            maxHeight: 350, // ✅ Reduced from 500 to 350
+            maxHeight: 350,
             minHeight: 200,
           ),
           margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -365,7 +408,7 @@ class FeedItemWrapper extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
               media.url,
-              fit: BoxFit.contain, // ✅ Changed to contain - shows full image without stretching
+              fit: BoxFit.contain,
               width: double.infinity,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
@@ -446,7 +489,7 @@ class FeedItemWrapper extends StatelessWidget {
                 title: const Text('Copy Text'),
                 onTap: () {
                   Navigator.pop(context);
-                  Clipboard.setData(ClipboardData(text: post.content));
+                  Clipboard.setData(ClipboardData(text: widget.post.content));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Copied to clipboard!'),
@@ -475,7 +518,7 @@ class FeedItemWrapper extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              PostRepositoryImpl().deletePost(post.id);
+              PostRepositoryImpl().deletePost(widget.post.id);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -493,8 +536,8 @@ class FeedItemWrapper extends StatelessWidget {
   }
 
   void _handleShare(BuildContext context) {
-    final shareText = post.content.isNotEmpty
-        ? post.content
+    final shareText = widget.post.content.isNotEmpty
+        ? widget.post.content
         : 'Check out this post on MajuRun!';
     Clipboard.setData(ClipboardData(text: shareText));
     ScaffoldMessenger.of(context).showSnackBar(
