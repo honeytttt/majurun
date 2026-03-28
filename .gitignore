@@ -68,6 +68,6 @@ app.*.map.json
 **/GoogleService-Info-Dev.plist
 **/GoogleService-Info-Prod.plist
 
-# Firebase env dart configs ARE committed (safe — security via Firebase rules)
-# lib/env/firebase_options_dev.dart  ← committed
-# lib/env/firebase_options_prod.dart ← committed
+# Firebase env dart configs — NOT committed (contain API keys, injected by CI/CD)
+lib/env/firebase_options_dev.dart
+lib/env/firebase_options_prod.dart
