@@ -10,17 +10,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 
-const String _kRunMapStyle =
-    '[{"featureType":"poi","stylers":[{"visibility":"off"}]},'
-    '{"featureType":"transit","stylers":[{"visibility":"off"}]},'
-    '{"featureType":"landscape","elementType":"geometry.fill","stylers":[{"color":"#f4f4f4"}]},'
-    '{"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#ffffff"}]},'
-    '{"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#d8d8d8"},{"weight":"0.5"}]},'
-    '{"featureType":"road.highway","elementType":"geometry.fill","stylers":[{"color":"#ededed"}]},'
-    '{"featureType":"water","elementType":"geometry.fill","stylers":[{"color":"#aad3df"}]},'
-    '{"featureType":"poi.park","elementType":"geometry.fill","stylers":[{"color":"#d5e8d4"}]},'
-    '{"featureType":"road","elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
-    '{"featureType":"administrative","elementType":"labels.text.fill","stylers":[{"color":"#888888"}]}]';
 
 /// Production-grade active run screen with:
 /// - GPS quality indicator
@@ -325,7 +314,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                       ),
                       onMapCreated: (controller) {
                         _mapController = controller;
-                        controller.setMapStyle(_kRunMapStyle);
                         _updateCamera(runController);
                       },
                       polylines: {
