@@ -57,11 +57,15 @@ jobs:
 
       - name: Inject firebase_options (prod)
         if: ${{ github.event.inputs.environment == 'prod' }}
-        run: echo "${{ secrets.FIREBASE_OPTIONS_PROD }}" | base64 --decode > lib/env/firebase_options_prod.dart
+        run: |
+          mkdir -p lib/env
+          echo "${{ secrets.FIREBASE_OPTIONS_PROD }}" | base64 --decode > lib/env/firebase_options_prod.dart
 
       - name: Inject firebase_options (dev)
         if: ${{ github.event.inputs.environment == 'dev' }}
-        run: echo "${{ secrets.FIREBASE_OPTIONS_DEV }}" | base64 --decode > lib/env/firebase_options_dev.dart
+        run: |
+          mkdir -p lib/env
+          echo "${{ secrets.FIREBASE_OPTIONS_DEV }}" | base64 --decode > lib/env/firebase_options_dev.dart
 
       # ── Keystore setup ─────────────────────────────────────────────────────
       - name: Setup release keystore
