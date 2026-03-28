@@ -46,8 +46,10 @@ android {
             localProperties.load(localPropertiesFile.inputStream())
         }
 
-        // Google Maps API Key - read from local.properties or use empty string
-        val mapsApiKey = localProperties.getProperty("MAPS_API_KEY", "")
+        // Google Maps API Key — env var takes priority (used by CI),
+        // falls back to local.properties (used for local dev)
+        val mapsApiKey = System.getenv("MAPS_API_KEY")
+            ?: localProperties.getProperty("MAPS_API_KEY", "")
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
