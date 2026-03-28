@@ -55,17 +55,11 @@ jobs:
         if: ${{ github.event.inputs.environment == 'dev' }}
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON_DEV }}" | base64 --decode > android/app/google-services.json
 
-      - name: Inject firebase_options (prod)
-        if: ${{ github.event.inputs.environment == 'prod' }}
-        run: |
-          mkdir -p lib/env
-          echo "${{ secrets.FIREBASE_OPTIONS_PROD }}" | base64 --decode > lib/env/firebase_options_prod.dart
-
-      - name: Inject firebase_options (dev)
-        if: ${{ github.event.inputs.environment == 'dev' }}
+      - name: Inject firebase_options (both always required by main.dart)
         run: |
           mkdir -p lib/env
           echo "${{ secrets.FIREBASE_OPTIONS_DEV }}" | base64 --decode > lib/env/firebase_options_dev.dart
+          echo "${{ secrets.FIREBASE_OPTIONS_PROD }}" | base64 --decode > lib/env/firebase_options_prod.dart
 
       # ── Keystore setup ─────────────────────────────────────────────────────
       - name: Setup release keystore
