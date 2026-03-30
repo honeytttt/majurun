@@ -46,12 +46,49 @@ class _SignupScreenState extends State<SignupScreen> {
       // AuthWrapper will detect the new user and route to OnboardingScreen
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
-      );
+      final msg = e.toString();
+      if (msg.contains('already registered') || msg.contains('already-in-use')) {
+        _showAlreadyExistsDialog(_email.text.trim());
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showAlreadyExistsDialog(String email) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Icon(Icons.person_search_rounded, color: cs.primary),
+          const SizedBox(width: 10),
+          const Text('Account exists'),
+        ]),
+        content: Text(
+          'An account already exists for\n$email\n\nPlease sign in instead. If you forgot your password, use "Forgot password?" on the sign-in screen.',
+          style: TextStyle(color: cs.onSurfaceVariant, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);      // close dialog
+              Navigator.pop(context);  // back to LoginScreen
+            },
+            child: const Text('Go to Sign In'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleGoogle() async {

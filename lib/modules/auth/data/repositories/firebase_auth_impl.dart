@@ -153,12 +153,11 @@ class FirebaseAuthImpl implements AuthRepository {
 
   @override
   Future<AppUser?> signInWithTwitter() async {
-    // Create a Twitter provider
     final twitterProvider = TwitterAuthProvider();
-    
+
     try {
-      // Sign in with popup (web) or redirect (mobile)
-      final userCredential = await _auth.signInWithPopup(twitterProvider);
+      // signInWithProvider handles mobile OAuth via browser; signInWithPopup is web-only
+      final userCredential = await _auth.signInWithProvider(twitterProvider);
       
       if (userCredential.user != null) {
         // Check if user exists in Firestore
