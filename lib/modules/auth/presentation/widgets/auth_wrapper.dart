@@ -39,6 +39,9 @@ class AuthWrapper extends StatelessWidget {
               );
             }
 
+            // Admin always goes straight to HomeScreen regardless of profile completion
+            if (user.email == 'majurun.app@gmail.com') return const HomeScreen();
+
             final data = profileSnap.data?.data() as Map<String, dynamic>?;
             final hasProfile = data != null && data['dob'] != null;
 

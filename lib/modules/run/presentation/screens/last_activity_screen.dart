@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:majurun/core/utils/map_marker_builder.dart';
+
 
 class LastActivityScreen extends StatefulWidget {
   final Map<String, dynamic> lastRun;
@@ -14,6 +16,30 @@ class LastActivityScreen extends StatefulWidget {
 }
 
 class _LastActivityScreenState extends State<LastActivityScreen> {
+  BitmapDescriptor? _startMarker;
+  BitmapDescriptor? _endMarker;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMarkers();
+  }
+
+  Future<void> _loadMarkers() async {
+    final start = await MapMarkerBuilder.buildForCurrentUser(
+      borderColor: const Color(0xFFFC4C02), // orange = start
+    );
+    final end = await MapMarkerBuilder.buildForCurrentUser(
+      borderColor: const Color(0xFF7ED957), // green = end
+    );
+    if (mounted) {
+      setState(() {
+        _startMarker = start;
+        _endMarker = end;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final distVal = widget.lastRun['distance'] ?? 0.0;
@@ -185,15 +211,19 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       return _noPreview();
     }
 
-    // Interactive map for all platforms
+    // Lite mode = static bitmap — no separate native GL context, no scroll jank
     final bounds = _calculateBounds(points);
-    final initialPosition = CameraPosition(
-      target: LatLng(
-        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
-        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
-      ),
-      zoom: 13,
+    final center = LatLng(
+      (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+      (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
     );
+    final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
+    final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
+    final maxSpan = math.max(latSpan, lngSpan);
+    // For a 250px container: zoom = log2(320 / maxSpan)
+    final double zoom = maxSpan > 0
+        ? (math.log(320 / maxSpan) / math.ln2).clamp(10.0, 17.0)
+        : 13.0;
 
     return Container(
       margin: const EdgeInsets.all(20),
@@ -204,43 +234,44 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
-        initialCameraPosition: initialPosition,
+        initialCameraPosition: CameraPosition(target: center, zoom: zoom),
+        liteModeEnabled: true,
         mapType: MapType.normal,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
             points: points,
-            color: const Color(0xFF4285F4),
+            color: const Color(0xFFFC4C02),
             width: 5,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
           ),
         },
         markers: {
           Marker(
             markerId: const MarkerId('start'),
             position: points.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            icon: _startMarker ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+            anchor: const Offset(0.5, 0.5),
           ),
           Marker(
             markerId: const MarkerId('end'),
             position: points.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            icon: _endMarker ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
-        scrollGesturesEnabled: true,
-        rotateGesturesEnabled: true,
-        tiltGesturesEnabled: true,
+        zoomControlsEnabled: false,
+        zoomGesturesEnabled: false,
+        scrollGesturesEnabled: false,
+        rotateGesturesEnabled: false,
+        tiltGesturesEnabled: false,
         mapToolbarEnabled: false,
         myLocationEnabled: false,
         myLocationButtonEnabled: false,
-        onMapCreated: (GoogleMapController controller) {
-          Future.delayed(const Duration(milliseconds: 400), () {
-            if (mounted) {
-              controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-            }
-          });
-        },
       ),
     );
   }

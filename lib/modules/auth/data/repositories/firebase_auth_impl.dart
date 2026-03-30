@@ -121,10 +121,11 @@ class FirebaseAuthImpl implements AuthRepository {
 
   @override
   Future<AppUser?> signInWithGoogle() async {
-    // Let google_sign_in auto-detect from google-services.json
     final GoogleSignIn googleSignIn = GoogleSignIn(
       scopes: ['email', 'profile'],
     );
+    // Sign out first to clear cached account and force account picker every time
+    await googleSignIn.signOut();
     final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
     if (googleUser == null) return null;
     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
@@ -153,12 +154,11 @@ class FirebaseAuthImpl implements AuthRepository {
 
   @override
   Future<AppUser?> signInWithTwitter() async {
-    // Create a Twitter provider
     final twitterProvider = TwitterAuthProvider();
-    
+
     try {
-      // Sign in with popup (web) or redirect (mobile)
-      final userCredential = await _auth.signInWithPopup(twitterProvider);
+      // signInWithProvider handles mobile OAuth via browser; signInWithPopup is web-only
+      final userCredential = await _auth.signInWithProvider(twitterProvider);
       
       if (userCredential.user != null) {
         // Check if user exists in Firestore

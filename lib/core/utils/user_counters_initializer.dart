@@ -115,6 +115,12 @@ class UserCountersInitializer {
       final currentBadgeHalf = (currentData['badgeHalf'] as int?) ?? 0;
       final currentBadgeFull = (currentData['badgeFull'] as int?) ?? 0;
 
+      // Sync workoutsCount to the actual number of completed runs in training_history
+      final actualRunCount = historySnapshot.docs
+          .where((d) => (d.data()['completed'] as bool?) ?? true)
+          .length;
+      final currentWorkoutsCount = (currentData['workoutsCount'] as int?) ?? 0;
+
       // Update badges if recalculated values differ
       final updates = <String, dynamic>{};
 
@@ -135,11 +141,16 @@ class UserCountersInitializer {
         debugPrint('🏅 Updating badgeFull: $currentBadgeFull → $badgeFullCount');
       }
 
+      if (actualRunCount != currentWorkoutsCount) {
+        updates['workoutsCount'] = actualRunCount;
+        debugPrint('🔄 Syncing workoutsCount: $currentWorkoutsCount → $actualRunCount');
+      }
+
       if (updates.isNotEmpty) {
         await firestore.collection('users').doc(userId).update(updates);
-        debugPrint('✅ Badges synced: $updates');
+        debugPrint('✅ Badges + workoutsCount synced: $updates');
       } else {
-        debugPrint('✅ Badges already in sync');
+        debugPrint('✅ Stats already in sync');
       }
     } catch (e) {
       debugPrint('❌ Error syncing badges: $e');

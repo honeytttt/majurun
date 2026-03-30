@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -237,10 +239,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                       value: 'female',
                                       icon: Icon(Icons.female_rounded),
                                       label: Text('Female')),
-                                  ButtonSegment(
-                                      value: 'other',
-                                      icon: Icon(Icons.people_outline_rounded),
-                                      label: Text('Other')),
                                 ],
                                 emptySelectionAllowed: true,
                                 selected: _gender == null
@@ -248,7 +246,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                     : <String>{_gender!},
                                 onSelectionChanged: (s) =>
                                     setState(() => _gender = s.firstOrNull),
-                                style: ButtonStyle(
+                                style: const ButtonStyle(
                                   visualDensity: VisualDensity.comfortable,
                                 ),
                               ),
@@ -274,6 +272,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                         borderRadius: BorderRadius.circular(14)),
                                   ),
                                 ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('Already have an account?',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant)),
+                                  TextButton(
+                                    onPressed: _loading
+                                        ? null
+                                        : () async {
+                                            await context
+                                                .read<AuthRepository>()
+                                                .signOut();
+                                            // AuthWrapper will now show LoginScreen
+                                          },
+                                    child: Text('Sign In',
+                                        style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

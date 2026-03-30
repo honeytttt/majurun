@@ -308,7 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       createdAt: createdAt,
                     ),
                   ),
-                  
+
                   // Show either stats or posts based on toggle
                   if (_showPosts)
                     _buildPostsList(uid, name)
@@ -322,6 +322,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         userId: uid,
                       ),
                     ),
+
+                  // Bottom padding so last item isn't hidden behind system navigation bar
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
                 ],
               );
             },
@@ -918,26 +921,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
       
-      // Sign out from Firebase
+      // Sign out from Firebase (AuthWrapper will navigate to LoginScreen automatically)
       await FirebaseAuth.instance.signOut();
-      
+
       // Close loading dialog
       if (context.mounted) {
         Navigator.pop(context);
-      }
-      
-      // Navigate back to login screen or show success
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Successfully signed out'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        
-        // Go back to previous screen
-        widget.onBack();
+        // AuthWrapper detects auth state change and routes to LoginScreen — no manual navigation needed
       }
       
       debugPrint('✅ User signed out successfully');

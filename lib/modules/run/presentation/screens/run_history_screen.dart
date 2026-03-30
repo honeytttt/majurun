@@ -232,7 +232,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     else
                       ..._buildGroupedRunsList(context, runs),
 
-                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                    const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
                   ],
                 ),
               );
@@ -1010,15 +1010,21 @@ Built with MajuRun 💪
   }
 
   // ---------------- existing mini map (mobile only) ----------------
+  // Uses liteModeEnabled=true so each card renders a static bitmap instead
+  // of spinning up a full native map view — prevents OOM when scrolling history.
   Widget _buildMiniRouteMap(List<LatLng> routePoints) {
     final bounds = _calculateBounds(routePoints);
-    final initialPosition = CameraPosition(
-      target: LatLng(
-        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
-        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
-      ),
-      zoom: 13,
+    final center = LatLng(
+      (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+      (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
     );
+    final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
+    final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
+    final maxSpan = math.max(latSpan, lngSpan);
+    // For a 120px container: zoom = log2(153 / maxSpan), clamped
+    final double zoom = maxSpan > 0
+        ? (math.log(153 / maxSpan) / math.ln2).clamp(10.0, 17.0)
+        : 13.0;
 
     return Container(
       height: 120,
@@ -1029,13 +1035,17 @@ Built with MajuRun 💪
       ),
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
-        initialCameraPosition: initialPosition,
+        initialCameraPosition: CameraPosition(target: center, zoom: zoom),
+        liteModeEnabled: true,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
             points: routePoints,
-            color: const Color(0xFF4285F4),
-            width: 5,
+            color: const Color(0xFFFC4C02),
+            width: 4,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
           ),
         },
         markers: {
@@ -1050,8 +1060,8 @@ Built with MajuRun 💪
             icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           ),
         },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
+        zoomControlsEnabled: false,
+        zoomGesturesEnabled: false,
         scrollGesturesEnabled: false,
         mapToolbarEnabled: false,
         rotateGesturesEnabled: false,
@@ -1059,11 +1069,6 @@ Built with MajuRun 💪
         mapType: MapType.normal,
         myLocationEnabled: false,
         myLocationButtonEnabled: false,
-        onMapCreated: (GoogleMapController controller) {
-          Future.delayed(const Duration(milliseconds: 400), () {
-            if (mounted) controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
-          });
-        },
       ),
     );
   }

@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/core/utils/map_marker_builder.dart';
+
 
 /// Production-grade active run screen with:
 /// - GPS quality indicator
@@ -22,6 +24,8 @@ class ActiveRunScreen extends StatefulWidget {
 class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderStateMixin {
   GoogleMapController? _mapController;
   final GlobalKey _mapKey = GlobalKey();
+  BitmapDescriptor? _avatarMarker;       // current position (green border)
+  BitmapDescriptor? _startMarker;        // start position (orange border)
 
   // Animations
   late AnimationController _pulseController;
@@ -40,6 +44,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    _loadAvatarMarker();
   }
 
   @override
@@ -313,28 +319,31 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                         Polyline(
                           polylineId: const PolylineId('route'),
                           points: runController.routePoints,
-                          color: const Color(0xFF7ED957),
-                          width: 5,
+                          color: const Color(0xFFFC4C02),
+                          width: 6,
                           jointType: JointType.round,
                           startCap: Cap.roundCap,
                           endCap: Cap.roundCap,
                         ),
                       },
                       markers: {
-                        // Start marker
+                        // Start marker — avatar with orange border
                         if (runController.routePoints.length > 1)
                           Marker(
                             markerId: const MarkerId('start'),
                             position: runController.routePoints.first,
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                            icon: _startMarker ??
+                                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
                             anchor: const Offset(0.5, 0.5),
                           ),
-                        // Current position marker
+                        // Current position marker — avatar with green border
                         if (runController.routePoints.isNotEmpty)
                           Marker(
                             markerId: const MarkerId('current'),
                             position: runController.routePoints.last,
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                            icon: _avatarMarker ??
+                                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                            anchor: const Offset(0.5, 0.5),
                           ),
                       },
                       myLocationEnabled: false,
@@ -422,6 +431,25 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         ],
       ),
     );
+  }
+
+  Future<void> _loadAvatarMarker() async {
+    try {
+      final current = await MapMarkerBuilder.buildForCurrentUser(
+        borderColor: const Color(0xFF7ED957), // green for current position
+      );
+      final start = await MapMarkerBuilder.buildForCurrentUser(
+        borderColor: const Color(0xFFFC4C02), // Strava orange for start
+      );
+      if (mounted) {
+        setState(() {
+          _avatarMarker = current;
+          _startMarker = start;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Avatar marker: $e');
+    }
   }
 
   void _updateCamera(RunController runController) {
