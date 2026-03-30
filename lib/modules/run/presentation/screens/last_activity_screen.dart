@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:majurun/core/utils/map_marker_builder.dart';
 
 
 class LastActivityScreen extends StatefulWidget {
@@ -15,6 +16,30 @@ class LastActivityScreen extends StatefulWidget {
 }
 
 class _LastActivityScreenState extends State<LastActivityScreen> {
+  BitmapDescriptor? _startMarker;
+  BitmapDescriptor? _endMarker;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMarkers();
+  }
+
+  Future<void> _loadMarkers() async {
+    final start = await MapMarkerBuilder.buildForCurrentUser(
+      borderColor: const Color(0xFFFC4C02), // orange = start
+    );
+    final end = await MapMarkerBuilder.buildForCurrentUser(
+      borderColor: const Color(0xFF7ED957), // green = end
+    );
+    if (mounted) {
+      setState(() {
+        _startMarker = start;
+        _endMarker = end;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final distVal = widget.lastRun['distance'] ?? 0.0;
@@ -227,12 +252,16 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
           Marker(
             markerId: const MarkerId('start'),
             position: points.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            icon: _startMarker ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+            anchor: const Offset(0.5, 0.5),
           ),
           Marker(
             markerId: const MarkerId('end'),
             position: points.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            icon: _endMarker ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            anchor: const Offset(0.5, 0.5),
           ),
         },
         zoomControlsEnabled: false,

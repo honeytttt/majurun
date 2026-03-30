@@ -442,6 +442,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
   }
 
   void _showFullscreenImage(BuildContext context, String imageUrl) {
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -461,7 +462,9 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
           ),
         ),
       ),
-    );
+    ).then((_) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    });
   }
 
   void _showOptionsBottomSheet(BuildContext context) {

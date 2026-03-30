@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
+import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 
 class QuotedPostPreview extends StatefulWidget {
   final String postId;
@@ -68,7 +70,15 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
         final hasMedia = original.media.isNotEmpty;
         final isVideo = hasMedia && original.media.first.type == MediaType.video;
 
-        return Container(
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PostDetailScreen(post: original),
+            ),
+          ),
+          child: Container(
           width: double.infinity,
           margin: const EdgeInsets.only(top: 4, bottom: 8),
           padding: const EdgeInsets.all(12),
@@ -80,8 +90,19 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Author row
-              Row(
+              // Author row — tappable to navigate to user profile
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(
+                      userId: original.userId,
+                      username: original.username,
+                    ),
+                  ),
+                ),
+                child: Row(
                 children: [
                   const Icon(Icons.person_outline, size: 14, color: Color(0xFF00E676)),
                   const SizedBox(width: 6),
@@ -94,6 +115,7 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
                     ),
                   ),
                 ],
+              ),
               ),
               const SizedBox(height: 6),
 
@@ -169,6 +191,7 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
                 ),
               ],
             ],
+          ),
           ),
         );
       },

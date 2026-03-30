@@ -232,7 +232,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     else
                       ..._buildGroupedRunsList(context, runs),
 
-                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                    const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
                   ],
                 ),
               );

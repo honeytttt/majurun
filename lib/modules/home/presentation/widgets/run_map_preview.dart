@@ -1,53 +1,36 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class RunMapPreview extends StatefulWidget {
+/// Lite-mode static map preview for posts in the feed.
+/// liteModeEnabled = true renders a bitmap snapshot — no native GL context,
+/// no animateCamera, no OOM crash when many posts are visible.
+class RunMapPreview extends StatelessWidget {
   final List<dynamic> points;
 
-  const RunMapPreview({
-    super.key,
-    required this.points,
-  });
-
-  @override
-  State<RunMapPreview> createState() => _RunMapPreviewState();
-}
-
-class _RunMapPreviewState extends State<RunMapPreview> {
-  GoogleMapController? _mapController;
-
-  @override
-  void dispose() {
-    _mapController?.dispose();
-    super.dispose();
-  }
+  const RunMapPreview({super.key, required this.points});
 
   @override
   Widget build(BuildContext context) {
-    if (widget.points.isEmpty) {
-      return _buildEmptyPlaceholder('No route data');
-    }
-
-    final latLngPoints = _parseRoutePoints(widget.points);
-
-    if (latLngPoints.isEmpty) {
-      return _buildEmptyPlaceholder('No valid GPS points');
-    }
+    final latLngPoints = _parseRoutePoints(points);
 
     if (latLngPoints.length < 2) {
-      return _buildEmptyPlaceholder('Not enough points for route');
+      return _placeholder('No route data');
     }
 
-    // Calculate bounds to fit the route nicely
     final bounds = _calculateBounds(latLngPoints);
-
-    final initialPosition = CameraPosition(
-      target: LatLng(
-        (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
-        (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
-      ),
-      zoom: 13, // reasonable default zoom
+    final center = LatLng(
+      (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+      (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
     );
+
+    final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
+    final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
+    final maxSpan = math.max(latSpan, lngSpan);
+    // 320 constant calibrated for 200px container height
+    final zoom = maxSpan > 0
+        ? (math.log(320 / maxSpan) / math.ln2).clamp(10.0, 17.0)
+        : 13.0;
 
     return Container(
       height: 200,
@@ -57,134 +40,98 @@ class _RunMapPreviewState extends State<RunMapPreview> {
       ),
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
-        initialCameraPosition: initialPosition,
+        initialCameraPosition: CameraPosition(target: center, zoom: zoom),
+        liteModeEnabled: true,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
             points: latLngPoints,
-            color: const Color(0xFF4285F4),
-            width: 5,
-            patterns: [PatternItem.dash(20), PatternItem.gap(5)],
+            color: const Color(0xFFFC4C02), // Strava orange
+            width: 4,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
           ),
         },
         markers: {
           Marker(
             markerId: const MarkerId('start'),
             position: latLngPoints.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-            infoWindow: const InfoWindow(title: 'Start'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+            anchor: const Offset(0.5, 0.5),
           ),
           Marker(
             markerId: const MarkerId('end'),
             position: latLngPoints.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-            infoWindow: const InfoWindow(title: 'End'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: true,          // + / - buttons
-        zoomGesturesEnabled: true,          // pinch to zoom
-        scrollGesturesEnabled: false,       // disable panning (clean preview)
-        mapToolbarEnabled: false,
+        zoomControlsEnabled: false,
+        zoomGesturesEnabled: false,
+        scrollGesturesEnabled: false,
         rotateGesturesEnabled: false,
         tiltGesturesEnabled: false,
-        mapType: MapType.normal,
-        onMapCreated: (GoogleMapController controller) {
-          _mapController = controller;
-          // Auto-fit route with padding after map is created
-          Future.delayed(const Duration(milliseconds: 400), () {
-            _mapController?.animateCamera(
-              CameraUpdate.newLatLngBounds(bounds, 60), // 60px padding
-            );
-          });
-        },
+        mapToolbarEnabled: false,
         myLocationEnabled: false,
         myLocationButtonEnabled: false,
       ),
     );
   }
 
-  LatLngBounds _calculateBounds(List<LatLng> points) {
-    double south = points.first.latitude;
-    double north = points.first.latitude;
-    double west = points.first.longitude;
-    double east = points.first.longitude;
-
-    for (final point in points) {
-      if (point.latitude < south) south = point.latitude;
-      if (point.latitude > north) north = point.latitude;
-      if (point.longitude < west) west = point.longitude;
-      if (point.longitude > east) east = point.longitude;
+  LatLngBounds _calculateBounds(List<LatLng> pts) {
+    double s = pts.first.latitude, n = pts.first.latitude;
+    double w = pts.first.longitude, e = pts.first.longitude;
+    for (final p in pts) {
+      if (p.latitude < s) s = p.latitude;
+      if (p.latitude > n) n = p.latitude;
+      if (p.longitude < w) w = p.longitude;
+      if (p.longitude > e) e = p.longitude;
     }
-
-    return LatLngBounds(
-      southwest: LatLng(south, west),
-      northeast: LatLng(north, east),
-    );
+    return LatLngBounds(southwest: LatLng(s, w), northeast: LatLng(n, e));
   }
 
-  List<LatLng> _parseRoutePoints(List<dynamic> rawPoints) {
-    final validPoints = <LatLng>[];
-    for (final point in rawPoints) {
+  List<LatLng> _parseRoutePoints(List<dynamic> raw) {
+    final out = <LatLng>[];
+    for (final p in raw) {
       try {
-        double? lat;
-        double? lng;
-
-        if (point is Map) {
-          lat = _toDouble(point['lat'] ?? point['latitude']);
-          lng = _toDouble(point['lng'] ?? point['longitude']);
-        } else if (point is List && point.length >= 2) {
-          lat = _toDouble(point[0]);
-          lng = _toDouble(point[1]);
-        } else if (point is LatLng) {
-          validPoints.add(point);
-          continue;
+        if (p is LatLng) { out.add(p); continue; }
+        double? lat, lng;
+        if (p is Map) {
+          lat = _d(p['lat'] ?? p['latitude']);
+          lng = _d(p['lng'] ?? p['longitude']);
+        } else if (p is List && p.length >= 2) {
+          lat = _d(p[0]); lng = _d(p[1]);
         }
-
-        if (lat != null && lng != null) {
-          if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-            validPoints.add(LatLng(lat, lng));
-          }
+        if (lat != null && lng != null &&
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          out.add(LatLng(lat, lng));
         }
-      } catch (e) {
-        // Skip invalid points
-      }
+      } catch (_) {}
     }
-    return validPoints;
+    return out;
   }
 
-  double? _toDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
+  double? _d(dynamic v) {
+    if (v == null) return null;
+    if (v is double) return v;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
     return null;
   }
 
-  Widget _buildEmptyPlaceholder(String message) {
-    return Container(
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.map_outlined,
-              size: 48,
-              color: Colors.grey,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _placeholder(String msg) => Container(
+    height: 200,
+    decoration: BoxDecoration(
+      color: Colors.grey[200],
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+        const SizedBox(height: 8),
+        Text(msg, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+      ]),
+    ),
+  );
 }

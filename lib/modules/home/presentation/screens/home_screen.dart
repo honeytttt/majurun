@@ -22,6 +22,7 @@ import 'package:majurun/modules/notifications/presentation/screens/notifications
 import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/storage_service.dart';
 import 'package:majurun/core/theme/app_theme.dart';
+import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -106,6 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _profileImageUrl = data['photoUrl'] ?? "";
         });
       }
+    }, onError: (_) {
+      // Suppress permission-denied errors that fire when user signs out
     });
   }
 
@@ -418,6 +421,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           );
         }
         if (snapshot.hasError) {
+          // Silently ignore — most errors here are permission-denied after sign-out
+          // while AuthWrapper is switching to LoginScreen. Show empty instead of error.
+          if (FirebaseAuth.instance.currentUser == null) {
+            return const SizedBox.shrink();
+          }
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -507,6 +515,30 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   child: _buildBranding(brandGreen),
                 ),
                 actions: <Widget>[
+                  if (FirebaseAuth.instance.currentUser?.email == 'majurun.app@gmail.com')
+                    Container(
+                      width: 44,
+                      height: 44,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: const BorderRadius.all(Radius.circular(14)),
+                        border: Border.all(color: Colors.orange.shade200, width: 1),
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: Icon(Icons.admin_panel_settings_rounded,
+                            color: Colors.orange.shade700, size: 22),
+                        tooltip: 'Admin Panel',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const AdminPanelScreen()),
+                          );
+                        },
+                      ),
+                    ),
                   Container(
                     width: 44,
                     height: 44,

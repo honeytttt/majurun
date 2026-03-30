@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
+import 'package:majurun/core/utils/map_marker_builder.dart';
 
 
 class RunDetailScreen extends StatefulWidget {
@@ -17,6 +18,29 @@ class RunDetailScreen extends StatefulWidget {
 class _RunDetailScreenState extends State<RunDetailScreen> {
   String _mapVisualization = 'pace';
   String _splitDistance = '1km';
+  BitmapDescriptor? _startMarker;
+  BitmapDescriptor? _endMarker;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMarkers();
+  }
+
+  Future<void> _loadMarkers() async {
+    final start = await MapMarkerBuilder.buildForCurrentUser(
+      borderColor: const Color(0xFFFC4C02),
+    );
+    final end = await MapMarkerBuilder.buildForCurrentUser(
+      borderColor: const Color(0xFF7ED957),
+    );
+    if (mounted) {
+      setState(() {
+        _startMarker = start;
+        _endMarker = end;
+      });
+    }
+  }
 
   DateTime _parseDate(dynamic raw) {
     if (raw is DateTime) return raw;
@@ -462,12 +486,16 @@ Keep moving 💪
           Marker(
             markerId: const MarkerId('start'),
             position: routePoints.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            icon: _startMarker ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+            anchor: const Offset(0.5, 0.5),
           ),
           Marker(
             markerId: const MarkerId('end'),
             position: routePoints.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            icon: _endMarker ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            anchor: const Offset(0.5, 0.5),
           ),
         },
         zoomControlsEnabled: true,

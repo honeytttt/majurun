@@ -1,14 +1,12 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/core/utils/map_marker_builder.dart';
 
 
 /// Production-grade active run screen with:
@@ -26,7 +24,8 @@ class ActiveRunScreen extends StatefulWidget {
 class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderStateMixin {
   GoogleMapController? _mapController;
   final GlobalKey _mapKey = GlobalKey();
-  BitmapDescriptor? _avatarMarker;
+  BitmapDescriptor? _avatarMarker;       // current position (green border)
+  BitmapDescriptor? _startMarker;        // start position (orange border)
 
   // Animations
   late AnimationController _pulseController;
@@ -328,15 +327,16 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                         ),
                       },
                       markers: {
-                        // Start marker
+                        // Start marker — avatar with orange border
                         if (runController.routePoints.length > 1)
                           Marker(
                             markerId: const MarkerId('start'),
                             position: runController.routePoints.first,
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                            icon: _startMarker ??
+                                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
                             anchor: const Offset(0.5, 0.5),
                           ),
-                        // Current position marker — shows user avatar
+                        // Current position marker — avatar with green border
                         if (runController.routePoints.isNotEmpty)
                           Marker(
                             markerId: const MarkerId('current'),
@@ -435,83 +435,21 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
   Future<void> _loadAvatarMarker() async {
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      final photoUrl = (doc.data()?['photoUrl'] as String?) ?? '';
-      final marker = await _buildAvatarMarker(photoUrl);
-      if (mounted) setState(() => _avatarMarker = marker);
+      final current = await MapMarkerBuilder.buildForCurrentUser(
+        borderColor: const Color(0xFF7ED957), // green for current position
+      );
+      final start = await MapMarkerBuilder.buildForCurrentUser(
+        borderColor: const Color(0xFFFC4C02), // Strava orange for start
+      );
+      if (mounted) {
+        setState(() {
+          _avatarMarker = current;
+          _startMarker = start;
+        });
+      }
     } catch (e) {
       debugPrint('❌ Avatar marker: $e');
     }
-  }
-
-  Future<BitmapDescriptor> _buildAvatarMarker(String photoUrl) async {
-    const double sz = 96;
-    const double cx = sz / 2;
-    const double border = 4;
-    const double imgR = cx - border - 1;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, sz, sz));
-
-    // Green border ring
-    canvas.drawCircle(
-      const Offset(cx, cx),
-      cx - 1,
-      Paint()..color = const Color(0xFF7ED957),
-    );
-
-    bool drawn = false;
-    if (photoUrl.isNotEmpty && photoUrl.startsWith('http')) {
-      try {
-        final resp = await http
-            .get(Uri.parse(photoUrl))
-            .timeout(const Duration(seconds: 5));
-        if (resp.statusCode == 200) {
-          final codec = await ui.instantiateImageCodec(
-            resp.bodyBytes,
-            targetWidth: (imgR * 2).round(),
-            targetHeight: (imgR * 2).round(),
-          );
-          final frame = await codec.getNextFrame();
-          canvas.save();
-          canvas.clipPath(
-            Path()..addOval(Rect.fromCircle(center: const Offset(cx, cx), radius: imgR)),
-          );
-          canvas.drawImageRect(
-            frame.image,
-            Rect.fromLTWH(0, 0, frame.image.width.toDouble(), frame.image.height.toDouble()),
-            Rect.fromCircle(center: const Offset(cx, cx), radius: imgR),
-            Paint(),
-          );
-          canvas.restore();
-          drawn = true;
-        }
-      } catch (_) {}
-    }
-
-    if (!drawn) {
-      // Dark green circle with person silhouette
-      canvas.drawCircle(
-        const Offset(cx, cx),
-        imgR,
-        Paint()..color = const Color(0xFF1B4D2C),
-      );
-      final p = Paint()..color = Colors.white;
-      canvas.drawCircle(const Offset(cx, cx - 12), 10, p);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: const Offset(cx, cx + 10), width: 24, height: 18),
-          const Radius.circular(8),
-        ),
-        p,
-      );
-    }
-
-    final img = await recorder.endRecording().toImage(sz.round(), sz.round());
-    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List());
   }
 
   void _updateCamera(RunController runController) {
