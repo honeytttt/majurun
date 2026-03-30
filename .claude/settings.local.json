@@ -150,7 +150,7 @@
       "Bash(adb logcat:*)",
       "Bash(gh api:*)",
       "Bash(curl -s https://apikeys.googleapis.com/v2/projects/majurun-8d8b5/locations/global/keys -H 'Authorization: Bearer $\\(gcloud auth print-access-token --billing-project=majurun-8d8b5\\)' -H 'x-goog-user-project: majurun-8d8b5')",
-      "Bash(curl -s \"https://maps.googleapis.com/maps/api/geocode/json?address=KualaLumpur&key=AIzaSyA86YePTcN1cHVChAWGSpsJykEF-jppPfQ\")",
+      "Bash(curl -s \"https://maps.googleapis.com/maps/api/geocode/json?address=KualaLumpur&key=XXXXXXXXXXXXXX\")",
       "Bash(gcloud services:*)",
       "Bash(curl:*)"
     ]
