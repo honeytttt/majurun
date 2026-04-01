@@ -2,12 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- No tracking -->
     <key>NSPrivacyTracking</key>
     <false/>
     <key>NSPrivacyTrackingDomains</key>
     <array/>
+
+    <!-- Required Reason APIs used by this app and its dependencies -->
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
+
+        <!-- File timestamp APIs — used by Flutter file I/O, sqflite, path_provider -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
@@ -16,6 +21,8 @@
                 <string>C617.1</string>
             </array>
         </dict>
+
+        <!-- UserDefaults — used by shared_preferences, firebase_core -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
@@ -24,6 +31,31 @@
                 <string>CA92.1</string>
             </array>
         </dict>
+
+        <!-- System boot time — used by Firebase Performance, sensors_plus, geolocator -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>35F9.1</string>
+            </array>
+        </dict>
+
+        <!-- Disk space — used by video_player, sqflite, cached_network_image -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>E174.1</string>
+            </array>
+        </dict>
+
     </array>
+
+    <!-- No collected data types beyond what permissions cover -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
 </dict>
 </plist>
