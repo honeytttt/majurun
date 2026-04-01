@@ -40,9 +40,6 @@
 	<string>MajuRun needs your location to track your running route and calculate distance and pace in real-time.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>MajuRun needs background location access to continue tracking your run even when the app is in the background or your screen is off.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>MajuRun uses your location to track runs accurately even when the app is in the background.</string>
-
 	<!-- Motion & Fitness -->
 	<key>NSMotionUsageDescription</key>
 	<string>MajuRun uses motion sensors to accurately count your steps and detect your running cadence.</string>
@@ -72,6 +69,7 @@
 		<string>fetch</string>
 		<string>processing</string>
 		<string>audio</string>
+		<string>remote-notification</string>
 	</array>
 
 	<!-- Supported Orientations -->
@@ -107,9 +105,29 @@
 	<!-- Required device capabilities -->
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 		<string>location-services</string>
 		<string>gps</string>
+	</array>
+
+	<!-- Google Sign-In reverse client ID URL scheme (required for OAuth callback) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.648836412000-iustsqi2f7i95liauoe6dbaqrj4kc0pg</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Allowed query schemes for Google Sign-In -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlegmail</string>
+		<string>googledocs</string>
 	</array>
 
 	<!-- Status bar style -->

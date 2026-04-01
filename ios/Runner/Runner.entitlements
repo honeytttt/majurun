@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- HealthKit — requires capability enabled in App ID + provisioning profile -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+
+	<!-- Push Notifications — production = App Store + TestFlight -->
+	<key>aps-environment</key>
+	<string>production</string>
+
+	<!-- NOTE: In-App Purchase (StoreKit) does NOT need an entitlement.
+	     com.apple.developer.in-app-payments is for Apple Pay only — do NOT include it. -->
+</dict>
+</plist>

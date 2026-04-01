@@ -77,6 +77,14 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # Inject firebase_options dart files (required by lib/main.dart)
+      - name: Inject firebase_options (dev + prod)
+        run: |
+          mkdir -p lib/env
+          echo "${{ secrets.FIREBASE_OPTIONS_DEV }}" | base64 --decode > lib/env/firebase_options_dev.dart
+          echo "${{ secrets.FIREBASE_OPTIONS_PROD }}" | base64 --decode > lib/env/firebase_options_prod.dart
+          echo "firebase_options injected"
+
       # Inject Firebase config (prod only for iOS releases)
       - name: Inject GoogleService-Info.plist
         run: |

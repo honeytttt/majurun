@@ -48,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Shows a professional bottom sheet when password is wrong
   void _showWrongCredentialsSheet(String email) {
+    final authRepo = context.read<AuthRepository>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -57,6 +58,10 @@ class _LoginScreenState extends State<LoginScreen> {
         onResetPassword: () {
           Navigator.pop(ctx);
           _showForgotPasswordSheet(prefillEmail: email);
+        },
+        onGoogleSignIn: () {
+          Navigator.pop(ctx);
+          _handleSocialAuth(authRepo.signInWithGoogle);
         },
       ),
     );
@@ -528,12 +533,21 @@ class _SocialButton extends StatelessWidget {
 class _CredentialErrorSheet extends StatelessWidget {
   final String email;
   final VoidCallback onResetPassword;
+  final VoidCallback onGoogleSignIn;
 
-  const _CredentialErrorSheet({required this.email, required this.onResetPassword});
+  const _CredentialErrorSheet({
+    required this.email,
+    required this.onResetPassword,
+    required this.onGoogleSignIn,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // If the email looks like a Gmail/Google account, hint Google Sign-In first
+    final looksLikeGoogle = email.toLowerCase().endsWith('@gmail.com') ||
+        email.toLowerCase().endsWith('@googlemail.com');
+
     return Container(
       padding: EdgeInsets.only(
         left: 24,
@@ -567,7 +581,7 @@ class _CredentialErrorSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Incorrect Password',
+            'Sign-in failed',
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
@@ -575,22 +589,50 @@ class _CredentialErrorSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'The password for $email is incorrect.\nWould you like to reset it?',
+            looksLikeGoogle
+                ? 'Password is incorrect, or this account was created with Google Sign-In and has no password set yet.\n\nTry signing in with Google, or reset your password to set one.'
+                : 'The password for $email is incorrect.\nWould you like to reset it?',
             textAlign: TextAlign.center,
             style: TextStyle(color: cs.onSurfaceVariant, height: 1.5),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onResetPassword,
-              icon: const Icon(Icons.email_outlined),
-              label: const Text('Reset Password via Email'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          if (looksLikeGoogle) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onGoogleSignIn,
+                icon: const Icon(Icons.g_mobiledata_rounded, size: 22),
+                label: const Text('Sign in with Google'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Colors.red.shade600,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
+            const SizedBox(height: 10),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: looksLikeGoogle
+                ? OutlinedButton.icon(
+                    onPressed: onResetPassword,
+                    icon: const Icon(Icons.email_outlined),
+                    label: const Text('Set Password via Email'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  )
+                : FilledButton.icon(
+                    onPressed: onResetPassword,
+                    icon: const Icon(Icons.email_outlined),
+                    label: const Text('Reset Password via Email'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
           ),
           const SizedBox(height: 10),
           SizedBox(
