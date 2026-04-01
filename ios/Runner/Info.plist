@@ -72,6 +72,12 @@
 		<string>remote-notification</string>
 	</array>
 
+	<!-- Required when UIBackgroundModes includes 'processing' -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.majurun.app.refresh</string>
+	</array>
+
 	<!-- Supported Orientations -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
