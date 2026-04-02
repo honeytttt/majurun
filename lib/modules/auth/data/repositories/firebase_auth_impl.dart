@@ -122,6 +122,10 @@ class FirebaseAuthImpl implements AuthRepository {
   @override
   Future<AppUser?> signInWithGoogle() async {
     final GoogleSignIn googleSignIn = GoogleSignIn(
+      // Explicit iOS CLIENT_ID — avoids crash when GoogleService-Info.plist
+      // is not bundled (it is gitignored and injected only in CI).
+      // Derived from REVERSED_CLIENT_ID in Info.plist.
+      clientId: '648836412000-iustsqi2f7i95liauoe6dbaqrj4kc0pg.apps.googleusercontent.com',
       scopes: ['email', 'profile'],
     );
     // Sign out first to clear cached account and force account picker every time
