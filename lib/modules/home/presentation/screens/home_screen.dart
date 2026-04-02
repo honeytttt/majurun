@@ -333,6 +333,7 @@ class HomeFeedContent extends StatefulWidget {
 class _HomeFeedContentState extends State<HomeFeedContent> {
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
   final ScrollController _feedScrollController = ScrollController();
+  final NotificationService _notificationService = NotificationService();
   final List<AppPost> _allPosts = [];
   bool _isLoadingMore = false;
   bool _bannerDismissed = false;
@@ -784,10 +785,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   }
 
   Widget _buildNotificationIcon(BuildContext context) {
-    final notificationService = NotificationService();
-    
     return StreamBuilder<int>(
-      stream: notificationService.getUnreadCountStream(),
+      stream: _notificationService.getUnreadCountStream(),
       builder: (context, snapshot) {
         final unreadCount = snapshot.data ?? 0;
 
