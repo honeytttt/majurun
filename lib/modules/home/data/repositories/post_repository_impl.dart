@@ -108,10 +108,11 @@ class PostRepositoryImpl {
         }
       }
 
-      // Update pagination state
+      // Only initialise the cursor on first load — stream events must NOT
+      // overwrite the cursor that loadMorePosts() advances, otherwise the
+      // user sees page 1 repeating after every Firestore update (like, comment).
       if (snapshot.docs.isNotEmpty) {
-        _lastDocument = snapshot.docs.last;
-        _hasMorePosts = snapshot.docs.length >= _pageSize;
+        _lastDocument ??= snapshot.docs.last;
       }
       _cachedPosts
         ..clear()

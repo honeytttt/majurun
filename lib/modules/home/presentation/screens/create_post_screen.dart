@@ -17,29 +17,101 @@ class CreatePostScreen extends StatefulWidget {
   State<CreatePostScreen> createState() => _CreatePostScreenState();
 }
 
+// Popular running hashtags for suggestions
+const List<String> _kRunningTags = [
+  'running', 'run', 'runner', 'runnerscommunity', 'runnersofinstagram',
+  'marathon', 'halfmarathon', '5k', '10k', 'ultramarathon',
+  'morningrun', 'eveningrun', 'trailrunning', 'roadrunning',
+  'fitness', 'workout', 'training', 'cardio', 'exercise',
+  'health', 'healthy', 'healthylifestyle', 'active', 'activelife',
+  'motivation', 'mondaymotivation', 'fitnessmotivation', 'goals',
+  'personalrecord', 'pr', 'pb', 'newrecord', 'pacemaker',
+  'majurun', 'runmalaysia', 'runskuad',
+  'strava', 'garmin', 'nike', 'adidas', 'runwithme',
+];
+
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   final StorageService _storage = StorageService();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
   final PostLimitService _limitService = PostLimitService();
-  
+
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
-  // Limit state kept only for backend validation in _handlePost — not shown upfront
   Map<String, int> _remainingPosts = {};
   bool _isLoadingLimits = false;
+
+  // Hashtag suggestion state
+  List<String> _tagSuggestions = [];
+  String _currentTagQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() => setState(() {}));
-    // Load limits silently for backend validation only — not shown in UI
+    _controller.addListener(_onTextChanged);
     _loadRemainingPosts();
+  }
+
+  void _onTextChanged() {
+    setState(() {});
+    _updateTagSuggestions();
+  }
+
+  void _updateTagSuggestions() {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) {
+      setState(() { _tagSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    // Find the word the cursor is in
+    final before = text.substring(0, cursor);
+    final hashIndex = before.lastIndexOf('#');
+    if (hashIndex == -1) {
+      setState(() { _tagSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    // Check there's no space between # and cursor
+    final partial = before.substring(hashIndex + 1);
+    if (partial.contains(' ') || partial.contains('\n')) {
+      setState(() { _tagSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    _currentTagQuery = partial.toLowerCase();
+    if (_currentTagQuery.isEmpty) {
+      // Show top suggestions when just # is typed
+      setState(() { _tagSuggestions = _kRunningTags.take(8).toList(); });
+      return;
+    }
+    final matches = _kRunningTags
+        .where((t) => t.startsWith(_currentTagQuery))
+        .take(6)
+        .toList();
+    setState(() { _tagSuggestions = matches; });
+  }
+
+  void _insertTag(String tag) {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    if (cursor < 0) return;
+    final before = text.substring(0, cursor);
+    final after = text.substring(cursor);
+    final hashIndex = before.lastIndexOf('#');
+    if (hashIndex == -1) return;
+    final newText = '${text.substring(0, hashIndex)}#$tag $after';
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: hashIndex + tag.length + 2),
+    );
+    setState(() { _tagSuggestions = []; _currentTagQuery = ''; });
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -302,17 +374,59 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Expanded(
             child: TextField(
               controller: _controller,
+              focusNode: _focusNode,
               maxLines: null,
               autofocus: true,
               style: const TextStyle(fontSize: 16),
               decoration: const InputDecoration(
-                hintText: "What's on your mind?",
+                hintText: "What's on your mind? Type # for tags",
                 hintStyle: TextStyle(color: Colors.grey),
                 contentPadding: EdgeInsets.all(20),
                 border: InputBorder.none,
               ),
             ),
           ),
+
+          // HASHTAG SUGGESTIONS
+          if (_tagSuggestions.isNotEmpty)
+            Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                border: Border(
+                  top: BorderSide(color: Colors.grey[200]!),
+                  bottom: BorderSide(color: Colors.grey[200]!),
+                ),
+              ),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                itemCount: _tagSuggestions.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final tag = _tagSuggestions[i];
+                  return GestureDetector(
+                    onTap: () => _insertTag(tag),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00E676).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        '#$tag',
+                        style: const TextStyle(
+                          color: Color(0xFF00897B),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
 
           // MEDIA PREVIEW
           if (_mediaList.isNotEmpty)

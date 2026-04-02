@@ -45,6 +45,12 @@ Future<void> main() async {
       if (!e.toString().contains('duplicate-app')) rethrow;
     }
 
+    // Offline persistence — feed and profile load instantly on relaunch
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+
     // Firebase App Check — verifies requests come from the real app on a real device.
     // Android: Play Integrity (debug builds fall back to debug provider automatically)
     // iOS: App Attest with DeviceCheck fallback
