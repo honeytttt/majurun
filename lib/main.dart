@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'env/firebase_options_dev.dart' as dev_options;
 import 'env/firebase_options_prod.dart' as prod_options;
 import 'package:firebase_app_check/firebase_app_check.dart';
