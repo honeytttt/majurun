@@ -136,6 +136,10 @@
 		<string>googledocs</string>
 	</array>
 
+	<!-- Export compliance — uses only standard HTTPS/TLS (Firebase), exempt from EAR -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
 	<!-- Status bar style -->
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
