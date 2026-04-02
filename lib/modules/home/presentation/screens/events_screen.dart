@@ -525,7 +525,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
           borderRadius: BorderRadius.circular(14),
         ),
         indicatorPadding: const EdgeInsets.all(4),
-        labelColor: Colors.black,
+        labelColor: Colors.white,
         unselectedLabelColor: Colors.white60,
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         tabs: const [

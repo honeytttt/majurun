@@ -235,7 +235,6 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
         initialCameraPosition: CameraPosition(target: center, zoom: zoom),
-        liteModeEnabled: true,
         mapType: MapType.normal,
         polylines: {
           Polyline(
@@ -264,11 +263,11 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
             anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: false,
-        zoomGesturesEnabled: false,
-        scrollGesturesEnabled: false,
-        rotateGesturesEnabled: false,
-        tiltGesturesEnabled: false,
+        zoomControlsEnabled: true,
+        zoomGesturesEnabled: true,
+        scrollGesturesEnabled: true,
+        rotateGesturesEnabled: true,
+        tiltGesturesEnabled: true,
         mapToolbarEnabled: false,
         myLocationEnabled: false,
         myLocationButtonEnabled: false,

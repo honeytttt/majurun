@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// Lite-mode static map preview for posts in the feed.
 /// liteModeEnabled = true renders a bitmap snapshot — no native GL context,
 /// no animateCamera, no OOM crash when many posts are visible.
+/// Tapping opens a full-screen interactive map.
 class RunMapPreview extends StatelessWidget {
   final List<dynamic> points;
 
@@ -32,49 +33,84 @@ class RunMapPreview extends StatelessWidget {
         ? (math.log(320 / maxSpan) / math.ln2).clamp(10.0, 17.0)
         : 13.0;
 
-    return Container(
-      height: 200,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: GoogleMap(
-        initialCameraPosition: CameraPosition(target: center, zoom: zoom),
-        liteModeEnabled: true,
-        polylines: {
-          Polyline(
-            polylineId: const PolylineId('route'),
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _FullScreenMapScreen(
             points: latLngPoints,
-            color: const Color(0xFFFC4C02), // Strava orange
-            width: 4,
-            jointType: JointType.round,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
+            bounds: bounds,
           ),
-        },
-        markers: {
-          Marker(
-            markerId: const MarkerId('start'),
-            position: latLngPoints.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-            anchor: const Offset(0.5, 0.5),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: center, zoom: zoom),
+              liteModeEnabled: true,
+              polylines: {
+                Polyline(
+                  polylineId: const PolylineId('route'),
+                  points: latLngPoints,
+                  color: const Color(0xFFFC4C02), // Strava orange
+                  width: 4,
+                  jointType: JointType.round,
+                  startCap: Cap.roundCap,
+                  endCap: Cap.roundCap,
+                ),
+              },
+              markers: {
+                Marker(
+                  markerId: const MarkerId('start'),
+                  position: latLngPoints.first,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                  anchor: const Offset(0.5, 0.5),
+                ),
+                Marker(
+                  markerId: const MarkerId('end'),
+                  position: latLngPoints.last,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                  anchor: const Offset(0.5, 0.5),
+                ),
+              },
+              zoomControlsEnabled: false,
+              zoomGesturesEnabled: false,
+              scrollGesturesEnabled: false,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+              mapToolbarEnabled: false,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+            ),
           ),
-          Marker(
-            markerId: const MarkerId('end'),
-            position: latLngPoints.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-            anchor: const Offset(0.5, 0.5),
+          // Expand hint
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.fullscreen, color: Colors.white, size: 14),
+                  SizedBox(width: 3),
+                  Text('Tap to expand', style: TextStyle(color: Colors.white, fontSize: 10)),
+                ],
+              ),
+            ),
           ),
-        },
-        zoomControlsEnabled: false,
-        zoomGesturesEnabled: false,
-        scrollGesturesEnabled: false,
-        rotateGesturesEnabled: false,
-        tiltGesturesEnabled: false,
-        mapToolbarEnabled: false,
-        myLocationEnabled: false,
-        myLocationButtonEnabled: false,
+        ],
       ),
     );
   }
@@ -134,4 +170,91 @@ class RunMapPreview extends StatelessWidget {
       ]),
     ),
   );
+}
+
+/// Full-screen interactive map opened when user taps a feed map preview.
+class _FullScreenMapScreen extends StatefulWidget {
+  final List<LatLng> points;
+  final LatLngBounds bounds;
+
+  const _FullScreenMapScreen({required this.points, required this.bounds});
+
+  @override
+  State<_FullScreenMapScreen> createState() => _FullScreenMapScreenState();
+}
+
+class _FullScreenMapScreenState extends State<_FullScreenMapScreen> {
+  GoogleMapController? _controller;
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Route Map'),
+        elevation: 0,
+      ),
+      body: GoogleMap(
+        initialCameraPosition: CameraPosition(
+          target: LatLng(
+            (widget.bounds.southwest.latitude + widget.bounds.northeast.latitude) / 2,
+            (widget.bounds.southwest.longitude + widget.bounds.northeast.longitude) / 2,
+          ),
+          zoom: 13,
+        ),
+        mapType: MapType.normal,
+        polylines: {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: widget.points,
+            color: const Color(0xFFFC4C02),
+            width: 5,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+          ),
+        },
+        markers: {
+          Marker(
+            markerId: const MarkerId('start'),
+            position: widget.points.first,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+            anchor: const Offset(0.5, 0.5),
+          ),
+          Marker(
+            markerId: const MarkerId('end'),
+            position: widget.points.last,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            anchor: const Offset(0.5, 0.5),
+          ),
+        },
+        zoomControlsEnabled: true,
+        zoomGesturesEnabled: true,
+        scrollGesturesEnabled: true,
+        rotateGesturesEnabled: true,
+        tiltGesturesEnabled: true,
+        mapToolbarEnabled: false,
+        myLocationEnabled: false,
+        myLocationButtonEnabled: false,
+        onMapCreated: (controller) {
+          _controller = controller;
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              controller.animateCamera(
+                CameraUpdate.newLatLngBounds(widget.bounds, 60),
+              );
+            }
+          });
+        },
+      ),
+    );
+  }
 }

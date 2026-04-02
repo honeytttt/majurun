@@ -67,10 +67,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String email,
     required String location,
   }) {
+    // Capture ProfileScreen's context before entering the builder.
+    // The builder's (context) parameter refers to the settings screen's context,
+    // which is unmounted once ProfileSettingsScreen pops itself, so snackbars
+    // shown after the pop must use this outer context instead.
+    final profileContext = context;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProfileSettingsScreen(
+        builder: (builderContext) => ProfileSettingsScreen(
           currentName: name,
           currentBio: bio,
           currentImageUrl: imageUrl,
@@ -100,9 +106,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             await widget.onSave(newName, newBio, uploadedImageUrl, newEmail);
 
-            if (context.mounted) {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+            // ProfileSettingsScreen pops itself (profile_settings_screen.dart).
+            // Do NOT pop here — that would double-pop and black-screen the user.
+            // Use profileContext (ProfileScreen) for the snackbar since the
+            // settings screen context is unmounted by the time we reach here.
+            if (profileContext.mounted) {
+              ScaffoldMessenger.of(profileContext).showSnackBar(
                 const SnackBar(content: Text("Profile updated successfully!")),
               );
             }
