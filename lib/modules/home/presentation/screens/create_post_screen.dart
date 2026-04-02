@@ -404,10 +404,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Expanded(
                     child: TextButton.icon(
                       icon: const Icon(Icons.image_outlined),
-                      label: Text(
-                        'Photo ${_mediaList.where((m) => m.type == MediaType.image).length}/${PostLimitService.maxImagesPerPost}',
-                        style: const TextStyle(fontSize: 13),
-                      ),
+                      label: const Text('Photo', style: TextStyle(fontSize: 13)),
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF00E676),
                       ),
@@ -419,10 +416,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Expanded(
                     child: TextButton.icon(
                       icon: const Icon(Icons.videocam_outlined),
-                      label: const Text(
-                        'Video (5 min max)',
-                        style: TextStyle(fontSize: 13),
-                      ),
+                      label: const Text('Video', style: TextStyle(fontSize: 13)),
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.red,
                       ),

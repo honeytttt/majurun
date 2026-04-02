@@ -202,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: const <Widget>[
           HomeFeedContent(),
           WorkoutScreen(),
-          CreatePostScreen(),
+          SizedBox.shrink(), // placeholder — CreatePostScreen is pushed as a route
           EventsScreen(),
           RunTrackerScreen(),
         ],
@@ -292,7 +292,12 @@ class _HomeScreenState extends State<HomeScreen> {
       button: true,
       label: 'Create new post',
       child: GestureDetector(
-        onTap: () => _onItemTapped(2),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+          );
+        },
         child: Container(
           width: 56,
           height: 56,
