@@ -161,10 +161,10 @@ jobs:
 
       - name: Inject Google Maps API key
         env:
-          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          IOS_MAPS_API_KEY: ${{ secrets.IOS_MAPS_API_KEY }}
         run: |
-          sed -i '' "s/MAPS_API_KEY_PLACEHOLDER/${MAPS_API_KEY}/" ios/Runner/AppDelegate.swift
-          echo "Google Maps API key injected"
+          sed -i '' "s/MAPS_API_KEY_PLACEHOLDER/${IOS_MAPS_API_KEY}/" ios/Runner/AppDelegate.swift
+          echo "Google Maps iOS API key injected"
 
       - name: Build Flutter iOS (no codesign)
         run: flutter build ios --release --no-codesign --dart-define=ENVIRONMENT=production
