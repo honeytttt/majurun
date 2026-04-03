@@ -117,7 +117,7 @@ const List<String> _kEncouragements = [
 // Key  = distance in km that triggers the announcement.
 // Value = what to say.
 // ─────────────────────────────────────────────────────────────────────────────
-const Map<double, String> _kApproachingPhrases = {
+final Map<double, String> _kApproachingPhrases = {
   4.0:  "You're just 1 kilometer away from 5K! Keep pushing!",
   8.0:  "Only 2 kilometers to 10K! You can do this!",
   9.0:  "Just 1 kilometer left to reach 10K! Give it everything!",
