@@ -918,44 +918,94 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
   }
 
   Widget _buildLeaderboardTab() {
-    final leaderboard = [
-      {"rank": 1, "name": "Alex Rivera", "distance": 245.5, "avatar": "A", "isCurrentUser": false},
-      {"rank": 2, "name": "Sarah Chen", "distance": 228.2, "avatar": "S", "isCurrentUser": false},
-      {"rank": 3, "name": "Mike Ross", "distance": 215.0, "avatar": "M", "isCurrentUser": false},
-      {"rank": 4, "name": "Emma Wilson", "distance": 198.7, "avatar": "E", "isCurrentUser": false},
-      {"rank": 5, "name": "You", "distance": 182.3, "avatar": "Y", "isCurrentUser": true},
-      {"rank": 6, "name": "James Liu", "distance": 175.4, "avatar": "J", "isCurrentUser": false},
-      {"rank": 7, "name": "Lisa Park", "distance": 168.9, "avatar": "L", "isCurrentUser": false},
-      {"rank": 8, "name": "David Kim", "distance": 155.2, "avatar": "D", "isCurrentUser": false},
-    ];
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          // Top 3 podium
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .orderBy('totalKm', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(color: brandGreen),
+            ),
+          );
+        }
+        if (snap.hasError || !snap.hasData || snap.data!.docs.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: Text('No leaderboard data yet.\nComplete a run to appear here!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54)),
+            ),
+          );
+        }
+
+        final docs = snap.data!.docs;
+        final leaderboard = docs.asMap().entries.map((e) {
+          final d    = e.value.data() as Map<String, dynamic>;
+          final uid  = e.value.id;
+          final name = (d['displayName'] as String?)?.isNotEmpty == true
+              ? d['displayName'] as String
+              : 'Runner';
+          final km   = (d['totalKm'] as num?)?.toDouble() ?? 0.0;
+          final photo = (d['photoUrl'] as String?) ?? '';
+          final isCurrent = uid == currentUid;
+          return {
+            'rank':          e.key + 1,
+            'name':          isCurrent ? 'You' : name,
+            'distance':      km,
+            'avatar':        name.isNotEmpty ? name[0].toUpperCase() : 'R',
+            'photoUrl':      photo,
+            'isCurrentUser': isCurrent,
+          };
+        }).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
             children: [
-              _buildPodiumItem(leaderboard[1], 2, 80),
-              _buildPodiumItem(leaderboard[0], 1, 100),
-              _buildPodiumItem(leaderboard[2], 3, 60),
+              if (leaderboard.length >= 3) ...[
+                // Top 3 podium
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _buildPodiumItem(leaderboard[1], 2, 80),
+                    _buildPodiumItem(leaderboard[0], 1, 100),
+                    _buildPodiumItem(leaderboard[2], 3, 60),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+              // Rank 4+ list
+              if (leaderboard.length > 3)
+                Container(
+                  decoration: BoxDecoration(
+                    color: darkCard,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: leaderboard.skip(3)
+                        .map((u) => _buildLeaderboardItem(u))
+                        .toList(),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                'Ranked by total km all-time • Updates live',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3)),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
-          const SizedBox(height: 24),
-          // Rest of leaderboard
-          Container(
-            decoration: BoxDecoration(
-              color: darkCard,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: leaderboard.skip(3).map((user) => _buildLeaderboardItem(user)).toList(),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -982,11 +1032,11 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: color, width: 2),
                 ),
-                child: Center(
-                  child: Text(
-                    user["avatar"] as String,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
-                  ),
+                child: _buildLeaderAvatar(
+                  user["photoUrl"] as String? ?? '',
+                  user["avatar"] as String,
+                  color,
+                  24,
                 ),
               ),
               if (position == 1)
@@ -1031,8 +1081,30 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
     );
   }
 
+  /// Small avatar: photo if available, otherwise initial letter
+  Widget _buildLeaderAvatar(String photoUrl, String initial, Color accentColor, double fontSize) {
+    if (photoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          photoUrl,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Center(
+            child: Text(initial, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: accentColor)),
+          ),
+        ),
+      );
+    }
+    return Center(
+      child: Text(initial, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: accentColor)),
+    );
+  }
+
   Widget _buildLeaderboardItem(Map<String, dynamic> user) {
     final isCurrentUser = user["isCurrentUser"] as bool;
+    final photoUrl      = (user["photoUrl"] as String?) ?? '';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1070,15 +1142,11 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
               color: isCurrentUser ? brandGreen : Colors.white24,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Center(
-              child: Text(
-                user["avatar"] as String,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isCurrentUser ? Colors.black : Colors.white,
-                ),
-              ),
+            child: _buildLeaderAvatar(
+              photoUrl,
+              user["avatar"] as String,
+              isCurrentUser ? Colors.black : Colors.white,
+              16,
             ),
           ),
           const SizedBox(width: 12),
