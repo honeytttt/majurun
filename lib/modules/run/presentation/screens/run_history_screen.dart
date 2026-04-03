@@ -456,7 +456,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   }
 
   // ✅ Preview-only sanitization: removes GPS jump spikes + downsample for web/static map URL size.
-  List<LatLng> _sanitizeAndDownsample(List<LatLng> points, {double maxJumpMeters = 120, int maxPoints = 220}) {
+  List<LatLng> _sanitizeAndDownsample(List<LatLng> points, {double maxJumpMeters = 120, int maxPoints = 1000}) {
     if (points.length < 2) return points;
 
     final filtered = <LatLng>[points.first];

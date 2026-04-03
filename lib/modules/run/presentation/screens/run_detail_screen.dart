@@ -42,6 +42,26 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     }
   }
 
+  /// Safely parse routePoints from Firestore (stored as List<Map> with 'lat'/'lng').
+  List<LatLng> _parseRoutePoints(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is List<LatLng>) return raw;
+    if (raw is! List) return const [];
+    final out = <LatLng>[];
+    for (final p in raw) {
+      if (p is LatLng) {
+        out.add(p);
+      } else if (p is GeoPoint) {
+        out.add(LatLng(p.latitude, p.longitude));
+      } else if (p is Map) {
+        final lat = (p['lat'] ?? p['latitude']);
+        final lng = (p['lng'] ?? p['longitude']);
+        if (lat is num && lng is num) out.add(LatLng(lat.toDouble(), lng.toDouble()));
+      }
+    }
+    return out;
+  }
+
   DateTime _parseDate(dynamic raw) {
     if (raw is DateTime) return raw;
     if (raw is Timestamp) return raw.toDate();
@@ -111,20 +131,13 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final String? mapImageUrlRaw = widget.runData['mapImageUrl']?.toString();
     final bool hasMapImage = mapImageUrlRaw != null && mapImageUrlRaw.isNotEmpty;
 
-    // Route points candidates
-    List<LatLng>? routePointsRaw;
-    if (widget.runData.containsKey('routePoints') && widget.runData['routePoints'] != null) {
-      routePointsRaw = widget.runData['routePoints'] as List<LatLng>?;
-    } else if (widget.runData.containsKey('route') && widget.runData['route'] != null) {
-      routePointsRaw = widget.runData['route'] as List<LatLng>?;
-    } else if (widget.runData.containsKey('path') && widget.runData['path'] != null) {
-      routePointsRaw = widget.runData['path'] as List<LatLng>?;
-    }
-    final bool hasRoute = routePointsRaw != null && routePointsRaw.isNotEmpty;
-
-    // ✅ Promote to non-null locals inside the guarded branches (avoids unnecessary "!")
+    // Route points — Firestore stores as List<Map> with 'lat'/'lng' keys.
+    // The previous cast (as List<LatLng>?) always returned null silently.
+    final List<LatLng> routePoints = _parseRoutePoints(
+      widget.runData['routePoints'] ?? widget.runData['route'] ?? widget.runData['path'],
+    );
+    final bool hasRoute = routePoints.length >= 2;
     final String mapImageUrl = mapImageUrlRaw ?? '';
-    final List<LatLng> routePoints = routePointsRaw ?? const <LatLng>[];
 
     return Scaffold(
       backgroundColor: Colors.white,

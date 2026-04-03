@@ -543,15 +543,18 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   void initState() {
     super.initState();
     if (widget.forceLandscape) {
+      // Landscape video — lock to landscape
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
     } else {
-      // Portrait video — show fullscreen in portrait
+      // Portrait video — allow all orientations so user can rotate freely
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
       ]);
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
