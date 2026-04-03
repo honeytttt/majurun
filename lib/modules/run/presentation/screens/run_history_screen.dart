@@ -559,10 +559,75 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _buildPersonalBests(records),
           // Badges Section
           _buildBadgesSection(),
         ],
       ),
+    );
+  }
+
+  Widget _buildPersonalBests(Map<String, String> records) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade600),
+              const SizedBox(width: 6),
+              Text(
+                'PERSONAL BESTS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo.shade600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _buildPBCell('5K', records['best5k'] ?? '--:--', records['best5kDate'] ?? '', Colors.green)),
+              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+              Expanded(child: _buildPBCell('10K', records['best10k'] ?? '--:--', records['best10kDate'] ?? '', Colors.blue)),
+              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+              Expanded(child: _buildPBCell('Half', records['bestHalf'] ?? '--:--', records['bestHalfDate'] ?? '', Colors.orange)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPBCell(String label, String time, String date, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          time,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        if (date.isNotEmpty)
+          Text(date, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+      ],
     );
   }
 
@@ -686,7 +751,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   Map<String, String> _getPersonalRecords(List<Map<String, dynamic>> runs) {
     if (runs.isEmpty) {
-      return {'bestPace': '--:--', 'bestPaceDate': '', 'longestDistance': '-- km', 'longestDate': ''};
+      return {
+        'bestPace': '--:--', 'bestPaceDate': '',
+        'longestDistance': '-- km', 'longestDate': '',
+        'best5k': '--:--', 'best5kDate': '',
+        'best10k': '--:--', 'best10kDate': '',
+        'bestHalf': '--:--', 'bestHalfDate': '',
+      };
     }
 
     Map<String, dynamic>? bestPaceRun;
@@ -720,11 +791,60 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       }
     }
 
+    // Personal bests: best projected time at 5K, 10K, Half Marathon
+    String _bestTime(double threshold) {
+      int? bestSecs;
+      for (final run in runs) {
+        final distVal = run['distance'] ?? 0.0;
+        final dist = (distVal is num) ? distVal.toDouble() : 0.0;
+        final durVal = run['durationSeconds'] ?? 0;
+        final dur = (durVal is num) ? durVal.toInt() : 0;
+        if (dist >= threshold && dur > 0) {
+          final projected = ((threshold / dist) * dur).round();
+          if (bestSecs == null || projected < bestSecs) {
+            bestSecs = projected;
+          }
+        }
+      }
+      if (bestSecs == null) return '--:--';
+      final h = bestSecs ~/ 3600;
+      final m = (bestSecs % 3600) ~/ 60;
+      final s = bestSecs % 60;
+      return h > 0
+          ? '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+          : '$m:${s.toString().padLeft(2, '0')}';
+    }
+
+    String _bestDate(double threshold) {
+      Map<String, dynamic>? bestRun;
+      int? bestSecs;
+      for (final run in runs) {
+        final distVal = run['distance'] ?? 0.0;
+        final dist = (distVal is num) ? distVal.toDouble() : 0.0;
+        final durVal = run['durationSeconds'] ?? 0;
+        final dur = (durVal is num) ? durVal.toInt() : 0;
+        if (dist >= threshold && dur > 0) {
+          final projected = ((threshold / dist) * dur).round();
+          if (bestSecs == null || projected < bestSecs) {
+            bestSecs = projected;
+            bestRun = run;
+          }
+        }
+      }
+      return bestRun != null ? DateFormat('MMM d').format(_parseDate(bestRun['date'])) : '';
+    }
+
     return {
       'bestPace': bestPaceRun?['pace'] ?? '--:--',
       'bestPaceDate': bestPaceRun != null ? DateFormat('MMM d').format(_parseDate(bestPaceRun['date'])) : '',
       'longestDistance': longestDistance > 0 ? '${longestDistance.toStringAsFixed(1)} km' : '-- km',
       'longestDate': longestRun != null ? DateFormat('MMM d').format(_parseDate(longestRun['date'])) : '',
+      'best5k': _bestTime(5.0),
+      'best5kDate': _bestDate(5.0),
+      'best10k': _bestTime(10.0),
+      'best10kDate': _bestDate(10.0),
+      'bestHalf': _bestTime(21.1),
+      'bestHalfDate': _bestDate(21.1),
     };
   }
 

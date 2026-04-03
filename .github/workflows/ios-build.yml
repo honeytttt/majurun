@@ -77,6 +77,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Regenerate app icons from source
+        run: dart run flutter_launcher_icons
+        # Ensures iOS icons always match the Android icon (assets/icon/app_icon.png).
+        # Fixes mismatched icons caused by the old 'flutter_icons' config key.
+
       # Inject firebase_options dart files (required by lib/main.dart)
       - name: Inject firebase_options (dev + prod)
         run: |

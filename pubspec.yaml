@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+39
+version: 1.0.0+40
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -106,16 +106,13 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1   # ← added
 
 # Configuration for flutter_launcher_icons
-flutter_icons:
+# Key must be flutter_launcher_icons (not flutter_icons — that's deprecated)
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/app_icon.png"  # ← ensure this file exists
-  # Optional Android adaptive icon settings:
-  # Use either a color hex (background) or an image file
-  adaptive_icon_background: "#FFFFFF"
-  remove_alpha_ios: true
-  # If you have a separate foreground asset, set it here; otherwise remove
-  # adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"   # Android adaptive icon background
+  remove_alpha_ios: true                # iOS doesn't allow transparent icons
   min_sdk_android: 21
 
 flutter:
