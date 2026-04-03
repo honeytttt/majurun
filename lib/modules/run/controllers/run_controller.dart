@@ -101,11 +101,12 @@ class RunController extends ChangeNotifier {
       );
     };
 
-    // Half-km milestone callback
+    // Half-km milestone callback — also check approaching milestones here
     stateController.onHalfKmMilestone = ({
       required double distanceKm,
       required String currentPace,
     }) {
+      voiceController.checkApproachingMilestone(distanceKm);
       voiceController.speakHalfKmMilestone(
         distanceKm: distanceKm,
         currentPace: currentPace,

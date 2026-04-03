@@ -15,6 +15,8 @@ class VoiceSettings {
   final bool encouragement;        // "Keep going strong!" etc.
   final bool majorMilestones;      // 5km, 10km, half/full marathon celebrations
   final bool hapticFeedback;       // Vibration for milestones
+  final String voiceName;          // iOS voice name (e.g. "Samantha", "Alex")
+  final double speechRate;         // TTS speech rate (0.3–0.6, default 0.42)
 
   const VoiceSettings({
     this.masterEnabled = true,
@@ -28,6 +30,8 @@ class VoiceSettings {
     this.encouragement = true,
     this.majorMilestones = true,
     this.hapticFeedback = true,
+    this.voiceName = 'Samantha',
+    this.speechRate = 0.42,
   });
 
   /// All enabled by default
@@ -60,6 +64,8 @@ class VoiceSettings {
     'encouragement': encouragement,
     'majorMilestones': majorMilestones,
     'hapticFeedback': hapticFeedback,
+    'voiceName': voiceName,
+    'speechRate': speechRate,
   };
 
   factory VoiceSettings.fromMap(Map<String, dynamic> map) => VoiceSettings(
@@ -74,6 +80,8 @@ class VoiceSettings {
     encouragement: map['encouragement'] ?? true,
     majorMilestones: map['majorMilestones'] ?? true,
     hapticFeedback: map['hapticFeedback'] ?? true,
+    voiceName: map['voiceName'] ?? 'Samantha',
+    speechRate: (map['speechRate'] as num?)?.toDouble() ?? 0.42,
   );
 
   VoiceSettings copyWith({
@@ -88,6 +96,8 @@ class VoiceSettings {
     bool? encouragement,
     bool? majorMilestones,
     bool? hapticFeedback,
+    String? voiceName,
+    double? speechRate,
   }) => VoiceSettings(
     masterEnabled: masterEnabled ?? this.masterEnabled,
     runStartStop: runStartStop ?? this.runStartStop,
@@ -100,6 +110,8 @@ class VoiceSettings {
     encouragement: encouragement ?? this.encouragement,
     majorMilestones: majorMilestones ?? this.majorMilestones,
     hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+    voiceName: voiceName ?? this.voiceName,
+    speechRate: speechRate ?? this.speechRate,
   );
 }
 

@@ -137,6 +137,11 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
 
                 const SizedBox(height: 16),
 
+                // Voice & Speed Section
+                _buildVoiceSection(),
+
+                const SizedBox(height: 8),
+
                 // Run Control Section
                 _buildSection(
                   'Run Control',
@@ -285,6 +290,149 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                 const SizedBox(height: 32),
               ],
             ),
+    );
+  }
+
+  // Available iOS voices with friendly labels
+  static const List<Map<String, String>> _kVoices = [
+    {'name': 'Samantha', 'label': 'Samantha — US Female (default)'},
+    {'name': 'Ava',      'label': 'Ava — US Female (enhanced)'},
+    {'name': 'Nicky',    'label': 'Nicky — US Female (energetic)'},
+    {'name': 'Alex',     'label': 'Alex — US Male'},
+    {'name': 'Tom',      'label': 'Tom — US Male (natural)'},
+    {'name': 'Serena',   'label': 'Serena — UK Female'},
+    {'name': 'Daniel',   'label': 'Daniel — UK Male'},
+    {'name': 'Karen',    'label': 'Karen — Australian Female'},
+  ];
+
+  Widget _buildVoiceSection() {
+    final isEnabled = _settings.masterEnabled;
+    final speedPercent = (_settings.speechRate * 200).round(); // 0.3→60%, 0.5→100%
+
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.5,
+      child: IgnorePointer(
+        ignoring: !isEnabled,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.mic, color: Colors.indigo, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Voice & Speed',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Voice picker (iOS only — Android voices are device-dependent)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Voice (iOS)', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.grey[800])),
+                    const SizedBox(height: 4),
+                    DropdownButtonFormField<String>(
+                      value: _settings.voiceName,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      items: _kVoices.map((v) => DropdownMenuItem<String>(
+                        value: v['name'],
+                        child: Text(v['label']!, style: const TextStyle(fontSize: 13)),
+                      )).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          _updateSetting((s) => s.copyWith(voiceName: val));
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Not all voices may be installed on your device. If a voice sounds wrong, try Samantha.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Speed slider
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Speaking Speed', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.grey[800])),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('$speedPercent%', style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                    Slider(
+                      value: _settings.speechRate.clamp(0.3, 0.6),
+                      min: 0.3,
+                      max: 0.6,
+                      divisions: 6,
+                      activeColor: Colors.indigo,
+                      onChanged: (val) => _updateSetting((s) => s.copyWith(speechRate: val)),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Slower', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                        Text('Faster', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

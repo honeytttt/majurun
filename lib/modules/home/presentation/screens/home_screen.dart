@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:majurun/core/services/video_session_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -159,6 +160,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
+    if (index != 0) {
+      // Pause all feed videos when navigating away from the home/feed tab
+      VideoSessionManager.pauseAll();
+    }
     setState(() {
       _selectedIndex = index;
       _activeSubPage = null;

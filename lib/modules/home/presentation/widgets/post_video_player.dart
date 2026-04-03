@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+import 'package:majurun/core/services/video_session_manager.dart';
 
 class PostVideoPlayer extends StatefulWidget {
   final String videoUrl;
@@ -23,11 +25,18 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   bool _isInitialized = false;
   bool _hasError = false;
   bool _showControls = true;
+  StreamSubscription<void>? _pauseSub;
 
   @override
   void initState() {
     super.initState();
     _initializeVideo();
+    // Pause this video whenever the tab changes (feed → other tab)
+    _pauseSub = VideoSessionManager.onPause.listen((_) {
+      if (_isInitialized && _controller.value.isPlaying) {
+        _controller.pause();
+      }
+    });
   }
 
   Future<void> _initializeVideo() async {
@@ -62,6 +71,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
 
   @override
   void dispose() {
+    _pauseSub?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -114,6 +124,10 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   Future<void> _openFullscreen(BuildContext context) async {
     _controller.pause();
     final startPosition = _controller.value.position;
+    // Choose orientation based on aspect ratio:
+    // landscape video (> 1.0) → landscape fullscreen
+    // portrait/square video (≤ 1.0) → portrait fullscreen
+    final isLandscape = _controller.value.aspectRatio > 1.0;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -121,6 +135,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
         builder: (_) => _FullscreenVideoPage(
           videoUrl: widget.videoUrl,
           startPosition: startPosition,
+          forceLandscape: isLandscape,
         ),
       ),
     );
@@ -507,10 +522,12 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
 class _FullscreenVideoPage extends StatefulWidget {
   final String videoUrl;
   final Duration startPosition;
+  final bool forceLandscape;
 
   const _FullscreenVideoPage({
     required this.videoUrl,
     required this.startPosition,
+    this.forceLandscape = true,
   });
 
   @override
@@ -525,10 +542,18 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    if (widget.forceLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      // Portrait video — show fullscreen in portrait
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _initVideo();
   }
