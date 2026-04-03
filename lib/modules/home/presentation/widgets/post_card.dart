@@ -8,8 +8,7 @@ import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
 import 'run_map_preview.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
+import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
@@ -24,8 +23,6 @@ class PostCard extends StatefulWidget {
 }
 
 class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin {
-  VideoPlayerController? _videoController;
-  ChewieController? _chewieController;
   late String _safeContent;
   bool _hasError = false;
   // Optimistic like state — updated immediately on tap, not waiting for stream
@@ -38,7 +35,6 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
     _safeContent = _createSafeString(widget.post.content);
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     _isLiked = widget.post.likes.contains(uid);
@@ -102,40 +98,8 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     }
   }
 
-  void _initializeVideo() {
-    if (widget.post.media.isEmpty) return;
-    final firstMedia = widget.post.media.first;
-    if (firstMedia.type == MediaType.video && firstMedia.url.isNotEmpty) {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(firstMedia.url))
-        ..initialize().then((_) {
-          if (mounted) {
-            setState(() {});
-            _videoController?.setLooping(true);
-          }
-        }).catchError((e) {
-          debugPrint('Video initialization failed: $e');
-          if (mounted) {
-            setState(() => _hasError = true);
-          }
-        });
-    }
-  }
-
   @override
   void dispose() {
-    // Safely dispose video controllers
-    try {
-      _videoController?.dispose();
-    } catch (e) {
-      debugPrint('Error disposing video controller: $e');
-    }
-    
-    try {
-      _chewieController?.dispose();
-    } catch (e) {
-      debugPrint('Error disposing chewie controller: $e');
-    }
-    
     super.dispose();
   }
 
@@ -499,57 +463,14 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
       final firstMedia = media.first;
 
       if (firstMedia.type == MediaType.video) {
-        if (_videoController != null && _videoController!.value.isInitialized && !_hasError) {
-          try {
-            final videoAspect = _videoController!.value.aspectRatio;
-
-            _chewieController ??= ChewieController(
-              videoPlayerController: _videoController!,
-              autoPlay: false,
-              looping: true,
-              aspectRatio: videoAspect,
-              materialProgressColors: ChewieProgressColors(
-                playedColor: const Color(0xFF00E676),
-                handleColor: const Color(0xFF00E676),
-              ),
-              placeholder: Container(
-                color: Colors.black.withValues(alpha: 0.4),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              errorBuilder: (context, errorMessage) {
-                return Center(
-                  child: Text(
-                    'Video error: $errorMessage',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                );
-              },
-            );
-
-            return buildMediaContainer(
-              Chewie(controller: _chewieController!),
-            );
-          } catch (e) {
-            return buildMediaContainer(
-              const Center(
-                child: Text('Video unavailable', style: TextStyle(color: Colors.grey)),
-              ),
-            );
-          }
-        } else {
-          return buildMediaContainer(
-            const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: Color(0xFF00E676)),
-                  SizedBox(height: 12),
-                  Text("Loading video...", style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ),
-          );
-        }
+        // PostVideoPlayer handles its own lifecycle, fullscreen (tap expand or
+        // tap video area), orientation switching, and VideoSessionManager pausing.
+        return buildMediaContainer(
+          PostVideoPlayer(
+            videoUrl: firstMedia.url,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
       }
 
       // Handle images - let them scale naturally

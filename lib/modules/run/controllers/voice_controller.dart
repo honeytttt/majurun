@@ -164,13 +164,29 @@ class VoiceController extends ChangeNotifier {
         await _tts.stop();
         debugPrint("✅ Voice initialized for WEB (warmed up)");
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        // Critical: tell flutter_tts to use the shared AVAudioSession and configure
+        // it with .mixWithOthers so Spotify / Udemy / podcasts keep playing when
+        // the run coach voice speaks. Without this, flutter_tts re-activates the
+        // session with .playback (no mixWithOthers) which interrupts background audio.
+        await _tts.setSharedInstance(true);
+        await _tts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback,
+          [
+            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+            IosTextToSpeechAudioCategoryOptions.allowAirPlay,
+            IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          ],
+          IosTextToSpeechAudioMode.defaultMode,
+        );
         final name = voiceName.isNotEmpty ? voiceName : 'Samantha';
         await _tts.setVoice({"name": name, "locale": "en-US"});
         await _tts.setLanguage("en-US");
         await _tts.setSpeechRate(_settings.speechRate);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
-        debugPrint("✅ Voice initialized for iOS ($name)");
+        debugPrint("✅ Voice initialized for iOS ($name) with mixWithOthers");
       } else {
         await _tts.setLanguage("en-US");
         await _tts.setSpeechRate(_settings.speechRate);
