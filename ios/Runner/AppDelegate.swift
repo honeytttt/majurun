@@ -15,11 +15,15 @@ import AVFoundation
     // Do NOT call setActive(true) here — activating the session at launch
     // interrupts Spotify/Udemy even when .mixWithOthers is set.
     // The session activates lazily the first time audio is actually needed.
+    // Set audio category so TTS/video can duck other apps while playing,
+    // then restore them when done. Session is NOT activated here — flutter_tts
+    // activates it lazily only when speak() is called, matching Strava behavior.
+    // .allowBluetooth ensures BT headsets work with announcements.
     do {
       try AVAudioSession.sharedInstance().setCategory(
         .playback,
         mode: .default,
-        options: [.mixWithOthers, .duckOthers]
+        options: [.mixWithOthers, .duckOthers, .allowBluetooth]
       )
     } catch {
       print("AVAudioSession category setup failed: \(error)")

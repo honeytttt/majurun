@@ -164,19 +164,13 @@ class VoiceController extends ChangeNotifier {
         await _tts.stop();
         debugPrint("✅ Voice initialized for WEB (warmed up)");
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-        // Configure TTS audio category with .duckOthers so iOS lowers music
-        // volume briefly while speaking, then restores it — matches Strava/Nike.
-        // Do NOT call setSharedInstance(true): that calls setActive(true) eagerly,
-        // which interrupts Spotify even at app startup before any run begins.
-        // The category is set here; the session activates only when TTS speaks.
-        await _tts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.playback,
-          [
-            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-            IosTextToSpeechAudioCategoryOptions.duckOthers,
-          ],
-          IosTextToSpeechAudioMode.defaultMode,
-        );
+        // Do NOT call setIosAudioCategory here — it internally calls
+        // AVAudioSession.setActive(true), which immediately ducks/stops
+        // Spotify, Apple Music, Udemy at app launch before any run starts.
+        // AppDelegate.swift already set the correct category (.playback +
+        // mixWithOthers + duckOthers) WITHOUT activating the session.
+        // flutter_tts will activate the session lazily only when speak() is
+        // called, which is the correct Strava/Nike behavior.
         final name = voiceName.isNotEmpty ? voiceName : 'Samantha';
         await _tts.setVoice({"name": name, "locale": "en-US"});
         await _tts.setLanguage("en-US");
