@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+45
+version: 1.0.0+46
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -95,6 +95,7 @@ dependencies:
   # Deep Linking (share runs, challenges) ─────────────────────
   app_links: ^6.0.0
   firebase_app_check: ^0.3.2+10
+  audio_session: ^0.1.21          # manages AVAudioSession lifecycle (duck + restore)
 
   # Remove or conditionalize ────────────────────────────────
   # js: ^0.6.7                  # ← REMOVE (only for web)

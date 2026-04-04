@@ -28,11 +28,34 @@ import 'modules/run/controllers/run_controller.dart';
 import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 // Counter initializer
 import 'core/utils/user_counters_initializer.dart';
+import 'package:audio_session/audio_session.dart';
+
+Future<void> _configureAudioSession() async {
+  final session = await AudioSession.instance;
+  await session.configure(const AudioSessionConfiguration(
+    // iOS: playback + duckOthers — music lowers while TTS speaks, restores after.
+    // NOT ambient: ambient silences TTS when screen locks (breaks run announcements).
+    avAudioSessionCategory: AVAudioSessionCategory.playback,
+    avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+    avAudioSessionMode: AVAudioSessionMode.defaultMode,
+    // Android: request transient focus with ducking so music lowers, not pauses.
+    androidAudioAttributes: AndroidAudioAttributes(
+      contentType: AndroidAudioContentType.music,
+      usage: AndroidAudioUsage.assistanceNavigationGuidance,
+    ),
+    androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+  ));
+}
 
 Future<void> main() async {
   // Wrap entire app initialization with Sentry for comprehensive error tracking
   await SentryService.initializeApp(() async {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Configure audio session: TTS ducks music while speaking, restores after.
+    // audio_session manages setActive(true/false) lifecycle properly — this is
+    // what was missing in previous builds (music never restored after ducking).
+    await _configureAudioSession();
 
     // Initialize Firebase — picks project based on ENVIRONMENT dart-define
     // Dev:  flutter run  (default)
