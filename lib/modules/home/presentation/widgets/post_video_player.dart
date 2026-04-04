@@ -21,10 +21,11 @@ class PostVideoPlayer extends StatefulWidget {
 }
 
 class _PostVideoPlayerState extends State<PostVideoPlayer> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   bool _showControls = true;
+  bool _isDisposed = false;
   StreamSubscription<void>? _pauseSub;
 
   @override
@@ -33,35 +34,41 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
     _initializeVideo();
     // Pause this video whenever the tab changes (feed → other tab)
     _pauseSub = VideoSessionManager.onPause.listen((_) {
-      if (_isInitialized && _controller.value.isPlaying) {
-        _controller.pause();
+      if (_isInitialized && (_controller?.value.isPlaying ?? false)) {
+        _controller?.pause();
       }
     });
   }
 
   Future<void> _initializeVideo() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-      await _controller.initialize();
-      
+      final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      _controller = controller;
+      await controller.initialize();
+
+      if (_isDisposed) {
+        controller.dispose();
+        return;
+      }
+
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
-        
+
         // Auto-play muted (common for social media feeds)
-        _controller.setLooping(true);
-        _controller.setVolume(0.0);
-        _controller.play();
+        controller.setLooping(true);
+        controller.setVolume(0.0);
+        controller.play();
       }
 
       // Listen to controller updates for UI refresh
-      _controller.addListener(() {
-        if (mounted) setState(() {});
+      controller.addListener(() {
+        if (mounted && !_isDisposed) setState(() {});
       });
     } catch (e) {
       debugPrint('Video initialization error: $e');
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _hasError = true;
         });
@@ -71,17 +78,20 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _pauseSub?.cancel();
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   void _togglePlayPause() {
+    final c = _controller;
+    if (c == null) return;
     setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
+      if (c.value.isPlaying) {
+        c.pause();
       } else {
-        _controller.play();
+        c.play();
       }
       _showControls = true;
     });
@@ -89,45 +99,51 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   }
 
   void _toggleMute() {
+    final c = _controller;
+    if (c == null) return;
     setState(() {
-      _controller.setVolume(_controller.value.volume == 0 ? 1.0 : 0.0);
+      c.setVolume(c.value.volume == 0 ? 1.0 : 0.0);
     });
   }
 
   void _skipForward() {
-    final currentPosition = _controller.value.position;
+    final c = _controller;
+    if (c == null) return;
+    final currentPosition = c.value.position;
     final newPosition = currentPosition + const Duration(seconds: 10);
-    final maxDuration = _controller.value.duration;
-    
+    final maxDuration = c.value.duration;
     if (newPosition < maxDuration) {
-      _controller.seekTo(newPosition);
+      c.seekTo(newPosition);
     } else {
-      _controller.seekTo(maxDuration);
+      c.seekTo(maxDuration);
     }
     _showControls = true;
     _hideControlsAfterDelay();
   }
 
   void _skipBackward() {
-    final currentPosition = _controller.value.position;
+    final c = _controller;
+    if (c == null) return;
+    final currentPosition = c.value.position;
     final newPosition = currentPosition - const Duration(seconds: 10);
-    
     if (newPosition > Duration.zero) {
-      _controller.seekTo(newPosition);
+      c.seekTo(newPosition);
     } else {
-      _controller.seekTo(Duration.zero);
+      c.seekTo(Duration.zero);
     }
     _showControls = true;
     _hideControlsAfterDelay();
   }
 
   Future<void> _openFullscreen(BuildContext context) async {
-    _controller.pause();
-    final startPosition = _controller.value.position;
+    final c = _controller;
+    if (c == null) return;
+    c.pause();
+    final startPosition = c.value.position;
     // Choose orientation based on aspect ratio:
     // landscape video (> 1.0) → landscape fullscreen
     // portrait/square video (≤ 1.0) → portrait fullscreen
-    final isLandscape = _controller.value.aspectRatio > 1.0;
+    final isLandscape = c.value.aspectRatio > 1.0;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -140,13 +156,13 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
       ),
     );
     if (mounted) {
-      _controller.play();
+      _controller?.play();
     }
   }
 
   void _hideControlsAfterDelay() {
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && _controller.value.isPlaying) {
+      if (mounted && !_isDisposed && (_controller?.value.isPlaying ?? false)) {
         setState(() {
           _showControls = false;
         });
@@ -172,17 +188,18 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
       return _buildErrorWidget();
     }
 
-    if (!_isInitialized) {
+    if (!_isInitialized || _controller == null) {
       return _buildLoadingWidget();
     }
 
-    final aspectRatio = _controller.value.aspectRatio;
-    final position = _controller.value.position;
-    final duration = _controller.value.duration;
-    final progress = duration.inMilliseconds > 0 
-        ? position.inMilliseconds / duration.inMilliseconds 
+    final c = _controller!;
+    final aspectRatio = c.value.aspectRatio;
+    final position = c.value.position;
+    final duration = c.value.duration;
+    final progress = duration.inMilliseconds > 0
+        ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
-    
+
     return ClipRRect(
       borderRadius: widget.borderRadius ?? BorderRadius.zero,
       child: GestureDetector(
@@ -190,7 +207,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
           setState(() {
             _showControls = !_showControls;
           });
-          if (_showControls && _controller.value.isPlaying) {
+          if (_showControls && c.value.isPlaying) {
             _hideControlsAfterDelay();
           }
         },
@@ -204,7 +221,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
               Center(
                 child: AspectRatio(
                   aspectRatio: aspectRatio,
-                  child: VideoPlayer(_controller),
+                  child: VideoPlayer(c),
                 ),
               ),
 
@@ -287,7 +304,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                           _buildControlButton(
                             onPressed: _togglePlayPause,
                             child: Icon(
-                              _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                              c.value.isPlaying ? Icons.pause : Icons.play_arrow,
                               color: Colors.white,
                               size: 50,
                             ),
@@ -353,7 +370,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Icon(
-                      _controller.value.volume == 0
+                      c.value.volume == 0
                           ? Icons.volume_off
                           : Icons.volume_up,
                       color: Colors.white,
@@ -390,13 +407,13 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                             value: progress.clamp(0.0, 1.0),
                             onChanged: (value) {
                               final newPosition = duration * value;
-                              _controller.seekTo(newPosition);
+                              c.seekTo(newPosition);
                               setState(() {
                                 _showControls = true;
                               });
                             },
                             onChangeEnd: (_) {
-                              if (_controller.value.isPlaying) {
+                              if (c.value.isPlaying) {
                                 _hideControlsAfterDelay();
                               }
                             },
@@ -535,9 +552,10 @@ class _FullscreenVideoPage extends StatefulWidget {
 }
 
 class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _showControls = true;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -562,13 +580,18 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   }
 
   Future<void> _initVideo() async {
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-    await _controller.initialize();
-    await _controller.seekTo(widget.startPosition);
-    _controller.setLooping(true);
-    _controller.play();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    _controller = controller;
+    await controller.initialize();
+    if (_isDisposed) {
+      controller.dispose();
+      return;
+    }
+    await controller.seekTo(widget.startPosition);
+    controller.setLooping(true);
+    controller.play();
+    controller.addListener(() {
+      if (mounted && !_isDisposed) setState(() {});
     });
     if (mounted) setState(() => _isInitialized = true);
     _scheduleHideControls();
@@ -576,7 +599,8 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _isDisposed = true;
+    _controller?.dispose();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -584,7 +608,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
 
   void _scheduleHideControls() {
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && _controller.value.isPlaying) {
+      if (mounted && !_isDisposed && (_controller?.value.isPlaying ?? false)) {
         setState(() => _showControls = false);
       }
     });
@@ -605,15 +629,15 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
       body: GestureDetector(
         onTap: () {
           setState(() => _showControls = !_showControls);
-          if (_showControls && _controller.value.isPlaying) _scheduleHideControls();
+          if (_showControls && (_controller?.value.isPlaying ?? false)) _scheduleHideControls();
         },
         child: Stack(
           children: [
-            if (_isInitialized)
+            if (_isInitialized && _controller != null)
               Center(
                 child: AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: VideoPlayer(_controller),
+                  aspectRatio: _controller!.value.aspectRatio,
+                  child: VideoPlayer(_controller!),
                 ),
               )
             else
@@ -649,8 +673,10 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   }
 
   Widget _buildControls() {
-    final position = _controller.value.position;
-    final duration = _controller.value.duration;
+    final c = _controller;
+    if (c == null) return const SizedBox.shrink();
+    final position = c.value.position;
+    final duration = c.value.duration;
     final progress = duration.inMilliseconds > 0
         ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
@@ -662,10 +688,10 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
           child: GestureDetector(
             onTap: () {
               setState(() {
-                if (_controller.value.isPlaying) {
-                  _controller.pause();
+                if (c.value.isPlaying) {
+                  c.pause();
                 } else {
-                  _controller.play();
+                  c.play();
                   _scheduleHideControls();
                 }
               });
@@ -677,7 +703,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                c.value.isPlaying ? Icons.pause : Icons.play_arrow,
                 color: Colors.white,
                 size: 50,
               ),
@@ -713,7 +739,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                   ),
                   child: Slider(
                     value: progress.clamp(0.0, 1.0),
-                    onChanged: (v) => _controller.seekTo(duration * v),
+                    onChanged: (v) => c.seekTo(duration * v),
                   ),
                 ),
                 Padding(
