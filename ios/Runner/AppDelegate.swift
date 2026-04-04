@@ -10,19 +10,19 @@ import AVFoundation
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Allow Spotify / Udemy / other audio apps to keep playing while this app
-    // uses TTS or video. Without .mixWithOthers, any AVAudioSession activation
-    // (triggered by flutter_tts or video_player) silences background audio.
+    // Pre-configure audio category so that when flutter_tts or video_player
+    // later activates the session, .mixWithOthers is already set.
+    // Do NOT call setActive(true) here — activating the session at launch
+    // interrupts Spotify/Udemy even when .mixWithOthers is set.
+    // The session activates lazily the first time audio is actually needed.
     do {
       try AVAudioSession.sharedInstance().setCategory(
         .playback,
         mode: .default,
-        options: [.mixWithOthers, .allowBluetooth, .allowAirPlay]
+        options: [.mixWithOthers, .duckOthers]
       )
-      try AVAudioSession.sharedInstance().setActive(true)
     } catch {
-      // Non-fatal — app still works; background music may be interrupted
-      print("AVAudioSession setup failed: \(error)")
+      print("AVAudioSession category setup failed: \(error)")
     }
 
     // Google Maps API key — injected by CI from MAPS_API_KEY secret

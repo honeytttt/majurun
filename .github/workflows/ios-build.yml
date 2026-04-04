@@ -77,10 +77,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Regenerate app icons from source
-        run: dart run flutter_launcher_icons
-        # Ensures iOS icons always match the Android icon (assets/icon/app_icon.png).
-        # Fixes mismatched icons caused by the old 'flutter_icons' config key.
+      # NOTE: flutter_launcher_icons is NOT run here. Running it in CI
+      # overwrites project.pbxproj with a broken
+      # ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS=AppIcon
+      # value (should be YES), causing the wrong app icon on device.
+      # Icons are already correctly committed in ios/Runner/Assets.xcassets/.
 
       # Inject firebase_options dart files (required by lib/main.dart)
       - name: Inject firebase_options (dev + prod)
