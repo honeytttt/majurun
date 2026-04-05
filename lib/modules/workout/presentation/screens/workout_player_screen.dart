@@ -216,18 +216,30 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
-    // Dispose all Chewie controllers first
-    for (final controller in _chewieControllers.values) {
-      controller.dispose();
-    }
-    _chewieControllers.clear();
-    // Then dispose video controllers
+
+    // Step 1: Remove listeners and pause all videos BEFORE any disposal.
+    // On iOS, disposing an AVPlayer that is still playing or has pending
+    // network requests causes a platform crash that kills the app.
     for (final controller in _videoControllers.values) {
       controller.removeListener(_onVideoStateChanged);
-      controller.dispose();
+      try { controller.pause(); } catch (_) {}
+    }
+
+    // Step 2: Dispose Chewie controllers (they hold refs to VideoPlayerControllers)
+    for (final controller in _chewieControllers.values) {
+      try { controller.dispose(); } catch (_) {}
+    }
+    _chewieControllers.clear();
+
+    // Step 3: Dispose the now-paused VideoPlayerControllers
+    for (final controller in _videoControllers.values) {
+      try { controller.dispose(); } catch (_) {}
     }
     _videoControllers.clear();
+
     if (!kIsWeb) {
+      // Restore all orientations (workout locked portrait; let rest of app decide)
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.edgeToEdge,
         overlays: SystemUiOverlay.values,
@@ -310,10 +322,11 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   }
 
   void _showCompletionDialog() {
+    final outerContext = context;
     showDialog(
-      context: context,
+      context: outerContext,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: darkCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: Column(
@@ -347,8 +360,8 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Close workout player
+                  Navigator.pop(dialogContext); // Close dialog
+                  Navigator.pop(outerContext);  // Close workout player
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.accentColor,
@@ -1092,14 +1105,15 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   }
 
   void _showExitConfirmation() {
+    final outerContext = context;
     if (!_isPlaying && _elapsedTime == 0) {
-      Navigator.pop(context);
+      Navigator.pop(outerContext);
       return;
     }
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: darkCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('End Workout?', style: TextStyle(color: Colors.white)),
@@ -1109,13 +1123,13 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text('Continue', style: TextStyle(color: widget.accentColor)),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Close workout
+              Navigator.pop(dialogContext); // Close dialog
+              Navigator.pop(outerContext);  // Close workout player
             },
             child: const Text('End Workout', style: TextStyle(color: Colors.red)),
           ),

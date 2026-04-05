@@ -108,7 +108,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                   SliverToBoxAdapter(child: _buildTabBar()),
                   SliverToBoxAdapter(
                     child: SizedBox(
-                      height: 500,
+                      height: 560,
                       child: TabBarView(
                         controller: _tabController,
                         children: [
@@ -440,8 +440,8 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                   color: const Color(0xFFFF6B35).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(
-                  child: Text("7", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFFFF6B35))),
+                child: Center(
+                  child: Text("$_currentStreak", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFFFF6B35))),
                 ),
               ),
               const SizedBox(width: 16),
@@ -449,19 +449,23 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.local_fire_department, color: Color(0xFFFF6B35), size: 24),
-                        SizedBox(width: 8),
+                        const Icon(Icons.local_fire_department, color: Color(0xFFFF6B35), size: 24),
+                        const SizedBox(width: 8),
                         Text(
-                          "Day Streak!",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          "$_currentStreak Day${_currentStreak == 1 ? '' : 's'} Streak!",
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Keep it going! 3 more days for 10-day badge",
+                      _currentStreak == 0
+                          ? "Start your streak — run today!"
+                          : _currentStreak < 7
+                              ? "Keep it going! ${7 - _currentStreak} more day${7 - _currentStreak == 1 ? '' : 's'} for 7-day badge"
+                              : "Amazing! You're on a ${_currentStreak}-day streak 🔥",
                       style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6)),
                     ),
                   ],
@@ -473,8 +477,9 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(7, (index) {
-              final isActive = index < 7;
-              final isToday = index == 6;
+              final activeDays = _currentStreak.clamp(0, 7);
+              final isActive = index < activeDays;
+              final isToday = index == activeDays - 1;
               return Column(
                 children: [
                   Container(
@@ -513,23 +518,31 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.all(20),
+      margin: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      height: 48,
       decoration: BoxDecoration(
         color: darkSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
           color: brandGreen,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
         ),
-        indicatorPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        labelColor: Colors.white,
+        // indicatorSize tab fills the whole tab cell; padding insets it slightly
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicatorPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+        // Black text on green is legible; white on dark for unselected
+        labelColor: Colors.black,
         unselectedLabelColor: Colors.white60,
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+        // Zero label padding — the tab cell width already provides space
+        labelPadding: EdgeInsets.zero,
         dividerColor: Colors.transparent,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
         tabs: const [
           Tab(text: "Challenges"),
           Tab(text: "Badges"),

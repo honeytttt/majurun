@@ -62,11 +62,14 @@ class PostRepositoryImpl {
       final List<dynamic> pts = data['routePoints'];
       routePoints = pts
           .map((p) {
-            if (p is Map) {
-              final lat = (p['lat'] as num).toDouble();
-              final lng = (p['lng'] as num).toDouble();
-              return LatLng(lat, lng);
-            }
+            try {
+              if (p is Map) {
+                // Handle both 'lat'/'lng' (new) and 'latitude'/'longitude' (legacy) formats
+                final lat = ((p['lat'] ?? p['latitude']) as num?)?.toDouble();
+                final lng = ((p['lng'] ?? p['longitude']) as num?)?.toDouble();
+                if (lat != null && lng != null) return LatLng(lat, lng);
+              }
+            } catch (_) {}
             return null;
           })
           .whereType<LatLng>()
