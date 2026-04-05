@@ -94,8 +94,12 @@ class BackgroundLocationService {
   BackgroundLocationService._internal();
 
   // Configuration
-  static const double _minAccuracyMeters = 25.0; // Discard readings worse than this
-  static const double _gpsJumpThreshold = 50.0; // Max reasonable distance per update
+  static const double _minAccuracyMeters = 25.0;  // Discard readings worse than this
+  static const double _gpsJumpThreshold = 200.0;  // 50m was too tight — at 5min/km pace a
+                                                    // 15s GPS gap moves ~50m legitimately.
+                                                    // 200m only catches genuine satellite jumps.
+  static const double _minPointDistance = 5.0;    // Min metres between consecutive route
+                                                    // points — prevents start-of-run cluster.
   static const double _stationaryThreshold = 1.5; // m/s - below this is "stationary"
   static const int _stationaryTimeThreshold = 10; // seconds of no movement before auto-pause
   static const int _maxRoutePointsInMemory = 5000; // Prevent memory issues on long runs
@@ -290,7 +294,24 @@ class BackgroundLocationService {
       return;
     }
 
-    // Apply Kalman filter for smoothing
+    // Apply Kalman filter for smoothing.
+    // If the raw position moved significantly from the last filtered position
+    // (e.g., a sharp turn or GPS gap), reset the filter so it snaps to the new
+    // raw position instead of slowly drifting — this is what causes L-shapes
+    // and rounded corners on square routes.
+    if (_lastPosition != null) {
+      final distFromFiltered = Geolocator.distanceBetween(
+        _lastPosition!.latitude,
+        _lastPosition!.longitude,
+        position.latitude,
+        position.longitude,
+      );
+      if (distFromFiltered > 30) {
+        // Large distance from last filtered point — likely a direction change
+        // or GPS gap recovery. Re-initialize filter at raw position.
+        _kalmanFilter.reset();
+      }
+    }
     final (filteredLat, filteredLng) = _kalmanFilter.process(
       position.latitude,
       position.longitude,
@@ -324,10 +345,15 @@ class BackgroundLocationService {
         position.longitude,
       );
 
-      // Check for GPS jump using raw positions
+      // Check for GPS jump (genuine satellite teleport, not just a large legitimate gap).
+      // IMPORTANT: always update _lastRawPosition even on a jump — previously we didn't,
+      // which caused a cascade where every subsequent valid point was also discarded
+      // (distance kept growing from the stuck reference), producing an L-shape on the map.
       if (rawDistance > _gpsJumpThreshold) {
         _discardedReadings++;
-        debugPrint('⚠️ GPS jump detected: ${rawDistance.toStringAsFixed(1)}m - discarding');
+        _lastRawPosition = position; // ← advance reference so next reading isn't also discarded
+        _kalmanFilter.reset();       // ← re-initialize filter at new position
+        debugPrint('⚠️ GPS jump detected: ${rawDistance.toStringAsFixed(1)}m — resetting reference');
         return;
       }
 
@@ -356,6 +382,26 @@ class BackgroundLocationService {
 
     // Update raw position for next distance calculation
     _lastRawPosition = position;
+
+    // --- Minimum point distance guard ---
+    // Prevents start-of-run GPS settling from clustering many near-identical
+    // points at the start (the "second point keeps circling" issue).
+    // Also keeps the route clean without requiring the Kalman filter to do all the work.
+    if (_lastPosition != null) {
+      final distFromLast = Geolocator.distanceBetween(
+        _lastPosition!.latitude,
+        _lastPosition!.longitude,
+        filteredPosition.latitude,
+        filteredPosition.longitude,
+      );
+      if (distFromLast < _minPointDistance) {
+        // Too close to last point — update position state but don't add to route
+        _lastPosition = filteredPosition;
+        _positionController.add(filteredPosition);
+        onPositionUpdate?.call(filteredPosition, _totalDistance);
+        return;
+      }
+    }
 
     // Memory management: compress old route points if getting too large
     if (_routePoints.length >= _maxRoutePointsInMemory) {
