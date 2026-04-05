@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:majurun/modules/workout/data/workout_videos.dart';
+import 'package:majurun/core/services/streak_service.dart';
 
 class WorkoutPlayerScreen extends StatefulWidget {
   final String workoutType;
@@ -177,11 +179,26 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
         setState(() => _videoInitialized = true);
       }
 
-      // Pre-initialize next video (with delay to avoid overwhelming)
-      if (index + 1 < _exercises.length) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) _initializeVideoController(index + 1);
+      // Pre-fetch only the NEXT exercise video (not all of them).
+      // Previously this chained forward — each init triggered the next —
+      // so all 10 videos started loading within 5 seconds of app open.
+      // Now we only hold current + next in memory, and dispose older ones.
+      final next = index + 1;
+      if (next < _exercises.length && !_videoControllers.containsKey(next)) {
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) _initializeVideoController(next);
         });
+      }
+      // Release videos more than 1 behind current to free memory
+      final toDispose = _videoControllers.keys
+          .where((k) => k < index - 1)
+          .toList();
+      for (final k in toDispose) {
+        _chewieControllers[k]?.dispose();
+        _chewieControllers.remove(k);
+        _videoControllers[k]?.removeListener(_onVideoStateChanged);
+        try { _videoControllers[k]?.dispose(); } catch (_) {}
+        _videoControllers.remove(k);
       }
     } catch (e) {
       debugPrint('❌ Error initializing video $index: $e');
@@ -318,7 +335,15 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   void _completeWorkout() {
     _timer?.cancel();
     setState(() => _isPlaying = false);
+    _updateStreakForWorkout();
     _showCompletionDialog();
+  }
+
+  void _updateStreakForWorkout() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      StreakService().updateStreak(uid).catchError((_) {});
+    }
   }
 
   void _showCompletionDialog() {

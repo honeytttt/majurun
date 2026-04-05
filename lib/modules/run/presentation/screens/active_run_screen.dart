@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
+import 'package:majurun/core/services/live_tracking_service.dart';
 
 
 /// Production-grade active run screen with:
@@ -26,6 +27,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   final GlobalKey _mapKey = GlobalKey();
   BitmapDescriptor? _avatarMarker;       // current position (green border)
   BitmapDescriptor? _startMarker;        // start position (orange border)
+  bool _isLiveSharing = false;
 
   // Animations
   late AnimationController _pulseController;
@@ -132,23 +134,46 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             ),
           ),
 
-          // Voice control
-          GestureDetector(
-            onTap: runController.toggleVoice,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: runController.isVoiceEnabled
-                    ? const Color(0xFF2D7A3E)
-                    : Colors.white.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+          // Live share + voice controls
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: _toggleLiveShare,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _isLiveSharing
+                        ? Colors.red.withValues(alpha: 0.8)
+                        : Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isLiveSharing ? Icons.share_location : Icons.location_on_outlined,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
               ),
-              child: Icon(
-                runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
-                color: Colors.white,
-                size: 18,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: runController.toggleVoice,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: runController.isVoiceEnabled
+                        ? const Color(0xFF2D7A3E)
+                        : Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -674,6 +699,20 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     );
   }
 
+  Future<void> _toggleLiveShare() async {
+    final liveService = LiveTrackingService();
+    if (_isLiveSharing) {
+      await liveService.stopLiveTracking();
+      if (mounted) setState(() => _isLiveSharing = false);
+    } else {
+      final sessionId = await liveService.startLiveTracking(runnerName: 'Runner');
+      if (sessionId != null) {
+        await liveService.shareLiveLink();
+        if (mounted) setState(() => _isLiveSharing = true);
+      }
+    }
+  }
+
   void _showExitConfirmation() {
     showDialog(
       context: context,
@@ -728,16 +767,30 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
     if (!mounted) return;
 
-    // Navigate back immediately
-    Navigator.pop(context);
+    // Capture refs before async gap (context may be gone after await)
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
-    // Save in background
-    runController.stopRun(
-      context,
-      planTitle: "Free Run",
-      mapImageBytes: mapImageBytes,
-    ).catchError((e) {
-      debugPrint("❌ Background save error: $e");
-    });
+    // Save BEFORE navigating — stopRun uses this context for the saved
+    // notification and Firestore writes. Navigating first caused silent
+    // data loss when the save threw (context already deactivated).
+    try {
+      await runController.stopRun(
+        context,
+        planTitle: "Free Run",
+        mapImageBytes: mapImageBytes,
+      );
+    } catch (e) {
+      debugPrint("❌ Error saving run: $e");
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Run saved locally — will sync when back online'),
+          backgroundColor: Colors.orange.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+
+    nav.pop();
   }
 }

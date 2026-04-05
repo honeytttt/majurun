@@ -119,6 +119,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
 
     final snapshot = await _historyCollection(uid)
         .orderBy('completedAt', descending: true)
+        .limit(100)
         .get();
 
     return snapshot.docs.map(_mapDoc).toList();

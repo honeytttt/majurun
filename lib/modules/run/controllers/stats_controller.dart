@@ -7,6 +7,7 @@ import 'package:majurun/modules/run/domain/repositories/run_history_repository.d
 import 'package:majurun/modules/run/data/repositories/firestore_run_history_impl.dart';
 import 'package:majurun/modules/run/domain/entities/run_post.dart';
 import 'package:majurun/core/services/user_stats_service.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
 
 class StatsController extends ChangeNotifier {
   final RunHistoryRepository _repository;
@@ -85,7 +86,7 @@ class StatsController extends ChangeNotifier {
     // 2) Update user stats and badges
     try {
       debugPrint('📈 Updating stats and badges via UserStatsService...');
-      await UserStatsService().addRun(
+      final newPBs = await UserStatsService().addRun(
         uid: uid,
         distanceKm: distanceKm,
         durationSeconds: durationSeconds,
@@ -93,6 +94,17 @@ class StatsController extends ChangeNotifier {
         completed: completed ?? true,
       );
       debugPrint('✅ User stats and badges updated successfully');
+      for (final pb in newPBs) {
+        final mins = durationSeconds ~/ 60;
+        final secs = durationSeconds % 60;
+        final timeStr = distanceKm > 0
+            ? '${(durationSeconds / distanceKm / 60).floor()}:${((durationSeconds / distanceKm) % 60).toInt().toString().padLeft(2, '0')}/km'
+            : '$mins:${secs.toString().padLeft(2, '0')}';
+        await PushNotificationService().showPersonalRecordNotification(
+          recordType: pb,
+          value: timeStr,
+        );
+      }
     } catch (e) {
       debugPrint('❌ ERROR updating user stats: $e');
     }

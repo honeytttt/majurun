@@ -128,6 +128,10 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final completed = _completedFlag(widget.runData);
     final statusLabel = completed == null ? null : (completed ? "Completed" : "In Progress");
 
+    final double elevGain = (widget.runData['elevationGain'] as num?)?.toDouble() ?? 0.0;
+    final double elevLoss = (widget.runData['elevationLoss'] as num?)?.toDouble() ?? 0.0;
+    final bool hasElevation = elevGain > 0 || elevLoss > 0;
+
     final String? mapImageUrlRaw = widget.runData['mapImageUrl']?.toString();
     final bool hasMapImage = mapImageUrlRaw != null && mapImageUrlRaw.isNotEmpty;
 
@@ -237,6 +241,9 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                   children: [
                     _buildSecondaryStat(Icons.favorite, "AVG HR", "$avgBpm"),
                     _buildSecondaryStat(Icons.local_fire_department, "CALORIES", "$calories"),
+                    if (hasElevation) ...[
+                      _buildSecondaryStat(Icons.trending_up, "ELEV +", "${elevGain.toStringAsFixed(0)}m"),
+                    ],
                   ],
                 ),
               ],

@@ -552,6 +552,10 @@ class RunController extends ChangeNotifier {
         routePoints: finalRoutePoints,
         avgBpm: finalBpm,
         calories: finalCalories,
+        extra: {
+          'elevationGain': routeStats['elevationGain'] ?? 0.0,
+          'elevationLoss': routeStats['elevationLoss'] ?? 0.0,
+        },
       );
 
       debugPrint("✅ Run saved to history");
@@ -629,7 +633,7 @@ class RunController extends ChangeNotifier {
   void dispose() {
     debugPrint("🗑️ Disposing RunController");
     stopAutoSave();
-    WakeLockService.disable();
+    unawaited(WakeLockService.disable()); // fire-and-forget; dispose() can't be async
     stateController.removeListener(_onStateControllerChanged);
     stateController.dispose();
     super.dispose();

@@ -415,10 +415,14 @@ class BackgroundLocationService {
     _positionController.add(filteredPosition);
     onPositionUpdate?.call(filteredPosition, _totalDistance);
 
-    debugPrint('📍 Pos: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} | '
-        'Acc: ${position.accuracy.toStringAsFixed(1)}m | '
-        'Spd: ${(position.speed * 3.6).toStringAsFixed(1)}km/h | '
-        'Dist: ${(_totalDistance/1000).toStringAsFixed(3)}km');
+    // GPS fires every 1-3 seconds — only log in debug builds
+    assert(() {
+      debugPrint('📍 Pos: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} | '
+          'Acc: ${position.accuracy.toStringAsFixed(1)}m | '
+          'Spd: ${(position.speed * 3.6).toStringAsFixed(1)}km/h | '
+          'Dist: ${(_totalDistance/1000).toStringAsFixed(3)}km');
+      return true;
+    }());
   }
 
   void _handleStreamError(dynamic error) {

@@ -8,14 +8,15 @@ class UserStatsService {
 
   /// workouts = all runs (training + main run)
   /// PB thresholds: >= qualifies
-  Future<void> addRun({
+  /// Returns list of new PB labels (e.g. ["Best Pace", "5K Time"]) for notification.
+  Future<List<String>> addRun({
     required String uid,
     required double distanceKm,
     required int durationSeconds,
     required int calories,
     bool completed = true,
   }) async {
-    if (!completed) return;
+    if (!completed) return [];
 
     debugPrint('📊 UserStatsService.addRun: uid=$uid, dist=${distanceKm}km, dur=${durationSeconds}s, cal=$calories');
 
@@ -30,6 +31,8 @@ class UserStatsService {
     // Best pace = best average pace (sec per km). Lower is better.
     final int paceSecPerKm =
         distanceKm > 0 ? (durationSeconds / distanceKm).round() : durationSeconds;
+
+    final detectedPBs = <String>[];
 
     try {
       await _db.runTransaction((tx) async {
@@ -56,6 +59,7 @@ class UserStatsService {
         final int newBestPace = bestPace == null
             ? paceSecPerKm
             : (paceSecPerKm < bestPace ? paceSecPerKm : bestPace);
+        if (bestPace != null && paceSecPerKm < bestPace) detectedPBs.add('Best Pace');
 
         // Update best times only if distance qualifies (>=)
         int? newBest5k = best5k;
@@ -63,6 +67,7 @@ class UserStatsService {
           newBest5k = best5k == null
               ? durationSeconds
               : (durationSeconds < best5k ? durationSeconds : best5k);
+          if (best5k != null && durationSeconds < best5k) detectedPBs.add('5K Time');
         }
 
         int? newBest10k = best10k;
@@ -70,6 +75,7 @@ class UserStatsService {
           newBest10k = best10k == null
               ? durationSeconds
               : (durationSeconds < best10k ? durationSeconds : best10k);
+          if (best10k != null && durationSeconds < best10k) detectedPBs.add('10K Time');
         }
 
         int? newBestHalf = bestHalf;
@@ -77,6 +83,7 @@ class UserStatsService {
           newBestHalf = bestHalf == null
               ? durationSeconds
               : (durationSeconds < bestHalf ? durationSeconds : bestHalf);
+          if (bestHalf != null && durationSeconds < bestHalf) detectedPBs.add('Half Marathon');
         }
 
         int? newBestFull = bestFull;
@@ -84,6 +91,7 @@ class UserStatsService {
           newBestFull = bestFull == null
               ? durationSeconds
               : (durationSeconds < bestFull ? durationSeconds : bestFull);
+          if (bestFull != null && durationSeconds < bestFull) detectedPBs.add('Marathon');
         }
 
         // Build the update map with explicit values (not FieldValue.increment for reliability)
@@ -136,6 +144,8 @@ class UserStatsService {
         debugPrint('❌ UserStatsService.addRun: Fallback also failed: $e2');
       }
     }
+
+    return detectedPBs;
   }
 
   Future<void> incrementPosts(String uid) async {

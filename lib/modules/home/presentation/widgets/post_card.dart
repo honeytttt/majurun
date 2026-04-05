@@ -25,9 +25,16 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin {
   late String _safeContent;
   bool _hasError = false;
-  // Optimistic like state — updated immediately on tap, not waiting for stream
   late bool _isLiked;
   late int _localLikesCount;
+
+  // Created once in initState — was being re-created on every build() call,
+  // leaking Firestore listeners and allocating new objects on every setState.
+  late final PostRepositoryImpl _repo;
+  late final SubscriptionService _subscriptionService;
+
+  // Cached once — was hitting Firestore on every rebuild (like tap, etc.)
+  late final Future<String> _photoUrlFuture;
 
   @override
   bool get wantKeepAlive => true;
@@ -39,6 +46,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     _isLiked = widget.post.likes.contains(uid);
     _localLikesCount = widget.post.likes.length;
+    _repo = PostRepositoryImpl();
+    _subscriptionService = SubscriptionService();
+    _photoUrlFuture = _getUserPhotoUrl(widget.post.userId);
   }
 
   @override
@@ -55,7 +65,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     }
   }
 
-  void _toggleLike(PostRepositoryImpl repo, String currentUserId) {
+  void _toggleLike(String currentUserId) {
     setState(() {
       if (_isLiked) {
         _isLiked = false;
@@ -65,7 +75,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         _localLikesCount++;
       }
     });
-    repo.toggleLike(widget.post.id, currentUserId);
+    _repo.toggleLike(widget.post.id, currentUserId);
   }
 
   String _createSafeString(String text) {
@@ -116,12 +126,10 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    final repo = PostRepositoryImpl();
-    final subscriptionService = SubscriptionService();
     final currentUser = FirebaseAuth.instance.currentUser;
     final currentUserId = currentUser?.uid ?? "";
     final isOwnPost = currentUserId.isNotEmpty && widget.post.userId == currentUserId;
-    final isAdmin = subscriptionService.isAdmin();
+    final isAdmin = _subscriptionService.isAdmin();
     final canModifyPost = isOwnPost || isAdmin;
 
     final isRepost = widget.post.quotedPostId != null &&
@@ -190,7 +198,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                         );
                       },
                       child: FutureBuilder<String>(
-                        future: _getUserPhotoUrl(widget.post.userId),
+                        future: _photoUrlFuture,
                         builder: (context, snapshot) {
                           final photoUrl = snapshot.data ?? '';
                           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -297,7 +305,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                           if (value == 'delete') {
                             final confirm = await _showDeleteDialog(context, isAdmin: isAdmin && !isOwnPost);
                             if (confirm == true) {
-                              await repo.deletePost(widget.post.id);
+                              await _repo.deletePost(widget.post.id);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -308,7 +316,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                               }
                             }
                           } else if (value == 'edit') {
-                            _showEditDialog(context, repo);
+                            _showEditDialog(context, _repo);
                           }
                         },
                         itemBuilder: (context) => [
@@ -377,7 +385,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                             label: '$_localLikesCount',
                             color: _isLiked ? Colors.red : Colors.grey[600],
                             onTap: currentUserId.isNotEmpty
-                                ? () => _toggleLike(repo, currentUserId)
+                                ? () => _toggleLike(currentUserId)
                                 : null,
                           ),
                           _ActionButton(
@@ -396,7 +404,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                             onTap: currentUserId.isNotEmpty
                                 ? () {
                                     final username = currentUser?.displayName ?? "Runner";
-                                    repo.repost(widget.post, currentUserId, username);
+                                    _repo.repost(widget.post, currentUserId, username);
                                   }
                                 : null,
                           ),
