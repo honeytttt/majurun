@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
@@ -90,6 +91,10 @@ class RunController extends ChangeNotifier {
         );
         return;
       }
+
+      // Check if this km is an approaching-milestone trigger (4, 8, 9, 19, 20, 40, 41)
+      // before the per-km announcement so the approaching phrase plays first.
+      voiceController.checkApproachingMilestone(km.toDouble());
 
       // Default behavior: speak immediately
       voiceController.speakKmMilestone(
@@ -583,6 +588,14 @@ class RunController extends ChangeNotifier {
       );
 
       debugPrint("✅ Auto post created");
+
+      // Notify user their run post is ready to view/edit
+      try {
+        await PushNotificationService().showRunPostReadyNotification(
+          distance: finalDistanceString,
+          pace: finalPace,
+        );
+      } catch (_) {}
 
       // Clean up
       await RunRecoveryService.clearRecoverableRun();

@@ -246,7 +246,7 @@ class VoiceController extends ChangeNotifier {
       // Fire when distance crosses the threshold (within a small window to avoid
       // missing due to GPS granularity), and only once per run.
       if (distanceKm >= threshold &&
-          distanceKm < threshold + 0.15 &&
+          distanceKm < threshold + 0.25 &&
           !_announcedApproaching.contains(threshold)) {
         _announcedApproaching.add(threshold);
         await _speak(entry.value);

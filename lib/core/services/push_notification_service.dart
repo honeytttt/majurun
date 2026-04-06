@@ -402,6 +402,19 @@ class PushNotificationService {
     );
   }
 
+  /// Notify user that their run post is ready to view/edit
+  Future<void> showRunPostReadyNotification({
+    required String distance,
+    required String pace,
+  }) async {
+    await _showLocalNotification(
+      title: "Your run post is ready! 🏃",
+      body: "$distance km at $pace/km — tap to view, edit or share your post.",
+      channelId: _socialChannelId,
+      payload: jsonEncode({'type': 'run_post_ready'}),
+    );
+  }
+
   /// Send social notification (kudos, comment, follow)
   Future<void> showSocialNotification({
     required String title,
