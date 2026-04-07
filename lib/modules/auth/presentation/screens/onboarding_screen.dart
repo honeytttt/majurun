@@ -16,6 +16,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullName = TextEditingController();
+  final _nickname = TextEditingController();
   DateTime? _dob;
   String? _gender;
   bool _loading = false;
@@ -35,6 +36,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _fullName.dispose();
+    _nickname.dispose();
     super.dispose();
   }
 
@@ -75,10 +77,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final firstName = nameParts.first;
       final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
+      final nicknameVal = _nickname.text.trim();
+
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'firstName': firstName,
         'lastName': lastName,
         'displayName': _fullName.text.trim(),
+        if (nicknameVal.isNotEmpty) 'nickname': nicknameVal,
         'email': user.email ?? '',
         'photoUrl': user.photoURL ?? '',
         'dob': _dob!.toIso8601String(),
@@ -197,6 +202,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 validator: (v) => (v == null || v.trim().length < 2)
                                     ? 'Enter your full name'
                                     : null,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Nickname (optional)
+                              TextFormField(
+                                controller: _nickname,
+                                textCapitalization: TextCapitalization.words,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: 'Nickname (optional)',
+                                  hintText: 'e.g. Flash, Iron Mike...',
+                                  prefixIcon: Icon(Icons.tag, color: cs.primary),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
                               ),
                               const SizedBox(height: 16),
 

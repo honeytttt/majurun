@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -468,6 +470,19 @@ class RunController extends ChangeNotifier {
       // Ensure voice is initialized (fixes iOS Safari issue)
       await voiceController.ensureInitialized();
 
+      // Load user's nickname/first name for personalized voice announcements
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+          final data = doc.data() ?? {};
+          final callName = (data['nickname'] as String?)?.trim().isNotEmpty == true
+              ? data['nickname'] as String
+              : (data['firstName'] as String?)?.trim() ?? '';
+          voiceController.setUserName(callName);
+        }
+      } catch (_) {}
+
       // Enable wake lock to keep screen on
       await WakeLockService.enable();
       debugPrint("🔒 Screen wake lock enabled");
@@ -515,6 +530,7 @@ class RunController extends ChangeNotifier {
     BuildContext context, {
     String planTitle = "Free Run",
     Uint8List? mapImageBytes,
+    Uint8List? selfieBytes,
   }) async {
     try {
       setUiContext(context);
@@ -585,6 +601,7 @@ class RunController extends ChangeNotifier {
         bpm: finalBpm,
         planTitle: planTitle,
         mapImageBytes: mapImageBytes,
+        selfieBytes: selfieBytes,
       );
 
       debugPrint("✅ Auto post created");

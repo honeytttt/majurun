@@ -86,7 +86,7 @@ class StatsController extends ChangeNotifier {
     // 2) Update user stats and badges
     try {
       debugPrint('📈 Updating stats and badges via UserStatsService...');
-      final newPBs = await UserStatsService().addRun(
+      final result = await UserStatsService().addRun(
         uid: uid,
         distanceKm: distanceKm,
         durationSeconds: durationSeconds,
@@ -94,16 +94,21 @@ class StatsController extends ChangeNotifier {
         completed: completed ?? true,
       );
       debugPrint('✅ User stats and badges updated successfully');
-      for (final pb in newPBs) {
-        final mins = durationSeconds ~/ 60;
-        final secs = durationSeconds % 60;
+
+      // PB local notifications
+      for (final pb in result.pbs) {
         final timeStr = distanceKm > 0
             ? '${(durationSeconds / distanceKm / 60).floor()}:${((durationSeconds / distanceKm) % 60).toInt().toString().padLeft(2, '0')}/km'
-            : '$mins:${secs.toString().padLeft(2, '0')}';
+            : '${durationSeconds ~/ 60}:${(durationSeconds % 60).toString().padLeft(2, '0')}';
         await PushNotificationService().showPersonalRecordNotification(
           recordType: pb,
           value: timeStr,
         );
+      }
+
+      // Notify followers when user earns a brand-new badge (first time)
+      if (result.badges.isNotEmpty) {
+        _notifyFollowersOfBadge(uid, result.badges.first);
       }
     } catch (e) {
       debugPrint('❌ ERROR updating user stats: $e');
@@ -312,5 +317,47 @@ class StatsController extends ChangeNotifier {
       });
       debugPrint('👍 Liked post: $postId');
     }
+  }
+
+  /// Write in-app notification docs for each follower when a new badge is earned.
+  /// Uses the existing notifications/{followerId}/items structure (same as follow notifs).
+  void _notifyFollowersOfBadge(String uid, String badgeName) {
+    _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('followers')
+        .get()
+        .then((snap) async {
+      if (snap.docs.isEmpty) return;
+
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final userData = userDoc.data() ?? {};
+      final runnerName = (userData['displayName'] as String?)?.trim() ?? 'A runner';
+      final runnerPhoto = (userData['photoUrl'] as String?) ?? '';
+
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        final followerId = doc.data()['userId'] as String?;
+        if (followerId == null) continue;
+        final notifRef = _firestore
+            .collection('notifications')
+            .doc(followerId)
+            .collection('items')
+            .doc();
+        batch.set(notifRef, {
+          'type': 'badge_earned',
+          'fromUserId': uid,
+          'fromUsername': runnerName,
+          'fromUserPhotoUrl': runnerPhoto,
+          'message': '$runnerName just earned the $badgeName badge! 🏅',
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      debugPrint('🏅 Notified ${snap.docs.length} followers of $badgeName badge');
+    }).catchError((e) {
+      debugPrint('⚠️ Badge follower notification error: $e');
+    });
   }
 }

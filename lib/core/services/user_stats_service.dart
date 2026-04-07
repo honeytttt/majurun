@@ -8,15 +8,15 @@ class UserStatsService {
 
   /// workouts = all runs (training + main run)
   /// PB thresholds: >= qualifies
-  /// Returns list of new PB labels (e.g. ["Best Pace", "5K Time"]) for notification.
-  Future<List<String>> addRun({
+  /// Returns ({pbs: [...], badges: [...]}) for notifications.
+  Future<({List<String> pbs, List<String> badges})> addRun({
     required String uid,
     required double distanceKm,
     required int durationSeconds,
     required int calories,
     bool completed = true,
   }) async {
-    if (!completed) return [];
+    if (!completed) return (pbs: <String>[], badges: <String>[]);
 
     debugPrint('📊 UserStatsService.addRun: uid=$uid, dist=${distanceKm}km, dur=${durationSeconds}s, cal=$calories');
 
@@ -33,6 +33,7 @@ class UserStatsService {
         distanceKm > 0 ? (durationSeconds / distanceKm).round() : durationSeconds;
 
     final detectedPBs = <String>[];
+    final newBadges = <String>[];
 
     try {
       await _db.runTransaction((tx) async {
@@ -48,6 +49,12 @@ class UserStatsService {
         final currentBadge10k = (data['badge10k'] as int?) ?? 0;
         final currentBadgeHalf = (data['badgeHalf'] as int?) ?? 0;
         final currentBadgeFull = (data['badgeFull'] as int?) ?? 0;
+
+        // Detect first-time badge completion (from 0 → 1)
+        if (currentBadge5k == 0 && inc5k > 0) newBadges.add('5K');
+        if (currentBadge10k == 0 && inc10k > 0) newBadges.add('10K');
+        if (currentBadgeHalf == 0 && incHalf > 0) newBadges.add('Half Marathon');
+        if (currentBadgeFull == 0 && incFull > 0) newBadges.add('Marathon');
 
         int? bestPace = data['bestPaceSecPerKm'] as int?;
         int? best5k = data['best5kSeconds'] as int?;
@@ -145,7 +152,7 @@ class UserStatsService {
       }
     }
 
-    return detectedPBs;
+    return (pbs: detectedPBs, badges: newBadges);
   }
 
   Future<void> incrementPosts(String uid) async {

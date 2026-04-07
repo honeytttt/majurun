@@ -66,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String imageUrl,
     required String email,
     required String location,
+    String nickname = '',
   }) {
     // Capture ProfileScreen's context before entering the builder.
     // The builder's (context) parameter refers to the settings screen's context,
@@ -82,7 +83,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           currentImageUrl: imageUrl,
           currentEmail: email,
           currentLocation: location,
-          onSave: (newName, newBio, imageData, newEmail, newLocation) async {
+          currentNickname: nickname,
+          onSave: (newName, newBio, imageData, newEmail, newLocation, newNickname) async {
             dynamic uploadedImageUrl = imageUrl;
 
             if (kIsWeb && imageData is Uint8List) {
@@ -95,11 +97,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             }
 
-            // Update Firestore with location and updatedAt
+            // Update Firestore with location, nickname and updatedAt
             final currentUser = FirebaseAuth.instance.currentUser;
             if (currentUser != null) {
               await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).update({
                 'location': newLocation,
+                'nickname': newNickname,
                 'updatedAt': FieldValue.serverTimestamp(),
               });
             }
@@ -271,6 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final imageUrl = (data['photoUrl'] ?? widget.currentImageUrl) as String;
           final email = (data['email'] ?? widget.currentEmail) as String;
           final location = (data['location'] as String?) ?? '';
+          final nickname = (data['nickname'] as String?) ?? '';
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
 
           final followersCount = (data['followersCount'] as int?) ?? 0;
@@ -452,6 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   imageUrl: imageUrl,
                   email: email,
                   location: location,
+                  nickname: nickname,
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00E676),

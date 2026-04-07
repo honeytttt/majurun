@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
@@ -749,7 +753,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     if (runController.routePoints.isNotEmpty) {
       try {
         await Future.delayed(const Duration(milliseconds: 200));
-
         if (_mapKey.currentContext != null) {
           final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
           if (boundary != null) {
@@ -767,18 +770,20 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
     if (!mounted) return;
 
-    // Capture refs before async gap (context may be gone after await)
+    // Show selfie prompt — 20 second timeout, then proceeds without selfie.
+    final selfieBytes = await _showSelfiePrompt();
+
+    if (!mounted) return;
+
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    // Save BEFORE navigating — stopRun uses this context for the saved
-    // notification and Firestore writes. Navigating first caused silent
-    // data loss when the save threw (context already deactivated).
     try {
       await runController.stopRun(
         context,
         planTitle: "Free Run",
         mapImageBytes: mapImageBytes,
+        selfieBytes: selfieBytes,
       );
     } catch (e) {
       debugPrint("❌ Error saving run: $e");
@@ -792,5 +797,172 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     }
 
     nav.pop();
+  }
+
+  /// Shows a bottom sheet giving the user 20 seconds to pick a selfie/video.
+  /// Returns selfie bytes if picked, null if skipped/timed out.
+  Future<Uint8List?> _showSelfiePrompt() async {
+    final completer = Completer<Uint8List?>();
+    Timer? countdown;
+    int secondsLeft = 20;
+
+    if (!mounted) return null;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            countdown ??= Timer.periodic(const Duration(seconds: 1), (_) {
+              if (!ctx.mounted) {
+                countdown?.cancel();
+                if (!completer.isCompleted) completer.complete(null);
+                return;
+              }
+              setSheetState(() => secondsLeft--);
+              if (secondsLeft <= 0) {
+                countdown?.cancel();
+                Navigator.of(ctx).pop();
+                if (!completer.isCompleted) completer.complete(null);
+              }
+            });
+
+            return Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.camera_alt, color: Color(0xFF7ED957), size: 22),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Add a selfie to your run post?',
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white12,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${secondsLeft}s',
+                          style: const TextStyle(color: Colors.white60, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Skip if you want — your run will post with the map.',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _selfieBtn(
+                          icon: Icons.camera_alt_outlined,
+                          label: 'Camera',
+                          onTap: () async {
+                            countdown?.cancel();
+                            Navigator.of(ctx).pop();
+                            final bytes = await _pickSelfie(ImageSource.camera);
+                            if (!completer.isCompleted) completer.complete(bytes);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _selfieBtn(
+                          icon: Icons.photo_library_outlined,
+                          label: 'Gallery',
+                          onTap: () async {
+                            countdown?.cancel();
+                            Navigator.of(ctx).pop();
+                            final bytes = await _pickSelfie(ImageSource.gallery);
+                            if (!completer.isCompleted) completer.complete(bytes);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _selfieBtn(
+                          icon: Icons.close,
+                          label: 'Skip',
+                          color: Colors.white24,
+                          onTap: () {
+                            countdown?.cancel();
+                            Navigator.of(ctx).pop();
+                            if (!completer.isCompleted) completer.complete(null);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      countdown?.cancel();
+      if (!completer.isCompleted) completer.complete(null);
+    });
+
+    return completer.future;
+  }
+
+  Widget _selfieBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = const Color(0xFF2D7A3E),
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<Uint8List?> _pickSelfie(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 1080);
+      if (file == null) return null;
+      if (kIsWeb) return await file.readAsBytes();
+      return await File(file.path).readAsBytes();
+    } catch (e) {
+      debugPrint("❌ Selfie pick error: $e");
+      return null;
+    }
   }
 }

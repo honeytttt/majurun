@@ -8,7 +8,8 @@ class EditProfileScreen extends StatefulWidget {
   final String currentBio;
   final String currentImageUrl;
   final String currentEmail;
-  final Function(String, String, dynamic, String) onSave;
+  final String currentNickname;
+  final Function(String, String, dynamic, String, String) onSave;
 
   const EditProfileScreen({
     super.key,
@@ -16,6 +17,7 @@ class EditProfileScreen extends StatefulWidget {
     required this.currentBio,
     required this.currentImageUrl,
     required this.currentEmail,
+    this.currentNickname = '',
     required this.onSave,
   });
 
@@ -27,6 +29,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _bioController;
   late final TextEditingController _emailController;
+  late final TextEditingController _nicknameController;
   File? _imageFile;
   Uint8List? _webImage;
   bool _isSaving = false;
@@ -37,6 +40,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController = TextEditingController(text: widget.currentName);
     _bioController = TextEditingController(text: widget.currentBio);
     _emailController = TextEditingController(text: widget.currentEmail);
+    _nicknameController = TextEditingController(text: widget.currentNickname);
   }
 
   @override
@@ -44,6 +48,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _bioController.dispose();
     _emailController.dispose();
+    _nicknameController.dispose();
     super.dispose();
   }
 
@@ -85,6 +90,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _bioController.text.trim(),
         imageData,
         _emailController.text.trim(),
+        _nicknameController.text.trim(),
       );
 
       // 3. Success: Return to profile
@@ -168,6 +174,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 40),
                 _buildInputField("FULL NAME", _nameController, enabled: !_isSaving),
                 const SizedBox(height: 25),
+                _buildInputField("NICKNAME (optional)", _nicknameController, enabled: !_isSaving, hint: "e.g. Flash, Iron Mike..."),
+                const SizedBox(height: 25),
                 _buildInputField("BIO", _bioController, maxLines: 4, enabled: !_isSaving),
                 const SizedBox(height: 25),
                 _buildInputField("EMAIL", _emailController, enabled: !_isSaving),
@@ -209,9 +217,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildInputField(
-    String label, 
-    TextEditingController controller, 
-    {int maxLines = 1, bool enabled = true}
+    String label,
+    TextEditingController controller,
+    {int maxLines = 1, bool enabled = true, String? hint}
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,16 +241,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15), 
+              borderRadius: BorderRadius.circular(15),
               borderSide: BorderSide(color: Colors.grey[200]!),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15), 
+              borderRadius: BorderRadius.circular(15),
               borderSide: const BorderSide(color: Colors.black),
             ),
             disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15), 
+              borderRadius: BorderRadius.circular(15),
               borderSide: BorderSide(color: Colors.grey[100]!),
             ),
           ),

@@ -40,7 +40,7 @@ class PostController extends ChangeNotifier {
     return messages.first;
   }
 
-  // Create auto post after run with map image
+  // Create auto post after run with map image and optional selfie
   Future<void> createAutoPost({
     required String aiContent,
     required List<LatLng> routePoints,
@@ -50,6 +50,7 @@ class PostController extends ChangeNotifier {
     required String planTitle,
     Uint8List? mapImageBytes,
     String? mapImageUrlOverride,
+    Uint8List? selfieBytes,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -99,6 +100,19 @@ class PostController extends ChangeNotifier {
         }
       }
 
+      // Upload selfie if provided
+      String? selfieUrl;
+      if (selfieBytes != null && selfieBytes.isNotEmpty) {
+        try {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final selfieFileName = 'run_selfie_${user.uid}_$timestamp.jpg';
+          selfieUrl = await s3Service.uploadFile(selfieBytes, selfieFileName, 'image/jpeg');
+          debugPrint("✅ Selfie uploaded: $selfieUrl");
+        } catch (e) {
+          debugPrint("⚠️ Selfie upload failed (proceeding without): $e");
+        }
+      }
+
       // Sample route points to limit document size (max 200 points)
       final sampledPoints = RouteUtils.sampleRoutePoints(routePoints);
       debugPrint("📍 Route points: ${routePoints.length} -> ${sampledPoints.length} (sampled)");
@@ -106,7 +120,7 @@ class PostController extends ChangeNotifier {
       // Create post document in Firestore
       final postData = {
         'userId': user.uid,
-        'username': username, // ✅ Added username field
+        'username': username,
         'content': aiContent,
         'createdAt': FieldValue.serverTimestamp(),
         'planTitle': planTitle,
@@ -115,6 +129,7 @@ class PostController extends ChangeNotifier {
         'bpm': bpm,
         'routePoints': RouteUtils.toFirestoreFormat(sampledPoints),
         'mapImageUrl': mapImageUrl,
+        if (selfieUrl != null) 'selfieUrl': selfieUrl,
         'likes': [],
         'type': 'run_activity',
       };

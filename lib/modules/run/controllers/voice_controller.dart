@@ -141,6 +141,14 @@ class VoiceController extends ChangeNotifier {
   // Index of last encouragement phrase used (avoid immediate repeat)
   int _lastEncouragementIndex = -1;
 
+  // User's preferred call name (nickname > first name > empty)
+  String _userName = '';
+
+  /// Call once at run start to personalize voice announcements.
+  void setUserName(String name) {
+    _userName = name.trim();
+  }
+
   VoiceController() {
     _initTts();
     _settingsService.loadSettings();
@@ -339,10 +347,11 @@ class VoiceController extends ChangeNotifier {
     final announcement = StringBuffer();
 
     if (_settings.majorMilestones) {
-      if (km == 5) announcement.write("Congratulations! ");
-      else if (km == 10) announcement.write("Incredible achievement! ");
-      else if (km == 21) announcement.write("Half marathon complete! You're amazing! ");
-      else if (km == 42) announcement.write("Full marathon! This is legendary! ");
+      final name = _userName.isNotEmpty ? ' $_userName' : '';
+      if (km == 5) announcement.write("Congratulations$name! ");
+      else if (km == 10) announcement.write("Incredible$name! ");
+      else if (km == 21) announcement.write("Half marathon complete$name! You're amazing! ");
+      else if (km == 42) announcement.write("Full marathon$name! This is legendary! ");
     }
 
     announcement.write("You've completed $km ");
@@ -411,26 +420,35 @@ class VoiceController extends ChangeNotifier {
     await _speak(announcement.toString());
   }
 
+  /// Returns ", [name]" suffix if a name is set, otherwise empty string.
+  String get _nameSuffix => _userName.isNotEmpty ? ', $_userName' : '';
+
   Future<void> speakRunStarted() async {
     if (!_settings.runStartStop) return;
     await ensureInitialized();
     resetApproachingMilestones();
-    await _speak("Run started. Stay safe and enjoy your run!");
+    final greeting = _userName.isNotEmpty
+        ? "Let's go$_nameSuffix! Run started. Stay safe and enjoy your run!"
+        : "Run started. Stay safe and enjoy your run!";
+    await _speak(greeting);
   }
 
   Future<void> speakRunPaused() async {
     if (!_settings.pauseResume) return;
-    await _speak("Run paused. Take a breath!");
+    await _speak("Run paused. Take a breath${_nameSuffix}!");
   }
 
   Future<void> speakRunResumed() async {
     if (!_settings.pauseResume) return;
-    await _speak("Run resumed. Let's go!");
+    await _speak("Run resumed. Let's keep going${_nameSuffix}!");
   }
 
   Future<void> speakRunStopped() async {
     if (!_settings.runStartStop) return;
-    await _speak("Great job! Run completed. Check your stats!");
+    final msg = _userName.isNotEmpty
+        ? "Great job$_nameSuffix! Run completed. Check your stats!"
+        : "Great job! Run completed. Check your stats!";
+    await _speak(msg);
   }
 
   Future<void> testVoice() async {

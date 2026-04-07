@@ -50,7 +50,13 @@ class PushNotificationService {
     if (_isInitialized) return;
 
     try {
-      // Request permissions
+      // Always initialize local notifications first — they work regardless of
+      // FCM permission status. Previously this was inside the FCM authorized
+      // block, so _localNotifications.show() silently failed for users who
+      // denied push permission or on first-launch before permission prompt.
+      await _initializeLocalNotifications();
+
+      // Request FCM permissions
       final settings = await _fcm.requestPermission(
         alert: true,
         badge: true,
@@ -64,9 +70,6 @@ class PushNotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional) {
-
-        // Initialize local notifications
-        await _initializeLocalNotifications();
 
         // Get FCM token
         _fcmToken = await _fcm.getToken();
@@ -89,10 +92,10 @@ class PushNotificationService {
         if (initialMessage != null) {
           _handleMessageOpenedApp(initialMessage);
         }
-
-        _isInitialized = true;
-        debugPrint('Push notification service initialized');
       }
+
+      _isInitialized = true;
+      debugPrint('Push notification service initialized');
     } catch (e) {
       debugPrint('Error initializing push notifications: $e');
     }
