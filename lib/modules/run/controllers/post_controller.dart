@@ -3,21 +3,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:majurun/core/services/s3_service.dart';
+import 'package:majurun/core/services/cloudinary_service.dart';
 import 'package:majurun/core/utils/route_utils.dart';
 
 class PostController extends ChangeNotifier {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
-  final S3Service s3Service;
+  final CloudinaryService _cloudinary;
 
   PostController({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-    S3Service? s3Service,
+    CloudinaryService? cloudinary,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        s3Service = s3Service ?? S3Service();
+        _cloudinary = cloudinary ?? CloudinaryService();
 
   String? lastVideoUrl;
 
@@ -73,41 +73,37 @@ class PostController extends ChangeNotifier {
         debugPrint("⚠️ Could not fetch username: $e");
       }
       
-      // Use the override URL (from S3) if provided, otherwise attempt upload
+      // Use the override URL if provided, otherwise upload to Cloudinary
       String? mapImageUrl = mapImageUrlOverride;
 
-      // Upload map image to S3 Storage if bytes are available and no override exists
+      // Upload map image to Cloudinary if bytes are available and no override exists
       if (mapImageUrl == null && mapImageBytes != null && mapImageBytes.isNotEmpty) {
         try {
           debugPrint("📸 Map image bytes: ${mapImageBytes.length}");
-          debugPrint("⬆️ Uploading map image to S3...");
-          
+          debugPrint("⬆️ Uploading map image to Cloudinary...");
+
           final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final fileName = 'run_maps_${user.uid}_$timestamp.png';
-          
-          // Upload to S3 using S3Service
-          mapImageUrl = await s3Service.uploadFile(
-            mapImageBytes,
-            fileName,
-            'image/png',
-          );
-          
+          final fileName = 'run_map_${user.uid}_$timestamp.png';
+
+          mapImageUrl = await _cloudinary.uploadMedia(mapImageBytes, fileName, false);
+
           if (mapImageUrl != null) {
-            debugPrint("✅ Map image uploaded successfully: $mapImageUrl");
+            debugPrint("✅ Map image uploaded to Cloudinary: $mapImageUrl");
           }
         } catch (e) {
           debugPrint("❌ Error uploading map image: $e");
         }
       }
 
-      // Upload selfie if provided
+      // Upload selfie to Cloudinary if provided
       String? selfieUrl;
       if (selfieBytes != null && selfieBytes.isNotEmpty) {
         try {
+          debugPrint("🤳 Uploading selfie to Cloudinary...");
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final selfieFileName = 'run_selfie_${user.uid}_$timestamp.jpg';
-          selfieUrl = await s3Service.uploadFile(selfieBytes, selfieFileName, 'image/jpeg');
-          debugPrint("✅ Selfie uploaded: $selfieUrl");
+          selfieUrl = await _cloudinary.uploadMedia(selfieBytes, selfieFileName, false);
+          debugPrint("✅ Selfie uploaded to Cloudinary: $selfieUrl");
         } catch (e) {
           debugPrint("⚠️ Selfie upload failed (proceeding without): $e");
         }
