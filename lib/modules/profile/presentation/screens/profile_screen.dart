@@ -318,6 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       postsCount: postsCount,
                       userId: uid,
                       location: location,
+                      nickname: nickname,
                       createdAt: createdAt,
                     ),
                   ),
@@ -357,6 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required int postsCount,
     required String userId,
     required String location,
+    String nickname = '',
     DateTime? createdAt,
   }) {
     return Container(

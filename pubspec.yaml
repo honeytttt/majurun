@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+52
+version: 1.0.0+53
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
