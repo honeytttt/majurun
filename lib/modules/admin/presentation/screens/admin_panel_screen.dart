@@ -287,7 +287,7 @@ class _LogsTab extends StatefulWidget {
 }
 
 class _LogsTabState extends State<_LogsTab> {
-  String _selectedLevel = 'ALL';
+  String _selectedLevel = 'ERROR';
   static const _levels = ['ALL', 'WARNING', 'ERROR'];
   static const Map<String, Color> _levelColors = {
     'WARNING': Colors.orange,

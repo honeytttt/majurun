@@ -27,12 +27,12 @@ class RemoteLogger {
     _attached = true;
 
     LoggingService.instance.onLog = (level, tag, message, error, stackTrace) {
-      // Only send WARNING and above to Firestore to avoid spam
-      if (level.index < LogLevel.warning.index) return;
+      // Only send ERROR level to Firestore — keeps cost minimal
+      if (level.index < LogLevel.error.index) return;
       _write(level, tag, message, error, stackTrace);
     };
 
-    debugPrint('[RemoteLogger] Attached — WARNING+ logs → Firestore app_logs');
+    debugPrint('[RemoteLogger] Attached — ERROR only logs → Firestore app_logs');
   }
 
   static void _write(
