@@ -83,14 +83,32 @@ class FirebaseAuthImpl implements AuthRepository {
 
   @override
   Future<AppUser?> signInWithEmail(String email, String password) async {
-    final cred = await _auth.signInWithEmailAndPassword(
-        email: email.trim(), password: password.trim());
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+          email: email.trim(), password: password.trim());
 
-    if (!cred.user!.emailVerified && !cred.user!.isAnonymous) {
-      await cred.user!.sendEmailVerification();
-      throw "Security: Please verify your email. A link has been sent to $email.";
+      if (!cred.user!.emailVerified && !cred.user!.isAnonymous) {
+        // Sign out immediately so AuthWrapper stays on LoginScreen — without this
+        // the auth state changes to "logged in" and the user bypasses verification.
+        await _auth.signOut();
+        throw "Please verify your email first. Check your inbox (and spam folder) at $email.";
+      }
+      return _mapUser(cred.user);
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+          throw 'No account found for this email address.';
+        case 'wrong-password':
+        case 'invalid-credential':
+          throw 'invalid-credential'; // login_screen maps this to the credentials sheet
+        case 'too-many-requests':
+          throw 'Too many sign-in attempts. Please wait a moment and try again.';
+        case 'user-disabled':
+          throw 'This account has been disabled. Please contact support.';
+        default:
+          throw e.message ?? 'Sign-in failed: ${e.code}';
+      }
     }
-    return _mapUser(cred.user);
   }
 
   @override
@@ -221,6 +239,32 @@ class FirebaseAuthImpl implements AuthRepository {
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email.trim());
+    try {
+      // ActionCodeSettings ensures the reset link routes back to the app on
+      // both iOS and Android, and prevents Gmail's link scanner from consuming
+      // the token before the user taps it.
+      final actionCodeSettings = ActionCodeSettings(
+        url: 'https://majurun-8d8b5.firebaseapp.com',
+        handleCodeInApp: false,
+        iOSBundleId: 'com.majurun.app',
+        androidPackageName: 'com.majurun.app',
+        androidInstallApp: true,
+        androidMinimumVersion: '21',
+      );
+      await _auth.sendPasswordResetEmail(
+        email: email.trim(),
+        actionCodeSettings: actionCodeSettings,
+      );
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+        case 'invalid-email':
+          throw 'No account found for this email address.';
+        case 'too-many-requests':
+          throw 'Too many requests. Please wait a moment and try again.';
+        default:
+          throw e.message ?? 'Failed to send reset email. Please try again.';
+      }
+    }
   }
 }

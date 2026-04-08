@@ -681,6 +681,18 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
   Future<void> _sendReset() async {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) return;
+    // Basic email format check before hitting Firebase
+    final emailValid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    if (!emailValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() => _sending = true);
     try {
       final authRepo = context.read<AuthRepository>();
@@ -734,7 +746,7 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Check your inbox at\n${_emailCtrl.text.trim()}\n\nClick the link in the email to reset your password.',
+                'Check your inbox at\n${_emailCtrl.text.trim()}\n\nClick the link in the email to reset your password.\n\nNot seeing it? Check your Spam or Promotions folder. Only the most recent reset link is valid.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: cs.onSurfaceVariant, height: 1.6),
               ),
