@@ -35,8 +35,9 @@ class StatsController extends ChangeNotifier {
   }
 
   /// Saves run to personal history (private workout record)
-  /// Does NOT create a social post automatically
-  Future<void> saveRunHistory({
+  /// Does NOT create a social post automatically.
+  /// Returns achieved PBs and new badges for the congratulations screen.
+  Future<({List<String> pbs, List<String> badges})> saveRunHistory({
     required String planTitle,
     required double distanceKm,
     required int durationSeconds,
@@ -61,7 +62,7 @@ class StatsController extends ChangeNotifier {
 
     if (uid == null) {
       debugPrint('❌ No user logged in - cannot save stats');
-      return;
+      return (pbs: <String>[], badges: <String>[]);
     }
 
     // 1) Save to run history (private workout record)
@@ -83,6 +84,8 @@ class StatsController extends ChangeNotifier {
 
     debugPrint('✅ Run saved to history repository (PRIVATE)');
 
+    var achievements = (pbs: <String>[], badges: <String>[]);
+
     // 2) Update user stats and badges
     try {
       debugPrint('📈 Updating stats and badges via UserStatsService...');
@@ -93,6 +96,7 @@ class StatsController extends ChangeNotifier {
         calories: calories ?? 0,
         completed: completed ?? true,
       );
+      achievements = result;
       debugPrint('✅ User stats and badges updated successfully');
 
       // PB local notifications
@@ -120,6 +124,7 @@ class StatsController extends ChangeNotifier {
 
     await refreshHistoryStats();
     notifyListeners();
+    return achievements;
   }
 
   /// Creates a social post from a completed run

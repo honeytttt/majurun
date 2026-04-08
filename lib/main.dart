@@ -28,6 +28,7 @@ import 'modules/run/controllers/run_controller.dart';
 import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 // Counter initializer
 import 'core/utils/user_counters_initializer.dart';
+import 'core/services/push_notification_service.dart';
 import 'package:audio_session/audio_session.dart';
 
 Future<void> _configureAudioSession() async {
@@ -138,6 +139,10 @@ class _MyAppState extends State<MyApp> {
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
         UserCountersInitializer.initializeOnFirstLaunch();
+        // Initialize notifications + schedule default daily notifications
+        PushNotificationService().initialize().then((_) {
+          PushNotificationService().scheduleDefaultNotifications();
+        });
         // Set user ID for analytics, crash reporting, and Sentry
         analytics.setUserId(user.uid);
         crashReporting.setUserId(user.uid);

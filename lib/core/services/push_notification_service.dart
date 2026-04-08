@@ -346,11 +346,18 @@ class PushNotificationService {
 
   // ==================== PUBLIC NOTIFICATION METHODS ====================
 
+  /// Ensure service is initialized before showing any notification.
+  /// Calling initialize() multiple times is safe — it early-returns if already done.
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) await initialize();
+  }
+
   /// Send run reminder notification
   Future<void> showRunReminder({
     String title = "Time to Run!",
     String body = "Your body is ready. Let's hit the road!",
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
       title: title,
       body: body,
@@ -365,6 +372,7 @@ class PushNotificationService {
     required String body,
     String? achievementId,
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
       title: title,
       body: body,
@@ -381,9 +389,10 @@ class PushNotificationService {
     required String recordType,
     required String value,
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
-      title: "New Personal Record!",
-      body: "You just set a new $recordType: $value",
+      title: "New Personal Record! 🏆",
+      body: "You just set a new $recordType: $value. Keep pushing!",
       channelId: _achievementChannelId,
       payload: jsonEncode({
         'type': 'pr',
@@ -397,6 +406,7 @@ class PushNotificationService {
     required String milestone,
     required String description,
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
       title: milestone,
       body: description,
@@ -410,6 +420,7 @@ class PushNotificationService {
     required String distance,
     required String pace,
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
       title: "Your run post is ready! 🏃",
       body: "$distance km at $pace/km — tap to view, edit or share your post.",
@@ -425,6 +436,7 @@ class PushNotificationService {
     String? userId,
     String? activityId,
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
       title: title,
       body: body,
@@ -443,6 +455,7 @@ class PushNotificationService {
     required String body,
     String? challengeId,
   }) async {
+    await _ensureInitialized();
     await _showLocalNotification(
       title: title,
       body: body,
@@ -655,6 +668,181 @@ class PushNotificationService {
   /// Unsubscribe from topic
   Future<void> unsubscribeFromTopic(String topic) async {
     await _fcm.unsubscribeFromTopic(topic);
+  }
+
+  // ==================== DAILY MOTIVATION NOTIFICATIONS ====================
+
+  static const int _motivationNotifId = 200;
+  static const int _noRunReminderNotifId = 201;
+  static const int _subscriptionReminderNotifId = 202;
+
+  static const List<String> _morningMotivations = [
+    "Rise and run! Every km makes you stronger. 🌅",
+    "Today's run is tomorrow's strength. Lace up! 👟",
+    "Champions train when others sleep. Your turn! 🏆",
+    "One run at a time. You've got this! 💪",
+    "Make today's run count. Your future self will thank you. 🔥",
+    "Your legs are ready. Your mind just needs to follow. 🧠",
+    "Small steps lead to big victories. Start today! 🌟",
+    "Every runner was once a beginner. Keep going! 🏃",
+  ];
+
+  static const List<String> _eveningReminders = [
+    "You haven't run today yet — there's still time! 🌆",
+    "The day isn't over. A quick run will feel amazing! 🌙",
+    "Your running shoes are waiting. Even 20 mins counts! ⏱️",
+    "No run today? It's not too late. Get out there! 🌟",
+    "Break your streak? Never! A short run still counts. 🔥",
+    "Your body is asking for a run. Don't let it down! 💪",
+  ];
+
+  static const List<String> _subscriptionMessages = [
+    "Unlock advanced training plans, voice coaching & more with MajuRun Pro. 🚀",
+    "Go Pro and unlock your full running potential! Personalized plans await. 🏆",
+    "Pro runners use MajuRun Pro. Join them — unlock AI coaching today! 💡",
+    "Your runs deserve pro-level insights. Upgrade to MajuRun Pro! 📊",
+  ];
+
+  /// Schedule a daily morning motivation notification.
+  Future<void> scheduleDailyMotivation({int hour = 7, int minute = 0}) async {
+    await _ensureInitialized();
+    tz_data.initializeTimeZones();
+    final location = tz.local;
+    final now = tz.TZDateTime.now(location);
+    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    final message = (_morningMotivations..shuffle()).first;
+
+    await _localNotifications.zonedSchedule(
+      _motivationNotifId,
+      "Good morning, runner! 🌅",
+      message,
+      scheduled,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _runReminderChannelId,
+          'Run Reminders',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('daily_motivation_enabled', true);
+    debugPrint('✅ Daily motivation scheduled at $hour:$minute');
+  }
+
+  /// Cancel daily motivation notifications.
+  Future<void> cancelDailyMotivation() async {
+    await _localNotifications.cancel(_motivationNotifId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('daily_motivation_enabled', false);
+  }
+
+  /// Schedule a daily "you haven't run today" reminder.
+  /// Fires every evening — users who already ran can ignore/dismiss.
+  Future<void> scheduleNoRunReminder({int hour = 19, int minute = 0}) async {
+    await _ensureInitialized();
+    tz_data.initializeTimeZones();
+    final location = tz.local;
+    final now = tz.TZDateTime.now(location);
+    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    final message = (_eveningReminders..shuffle()).first;
+
+    await _localNotifications.zonedSchedule(
+      _noRunReminderNotifId,
+      "Time for a run? 🏃",
+      message,
+      scheduled,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _runReminderChannelId,
+          'Run Reminders',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('no_run_reminder_enabled', true);
+    debugPrint('✅ No-run reminder scheduled at $hour:$minute');
+  }
+
+  /// Cancel no-run reminders.
+  Future<void> cancelNoRunReminder() async {
+    await _localNotifications.cancel(_noRunReminderNotifId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('no_run_reminder_enabled', false);
+  }
+
+  /// Schedule a weekly subscription upsell notification for free users.
+  Future<void> scheduleSubscriptionReminder() async {
+    await _ensureInitialized();
+    tz_data.initializeTimeZones();
+    final location = tz.local;
+    final now = tz.TZDateTime.now(location);
+    // Fire next Saturday at 10am
+    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, 10, 0);
+    while (scheduled.weekday != DateTime.saturday || scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    final message = (_subscriptionMessages..shuffle()).first;
+
+    await _localNotifications.zonedSchedule(
+      _subscriptionReminderNotifId,
+      "Unlock MajuRun Pro 🚀",
+      message,
+      scheduled,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _runReminderChannelId,
+          'Run Reminders',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+
+    debugPrint('✅ Subscription reminder scheduled for next Saturday');
+  }
+
+  /// Cancel subscription reminder.
+  Future<void> cancelSubscriptionReminder() async {
+    await _localNotifications.cancel(_subscriptionReminderNotifId);
+  }
+
+  /// Call once after successful login/onboarding to set up all default scheduled notifications.
+  Future<void> scheduleDefaultNotifications() async {
+    await scheduleDailyMotivation(hour: 7, minute: 30);
+    await scheduleNoRunReminder(hour: 19, minute: 0);
   }
 
   /// Dispose service

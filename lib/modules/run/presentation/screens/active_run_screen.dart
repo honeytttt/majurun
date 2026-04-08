@@ -12,6 +12,7 @@ import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
+import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 
 
 /// Production-grade active run screen with:
@@ -778,10 +779,17 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
+    // Capture final stats before stop clears them
+    final distanceKm  = runController.stateController.totalDistance / 1000;
+    final duration    = runController.stateController.durationString;
+    final pace        = runController.stateController.paceString;
+    final calories    = runController.stateController.totalCalories;
+    final planTitle   = 'Free Run';
+
     try {
       await runController.stopRun(
         context,
-        planTitle: "Free Run",
+        planTitle: planTitle,
         mapImageBytes: mapImageBytes,
         selfieBytes: selfieBytes,
       );
@@ -796,7 +804,22 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       );
     }
 
-    nav.pop();
+    if (!mounted) return;
+
+    // Replace active run screen with congratulations screen
+    nav.pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => CongratulationsScreen(
+          distanceKm: distanceKm,
+          duration: duration,
+          pace: pace,
+          calories: calories,
+          planTitle: planTitle,
+          pbs: runController.lastRunPbs,
+          badges: runController.lastRunBadges,
+        ),
+      ),
+    );
   }
 
   /// Shows a bottom sheet giving the user 20 seconds to pick a selfie/video.

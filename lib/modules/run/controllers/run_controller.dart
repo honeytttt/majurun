@@ -45,6 +45,10 @@ class RunController extends ChangeNotifier {
   String? _lastError;
   String? get lastError => _lastError;
 
+  // Last run achievements — read by UI to show congratulations screen
+  List<String> lastRunPbs = [];
+  List<String> lastRunBadges = [];
+
   RunController() {
     _setupCallbacks();
   }
@@ -564,8 +568,8 @@ class RunController extends ChangeNotifier {
         avgPaceMinPerKm: _paceStringToMinutes(finalPace),
       );
 
-      // Save to history
-      await statsController.saveRunHistory(
+      // Save to history and capture achievements
+      final runResult = await statsController.saveRunHistory(
         planTitle: planTitle,
         distanceKm: finalDistance,
         durationSeconds: finalDuration,
@@ -578,41 +582,46 @@ class RunController extends ChangeNotifier {
           'elevationLoss': routeStats['elevationLoss'] ?? 0.0,
         },
       );
+      lastRunPbs = runResult.pbs;
+      lastRunBadges = runResult.badges;
 
-      debugPrint("✅ Run saved to history");
+      debugPrint("✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges");
 
-      // Generate AI post
-      final aiPost = postController.generateAIPost(
-        planTitle,
-        finalDistanceString,
-        stateController.durationString,
-        finalPace,
-        finalCalories,
-      );
+      // Only create a social post for runs >= 1km
+      if (finalDistance >= 1.0) {
+        final aiPost = postController.generateAIPost(
+          planTitle,
+          finalDistanceString,
+          stateController.durationString,
+          finalPace,
+          finalCalories,
+        );
 
-      debugPrint("✅ AI post generated");
+        debugPrint("✅ AI post generated");
 
-      // Create social post
-      await postController.createAutoPost(
-        aiContent: aiPost,
-        routePoints: finalRoutePoints,
-        distance: finalDistanceString,
-        pace: finalPace,
-        bpm: finalBpm,
-        planTitle: planTitle,
-        mapImageBytes: mapImageBytes,
-        selfieBytes: selfieBytes,
-      );
-
-      debugPrint("✅ Auto post created");
-
-      // Notify user their run post is ready to view/edit
-      try {
-        await PushNotificationService().showRunPostReadyNotification(
+        await postController.createAutoPost(
+          aiContent: aiPost,
+          routePoints: finalRoutePoints,
           distance: finalDistanceString,
           pace: finalPace,
+          bpm: finalBpm,
+          planTitle: planTitle,
+          mapImageBytes: mapImageBytes,
+          selfieBytes: selfieBytes,
         );
-      } catch (_) {}
+
+        debugPrint("✅ Auto post created");
+
+        // Notify user their run post is ready to view/edit
+        try {
+          await PushNotificationService().showRunPostReadyNotification(
+            distance: finalDistanceString,
+            pace: finalPace,
+          );
+        } catch (_) {}
+      } else {
+        debugPrint("ℹ️ Run < 1km — skipping auto post");
+      }
 
       // Clean up
       await RunRecoveryService.clearRecoverableRun();

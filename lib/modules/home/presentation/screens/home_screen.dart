@@ -28,6 +28,10 @@ import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.da
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  /// Global notifier — set value to switch tabs from anywhere in the app.
+  /// e.g. HomeScreen.tabNotifier.value = 0; to jump to feed.
+  static final ValueNotifier<int> tabNotifier = ValueNotifier(0);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -55,10 +59,21 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _fetchFirebaseUserData();
     _feedScrollController.addListener(_onScroll);
+    HomeScreen.tabNotifier.addListener(_onTabNotifier);
+  }
+
+  void _onTabNotifier() {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = HomeScreen.tabNotifier.value;
+        _activeSubPage = null;
+      });
+    }
   }
 
   @override
   void dispose() {
+    HomeScreen.tabNotifier.removeListener(_onTabNotifier);
     _userDataSubscription?.cancel();
     _feedScrollController.dispose();
     super.dispose();
