@@ -29,6 +29,7 @@ import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 // Counter initializer
 import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/services/remote_logger.dart';
 import 'package:audio_session/audio_session.dart';
 
 Future<void> _configureAudioSession() async {
@@ -87,6 +88,9 @@ Future<void> main() async {
           ? AppleProvider.appAttestWithDeviceCheckFallback
           : AppleProvider.debug,
     );
+
+    // Attach remote logger — WARNING+ logs → Firestore app_logs
+    RemoteLogger.attach();
 
     // Initialize ServiceLocator (handles all core services)
     await serviceLocator.initialize();

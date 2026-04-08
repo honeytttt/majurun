@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -16,7 +17,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
+    _tab = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -41,6 +42,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           tabs: const [
             Tab(icon: Icon(Icons.people_rounded), text: 'Users'),
             Tab(icon: Icon(Icons.article_rounded), text: 'Posts'),
+            Tab(icon: Icon(Icons.terminal_rounded), text: 'Logs'),
           ],
         ),
       ),
@@ -49,6 +51,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         children: const [
           _UsersTab(),
           _PostsTab(),
+          _LogsTab(),
         ],
       ),
     );
@@ -272,5 +275,187 @@ class _PostsTab extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+// ─────────────────────────── LOGS TAB ───────────────────────────
+
+class _LogsTab extends StatefulWidget {
+  const _LogsTab();
+  @override
+  State<_LogsTab> createState() => _LogsTabState();
+}
+
+class _LogsTabState extends State<_LogsTab> {
+  String _selectedLevel = 'ALL';
+  static const _levels = ['ALL', 'WARNING', 'ERROR'];
+  static const Map<String, Color> _levelColors = {
+    'WARNING': Colors.orange,
+    'ERROR':   Colors.red,
+    'INFO':    Colors.green,
+    'DEBUG':   Colors.blue,
+    'VERBOSE': Colors.grey,
+  };
+
+  Query<Map<String, dynamic>> get _query {
+    Query<Map<String, dynamic>> q = FirebaseFirestore.instance
+        .collection('app_logs')
+        .orderBy('timestamp', descending: true)
+        .limit(200);
+    if (_selectedLevel != 'ALL') q = q.where('level', isEqualTo: _selectedLevel);
+    return q;
+  }
+
+  Future<void> _clearOldLogs() async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 2));
+    final snap = await FirebaseFirestore.instance
+        .collection('app_logs')
+        .where('timestamp', isLessThan: Timestamp.fromDate(cutoff))
+        .get();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in snap.docs) batch.delete(doc.ref);
+    await batch.commit();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted ${snap.docs.length} old log entries')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          color: Colors.grey.shade100,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              const Text('Level:', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 8),
+              ..._levels.map((lvl) => Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(lvl, style: const TextStyle(fontSize: 12)),
+                      selected: _selectedLevel == lvl,
+                      onSelected: (_) => setState(() => _selectedLevel = lvl),
+                    ),
+                  )),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep_rounded, size: 20),
+                tooltip: 'Clear logs older than 2 days',
+                onPressed: _clearOldLogs,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _query.snapshots(),
+            builder: (ctx, snap) {
+              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+              final docs = snap.data!.docs;
+              if (docs.isEmpty) return const Center(child: Text('No logs', style: TextStyle(color: Colors.grey)));
+              return ListView.builder(
+                itemCount: docs.length,
+                itemBuilder: (_, i) {
+                  final d       = docs[i].data() as Map<String, dynamic>;
+                  final level   = d['level'] as String? ?? 'DEBUG';
+                  final tag     = d['tag'] as String? ?? 'App';
+                  final message = d['message'] as String? ?? '';
+                  final error   = d['error'] as String?;
+                  final uid     = d['userId'] as String?;
+                  final plat    = d['platform'] as String? ?? '';
+                  final ts      = (d['timestamp'] as Timestamp?)?.toDate();
+                  final color   = _levelColors[level] ?? Colors.grey;
+                  return InkWell(
+                    onTap: () => _showDetail(context, d),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: color.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+                            child: Text(level.substring(0, level.length.clamp(0, 4)),
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  Text('[$tag]', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
+                                  const SizedBox(width: 4),
+                                  Text(plat, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                  const Spacer(),
+                                  if (ts != null)
+                                    Text(
+                                      '${ts.hour.toString().padLeft(2,'0')}:${ts.minute.toString().padLeft(2,'0')}:${ts.second.toString().padLeft(2,'0')}',
+                                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                    ),
+                                ]),
+                                Text(message, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                if (error != null)
+                                  Text('⚠ $error', style: const TextStyle(fontSize: 11, color: Colors.redAccent), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                if (uid != null)
+                                  Text('uid: ${uid.length > 10 ? uid.substring(0,10) : uid}…', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showDetail(BuildContext context, Map<String, dynamic> d) {
+    final text = [
+      'Level:    ${d['level']}',
+      'Tag:      ${d['tag']}',
+      'Platform: ${d['platform']}',
+      'Release:  ${d['isRelease']}',
+      'UserId:   ${d['userId'] ?? 'none'}',
+      '', 'Message:', d['message'] ?? '',
+      if (d['error'] != null) ...['\nError:', d['error']],
+      if (d['stack'] != null) ...['\nStack:', d['stack']],
+    ].join('\n');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log Detail'),
+        content: SingleChildScrollView(
+          child: SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied')));
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
   }
 }
