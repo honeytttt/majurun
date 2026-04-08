@@ -171,5 +171,11 @@ service cloud.firestore {
       allow create: if isAuthenticated(); // Anyone can submit a contact form
       allow read, update, delete: if isAdmin(); // Only admin can view/manage
     }
+
+    // App logs collection — written by any authenticated app user, read only by admin
+    match /app_logs/{logId} {
+      allow create: if isAuthenticated();
+      allow read, delete: if isAdmin();
+    }
   }
 }
