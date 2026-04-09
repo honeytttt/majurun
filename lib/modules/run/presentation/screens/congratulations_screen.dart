@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 class CongratulationsScreen extends StatefulWidget {
@@ -56,6 +59,64 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
 
   void _goHome() {
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  // ── Sharing ────────────────────────────────────────────────────────────────
+
+  String _buildShareText() {
+    final dist = widget.distanceKm.toStringAsFixed(2);
+    final lines = <String>[
+      '🏃 Just finished a ${dist}km run in ${widget.duration}!',
+      'Avg pace: ${widget.pace}/km • ${widget.calories} kcal burned 🔥',
+    ];
+    if (widget.pbs.isNotEmpty) lines.add('⚡ New Personal Best: ${widget.pbs.join(', ')}');
+    if (widget.badges.isNotEmpty) lines.add('🏅 Badge earned: ${widget.badges.join(' & ')}');
+    lines.add('\nTracked with MajuRun 🚀 #MajuRun #Running');
+    return lines.join('\n');
+  }
+
+  Future<void> _shareToSocial() async {
+    await SharePlus.instance.share(ShareParams(text: _buildShareText()));
+  }
+
+  Future<void> _postAchievementToFeed() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final userName = (userDoc.data()?['displayName'] as String?) ?? user.displayName ?? 'Runner';
+      final dist = widget.distanceKm.toStringAsFixed(2);
+      final lines = <String>['🎉 Achievement unlocked after a ${dist}km run!'];
+      if (widget.pbs.isNotEmpty) lines.add('⚡ ${widget.pbs.join(' • ')}');
+      if (widget.badges.isNotEmpty) lines.add('🏅 ${widget.badges.join(' & ')} badge earned!');
+
+      await FirebaseFirestore.instance.collection('posts').add({
+        'userId': user.uid,
+        'username': userName,
+        'content': lines.join('\n'),
+        'createdAt': FieldValue.serverTimestamp(),
+        'planTitle': widget.planTitle,
+        'distance': widget.distanceKm.toStringAsFixed(2),
+        'pace': widget.pace,
+        'bpm': 0,
+        'routePoints': [],
+        'mapImageUrl': null,
+        'likes': [],
+        'type': 'achievement',
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Achievement posted to MajuRun feed!'),
+            backgroundColor: Color(0xFF00E676),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Achievement post failed: $e');
+    }
   }
 
   bool get _hasAchievements => widget.pbs.isNotEmpty || widget.badges.isNotEmpty;
@@ -282,6 +343,67 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   Widget _buildActions() {
     return Column(
       children: [
+        // ── Share section (only shown when there are achievements) ────────────
+        if (_hasAchievements) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'SHARE YOUR ACHIEVEMENT',
+                  style: TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // Share to external apps (X, Instagram, Facebook, WhatsApp…)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _shareToSocial,
+                        icon: const Icon(Icons.share_rounded, size: 18),
+                        label: const Text('Share', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1DA1F2),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Post achievement to MajuRun feed
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _postAchievementToFeed,
+                        icon: const Icon(Icons.bolt_rounded, size: 18),
+                        label: const Text('Post to Feed', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFD700),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // ── View post ─────────────────────────────────────────────────────────
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(

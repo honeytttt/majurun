@@ -106,11 +106,15 @@ class PushNotificationService {
     // Android settings
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS settings
+    // iOS settings — also set foreground display so notifications show while app is open
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
+      defaultPresentAlert: true,
+      defaultPresentBadge: true,
+      defaultPresentSound: true,
+      defaultPresentBanner: true,
     );
 
     const initSettings = InitializationSettings(
@@ -126,7 +130,18 @@ class PushNotificationService {
     // Create notification channels for Android
     if (Platform.isAndroid) {
       await _createNotificationChannels();
+      // Android 13+ requires POST_NOTIFICATIONS runtime permission
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
     }
+
+    // iOS: configure FCM to show foreground notifications
+    await _fcm.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   }
 
   /// Create Android notification channels

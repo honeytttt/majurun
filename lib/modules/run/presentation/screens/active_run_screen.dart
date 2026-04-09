@@ -771,7 +771,26 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
     if (!mounted) return;
 
-    // Show selfie prompt — 20 second timeout, then proceeds without selfie.
+    // Capture final stats BEFORE stop clears them
+    final distanceKm = runController.stateController.totalDistance / 1000;
+    final duration   = runController.stateController.durationString;
+    final pace       = runController.stateController.paceString;
+    final calories   = runController.stateController.totalCalories;
+    const planTitle  = 'Free Run';
+
+    // ── Runs < 1 km: skip selfie prompt, skip congratulations, go home ──────
+    if (distanceKm < 1.0) {
+      try {
+        await runController.stopRun(context, planTitle: planTitle, mapImageBytes: mapImageBytes);
+      } catch (e) {
+        debugPrint("❌ Error saving short run: $e");
+      }
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      return;
+    }
+
+    // ── Runs >= 1 km: ask for selfie ─────────────────────────────────────────
     final selfieBytes = await _showSelfiePrompt();
 
     if (!mounted) return;
@@ -779,12 +798,24 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    // Capture final stats before stop clears them
-    final distanceKm  = runController.stateController.totalDistance / 1000;
-    final duration    = runController.stateController.durationString;
-    final pace        = runController.stateController.paceString;
-    final calories    = runController.stateController.totalCalories;
-    final planTitle   = 'Free Run';
+    // Show a saving overlay so the user isn't staring at a frozen screen
+    // while Cloudinary uploads the map/selfie and Firestore writes happen.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF7ED957), strokeWidth: 3),
+            SizedBox(height: 16),
+            Text('Saving your run…',
+                style: TextStyle(color: Colors.white70, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
 
     try {
       await runController.stopRun(
@@ -803,6 +834,9 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         ),
       );
     }
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // close saving overlay
 
     if (!mounted) return;
 
@@ -906,8 +940,11 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                           label: 'Camera',
                           onTap: () async {
                             countdown?.cancel();
-                            Navigator.of(ctx).pop();
+                            // Pick image BEFORE popping the sheet — prevents the
+                            // sheet's .then() from completing the completer with
+                            // null before the picker returns the bytes.
                             final bytes = await _pickSelfie(ImageSource.camera);
+                            if (ctx.mounted) Navigator.of(ctx).pop();
                             if (!completer.isCompleted) completer.complete(bytes);
                           },
                         ),
@@ -919,8 +956,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                           label: 'Gallery',
                           onTap: () async {
                             countdown?.cancel();
-                            Navigator.of(ctx).pop();
                             final bytes = await _pickSelfie(ImageSource.gallery);
+                            if (ctx.mounted) Navigator.of(ctx).pop();
                             if (!completer.isCompleted) completer.complete(bytes);
                           },
                         ),

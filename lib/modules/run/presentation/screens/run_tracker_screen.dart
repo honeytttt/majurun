@@ -1,6 +1,8 @@
+import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
@@ -258,6 +260,9 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   Future<void> _handleStartRun(BuildContext context) async {
     final runController = Provider.of<RunController>(context, listen: false);
 
+    // Enable wake lock BEFORE warmup so screen stays on during countdown
+    await WakeLockService.enable();
+
     // Show 5-second warmup countdown
     showDialog(
       context: context,
@@ -265,12 +270,12 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       builder: (context) => const _WarmupCountdownDialog(),
     );
 
-    // Wait for countdown
+    // Wait for countdown (dialog has a skip button that also pops it)
     await Future.delayed(const Duration(seconds: 5));
 
     if (!context.mounted) return;
 
-    // Close countdown dialog
+    // Close countdown dialog if still open
     Navigator.pop(context);
 
     try {
@@ -454,7 +459,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 }
 
-// Warmup Countdown Dialog
+// ─── Warmup Countdown Dialog ──────────────────────────────────────────────────
 class _WarmupCountdownDialog extends StatefulWidget {
   const _WarmupCountdownDialog();
 
@@ -462,62 +467,245 @@ class _WarmupCountdownDialog extends StatefulWidget {
   State<_WarmupCountdownDialog> createState() => _WarmupCountdownDialogState();
 }
 
-class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog> {
+class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog>
+    with TickerProviderStateMixin {
   int _countdown = 5;
+
+  late AnimationController _scaleController;
+  late AnimationController _ringController;
+  late Animation<double> _scaleAnim;
+
+  static const _tips = [
+    'Loosen your arms and shoulders',
+    'Take a slow, deep breath',
+    'Focus on your form',
+    'Pick your target pace',
+    "You've got this — let's GO!",
+  ];
+
+  // tip index: 5→0, 4→1, 3→2, 2→3, 1→4
+  String get _currentTip => _tips[5 - _countdown.clamp(1, 5)];
 
   @override
   void initState() {
     super.initState();
+
+    _ringController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..forward();
+
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _scaleAnim = CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut);
+
     _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    _ringController.dispose();
+    super.dispose();
   }
 
   void _startCountdown() async {
     for (int i = 5; i > 0; i--) {
       if (!mounted) return;
       setState(() => _countdown = i);
+      _scaleController.forward(from: 0);
       await Future.delayed(const Duration(seconds: 1));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1B4D2C), // Deep green
-            Colors.black,
-            Colors.black,
-            Color(0xFF0D2818), // Very dark green
-          ],
-          stops: [0.0, 0.3, 0.7, 1.0],
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0D2818),
+              Color(0xFF1B4D2C),
+              Colors.black,
+              Color(0xFF0A1F10),
+            ],
+            stops: [0.0, 0.25, 0.65, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Decorative background rings
+              _buildBackgroundRings(),
+
+              // Main content
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'GET READY',
+                    style: TextStyle(
+                      color: Color(0xFF7ED957),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+
+                  // Ring countdown + number
+                  AnimatedBuilder(
+                    animation: _ringController,
+                    builder: (_, __) {
+                      return SizedBox(
+                        width: 220,
+                        height: 220,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Outer glow ring (static)
+                            Container(
+                              width: 220,
+                              height: 220,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF7ED957).withValues(alpha: 0.12),
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            // Progress ring
+                            Transform.rotate(
+                              angle: -math.pi / 2,
+                              child: CircularProgressIndicator(
+                                value: 1 - _ringController.value,
+                                strokeWidth: 8,
+                                strokeCap: StrokeCap.round,
+                                color: const Color(0xFF7ED957),
+                                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            // Number
+                            ScaleTransition(
+                              scale: _scaleAnim,
+                              child: Text(
+                                '$_countdown',
+                                style: const TextStyle(
+                                  fontSize: 110,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // Tip card
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    child: Container(
+                      key: ValueKey(_countdown),
+                      margin: const EdgeInsets.symmetric(horizontal: 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF7ED957).withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.tips_and_updates_rounded,
+                              color: Color(0xFF7ED957), size: 18),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              _currentTip,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 56),
+
+                  // Skip button
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                    child: const Text(
+                      'SKIP',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    );
+  }
+
+  Widget _buildBackgroundRings() {
+    return AnimatedBuilder(
+      animation: _ringController,
+      builder: (_, __) {
+        return Stack(
+          alignment: Alignment.center,
           children: [
-            Text(
-              '$_countdown',
-              style: const TextStyle(
-                fontSize: 120,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7ED957),
+            for (int i = 1; i <= 3; i++)
+              Opacity(
+                opacity: (0.03 + 0.02 * i) * (1 - _ringController.value * 0.3),
+                child: Container(
+                  width: 280.0 + i * 80,
+                  height: 280.0 + i * 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF7ED957),
+                      width: 1,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Get Ready!',
-              style: TextStyle(
-                fontSize: 24,
-                color: Colors.white70,
-              ),
-            ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

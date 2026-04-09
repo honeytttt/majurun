@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../domain/repositories/auth_repository.dart';
-import 'package:majurun/modules/auth/presentation/screens/onboarding_screen.dart';
+import 'package:majurun/modules/auth/presentation/widgets/auth_wrapper.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -45,7 +45,6 @@ class _SignupScreenState extends State<SignupScreen> {
             password: _password.text.trim(),
           );
       if (!mounted) return;
-      // Show verification reminder — non-blocking, they can verify anytime later
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Account created! Check your email to verify when you get a chance.'),
@@ -53,8 +52,11 @@ class _SignupScreenState extends State<SignupScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      // Navigate to AuthWrapper (not OnboardingScreen directly) so that
+      // signing out from the onboarding screen returns to LoginScreen correctly.
+      // AuthWrapper sees no dob → shows OnboardingScreen automatically.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
         (_) => false,
       );
     } catch (e) {
