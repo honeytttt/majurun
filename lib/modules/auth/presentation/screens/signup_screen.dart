@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../domain/repositories/auth_repository.dart';
-import 'package:majurun/modules/auth/presentation/screens/email_verification_screen.dart';
+import 'package:majurun/modules/auth/presentation/screens/onboarding_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -44,11 +44,17 @@ class _SignupScreenState extends State<SignupScreen> {
             email: _email.text.trim(),
             password: _password.text.trim(),
           );
-      // Go to email verification — user must verify before onboarding/home.
-      // After verification, AuthWrapper handles the onboarding → home routing.
       if (!mounted) return;
+      // Show verification reminder — non-blocking, they can verify anytime later
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account created! Check your email to verify when you get a chance.'),
+          duration: Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         (_) => false,
       );
     } catch (e) {

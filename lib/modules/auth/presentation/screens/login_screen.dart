@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -87,6 +88,29 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text,
         _passwordController.text,
       );
+      // Show a gentle non-blocking reminder if email is not yet verified.
+      // Auth state stream triggers navigation to HomeScreen on the next frame.
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (mounted && firebaseUser != null && !firebaseUser.emailVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Reminder: please verify your email when you get a chance.'),
+            duration: const Duration(seconds: 6),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Resend',
+              onPressed: () => firebaseUser.sendEmailVerification(ActionCodeSettings(
+                url: 'https://majurun-8d8b5.firebaseapp.com',
+                handleCodeInApp: false,
+                iOSBundleId: 'com.majurun.app',
+                androidPackageName: 'com.majurun.app',
+                androidInstallApp: true,
+                androidMinimumVersion: '21',
+              )),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);

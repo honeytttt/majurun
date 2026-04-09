@@ -86,13 +86,8 @@ class FirebaseAuthImpl implements AuthRepository {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
           email: email.trim(), password: password.trim());
-
-      if (!cred.user!.emailVerified && !cred.user!.isAnonymous) {
-        // Sign out immediately so AuthWrapper stays on LoginScreen — without this
-        // the auth state changes to "logged in" and the user bypasses verification.
-        await _auth.signOut();
-        throw "Please verify your email first. Check your inbox (and spam folder) at $email.";
-      }
+      // Email verification is encouraged but not mandatory — users can sign in
+      // and verify later. The UI shows a gentle reminder snackbar if unverified.
       return _mapUser(cred.user);
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
@@ -122,7 +117,16 @@ class FirebaseAuthImpl implements AuthRepository {
         password: password.trim(),
       );
       final user = cred.user!;
-      await user.sendEmailVerification();
+      // ActionCodeSettings prevents Gmail's link scanner from consuming the
+      // verification token before the user taps it (fixes "link already expired").
+      await user.sendEmailVerification(ActionCodeSettings(
+        url: 'https://majurun-8d8b5.firebaseapp.com',
+        handleCodeInApp: false,
+        iOSBundleId: 'com.majurun.app',
+        androidPackageName: 'com.majurun.app',
+        androidInstallApp: true,
+        androidMinimumVersion: '21',
+      ));
       debugPrint("Email account created for UID: ${user.uid}");
       return _mapUser(user);
     } on FirebaseAuthException catch (e) {

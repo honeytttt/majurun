@@ -57,7 +57,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Future<void> _resendEmail() async {
     setState(() => _resending = true);
     try {
-      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+      await FirebaseAuth.instance.currentUser?.sendEmailVerification(
+        ActionCodeSettings(
+          url: 'https://majurun-8d8b5.firebaseapp.com',
+          handleCodeInApp: false,
+          iOSBundleId: 'com.majurun.app',
+          androidPackageName: 'com.majurun.app',
+          androidInstallApp: true,
+          androidMinimumVersion: '21',
+        ),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
