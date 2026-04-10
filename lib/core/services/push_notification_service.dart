@@ -236,13 +236,20 @@ class PushNotificationService {
     final notification = message.notification;
     if (notification == null) return;
 
-    // Show local notification
+    final title = notification.title ?? 'MajuRun';
+    final body = notification.body ?? '';
+    final type = message.data['type'] as String? ?? 'social';
+
+    // Show local banner notification
     _showLocalNotification(
-      title: notification.title ?? 'MajuRun',
-      body: notification.body ?? '',
+      title: title,
+      body: body,
       payload: jsonEncode(message.data),
-      channelId: _getChannelForType(message.data['type']),
+      channelId: _getChannelForType(type),
     );
+
+    // Write to in-app notification center so the bell icon shows it
+    _writeInAppNotification(title: title, body: body, type: type);
   }
 
   /// Handle message when app opened from notification
@@ -307,17 +314,29 @@ class PushNotificationService {
     }
   }
 
-  // Tracks badge count across the session — incremented on show, reset on clear
-  static int _badgeCount = 0;
+  static const String _badgeCountKey = 'pns_badge_count';
+  static const int _clearBadgeNotifId = 999;
 
-  /// Show a local notification
+  Future<int> _loadBadgeCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_badgeCountKey) ?? 0;
+  }
+
+  Future<int> _incrementBadge() async {
+    final prefs = await SharedPreferences.getInstance();
+    final count = (prefs.getInt(_badgeCountKey) ?? 0) + 1;
+    await prefs.setInt(_badgeCountKey, count);
+    return count;
+  }
+
+  /// Show a local notification with persisted badge count
   Future<void> _showLocalNotification({
     required String title,
     required String body,
     String? payload,
     String channelId = _socialChannelId,
   }) async {
-    _badgeCount++;
+    final badge = await _incrementBadge();
 
     final androidDetails = AndroidNotificationDetails(
       channelId,
@@ -325,14 +344,14 @@ class PushNotificationService {
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
-      number: _badgeCount,   // Android app-icon badge
+      number: badge,
     );
 
     final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      badgeNumber: _badgeCount,  // iOS app-icon badge
+      badgeNumber: badge,
     );
 
     final details = NotificationDetails(
@@ -349,10 +368,11 @@ class PushNotificationService {
     );
   }
 
-  /// Clear badge count (call when user opens the notifications screen)
+  /// Clear badge count — call when user opens the notifications screen
   Future<void> clearBadge() async {
-    _badgeCount = 0;
-    // Reset iOS badge to 0
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_badgeCountKey, 0);
+    // Reset iOS badge to 0 via a silent notification
     const iosDetails = DarwinNotificationDetails(badgeNumber: 0);
     await _localNotifications.show(
       _clearBadgeNotifId,
@@ -362,8 +382,6 @@ class PushNotificationService {
     );
     await _localNotifications.cancel(_clearBadgeNotifId);
   }
-
-  static const int _clearBadgeNotifId = 999;
 
   String _getChannelName(String channelId) {
     switch (channelId) {

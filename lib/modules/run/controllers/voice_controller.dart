@@ -423,6 +423,20 @@ class VoiceController extends ChangeNotifier {
   /// Returns ", [name]" suffix if a name is set, otherwise empty string.
   String get _nameSuffix => _userName.isNotEmpty ? ', $_userName' : '';
 
+  /// Speak a warmup countdown number.
+  /// Always speaks regardless of isVoiceEnabled so the iOS AVAudioSession
+  /// is activated before the phone can be locked — this keeps Dart timers
+  /// running while the screen is off, exactly like Run Trainer / Nike Run Club.
+  Future<void> speakCountdown(int count) async {
+    try {
+      await ensureInitialized();
+      final word = count == 1 ? 'One' : '$count';
+      await _tts.speak(word);
+    } catch (e) {
+      debugPrint('⚠️ Countdown TTS error: $e');
+    }
+  }
+
   Future<void> speakRunStarted() async {
     if (!_settings.runStartStop) return;
     await ensureInitialized();

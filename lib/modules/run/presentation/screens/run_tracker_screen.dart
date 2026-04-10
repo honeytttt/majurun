@@ -6,6 +6,7 @@ import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
+import 'package:majurun/modules/run/controllers/voice_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart';
@@ -263,13 +264,17 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     // Enable wake lock BEFORE warmup so screen stays on during countdown
     await WakeLockService.enable();
 
-    // Show 5-second warmup countdown — await dialog dismissal (Skip or auto-pop
-    // after countdown).  This way phone-lock during warmup cannot strand the
-    // Future: when the user unlocks and the dialog self-pops we proceed normally.
+    // Show 5-second warmup countdown.
+    // Pass the voice controller so the dialog speaks each number via TTS —
+    // this activates the iOS AVAudioSession BEFORE the phone can be locked,
+    // keeping Dart timers alive while the screen is off (same technique used
+    // by Nike Run Club, Strava, Run Trainer).
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const _WarmupCountdownDialog(),
+      builder: (_) => _WarmupCountdownDialog(
+        voiceController: runController.voiceController,
+      ),
     );
 
     if (!context.mounted) return;
@@ -453,7 +458,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
 // ─── Warmup Countdown Dialog ──────────────────────────────────────────────────
 class _WarmupCountdownDialog extends StatefulWidget {
-  const _WarmupCountdownDialog();
+  final VoiceController voiceController;
+  const _WarmupCountdownDialog({required this.voiceController});
 
   @override
   State<_WarmupCountdownDialog> createState() => _WarmupCountdownDialogState();
@@ -508,9 +514,12 @@ class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog>
       if (!mounted) return;
       setState(() => _countdown = i);
       _scaleController.forward(from: 0);
+      // Speak the number — activates iOS AVAudioSession so the Dart isolate
+      // keeps running if the user locks the screen during warmup.
+      widget.voiceController.speakCountdown(i);
       await Future.delayed(const Duration(seconds: 1));
     }
-    // Auto-pop the dialog when countdown finishes so _handleStartRun proceeds
+    // Auto-pop when countdown finishes so _handleStartRun proceeds
     if (mounted) Navigator.of(context).pop();
   }
 
