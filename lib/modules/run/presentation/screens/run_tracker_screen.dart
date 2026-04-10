@@ -10,6 +10,7 @@ import 'package:majurun/modules/run/controllers/voice_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/last_activity_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/interval_training_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 
 class RunTrackerScreen extends StatefulWidget {
@@ -250,6 +251,18 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                     letterSpacing: 1.5,
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IntervalTrainingScreen()),
+              ),
+              icon: const Icon(Icons.repeat_rounded, size: 16, color: Color(0xFF2D7A3E)),
+              label: const Text(
+                'Structured Workout',
+                style: TextStyle(color: Color(0xFF2D7A3E), fontSize: 13),
               ),
             ),
           ],

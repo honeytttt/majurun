@@ -5,7 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:uuid/uuid.dart';
 
+import 'package:majurun/core/services/interval_training_service.dart';
+import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
@@ -500,6 +503,20 @@ class RunController extends ChangeNotifier {
       // Announce start
       await voiceController.speakRunStarted();
 
+      // Start interval training if one was selected
+      final intervalService = IntervalTrainingService();
+      final pending = intervalService.pendingWorkout;
+      if (pending != null) {
+        intervalService.pendingWorkout = null;
+        try {
+          await intervalService.initialize();
+          await intervalService.startWorkout(pending);
+          debugPrint('🏃 Interval workout started: ${pending.name}');
+        } catch (e) {
+          debugPrint('⚠️ Could not start interval workout: $e');
+        }
+      }
+
       // Start auto-save
       startAutoSave(planTitle);
       notifyListeners();
@@ -569,19 +586,49 @@ class RunController extends ChangeNotifier {
       );
 
       // Save to history and capture achievements
-      final runResult = await statsController.saveRunHistory(
-        planTitle: planTitle,
-        distanceKm: finalDistance,
-        durationSeconds: finalDuration,
-        pace: finalPace,
-        routePoints: finalRoutePoints,
-        avgBpm: finalBpm,
-        calories: finalCalories,
-        extra: {
-          'elevationGain': routeStats['elevationGain'] ?? 0.0,
-          'elevationLoss': routeStats['elevationLoss'] ?? 0.0,
-        },
-      );
+      ({List<String> pbs, List<String> badges}) runResult;
+      try {
+        runResult = await statsController.saveRunHistory(
+          planTitle: planTitle,
+          distanceKm: finalDistance,
+          durationSeconds: finalDuration,
+          pace: finalPace,
+          routePoints: finalRoutePoints,
+          avgBpm: finalBpm,
+          calories: finalCalories,
+          extra: {
+            'elevationGain': routeStats['elevationGain'] ?? 0.0,
+            'elevationLoss': routeStats['elevationLoss'] ?? 0.0,
+          },
+        );
+      } catch (saveError) {
+        // Firestore unavailable — save locally for later sync
+        debugPrint('⚠️ Firestore save failed, saving offline: $saveError');
+        runResult = (pbs: [], badges: []);
+        try {
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid != null && !kIsWeb) {
+            await OfflineDatabaseService().savePendingRun(PendingRun(
+              id: const Uuid().v4(),
+              userId: uid,
+              distanceMeters: finalDistance * 1000,
+              durationSeconds: finalDuration,
+              startTime: DateTime.now().subtract(Duration(seconds: finalDuration)),
+              endTime: DateTime.now(),
+              routePoints: finalRoutePoints
+                  .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+                  .toList(),
+              avgHeartRate: finalBpm > 0 ? finalBpm : null,
+              calories: finalCalories,
+              elevationGain: (routeStats['elevationGain'] as num?)?.toDouble(),
+              createdAt: DateTime.now(),
+            ));
+            debugPrint('📥 Run saved offline for later sync');
+          }
+        } catch (offlineError) {
+          debugPrint('❌ Offline save also failed: $offlineError');
+        }
+      }
       lastRunPbs = runResult.pbs;
       lastRunBadges = runResult.badges;
 
@@ -625,6 +672,7 @@ class RunController extends ChangeNotifier {
 
       // Clean up
       await RunRecoveryService.clearRecoverableRun();
+      try { IntervalTrainingService().stop(); } catch (_) {}
       stopAutoSave();
       debugPrint("✅ Recovery data cleared");
 

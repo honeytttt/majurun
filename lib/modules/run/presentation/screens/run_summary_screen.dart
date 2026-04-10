@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/presentation/widgets/performance_graph.dart';
 import 'package:majurun/modules/run/presentation/widgets/shareable_run_card.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams, XFile;
 
 class RunSummaryScreen extends StatefulWidget {
   final RunController controller;
@@ -82,7 +86,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
                         .map((e) => e.y)
                         .toList(),
                   )
-                : const SizedBox(height: 100, child: Center(child: Text("Splits coming soon"))),
+                : _buildSplitsList(widget.controller.stateController.kmSplits),
             _buildAiPostCard(),
             _buildActionButtons(),
             const SizedBox(height: 40),
@@ -156,6 +160,113 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     );
   }
 
+  Widget _buildSplitsList(List<KmSplit> splits) {
+    if (splits.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text(
+            'Complete at least 1 km to see splits',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(child: Text('KM', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold))),
+                SizedBox(width: 60, child: Text('PACE', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                SizedBox(width: 60, child: Text('TIME', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                SizedBox(width: 50, child: Text('ELEV', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+              ],
+            ),
+          ),
+          ...splits.asMap().entries.map((entry) {
+            final i = entry.key;
+            final split = entry.value;
+            final prevPace = i > 0 ? splits[i - 1].durationSeconds : split.durationSeconds;
+            final faster = i > 0 && split.durationSeconds < prevPace;
+            final slower = i > 0 && split.durationSeconds > prevPace;
+            final mins = split.durationSeconds ~/ 60;
+            final secs = split.durationSeconds % 60;
+            final timeStr = '$mins:${secs.toString().padLeft(2, '0')}';
+            final elevSign = split.elevationChange >= 0 ? '+' : '';
+            return Container(
+              decoration: BoxDecoration(
+                color: i.isEven ? Colors.grey.shade50 : Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text('Km ${split.kmNumber}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        const SizedBox(width: 6),
+                        if (faster) const Icon(Icons.arrow_drop_up, color: Color(0xFF00E676), size: 18)
+                        else if (slower) const Icon(Icons.arrow_drop_down, color: Colors.redAccent, size: 18),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 60, child: Text(split.pace, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), textAlign: TextAlign.center)),
+                  SizedBox(width: 60, child: Text(timeStr, style: TextStyle(fontSize: 13, color: Colors.grey.shade700), textAlign: TextAlign.center)),
+                  SizedBox(width: 50, child: Text('$elevSign${split.elevationChange.toStringAsFixed(0)}m', style: TextStyle(fontSize: 12, color: Colors.grey.shade500), textAlign: TextAlign.center)),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportGpx() async {
+    final points = widget.controller.routePoints;
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No route data to export')),
+      );
+      return;
+    }
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln('<gpx version="1.1" creator="MajuRun" xmlns="http://www.topografix.com/GPX/1/1">');
+    buffer.writeln('  <trk>');
+    buffer.writeln('    <name>MajuRun Activity</name>');
+    buffer.writeln('    <trkseg>');
+    for (final p in points) {
+      buffer.writeln('      <trkpt lat="${p.latitude}" lon="${p.longitude}"></trkpt>');
+    }
+    buffer.writeln('    </trkseg>');
+    buffer.writeln('  </trk>');
+    buffer.writeln('</gpx>');
+
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/majurun_activity.gpx');
+      await file.writeAsString(buffer.toString());
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'application/gpx+xml')],
+        subject: 'MajuRun Activity GPX',
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildActionButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -171,6 +282,20 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
                   ? const CircularProgressIndicator()
                   : const Text("SHARE TO MAJURUN FEED",
                       style: TextStyle(color: Colors.white)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: _exportGpx,
+              icon: const Icon(Icons.upload_file, size: 18),
+              label: const Text("EXPORT GPX"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.black87,
+                side: const BorderSide(color: Colors.black26),
+              ),
             ),
           ),
           TextButton(

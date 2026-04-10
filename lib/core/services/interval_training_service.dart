@@ -20,6 +20,10 @@ class IntervalTrainingService extends ChangeNotifier {
   bool _isPaused = false;
   Timer? _intervalTimer;
 
+  /// Workout selected in IntervalTrainingScreen but not yet started.
+  /// RunController picks this up when the run begins.
+  IntervalWorkout? pendingWorkout;
+
   // Stats for current workout
   int _totalWorkoutSeconds = 0;
   double _totalWorkoutDistance = 0;
