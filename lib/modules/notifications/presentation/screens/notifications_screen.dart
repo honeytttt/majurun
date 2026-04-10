@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:majurun/core/services/notification_service.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
 import 'package:majurun/modules/notifications/presentation/widgets/notification_tile.dart';
 import 'package:majurun/modules/home/presentation/screens/user_profile_screen.dart';
@@ -19,6 +20,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.initState();
     // Mark all as read when opening the screen
     _notificationService.markAllAsRead();
+    // Clear app-icon badge count
+    PushNotificationService().clearBadge();
   }
 
   @override

@@ -307,6 +307,9 @@ class PushNotificationService {
     }
   }
 
+  // Tracks badge count across the session — incremented on show, reset on clear
+  static int _badgeCount = 0;
+
   /// Show a local notification
   Future<void> _showLocalNotification({
     required String title,
@@ -314,18 +317,22 @@ class PushNotificationService {
     String? payload,
     String channelId = _socialChannelId,
   }) async {
+    _badgeCount++;
+
     final androidDetails = AndroidNotificationDetails(
       channelId,
       _getChannelName(channelId),
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
+      number: _badgeCount,   // Android app-icon badge
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      badgeNumber: _badgeCount,  // iOS app-icon badge
     );
 
     final details = NotificationDetails(
@@ -341,6 +348,22 @@ class PushNotificationService {
       payload: payload,
     );
   }
+
+  /// Clear badge count (call when user opens the notifications screen)
+  Future<void> clearBadge() async {
+    _badgeCount = 0;
+    // Reset iOS badge to 0
+    const iosDetails = DarwinNotificationDetails(badgeNumber: 0);
+    await _localNotifications.show(
+      _clearBadgeNotifId,
+      null,
+      null,
+      const NotificationDetails(iOS: iosDetails),
+    );
+    await _localNotifications.cancel(_clearBadgeNotifId);
+  }
+
+  static const int _clearBadgeNotifId = 999;
 
   String _getChannelName(String channelId) {
     switch (channelId) {
@@ -405,15 +428,15 @@ class PushNotificationService {
     required String value,
   }) async {
     await _ensureInitialized();
+    const title = "New Personal Record! 🏆";
+    final body = "You just set a new $recordType: $value. Keep pushing!";
     await _showLocalNotification(
-      title: "New Personal Record! 🏆",
-      body: "You just set a new $recordType: $value. Keep pushing!",
+      title: title,
+      body: body,
       channelId: _achievementChannelId,
-      payload: jsonEncode({
-        'type': 'pr',
-        'recordType': recordType,
-      }),
+      payload: jsonEncode({'type': 'pr', 'recordType': recordType}),
     );
+    await _writeInAppNotification(title: title, body: body, type: 'badge');
   }
 
   /// Send milestone notification
@@ -430,18 +453,49 @@ class PushNotificationService {
     );
   }
 
-  /// Notify user that their run post is ready to view/edit
+  /// Notify user that their run post is ready to view/edit.
+  /// Also writes to the Firestore notification center so it appears in-app.
   Future<void> showRunPostReadyNotification({
     required String distance,
     required String pace,
   }) async {
     await _ensureInitialized();
+    const title = "Your run post is ready! 🏃";
+    final body = "$distance km at $pace/km — tap to view, edit or share your post.";
     await _showLocalNotification(
-      title: "Your run post is ready! 🏃",
-      body: "$distance km at $pace/km — tap to view, edit or share your post.",
+      title: title,
+      body: body,
       channelId: _socialChannelId,
       payload: jsonEncode({'type': 'run_post_ready'}),
     );
+    // Write to in-app notification center
+    await _writeInAppNotification(title: title, body: body, type: 'post');
+  }
+
+  /// Write a notification document to the user's Firestore notification center.
+  Future<void> _writeInAppNotification({
+    required String title,
+    required String body,
+    required String type,
+  }) async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+      await _firestore
+          .collection('notifications')
+          .doc(userId)
+          .collection('items')
+          .add({
+        'type': type,
+        'fromUserId': userId,
+        'fromUsername': 'MajuRun',
+        'message': '$title — $body',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('⚠️ Could not write in-app notification: $e');
+    }
   }
 
   /// Send social notification (kudos, comment, follow)

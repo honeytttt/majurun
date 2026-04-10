@@ -263,32 +263,24 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     // Enable wake lock BEFORE warmup so screen stays on during countdown
     await WakeLockService.enable();
 
-    // Show 5-second warmup countdown
-    showDialog(
+    // Show 5-second warmup countdown — await dialog dismissal (Skip or auto-pop
+    // after countdown).  This way phone-lock during warmup cannot strand the
+    // Future: when the user unlocks and the dialog self-pops we proceed normally.
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const _WarmupCountdownDialog(),
+      builder: (_) => const _WarmupCountdownDialog(),
     );
-
-    // Wait for countdown (dialog has a skip button that also pops it)
-    await Future.delayed(const Duration(seconds: 5));
 
     if (!context.mounted) return;
 
-    // Close countdown dialog if still open
-    Navigator.pop(context);
-
     try {
-      // Start the run
       await runController.startRun(planTitle: "Free Run");
 
       if (context.mounted) {
-        // Navigate to active run screen
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const ActiveRunScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const ActiveRunScreen()),
         );
       }
     } catch (e) {
@@ -518,6 +510,8 @@ class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog>
       _scaleController.forward(from: 0);
       await Future.delayed(const Duration(seconds: 1));
     }
+    // Auto-pop the dialog when countdown finishes so _handleStartRun proceeds
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override

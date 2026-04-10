@@ -63,9 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onTabNotifier() {
-    if (mounted) {
+    final target = HomeScreen.tabNotifier.value;
+    if (mounted && target != _selectedIndex) {
       setState(() {
-        _selectedIndex = HomeScreen.tabNotifier.value;
+        _selectedIndex = target;
         _activeSubPage = null;
       });
     }
@@ -179,6 +180,10 @@ class _HomeScreenState extends State<HomeScreen> {
       // Pause all feed videos when navigating away from the home/feed tab
       VideoSessionManager.pauseAll();
     }
+    // Keep tabNotifier in sync so _goToFeed() always triggers the listener
+    // (ValueNotifier only fires when value changes, so tab 0 → run → back to 0
+    // wouldn't fire without this sync).
+    HomeScreen.tabNotifier.value = index;
     setState(() {
       _selectedIndex = index;
       _activeSubPage = null;

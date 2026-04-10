@@ -51,10 +51,19 @@ class PostRepositoryImpl {
       }).toList();
     }
 
-    // fallback to mapImageUrl when media is empty
+    // fallback to mapImageUrl when media list is empty
     final mapImageUrl = data['mapImageUrl']?.toString();
     if (mediaList.isEmpty && mapImageUrl != null && mapImageUrl.isNotEmpty) {
       mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.image));
+    }
+
+    // append selfie after map (if present and not already in media list)
+    final selfieUrl = data['selfieUrl']?.toString();
+    if (selfieUrl != null && selfieUrl.isNotEmpty) {
+      final alreadyAdded = mediaList.any((m) => m.url == selfieUrl);
+      if (!alreadyAdded) {
+        mediaList.add(PostMedia(url: selfieUrl, type: MediaType.image));
+      }
     }
 
     List<LatLng>? routePoints;
