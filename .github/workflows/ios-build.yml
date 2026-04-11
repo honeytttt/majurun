@@ -258,6 +258,7 @@ jobs:
 
       - name: Upload to App Store Connect
         if: success()
+        continue-on-error: true   # IPA artifact is uploaded above; version-bump races won't fail the build
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
