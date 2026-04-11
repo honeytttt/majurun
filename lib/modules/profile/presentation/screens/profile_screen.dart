@@ -14,6 +14,7 @@ import 'package:majurun/modules/profile/presentation/screens/followers_following
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
+import 'package:majurun/core/services/user_stats_service.dart';
 import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
@@ -57,6 +58,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       await UserCountersInitializer.syncBadgesFromRunHistory(uid);
+      // Recalculate totalKm and workoutsCount from actual run history
+      // so profile stats always match the run history screen
+      await UserStatsService().recalculateAndSyncStats(uid);
     }
   }
 

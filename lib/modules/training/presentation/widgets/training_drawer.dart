@@ -326,7 +326,7 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
       case 'Half to Full Marathon':
         return 'half_to_full';
       case 'Morning Burn':
-        return 'train_0_to_5k';
+        return 'morning_burn';
       default:
         return 'train_0_to_5k';
     }

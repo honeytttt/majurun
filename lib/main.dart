@@ -31,6 +31,8 @@ import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/remote_logger.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 Future<void> _configureAudioSession() async {
   final session = await AudioSession.instance;
@@ -53,6 +55,38 @@ Future<void> main() async {
   // Wrap entire app initialization with Sentry for comprehensive error tracking
   await SentryService.initializeApp(() async {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Initialize timezone data so scheduled notifications fire at the correct
+    // LOCAL time. Without this, tz.local defaults to UTC which causes reminders
+    // to fire at wrong times (e.g. 7:30 UTC = 3:30 PM in Malaysia UTC+8).
+    tz_data.initializeTimeZones();
+    // Use device's UTC offset to pick the closest named timezone.
+    // This avoids requiring the flutter_timezone package while still handling
+    // the most common case correctly.
+    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
+    final offsetHours = offsetMinutes / 60;
+    String timezoneName = 'UTC';
+    if (offsetHours >= 7.5 && offsetHours < 9) {
+      timezoneName = 'Asia/Kuala_Lumpur'; // UTC+8 (Malaysia, Singapore)
+    } else if (offsetHours >= 5.5 && offsetHours < 6) {
+      timezoneName = 'Asia/Kolkata'; // UTC+5:30
+    } else if (offsetHours >= 7 && offsetHours < 8) {
+      timezoneName = 'Asia/Bangkok'; // UTC+7
+    } else if (offsetHours >= 8 && offsetHours < 9) {
+      timezoneName = 'Asia/Shanghai'; // UTC+8 exact
+    } else if (offsetHours >= 9 && offsetHours < 10) {
+      timezoneName = 'Asia/Tokyo'; // UTC+9
+    } else if (offsetHours > 0) {
+      // Generic positive offset zones
+      timezoneName = 'Etc/GMT-${offsetHours.round()}';
+    } else if (offsetHours < 0) {
+      timezoneName = 'Etc/GMT+${(-offsetHours).round()}';
+    }
+    try {
+      tz.setLocalLocation(tz.getLocation(timezoneName));
+    } catch (_) {
+      // Fallback: keep UTC if location lookup fails
+    }
 
     // Configure audio session: TTS ducks music while speaking, restores after.
     // audio_session manages setActive(true/false) lifecycle properly — this is

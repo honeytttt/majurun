@@ -50,6 +50,8 @@ class AppNotification {
   Map<String, dynamic> toMap() {
     return {
       'type': type.name,
+      // 'senderId' is required by Firestore security rules (rules check this field)
+      'senderId': fromUserId,
       'fromUserId': fromUserId,
       'fromUsername': fromUsername,
       'fromUserPhotoUrl': fromUserPhotoUrl,
