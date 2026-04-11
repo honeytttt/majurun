@@ -18,37 +18,63 @@ class AuthWrapper extends StatelessWidget {
       stream: authRepository.onAuthStateChanged,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const _LoadingScreen();
         }
 
         final user = snapshot.data;
         if (user == null) return const LoginScreen();
 
-        // User is authenticated — check if onboarding profile is complete
-        return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
+        // Admin bypasses profile check
+        if (user.email == 'majurun.app@gmail.com') return const HomeScreen();
+
+        // Use snapshots() NOT get() — avoids the FutureBuilder reset problem.
+        //
+        // With get(), every authStateChanges emission (Firebase fires several
+        // during Google sign-in: signOut→null, credential success, token refresh)
+        // caused the outer StreamBuilder to rebuild, which created a brand-new
+        // FutureBuilder with a brand-new get() call → ConnectionState.waiting
+        // → perpetual loading spinner.  snapshots() is a persistent stream:
+        // the inner StreamBuilder holds state between parent rebuilds and does
+        // not restart when the outer stream re-emits the same uid.
+        //
+        // Bonus: when OnboardingScreen writes 'dob' to Firestore, the snapshot
+        // stream fires automatically and AuthWrapper transitions to HomeScreen
+        // without any manual Navigator.push from OnboardingScreen.
+        return StreamBuilder<DocumentSnapshot>(
+          // Key by uid so Flutter resets the inner stream when a different
+          // user logs in after the previous one logged out.
+          key: ValueKey(user.uid),
+          stream: FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
-              .get(),
+              .snapshots(),
           builder: (context, profileSnap) {
             if (profileSnap.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
+              return const _LoadingScreen();
             }
 
-            // Admin always goes straight to HomeScreen regardless of profile completion
-            if (user.email == 'majurun.app@gmail.com') return const HomeScreen();
-
-            final data = profileSnap.data?.data() as Map<String, dynamic>?;
+            final data =
+                profileSnap.data?.data() as Map<String, dynamic>?;
             final hasProfile = data != null && data['dob'] != null;
 
             return hasProfile ? const HomeScreen() : const OnboardingScreen();
           },
         );
       },
+    );
+  }
+}
+
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      ),
     );
   }
 }

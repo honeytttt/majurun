@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
-import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -104,11 +103,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }, SetOptions(merge: true));
 
       await user.updateDisplayName(_fullName.text.trim());
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (_) => false,
-      );
+      // AuthWrapper's snapshots() stream detects 'dob' is now set and
+      // automatically transitions to HomeScreen — no manual push needed.
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
