@@ -109,7 +109,7 @@ jobs:
       # ── Deploy to Play Store (prod AAB only) ───────────────────────────────
       - name: Upload to Play Store internal track
         if: ${{ github.event.inputs.build_type == 'appbundle' && github.event.inputs.environment == 'prod' }}
-        uses: r0adkll/upload-google-play@v3
+        uses: r0adkll/upload-google-play@v3.1.1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
           packageName: com.majurun.app
