@@ -110,6 +110,10 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _loading = true);
     try {
       await context.read<AuthRepository>().signInWithGoogle();
+      // Pop SignupScreen so AuthWrapper's OnboardingScreen (or HomeScreen for
+      // returning users) becomes visible. Without this pop, SignupScreen sits
+      // on top of the Navigator stack and blocks AuthWrapper from showing.
+      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
