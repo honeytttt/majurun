@@ -41,6 +41,11 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      # Exclude phone-call permission from permission_handler_apple to avoid
+      # implicit-function-declaration compile error in PhonePermissionStrategy.m
+      # under Xcode 16 (Werror=implicit-function-declaration is now fatal).
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_PHONE_CALL=0'
     end
   end
 end
