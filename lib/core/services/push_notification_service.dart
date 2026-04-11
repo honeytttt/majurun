@@ -762,6 +762,7 @@ class PushNotificationService {
   static const int _motivationNotifId = 200;
   static const int _noRunReminderNotifId = 201;
   static const int _subscriptionReminderNotifId = 202;
+  static const int _weeklySummaryNotifId = 203;
 
   static const List<String> _morningMotivations = [
     "Rise and run! Every km makes you stronger. 🌅",
@@ -926,10 +927,65 @@ class PushNotificationService {
     await _localNotifications.cancel(_subscriptionReminderNotifId);
   }
 
+  /// Weekly summary notification — every Sunday at 8:00 PM.
+  /// Reminds users to review their week and plan for next week.
+  Future<void> scheduleWeeklySummary() async {
+    final prefs = await SharedPreferences.getInstance();
+    const key = 'weekly_summary_enabled';
+    if (prefs.getBool(key) == false) return;
+
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    // Find next Sunday (weekday 7)
+    int daysUntilSunday = (DateTime.sunday - now.weekday + 7) % 7;
+    if (daysUntilSunday == 0 && now.hour >= 20) daysUntilSunday = 7;
+    var scheduledDate = tz.TZDateTime(
+      tz.local, now.year, now.month, now.day + daysUntilSunday, 20, 0,
+    );
+
+    const androidDetails = AndroidNotificationDetails(
+      'run_reminders',
+      'Run Reminders',
+      channelDescription: 'Weekly running summary and motivation',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+    const iosDetails = DarwinNotificationDetails(badgeNumber: 1);
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    final messages = [
+      'How was your week? Check your stats and plan for next week! 📊',
+      'Another week done! View your run history and set goals for the week ahead. 🎯',
+      'Week wrap-up time! See how far you have come and what is next. 🏃',
+      'Sunday check-in: review your runs, celebrate wins, plan the next chapter. 💪',
+    ];
+    final msg = messages[DateTime.now().millisecond % messages.length];
+
+    await _localNotifications.zonedSchedule(
+      _weeklySummaryNotifId,
+      'Weekly Summary',
+      msg,
+      scheduledDate,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+
+    await prefs.setBool(key, true);
+    debugPrint('✅ Weekly summary notification scheduled for Sundays at 8:00 PM');
+  }
+
+  /// Cancel weekly summary notification.
+  Future<void> cancelWeeklySummary() async {
+    await _localNotifications.cancel(_weeklySummaryNotifId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('weekly_summary_enabled', false);
+  }
+
   /// Call once after successful login/onboarding to set up all default scheduled notifications.
   Future<void> scheduleDefaultNotifications() async {
     await scheduleDailyMotivation(hour: 7, minute: 30);
     await scheduleNoRunReminder(hour: 19, minute: 0);
+    await scheduleWeeklySummary();
   }
 
   /// Dispose service

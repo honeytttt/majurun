@@ -41,51 +41,71 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildSectionHeader("TRAINING PROGRAMS"),
+                _buildSectionHeader("BEGINNER"),
+                _planTile(
+                  context,
+                  title: "Walk to Run",
+                  subtitle: "6 Weeks • 3 Days/Week",
+                  icon: Icons.directions_walk,
+                  color: const Color(0xFF66BB6A),
+                  isPro: false,
+                  onTap: () => _startPlan(context, "Walk to Run"),
+                ),
                 _planTile(
                   context,
                   title: "Train 0 to 5K",
                   subtitle: "8 Weeks • 3 Days/Week",
                   icon: Icons.directions_run,
                   color: const Color(0xFF4CAF50),
-                  isPro: false, // Free for all
+                  isPro: false,
                   onTap: () => _startPlan(context, "Train 0 to 5K"),
                 ),
+                _buildSectionHeader("INTERMEDIATE"),
                 _planTile(
                   context,
                   title: "5K to 10K",
                   subtitle: "8 Weeks • 3 Days/Week",
                   icon: Icons.whatshot,
                   color: const Color(0xFF2196F3),
-                  isPro: true, // Pro only
+                  isPro: true,
                   onTap: () => _startPlan(context, "5K to 10K"),
                 ),
+                _planTile(
+                  context,
+                  title: "Speed Development",
+                  subtitle: "6 Weeks • 4 Days/Week",
+                  icon: Icons.speed,
+                  color: const Color(0xFF00BCD4),
+                  isPro: true,
+                  onTap: () => _startPlan(context, "Speed Development"),
+                ),
+                _buildSectionHeader("ADVANCED"),
                 _planTile(
                   context,
                   title: "10K to Half Marathon",
                   subtitle: "8 Weeks • 3 Days/Week",
                   icon: Icons.bolt,
                   color: const Color(0xFFFF9800),
-                  isPro: true, // Pro only
+                  isPro: true,
                   onTap: () => _startPlan(context, "10K to Half Marathon"),
                 ),
                 _planTile(
                   context,
                   title: "Half to Full Marathon",
-                  subtitle: "8 Weeks • 3 Days/Week",
+                  subtitle: "12 Weeks • 3 Days/Week",
                   icon: Icons.emoji_events,
                   color: const Color(0xFF9C27B0),
-                  isPro: true, // Pro only
+                  isPro: true,
                   onTap: () => _startPlan(context, "Half to Full Marathon"),
                 ),
                 _buildSectionHeader("AI CHALLENGES"),
                 _planTile(
                   context,
                   title: "Morning Burn",
-                  subtitle: "High Intensity Intervals",
+                  subtitle: "6 Weeks • High Intensity",
                   icon: Icons.local_fire_department,
                   color: Colors.redAccent,
-                  isPro: false, // Free for all
+                  isPro: false,
                   onTap: () => _startPlan(context, "Morning Burn"),
                 ),
               ],
@@ -317,10 +337,14 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
 
   String _getPlanId(String planName) {
     switch (planName) {
+      case 'Walk to Run':
+        return 'walk_to_run';
       case 'Train 0 to 5K':
         return 'train_0_to_5k';
       case '5K to 10K':
         return '5k_to_10k';
+      case 'Speed Development':
+        return 'speed_development';
       case '10K to Half Marathon':
         return '10k_to_half';
       case 'Half to Full Marathon':
@@ -328,7 +352,7 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
       case 'Morning Burn':
         return 'morning_burn';
       default:
-        return 'train_0_to_5k';
+        return 'walk_to_run';
     }
   }
 }

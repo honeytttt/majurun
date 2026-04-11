@@ -297,14 +297,12 @@ class _LogsTabState extends State<_LogsTab> {
     'VERBOSE': Colors.grey,
   };
 
-  Query<Map<String, dynamic>> get _query {
-    Query<Map<String, dynamic>> q = FirebaseFirestore.instance
-        .collection('app_logs')
-        .orderBy('timestamp', descending: true)
-        .limit(200);
-    if (_selectedLevel != 'ALL') q = q.where('level', isEqualTo: _selectedLevel);
-    return q;
-  }
+  // Fetch all logs ordered by timestamp — level filtering is done client-side
+  // to avoid needing a composite Firestore index (level + timestamp).
+  Query<Map<String, dynamic>> get _query => FirebaseFirestore.instance
+      .collection('app_logs')
+      .orderBy('timestamp', descending: true)
+      .limit(500);
 
   Future<void> _clearOldLogs() async {
     final cutoff = DateTime.now().subtract(const Duration(days: 2));
@@ -354,9 +352,14 @@ class _LogsTabState extends State<_LogsTab> {
           child: StreamBuilder<QuerySnapshot>(
             stream: _query.snapshots(),
             builder: (ctx, snap) {
+              if (snap.hasError) return Center(child: Text('Error: ${snap.error}', style: const TextStyle(color: Colors.redAccent)));
               if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-              final docs = snap.data!.docs;
-              if (docs.isEmpty) return const Center(child: Text('No logs', style: TextStyle(color: Colors.grey)));
+              // Client-side level filter — avoids composite Firestore index requirement
+              final docs = snap.data!.docs.where((d) {
+                if (_selectedLevel == 'ALL') return true;
+                return (d.data() as Map<String, dynamic>)['level'] == _selectedLevel;
+              }).toList();
+              if (docs.isEmpty) return Center(child: Text('No $_selectedLevel logs', style: const TextStyle(color: Colors.grey)));
               return ListView.builder(
                 itemCount: docs.length,
                 itemBuilder: (_, i) {

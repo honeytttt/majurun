@@ -2,6 +2,8 @@
 // Location: lib/modules/training/data/training_plans_data.dart
 
 import 'package:majurun/modules/training/data/morning_burn_plan_data.dart';
+import 'package:majurun/modules/training/data/speed_development_plan_data.dart';
+import 'package:majurun/modules/training/data/walk_to_run_plan_data.dart';
 
 const train0To5KPlan = {
   'planId': 'train_0_to_5k',
@@ -1001,11 +1003,13 @@ const trainHalfToFullPlan = {
 
 // Export all plans
 final allTrainingPlans = [
+  walkToRunPlan,
   train0To5KPlan,
   train5KTo10KPlan,
   train10KToHalfPlan,
   trainHalfToFullPlan,
   morningBurnPlan,
+  speedDevelopmentPlan,
 ];
 
 // Helper function to get plan by ID

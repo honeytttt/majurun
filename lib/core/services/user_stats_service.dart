@@ -162,8 +162,9 @@ class UserStatsService {
     );
   }
 
-  /// Recalculate totalKm and workoutsCount from actual training_history records
-  /// and sync them back to the user document. Call this to fix stale counters.
+  /// Recalculate ALL aggregate stats from training_history and sync to user doc.
+  /// This is the single source of truth — fixes any counter drift from double-
+  /// counting, failed transactions, or offline saves.
   Future<({double totalKm, int totalRuns})> recalculateAndSyncStats(String uid) async {
     try {
       final snapshot = await _db
@@ -173,20 +174,26 @@ class UserStatsService {
           .get();
 
       double totalKm = 0;
+      int totalSeconds = 0;
+      int totalCalories = 0;
       int totalRuns = snapshot.docs.length;
 
       for (final doc in snapshot.docs) {
         final d = doc.data();
-        totalKm += (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        totalKm       += (d['distanceKm']    as num?)?.toDouble() ?? 0.0;
+        totalSeconds  += (d['durationSeconds'] as num?)?.toInt()  ?? 0;
+        totalCalories += (d['calories']       as num?)?.toInt()   ?? 0;
       }
 
-      // Sync back to user document so profile shows correct values
+      // Overwrite denormalized counters with ground-truth values from history.
       await _db.collection('users').doc(uid).set({
-        'totalKm': totalKm,
-        'workoutsCount': totalRuns,
+        'totalKm':          totalKm,
+        'workoutsCount':    totalRuns,
+        'totalRunSeconds':  totalSeconds,
+        'totalCalories':    totalCalories,
       }, SetOptions(merge: true));
 
-      debugPrint('✅ UserStatsService: Recalculated — ${totalKm.toStringAsFixed(2)} km, $totalRuns runs');
+      debugPrint('✅ UserStatsService: Recalculated — ${totalKm.toStringAsFixed(2)} km, $totalRuns runs, ${totalSeconds}s, ${totalCalories} kcal');
       return (totalKm: totalKm, totalRuns: totalRuns);
     } catch (e) {
       debugPrint('⚠️ UserStatsService.recalculateAndSyncStats: $e');
