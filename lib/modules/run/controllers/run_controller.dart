@@ -500,8 +500,11 @@ class RunController extends ChangeNotifier {
       // Log analytics
       _analytics.logRunStarted();
 
-      // Announce start
-      await voiceController.speakRunStarted();
+      // Announce start — fire-and-forget so Navigator.push(ActiveRunScreen)
+      // is not blocked by TTS duration. If the user locks the screen during
+      // the ~2s "Run started!" phrase, they were still on RunTrackerScreen
+      // and never saw ActiveRunScreen. Now navigation happens immediately.
+      unawaited(voiceController.speakRunStarted());
 
       // Start interval training if one was selected
       final intervalService = IntervalTrainingService();
