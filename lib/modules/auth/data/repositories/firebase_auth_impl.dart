@@ -1,7 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'dart:io';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -144,10 +145,14 @@ class FirebaseAuthImpl implements AuthRepository {
   @override
   Future<AppUser?> signInWithGoogle() async {
     final GoogleSignIn googleSignIn = GoogleSignIn(
-      // Explicit iOS CLIENT_ID — avoids crash when GoogleService-Info.plist
-      // is not bundled (it is gitignored and injected only in CI).
-      // Derived from REVERSED_CLIENT_ID in Info.plist.
-      clientId: '648836412000-iustsqi2f7i95liauoe6dbaqrj4kc0pg.apps.googleusercontent.com',
+      // iOS needs explicit clientId because GoogleService-Info.plist is
+      // gitignored and injected only in CI. On Android, clientId must be
+      // null — the correct client ID is read automatically from
+      // google-services.json. Passing an iOS clientId on Android causes
+      // sign_in_failed PlatformException.
+      clientId: (!kIsWeb && Platform.isIOS)
+          ? '648836412000-iustsqi2f7i95liauoe6dbaqrj4kc0pg.apps.googleusercontent.com'
+          : null,
       scopes: ['email', 'profile'],
     );
     // Sign out first to clear cached account and force account picker every time
