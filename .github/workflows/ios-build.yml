@@ -173,7 +173,12 @@ jobs:
           echo "Google Maps iOS API key injected"
 
       - name: Build Flutter iOS (no codesign)
-        run: flutter build ios --release --no-codesign --dart-define=ENVIRONMENT=production
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
+            --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
 
       - name: Build and Sign Archive
         env:

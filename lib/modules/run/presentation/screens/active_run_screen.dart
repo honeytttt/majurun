@@ -13,6 +13,7 @@ import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
+import 'package:majurun/core/services/wake_lock_service.dart';
 
 
 /// Production-grade active run screen with:
@@ -53,6 +54,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     );
 
     _loadAvatarMarker();
+    // Re-assert wakelock — iOS may drop it during TTS/audio session changes
+    WakeLockService.enable();
   }
 
   @override
@@ -940,12 +943,11 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                           label: 'Camera',
                           onTap: () async {
                             countdown?.cancel();
-                            // Pick image BEFORE popping the sheet — prevents the
-                            // sheet's .then() from completing the completer with
-                            // null before the picker returns the bytes.
                             final bytes = await _pickSelfie(ImageSource.camera);
-                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            // Complete BEFORE popping — popping triggers .then()
+                            // which would race and complete the completer with null.
                             if (!completer.isCompleted) completer.complete(bytes);
+                            if (ctx.mounted) Navigator.of(ctx).pop();
                           },
                         ),
                       ),
@@ -957,8 +959,9 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                           onTap: () async {
                             countdown?.cancel();
                             final bytes = await _pickSelfie(ImageSource.gallery);
-                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            // Complete BEFORE popping — same race as camera.
                             if (!completer.isCompleted) completer.complete(bytes);
+                            if (ctx.mounted) Navigator.of(ctx).pop();
                           },
                         ),
                       ),

@@ -79,7 +79,10 @@ jobs:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
           flutter build appbundle --release \
-            --dart-define=ENVIRONMENT=${{ github.event.inputs.environment == 'prod' && 'production' || 'development' }}
+            --dart-define=ENVIRONMENT=${{ github.event.inputs.environment == 'prod' && 'production' || 'development' }} \
+            --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
+            --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
 
       - name: Build APK
         if: ${{ github.event.inputs.build_type == 'apk' }}
@@ -87,7 +90,10 @@ jobs:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
           flutter build apk --release \
-            --dart-define=ENVIRONMENT=${{ github.event.inputs.environment == 'prod' && 'production' || 'development' }}
+            --dart-define=ENVIRONMENT=${{ github.event.inputs.environment == 'prod' && 'production' || 'development' }} \
+            --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
+            --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
 
       # ── Upload artifacts ───────────────────────────────────────────────────
       - name: Upload AAB

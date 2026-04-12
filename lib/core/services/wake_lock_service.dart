@@ -5,7 +5,6 @@ class WakeLockService {
   static bool _isActive = false;
 
   static Future<void> enable() async {
-    if (_isActive) return;
     try {
       await WakelockPlus.enable();
       _isActive = true;
