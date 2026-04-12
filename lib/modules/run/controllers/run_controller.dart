@@ -465,6 +465,15 @@ class RunController extends ChangeNotifier {
 
   // ============== RUN CONTROL ==============
 
+  /// Call this immediately when the user taps START — before the warmup dialog.
+  /// Starts GPS so iOS keeps the app alive in background even if the screen is
+  /// locked during the warmup countdown.
+  Future<void> prewarmGps() async {
+    await WakeLockService.enable();
+    await voiceController.ensureInitialized();
+    await stateController.prewarmGps();
+  }
+
   Future<void> startRun({String planTitle = "Free Run", BuildContext? context}) async {
     try {
       debugPrint("🎬 RunController: Starting run");

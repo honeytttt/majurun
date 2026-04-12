@@ -179,6 +179,14 @@ class RunStateController extends ChangeNotifier {
   }
 
   /// Start a new run
+  /// Starts GPS early (during warmup) so iOS keeps the app alive in background.
+  /// Does NOT start the timer or change run state.
+  Future<void> prewarmGps() async {
+    if (_locationService.isTracking) return;
+    debugPrint('📡 Pre-warming GPS before warmup dialog...');
+    await _locationService.startTracking();
+  }
+
   Future<void> startRun() async {
     if (_state == RunState.running || _state == RunState.paused) {
       debugPrint('⚠️ Run already active');
@@ -209,11 +217,15 @@ class RunStateController extends ChangeNotifier {
     _hasNotifiedIdle = false;
     _currentPosition = null;
 
-    // Start location tracking
-    final success = await _locationService.startTracking();
-    if (!success) {
-      _lastError = 'Failed to start GPS tracking';
-      throw Exception(_lastError);
+    // Start location tracking — skip if already started by prewarmGps()
+    if (!_locationService.isTracking) {
+      final success = await _locationService.startTracking();
+      if (!success) {
+        _lastError = 'Failed to start GPS tracking';
+        throw Exception(_lastError);
+      }
+    } else {
+      debugPrint('📡 GPS already tracking from prewarm — skipping startTracking()');
     }
 
     // Set state and start timer

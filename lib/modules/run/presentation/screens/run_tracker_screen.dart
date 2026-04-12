@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
@@ -274,14 +273,14 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   Future<void> _handleStartRun(BuildContext context) async {
     final runController = Provider.of<RunController>(context, listen: false);
 
-    // Enable wake lock BEFORE warmup so screen stays on during countdown
-    await WakeLockService.enable();
+    // Start GPS + wakelock + TTS init BEFORE the warmup dialog.
+    // This is critical on iOS: GPS must be running before the screen locks
+    // so iOS keeps the Dart VM alive via background location mode.
+    // Without this, locking during warmup suspends the VM and the countdown
+    // freezes — the run never starts.
+    await runController.prewarmGps();
 
     // Show 5-second warmup countdown.
-    // Pass the voice controller so the dialog speaks each number via TTS —
-    // this activates the iOS AVAudioSession BEFORE the phone can be locked,
-    // keeping Dart timers alive while the screen is off (same technique used
-    // by Nike Run Club, Strava, Run Trainer).
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
