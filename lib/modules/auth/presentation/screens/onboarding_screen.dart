@@ -16,6 +16,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullName = TextEditingController();
   final _nickname = TextEditingController();
+  final _phone = TextEditingController();
   DateTime? _dob;
   String? _gender;
   bool _loading = false;
@@ -36,6 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _fullName.dispose();
     _nickname.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
@@ -87,7 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'photoUrl': user.photoURL ?? '',
         'dob': _dob!.toIso8601String(),
         'gender': _gender,
-        'phoneNumber': '',
+        'phoneNumber': _phone.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'workoutsCount': 0,
         'totalKm': 0.0,
@@ -210,6 +212,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   labelText: 'Nickname (optional)',
                                   hintText: 'e.g. Flash, Iron Mike...',
                                   prefixIcon: Icon(Icons.tag, color: cs.primary),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Phone number (optional, no OTP)
+                              TextFormField(
+                                controller: _phone,
+                                keyboardType: TextInputType.phone,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: 'Phone number (optional)',
+                                  hintText: 'e.g. +60123456789',
+                                  prefixIcon: Icon(Icons.phone_outlined, color: cs.primary),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12)),
                                 ),
