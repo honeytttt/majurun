@@ -111,17 +111,17 @@ Future<void> main() async {
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
 
-    // Firebase App Check — verifies requests come from the real app on a real device.
-    // Android: Play Integrity (debug builds fall back to debug provider automatically)
-    // iOS: App Attest with DeviceCheck fallback
-    await FirebaseAppCheck.instance.activate(
+    // Firebase App Check — run async after runApp() so it doesn't block the first frame.
+    // App Attest on iOS can take 3–5 seconds on first launch; there's no UX benefit
+    // to blocking startup for it — requests made before it completes still work.
+    Future(() => FirebaseAppCheck.instance.activate(
       androidProvider: AppConfig.isProduction
           ? AndroidProvider.playIntegrity
           : AndroidProvider.debug,
       appleProvider: AppConfig.isProduction
           ? AppleProvider.appAttestWithDeviceCheckFallback
           : AppleProvider.debug,
-    );
+    ));
 
     // Attach remote logger — WARNING+ logs → Firestore app_logs
     RemoteLogger.attach();

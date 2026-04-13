@@ -86,30 +86,24 @@ class ServiceLocator {
         }
       };
 
-      // Initialize analytics
-      await analyticsService.initialize();
+      // Run independent services in parallel — previously sequential, adding ~4s to startup
+      await Future.wait([
+        analyticsService.initialize(),
+        performanceService.initialize(),
+        remoteConfigService.initialize(),
+        deepLinkService.initialize(),
+        intervalTrainingService.initialize(),
+        audioCoachingService.initialize(),
+      ]);
 
-      // Initialize performance monitoring
-      await performanceService.initialize();
-
-      // Initialize remote config (feature flags)
-      await remoteConfigService.initialize();
-
-      // Initialize push notifications
-      await pushNotificationService.initialize();
-
-      // Initialize deep linking
-      await deepLinkService.initialize();
-
-      // Initialize background geolocation
-      await backgroundGeolocationService.initialize();
-
-      // Initialize achievements
+      // Background geolocation and achievements don't need to block runApp()
+      backgroundGeolocationService.initialize();
       achievementService.initialize();
 
-      // Initialize TTS services
-      await intervalTrainingService.initialize();
-      await audioCoachingService.initialize();
+      // Push notifications: initialize after runApp() — scheduling a notification
+      // does not need to block the first frame from rendering.
+      // Called via unawaited so it does not hold up the startup chain.
+      Future(() => pushNotificationService.initialize());
 
       // Listen for auth changes to update user context
       _authSubscription = FirebaseAuth.instance.authStateChanges().listen(_onAuthStateChanged);

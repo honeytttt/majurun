@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'package:majurun/modules/auth/presentation/widgets/auth_wrapper.dart';
 
@@ -17,6 +19,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _phone = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
 
@@ -24,6 +27,7 @@ class _SignupScreenState extends State<SignupScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
@@ -44,6 +48,17 @@ class _SignupScreenState extends State<SignupScreen> {
             email: _email.text.trim(),
             password: _password.text.trim(),
           );
+      // Save optional phone number to Firestore — no OTP, just a contact detail
+      final phone = _phone.text.trim();
+      if (phone.isNotEmpty) {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          await FirebaseFirestore.instance.collection('users').doc(uid).set(
+            {'phone': phone},
+            SetOptions(merge: true),
+          );
+        }
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -239,6 +254,21 @@ class _SignupScreenState extends State<SignupScreen> {
                                 }
                                 return null;
                               },
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Phone number (optional, no OTP)
+                            TextFormField(
+                              controller: _phone,
+                              keyboardType: TextInputType.phone,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: 'Phone number (optional)',
+                                hintText: 'e.g. +60123456789',
+                                prefixIcon: Icon(Icons.phone_outlined, color: cs.primary),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
                             ),
                             const SizedBox(height: 14),
 

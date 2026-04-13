@@ -1007,7 +1007,9 @@ class PushNotificationService {
   /// notification to be pushed to tomorrow whenever the user opens the app.
   Future<void> scheduleDefaultNotifications() async {
     final prefs = await SharedPreferences.getInstance();
-    const scheduledKey = 'default_notifications_scheduled';
+    // Bump this key whenever the schedule logic changes (e.g. timezone fix)
+    // so existing installs reschedule with the updated logic.
+    const scheduledKey = 'default_notifications_v2';
     if (prefs.getBool(scheduledKey) == true) return;
 
     await scheduleDailyMotivation(hour: 7, minute: 30);
