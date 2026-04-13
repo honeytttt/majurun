@@ -51,18 +51,19 @@ class PostRepositoryImpl {
       }).toList();
     }
 
-    // fallback to mapImageUrl when media list is empty
-    final mapImageUrl = data['mapImageUrl']?.toString();
-    if (mediaList.isEmpty && mapImageUrl != null && mapImageUrl.isNotEmpty) {
-      mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.image));
-    }
-
-    // append selfie after map (if present and not already in media list)
-    final selfieUrl = data['selfieUrl']?.toString();
-    if (selfieUrl != null && selfieUrl.isNotEmpty) {
-      final alreadyAdded = mediaList.any((m) => m.url == selfieUrl);
-      if (!alreadyAdded) {
+    // For run auto-posts, mapImageUrl and selfieUrl are stored as top-level fields
+    // (not inside the 'media' array). Build the feed media list with the right priority:
+    //   - selfie first  → post_card shows selfie in the feed when user took one
+    //   - map only      → shown when user skipped the selfie prompt
+    // Profile/history grids use their own _parseMedia() which always reads mapImageUrl,
+    // so history always shows the map regardless of what we do here.
+    if (mediaList.isEmpty) {
+      final selfieUrl = data['selfieUrl']?.toString();
+      final mapImageUrl = data['mapImageUrl']?.toString();
+      if (selfieUrl != null && selfieUrl.isNotEmpty) {
         mediaList.add(PostMedia(url: selfieUrl, type: MediaType.image));
+      } else if (mapImageUrl != null && mapImageUrl.isNotEmpty) {
+        mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.image));
       }
     }
 

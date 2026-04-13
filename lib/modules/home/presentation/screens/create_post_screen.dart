@@ -149,8 +149,85 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   bool get _shouldShowWarning => _totalRemaining <= 5;
 
+  /// Show a bottom sheet to pick photo source (Camera or Gallery), then pick.
+  Future<void> _showPhotoSourceSheet() async {
+    if (_mediaList.where((m) => m.type == MediaType.image).length >= PostLimitService.maxImagesPerPost) {
+      _showError(_limitService.getImageCountMessage());
+      return;
+    }
+    ImageSource? source;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Icon(Icons.add_photo_alternate_outlined, color: Color(0xFF7ED957), size: 20),
+                SizedBox(width: 10),
+                Text('Add Photo', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: _sourceBtn(
+                  icon: Icons.camera_alt_outlined,
+                  label: 'Camera',
+                  onTap: () { source = ImageSource.camera; Navigator.of(ctx).pop(); },
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _sourceBtn(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Gallery',
+                  onTap: () { source = ImageSource.gallery; Navigator.of(ctx).pop(); },
+                )),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source != null) await _pickMedia(false, source: source!);
+  }
+
+  Widget _sourceBtn({required IconData icon, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2D7A3E),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(height: 6),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Pick and validate media (image or video)
-  Future<void> _pickMedia(bool isVideo) async {
+  Future<void> _pickMedia(bool isVideo, {ImageSource source = ImageSource.gallery}) async {
     // ✅ Check image count limit BEFORE picking (only for images)
     if (!isVideo && _mediaList.where((m) => m.type == MediaType.image).length >= PostLimitService.maxImagesPerPost) {
       _showError(_limitService.getImageCountMessage());
@@ -160,7 +237,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final picker = ImagePicker();
     final XFile? file = isVideo
         ? await picker.pickVideo(source: ImageSource.gallery)
-        : await picker.pickImage(source: ImageSource.gallery);
+        : await picker.pickImage(source: source, imageQuality: 85, maxWidth: 1080);
 
     if (file == null) return;
 
@@ -522,7 +599,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF00E676),
                       ),
-                      onPressed: _isUploading ? null : () => _pickMedia(false),
+                      onPressed: _isUploading ? null : _showPhotoSourceSheet,
                     ),
                   ),
 
