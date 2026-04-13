@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
@@ -603,6 +604,7 @@ class PushNotificationService {
 
     // Cancel existing reminders
     await cancelRunReminders();
+    await _initTimezone();
 
     // Schedule for each weekday
     for (final weekday in weekdays) {
@@ -676,7 +678,7 @@ class PushNotificationService {
   }
 
   tz.TZDateTime _nextInstanceOfWeekdayTime(int weekday, int hour, int minute) {
-    tz_data.initializeTimeZones();
+    // _initTimezone() must have been called before this (it's async, can't await here)
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
     tz.TZDateTime scheduledDate = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
@@ -757,6 +759,21 @@ class PushNotificationService {
     await _fcm.unsubscribeFromTopic(topic);
   }
 
+  // ==================== TIMEZONE INIT ====================
+
+  bool _tzInitialized = false;
+
+  /// Initialise timezone database and set tz.local to the device's real timezone.
+  /// Must be called before any zonedSchedule call.
+  Future<void> _initTimezone() async {
+    if (_tzInitialized) return;
+    tz_data.initializeTimeZones();
+    final String localTz = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(localTz));
+    _tzInitialized = true;
+    debugPrint('🕐 Timezone set to: $localTz');
+  }
+
   // ==================== DAILY MOTIVATION NOTIFICATIONS ====================
 
   static const int _motivationNotifId = 200;
@@ -794,7 +811,7 @@ class PushNotificationService {
   /// Schedule a daily morning motivation notification.
   Future<void> scheduleDailyMotivation({int hour = 7, int minute = 0}) async {
     await _ensureInitialized();
-    tz_data.initializeTimeZones();
+    await _initTimezone();
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
     var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
@@ -841,7 +858,7 @@ class PushNotificationService {
   /// Fires every evening — users who already ran can ignore/dismiss.
   Future<void> scheduleNoRunReminder({int hour = 19, int minute = 0}) async {
     await _ensureInitialized();
-    tz_data.initializeTimeZones();
+    await _initTimezone();
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
     var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
@@ -887,7 +904,7 @@ class PushNotificationService {
   /// Schedule a weekly subscription upsell notification for free users.
   Future<void> scheduleSubscriptionReminder() async {
     await _ensureInitialized();
-    tz_data.initializeTimeZones();
+    await _initTimezone();
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
     // Fire next Saturday at 10am
@@ -934,6 +951,7 @@ class PushNotificationService {
     const key = 'weekly_summary_enabled';
     if (prefs.getBool(key) == false) return;
 
+    await _initTimezone();
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     // Find next Sunday (weekday 7)
     int daysUntilSunday = (DateTime.sunday - now.weekday + 7) % 7;
@@ -983,11 +1001,21 @@ class PushNotificationService {
     await prefs.setBool('weekly_summary_enabled', false);
   }
 
-  /// Call once after successful login/onboarding to set up all default scheduled notifications.
+  /// Set up all default scheduled notifications.
+  /// Guards with a SharedPreferences flag so it only schedules once per install
+  /// — calling this on every app launch would wipe and reschedule, causing today's
+  /// notification to be pushed to tomorrow whenever the user opens the app.
   Future<void> scheduleDefaultNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    const scheduledKey = 'default_notifications_scheduled';
+    if (prefs.getBool(scheduledKey) == true) return;
+
     await scheduleDailyMotivation(hour: 7, minute: 30);
     await scheduleNoRunReminder(hour: 19, minute: 0);
     await scheduleWeeklySummary();
+
+    await prefs.setBool(scheduledKey, true);
+    debugPrint('✅ Default notifications scheduled for the first time');
   }
 
   /// Dispose service
