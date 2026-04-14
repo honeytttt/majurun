@@ -71,6 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String email,
     required String location,
     String nickname = '',
+    String phoneNumber = '',
   }) {
     // Capture ProfileScreen's context before entering the builder.
     // The builder's (context) parameter refers to the settings screen's context,
@@ -88,7 +89,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           currentEmail: email,
           currentLocation: location,
           currentNickname: nickname,
-          onSave: (newName, newBio, imageData, newEmail, newLocation, newNickname) async {
+          currentPhone: phoneNumber,
+          onSave: (newName, newBio, imageData, newEmail, newLocation, newNickname, newPhone) async {
             dynamic uploadedImageUrl = imageUrl;
 
             if (kIsWeb && imageData is Uint8List) {
@@ -107,6 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).update({
                 'location': newLocation,
                 'nickname': newNickname,
+                if (newPhone.isNotEmpty) 'phoneNumber': newPhone,
                 'updatedAt': FieldValue.serverTimestamp(),
               });
             }
@@ -279,6 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final email = (data['email'] ?? widget.currentEmail) as String;
           final location = (data['location'] as String?) ?? '';
           final nickname = (data['nickname'] as String?) ?? '';
+          final phoneNumber = (data['phoneNumber'] as String?) ?? '';
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
 
           final followersCount = (data['followersCount'] as int?) ?? 0;
@@ -317,6 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       bio: bio,
                       imageUrl: imageUrl,
                       email: email,
+                      phoneNumber: phoneNumber,
                       followersCount: followersCount,
                       followingCount: followingCount,
                       postsCount: postsCount,
@@ -363,6 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String userId,
     required String location,
     String nickname = '',
+    String phoneNumber = '',
     DateTime? createdAt,
   }) {
     return Container(
@@ -412,7 +418,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // Private phone number — only visible on own profile
+          if (phoneNumber.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.phone_outlined, size: 13, color: Colors.grey[600]),
+                  const SizedBox(width: 5),
+                  Text(
+                    phoneNumber,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  ),
+                  const SizedBox(width: 5),
+                  Tooltip(
+                    message: 'Only you can see this',
+                    child: Icon(Icons.lock_outline, size: 12, color: Colors.grey[400]),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
 
           // Location & Joined Date Row
           _buildLocationJoinedRow(location: location, createdAt: createdAt),
@@ -463,6 +498,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   email: email,
                   location: location,
                   nickname: nickname,
+                  phoneNumber: phoneNumber,
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00E676),

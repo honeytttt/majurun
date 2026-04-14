@@ -2,6 +2,7 @@ import 'package:health/health.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HealthSyncResult {
   final int imported;
@@ -191,14 +192,35 @@ class HealthSyncService {
   String _getSourceTitle(String sourceName) {
     final lowerSource = sourceName.toLowerCase();
     if (lowerSource.contains('strava')) return 'Strava Run';
-    if (lowerSource.contains('nike')) return 'Nike Run';
+    if (lowerSource.contains('nike')) return 'Nike Run Club';
     if (lowerSource.contains('adidas') || lowerSource.contains('runtastic')) return 'Adidas Running';
     if (lowerSource.contains('garmin')) return 'Garmin Run';
     if (lowerSource.contains('fitbit')) return 'Fitbit Run';
     if (lowerSource.contains('samsung')) return 'Samsung Health Run';
     if (lowerSource.contains('google')) return 'Google Fit Run';
     if (lowerSource.contains('apple') || lowerSource.contains('health')) return 'Apple Health Run';
+    if (lowerSource.contains('runtrainer') || lowerSource.contains('run trainer') ||
+        lowerSource.contains('asics') || lowerSource.contains('runkeeper')) return 'Run Trainer';
+    if (lowerSource.contains('polar')) return 'Polar Run';
+    if (lowerSource.contains('suunto')) return 'Suunto Run';
+    if (lowerSource.contains('wahoo')) return 'Wahoo Run';
+    if (lowerSource.contains('map my') || lowerSource.contains('mapmyrun')) return 'MapMyRun';
     return 'Imported Run';
+  }
+
+  /// Auto-sync on first install — checks SharedPreferences flag so it only
+  /// runs once. Intended to be called silently after the user first logs in.
+  Future<void> autoSyncOnFirstInstall() async {
+    const key = 'health_auto_synced_v1';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(key) == true) return;
+
+    final granted = await requestPermissions();
+    if (!granted) return;
+
+    await syncData(days: 365, silent: true);
+    await prefs.setBool(key, true);
+    debugPrint('✅ Auto health sync on first install complete');
   }
 
   /// Get the last sync date

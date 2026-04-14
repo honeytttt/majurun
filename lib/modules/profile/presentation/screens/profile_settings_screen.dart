@@ -10,7 +10,8 @@ class ProfileSettingsScreen extends StatefulWidget {
   final String currentEmail;
   final String currentLocation;
   final String currentNickname;
-  final Function(String, String, dynamic, String, String, String) onSave; // name, bio, image, email, location, nickname
+  final String currentPhone;
+  final Function(String, String, dynamic, String, String, String, String) onSave; // name, bio, image, email, location, nickname, phone
 
   const ProfileSettingsScreen({
     super.key,
@@ -20,6 +21,7 @@ class ProfileSettingsScreen extends StatefulWidget {
     required this.currentEmail,
     this.currentLocation = '',
     this.currentNickname = '',
+    this.currentPhone = '',
     required this.onSave,
   });
 
@@ -33,6 +35,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _locationController;
   late final TextEditingController _nicknameController;
+  late final TextEditingController _phoneController;
   File? _imageFile;
   Uint8List? _webImage;
 
@@ -44,6 +47,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     _emailController = TextEditingController(text: widget.currentEmail);
     _locationController = TextEditingController(text: widget.currentLocation);
     _nicknameController = TextEditingController(text: widget.currentNickname);
+    _phoneController = TextEditingController(text: widget.currentPhone);
   }
 
   @override
@@ -53,6 +57,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     _emailController.dispose();
     _locationController.dispose();
     _nicknameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -90,6 +95,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       _emailController.text.trim(),
       _locationController.text.trim(),
       _nicknameController.text.trim(),
+      _phoneController.text.trim(),
     );
 
     if (mounted) Navigator.pop(context, true);
@@ -151,6 +157,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 25),
             _buildInputField("LOCATION", _locationController, icon: Icons.location_on_outlined),
             const SizedBox(height: 25),
+            _buildInputField(
+              "PHONE NUMBER (private — only you see this)",
+              _phoneController,
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 25),
             _buildInputField("EMAIL", _emailController, enabled: false),
           ],
         ),
@@ -210,7 +223,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return const Icon(Icons.person, size: 55, color: Colors.grey);
   }
 
-  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1, bool enabled = true, IconData? icon, String? hint}) {
+  Widget _buildInputField(String label, TextEditingController controller, {int maxLines = 1, bool enabled = true, IconData? icon, String? hint, TextInputType? keyboardType}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -228,6 +241,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           controller: controller,
           maxLines: maxLines,
           enabled: enabled,
+          keyboardType: keyboardType,
           decoration: InputDecoration(
             filled: true,
             fillColor: enabled ? Colors.grey[50] : Colors.grey[100],

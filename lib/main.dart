@@ -29,6 +29,7 @@ import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 // Counter initializer
 import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/services/health_sync_service.dart';
 import 'core/services/remote_logger.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -181,6 +182,8 @@ class _MyAppState extends State<MyApp> {
         PushNotificationService().initialize().then((_) {
           PushNotificationService().scheduleDefaultNotifications();
         });
+        // Auto-sync run history from health apps on first install (silent)
+        HealthSyncService().autoSyncOnFirstInstall();
         // Set user ID for analytics, crash reporting, and Sentry
         analytics.setUserId(user.uid);
         crashReporting.setUserId(user.uid);

@@ -10,6 +10,7 @@ import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart'
 import 'package:majurun/core/services/badge_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/core/services/health_sync_service.dart';
+import 'package:majurun/core/services/strava_sync_service.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -93,6 +94,118 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     }
   }
 
+  Future<void> _syncStravaData() async {
+    if (_isSyncing || !mounted) return;
+
+    final strava = StravaSyncService();
+
+    if (!strava.isConfigured) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Strava integration not yet configured'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSyncing = true);
+
+    try {
+      final connected = await strava.isConnected();
+      if (!connected) {
+        if (!mounted) { setState(() => _isSyncing = false); return; }
+        final ctx = context;
+        final authorized = await strava.authorize(ctx);
+        if (!authorized || !mounted) {
+          setState(() => _isSyncing = false);
+          return;
+        }
+      }
+
+      final result = await strava.syncActivities(days: 365);
+      if (!mounted) return;
+
+      if (result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Strava sync failed: ${result.error}'), backgroundColor: Colors.red),
+        );
+      } else if (result.imported > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Imported ${result.imported} runs from Strava'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _refreshHistory();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No new Strava runs to import'), backgroundColor: Colors.orange),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  void _showSyncOptions(BuildContext ctx) {
+    showModalBottomSheet(
+      context: ctx,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Import Runs',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.favorite, color: Colors.red),
+                title: const Text('Health Apps'),
+                subtitle: const Text('Strava, Nike, Garmin, Samsung & more via Health Connect / HealthKit'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _syncHealthData();
+                },
+              ),
+              ListTile(
+                leading: Image.asset(
+                  'assets/images/strava_logo.png',
+                  width: 24, height: 24,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.directions_run, color: Color(0xFFFC4C02)),
+                ),
+                title: const Text('Strava (with route maps)'),
+                subtitle: const Text('Connect directly to Strava to import runs with GPS maps'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _syncStravaData();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -156,8 +269,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                                   ),
                                 )
                               : const Icon(Icons.sync, color: Colors.black),
-                          tooltip: 'Import from Health Apps',
-                          onPressed: _isSyncing ? null : _syncHealthData,
+                          tooltip: 'Import from apps',
+                          onPressed: _isSyncing ? null : () => _showSyncOptions(context),
                         ),
                         IconButton(
                           icon: const Icon(Icons.share, color: Colors.black),

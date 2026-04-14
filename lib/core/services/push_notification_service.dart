@@ -836,7 +836,7 @@ class PushNotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -883,7 +883,7 @@ class PushNotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -1009,7 +1009,8 @@ class PushNotificationService {
     final prefs = await SharedPreferences.getInstance();
     // Bump this key whenever the schedule logic changes (e.g. timezone fix)
     // so existing installs reschedule with the updated logic.
-    const scheduledKey = 'default_notifications_v2';
+    // Bumped to v3: switched to exactAllowWhileIdle for reliable daily delivery
+    const scheduledKey = 'default_notifications_v3';
     if (prefs.getBool(scheduledKey) == true) return;
 
     await scheduleDailyMotivation(hour: 7, minute: 30);
