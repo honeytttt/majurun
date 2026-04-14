@@ -727,6 +727,8 @@ class RunController extends ChangeNotifier {
   Future<void> refreshHistoryStats() async => await statsController.refreshHistoryStats();
   Future<Map<String, dynamic>?> getLastActivity() async => await statsController.getLastActivity();
   Future<List<Map<String, dynamic>>> getRunHistory() async => await statsController.getRunHistory();
+  Future<List<Map<String, dynamic>>> getRunHistoryPage({required int pageSize, DateTime? before}) async =>
+      await statsController.getRunHistoryPage(pageSize: pageSize, before: before);
 
   @override
   void dispose() {

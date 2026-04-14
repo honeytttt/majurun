@@ -210,6 +210,33 @@ class StatsController extends ChangeNotifier {
     };
   }
 
+  /// Get a page of runs for paginated history display.
+  Future<List<Map<String, dynamic>>> getRunHistoryPage({
+    required int pageSize,
+    DateTime? before,
+  }) async {
+    final runs = await _repository.getRunsPage(pageSize: pageSize, before: before);
+    return runs.map((run) => {
+      'id': run.id,
+      'date': run.completedAt,
+      'distance': run.distanceKm,
+      'durationSeconds': run.durationSeconds,
+      'pace': run.pace,
+      'calories': run.calories,
+      'planTitle': run.planTitle,
+      'avgBpm': run.avgBpm,
+      'routePoints': run.routePoints,
+      'type': run.type,
+      'week': run.week,
+      'day': run.day,
+      'completed': run.completed,
+      'mapImageUrl': run.mapImageUrl,
+      'extra': run.extra,
+      'isExternal': run.isExternal,
+      'source': run.source,
+    }).toList();
+  }
+
   /// Get all runs from RUN HISTORY (private workout records)
   /// This is YOUR personal workout log, not social posts
   Future<List<Map<String, dynamic>>> getRunHistory() async {

@@ -24,28 +24,55 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
-  Future<List<Map<String, dynamic>>>? _historyFuture;
+  static const int _pageSize = 50;
+
+  // Pagination state
+  List<Map<String, dynamic>> _runs = [];
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  bool _initialLoading = true;
+  DateTime? _lastRunDate; // cursor for next page
+
   bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final controller = Provider.of<RunController>(context, listen: false);
-      setState(() {
-        _historyFuture = controller.getRunHistory();
-      });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFirstPage());
+  }
+
+  Future<void> _loadFirstPage() async {
+    if (!mounted) return;
+    setState(() { _initialLoading = true; _runs = []; _hasMore = true; _lastRunDate = null; });
+    final controller = Provider.of<RunController>(context, listen: false);
+    final page = await controller.getRunHistoryPage(pageSize: _pageSize);
+    if (!mounted) return;
+    setState(() {
+      _runs = page;
+      _hasMore = page.length == _pageSize;
+      _lastRunDate = page.isNotEmpty ? page.last['date'] as DateTime? : null;
+      _initialLoading = false;
+    });
+  }
+
+  Future<void> _loadMoreRuns() async {
+    if (_isLoadingMore || !_hasMore || !mounted) return;
+    setState(() => _isLoadingMore = true);
+    final controller = Provider.of<RunController>(context, listen: false);
+    final page = await controller.getRunHistoryPage(pageSize: _pageSize, before: _lastRunDate);
+    if (!mounted) return;
+    setState(() {
+      _runs.addAll(page);
+      _hasMore = page.length == _pageSize;
+      _lastRunDate = page.isNotEmpty ? page.last['date'] as DateTime? : _lastRunDate;
+      _isLoadingMore = false;
     });
   }
 
   Future<void> _refreshHistory() async {
-    final controller = Provider.of<RunController>(context, listen: false);
-    setState(() {
-      _historyFuture = controller.getRunHistory();
-    });
-    await _historyFuture;
+    await _loadFirstPage();
   }
+
 
   Future<void> _syncHealthData() async {
     if (_isSyncing || !mounted) return;
@@ -208,150 +235,110 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final runs = _runs;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: Consumer<RunController>(
-        builder: (context, controller, child) {
-          final future = _historyFuture ?? controller.getRunHistory();
-          return FutureBuilder<List<Map<String, dynamic>>>(
-            future: future,
-            builder: (context, snapshot) {
-              final runs = snapshot.data ?? [];
-              return RefreshIndicator(
-                onRefresh: _refreshHistory,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverAppBar(
-                      pinned: true,
-                      floating: false,
-                      expandedHeight: 60,
-                      backgroundColor: Colors.white,
-                      elevation: 2,
-                      leading: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.black),
-                        onPressed: widget.onBack,
-                      ),
-                      title: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            "MY ",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Icon(Icons.directions_run, color: Colors.black, size: 18),
-                          Text(
-                            " HISTORY",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      centerTitle: true,
-                      actions: [
-                        IconButton(
-                          icon: _isSyncing
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : const Icon(Icons.sync, color: Colors.black),
-                          tooltip: 'Import from apps',
-                          onPressed: _isSyncing ? null : () => _showSyncOptions(context),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.share, color: Colors.black),
-                          onPressed: () => _shareHistory(context, runs),
-                        ),
-                      ],
-                    ),
+      body: RefreshIndicator(
+        onRefresh: _refreshHistory,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              floating: false,
+              expandedHeight: 60,
+              backgroundColor: Colors.white,
+              elevation: 2,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: widget.onBack,
+              ),
+              title: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("MY ", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 16)),
+                  Icon(Icons.directions_run, color: Colors.black, size: 18),
+                  Text(" HISTORY", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 16)),
+                ],
+              ),
+              centerTitle: true,
+              actions: [
+                IconButton(
+                  icon: _isSyncing
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                      : const Icon(Icons.sync, color: Colors.black),
+                  tooltip: 'Import from apps',
+                  onPressed: _isSyncing ? null : () => _showSyncOptions(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.share, color: Colors.black),
+                  onPressed: () => _shareHistory(context, runs),
+                ),
+              ],
+            ),
 
-                    SliverToBoxAdapter(
-                      child: Container(
-                        color: Colors.white,
-                        child: _buildSummaryHeader(runs),
-                      ),
-                    ),
+            SliverToBoxAdapter(
+              child: Container(color: Colors.white, child: _buildSummaryHeader(runs)),
+            ),
 
-                    SliverToBoxAdapter(
-                      child: Container(
-                        color: Colors.white,
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.history, size: 16, color: Colors.grey),
-                            SizedBox(width: 8),
-                            Text(
-                              "RECENT SESSIONS",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    if (snapshot.connectionState == ConnectionState.waiting)
-                      const SliverFillRemaining(
-                        child: Center(child: CircularProgressIndicator(color: Colors.black)),
-                      )
-                    else if (snapshot.hasError)
-                      SliverFillRemaining(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                              const SizedBox(height: 16),
-                              Text("Unable to load history", style: TextStyle(color: Colors.grey.shade600)),
-                              const SizedBox(height: 10),
-                              Text("Pull to refresh", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else if (runs.isEmpty)
-                      const SliverFillRemaining(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.directions_run, size: 48, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                              SizedBox(height: 8),
-                              Text("Start your first session.", style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      ..._buildGroupedRunsList(context, runs),
-
-                    const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: const Row(
+                  children: [
+                    Icon(Icons.history, size: 16, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text("RECENT SESSIONS", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
                   ],
                 ),
-              );
-            },
-          );
-        },
+              ),
+            ),
+
+            if (_initialLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator(color: Colors.black)),
+              )
+            else if (runs.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.directions_run, size: 48, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      SizedBox(height: 8),
+                      Text("Start your first session.", style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ..._buildGroupedRunsList(context, runs),
+
+            // Load More button
+            if (!_initialLoading && _hasMore)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoadingMore ? null : _loadMoreRuns,
+                    icon: _isLoadingMore
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.expand_more),
+                    label: Text(_isLoadingMore ? 'Loading...' : 'Load more runs'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ),
+
+            const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+          ],
+        ),
       ),
     );
   }
@@ -1121,11 +1108,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
             ),
 
-            // ✅ ALWAYS prefer route on Web when route exists
+            // Show route map only for runs recorded in-app (external runs have no GPS data)
             if (hasRoute)
               _buildRoutePreviewSmart(routePoints)
             else if (hasMapImage)
               _buildNetworkPreview(mapImageUrl)
+            else if (isExternal)
+              _buildExternalRunBanner(externalSource)
             else
               _noRoutePlaceholder(),
           ],
@@ -1138,6 +1127,30 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   // Interactive map for all platforms
   Widget _buildRoutePreviewSmart(List<LatLng> routePoints) {
     return _buildMiniRouteMap(routePoints);
+  }
+
+  /// Compact banner shown for health-synced runs — no empty map box.
+  Widget _buildExternalRunBanner(String source) {
+    final label = source.isNotEmpty ? source : 'External App';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.purple.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.sync, size: 14, color: Colors.purple.shade400),
+          const SizedBox(width: 6),
+          Text(
+            'Synced from $label · Route not available',
+            style: TextStyle(fontSize: 11, color: Colors.purple.shade600),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _noRoutePlaceholder() {

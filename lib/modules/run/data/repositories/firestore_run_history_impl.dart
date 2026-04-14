@@ -125,6 +125,23 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
   }
 
   @override
+  Future<List<RunHistory>> getRunsPage({required int pageSize, DateTime? before}) async {
+    final uid = _currentUid;
+    if (uid == null) return [];
+
+    var query = _historyCollection(uid)
+        .orderBy('completedAt', descending: true)
+        .limit(pageSize);
+
+    if (before != null) {
+      query = query.where('completedAt', isLessThan: Timestamp.fromDate(before));
+    }
+
+    final snapshot = await query.get();
+    return snapshot.docs.map(_mapDoc).toList();
+  }
+
+  @override
   Future<RunHistoryStats> getStats() async {
     final uid = _currentUid;
     if (uid == null) return RunHistoryStats.empty;

@@ -145,6 +145,13 @@ class HealthSyncService {
   }
 
   Future<bool> _saveToFirebase(String uid, String workoutId, Map<String, dynamic> data) async {
+    // Skip runs that originated from MajuRun itself (synced to Health Connect and back)
+    final sourceName = data['source'] as String;
+    final lowerSource = sourceName.toLowerCase();
+    if (lowerSource.contains('majurun') || lowerSource.contains('com.majurun')) {
+      return false;
+    }
+
     final docRef = _firestore
         .collection('users')
         .doc(uid)
@@ -155,6 +162,14 @@ class HealthSyncService {
     final existing = await docRef.get();
     if (existing.exists) {
       return false; // Already imported
+    }
+
+    // Skip if a native (non-external) MajuRun run already covers this workout
+    final workoutStart = data['dateFrom'] as DateTime;
+    final distanceM = data['distance'] as double;
+    if (await _nativeRunExistsAt(uid, workoutStart, distanceM / 1000)) {
+      debugPrint('⏭️ Skipping duplicate: native run exists near ${workoutStart.toIso8601String()}');
+      return false;
     }
 
     final distance = data['distance'] as double;
@@ -171,7 +186,6 @@ class HealthSyncService {
       pace = '$paceMin:${paceSec.toString().padLeft(2, '0')}';
     }
 
-    final sourceName = data['source'] as String;
     final planTitle = _getSourceTitle(sourceName);
 
     await docRef.set({
@@ -187,6 +201,33 @@ class HealthSyncService {
     });
 
     return true;
+  }
+
+  /// Returns true if a native (MajuRun-recorded) run exists within ±10 min
+  /// of [dateTime] with a distance within 15% of [distanceKm].
+  /// Prevents the same run appearing twice when Health Connect echoes it back.
+  Future<bool> _nativeRunExistsAt(String uid, DateTime dateTime, double distanceKm) async {
+    final windowStart = Timestamp.fromDate(dateTime.subtract(const Duration(minutes: 10)));
+    final windowEnd   = Timestamp.fromDate(dateTime.add(const Duration(minutes: 10)));
+
+    final snapshot = await _firestore
+        .collection('users').doc(uid)
+        .collection('training_history')
+        .where('completedAt', isGreaterThanOrEqualTo: windowStart)
+        .where('completedAt', isLessThanOrEqualTo: windowEnd)
+        .limit(10)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final d = doc.data();
+      if (d['isExternal'] == true) continue; // ignore other imported runs
+      final native = (d['distanceKm'] as num?)?.toDouble() ?? 0;
+      if (native > 0 && distanceKm > 0) {
+        final diff = (native - distanceKm).abs() / distanceKm;
+        if (diff <= 0.15) return true;
+      }
+    }
+    return false;
   }
 
   String _getSourceTitle(String sourceName) {

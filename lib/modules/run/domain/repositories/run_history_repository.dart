@@ -32,6 +32,10 @@ abstract class RunHistoryRepository {
   /// Get all runs sorted by completion date (newest first).
   Future<List<RunHistory>> getAllRuns();
 
+  /// Get a page of runs. [before] is the completedAt of the last run from the
+  /// previous page (used as cursor). Pass null for the first page.
+  Future<List<RunHistory>> getRunsPage({required int pageSize, DateTime? before});
+
   /// Get total statistics across all runs.
   Future<RunHistoryStats> getStats();
 
