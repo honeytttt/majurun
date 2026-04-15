@@ -13,6 +13,7 @@ import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 
 
@@ -775,11 +776,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     if (!mounted) return;
 
     // Capture final stats BEFORE stop clears them
-    final distanceKm = runController.stateController.totalDistance / 1000;
-    final duration   = runController.stateController.durationString;
-    final pace       = runController.stateController.paceString;
-    final calories   = runController.stateController.totalCalories;
-    const planTitle  = 'Free Run';
+    final distanceKm  = runController.stateController.totalDistance / 1000;
+    final duration    = runController.stateController.durationString;
+    final pace        = runController.stateController.paceString;
+    final calories    = runController.stateController.totalCalories;
+    final routePoints = List.of(runController.stateController.routePoints);
+    const planTitle   = 'Free Run';
 
     // ── Runs < 1 km: skip selfie prompt, skip congratulations, go home ──────
     if (distanceKm < 1.0) {
@@ -801,8 +803,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    // Show a saving overlay so the user isn't staring at a frozen screen
-    // while Cloudinary uploads the map/selfie and Firestore writes happen.
+    // Show saving overlay while history is written (Cloudinary upload happens
+    // later, after the user reviews the post in the editor).
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -825,7 +827,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         context,
         planTitle: planTitle,
         mapImageBytes: mapImageBytes,
-        selfieBytes: selfieBytes,
       );
     } catch (e) {
       debugPrint("❌ Error saving run: $e");
@@ -843,10 +844,23 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
     if (!mounted) return;
 
-    // Replace active run screen with congratulations screen
+    // Generate suggested caption for the editor
+    final suggestedText = runController.generatePostText(
+      planTitle: planTitle,
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: duration,
+      pace: pace,
+      calories: calories,
+    );
+
+    // Navigate to post editor — user can edit text, toggle map/selfie, then post or skip
     nav.pushReplacement(
       MaterialPageRoute(
-        builder: (_) => CongratulationsScreen(
+        builder: (_) => RunPostEditorScreen(
+          mapImageBytes: mapImageBytes,
+          selfieBytes: selfieBytes,
+          initialText: suggestedText,
+          routePoints: routePoints,
           distanceKm: distanceKm,
           duration: duration,
           pace: pace,

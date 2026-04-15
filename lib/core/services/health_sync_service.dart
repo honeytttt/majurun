@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
 
 class HealthSyncResult {
   final int imported;
@@ -55,7 +56,12 @@ class HealthSyncService {
   /// Sync data with customizable date range
   /// [days] - number of days to fetch (default 90 for 3 months history)
   /// [silent] - prevents error logs/popups from disrupting the UI if not needed
-  Future<HealthSyncResult> syncData({int days = 90, bool silent = false}) async {
+  /// [onProgress] - optional callback: (done, total) — called as each workout is processed
+  Future<HealthSyncResult> syncData({
+    int days = 90,
+    bool silent = false,
+    void Function(int done, int total)? onProgress,
+  }) async {
     final user = _auth.currentUser;
     if (user == null) {
       return HealthSyncResult(imported: 0, skipped: 0, error: "Not logged in");
@@ -120,7 +126,9 @@ class HealthSyncService {
         }
       }
 
-      // 4. Save workouts to Firebase
+      // 4. Save workouts to Firebase (with progress reporting)
+      final total = workouts.length;
+      int done = 0;
       for (final entry in workouts.entries) {
         final result = await _saveToFirebase(user.uid, entry.key, entry.value);
         if (result) {
@@ -128,6 +136,8 @@ class HealthSyncService {
         } else {
           skipped++;
         }
+        done++;
+        onProgress?.call(done, total);
       }
 
       debugPrint("✅ Health Sync Complete: $imported imported, $skipped skipped");
@@ -251,6 +261,7 @@ class HealthSyncService {
 
   /// Auto-sync on first install — checks SharedPreferences flag so it only
   /// runs once. Intended to be called silently after the user first logs in.
+  /// Shows a foreground progress notification so users know the app isn't frozen.
   Future<void> autoSyncOnFirstInstall() async {
     const key = 'health_auto_synced_v1';
     final prefs = await SharedPreferences.getInstance();
@@ -259,9 +270,29 @@ class HealthSyncService {
     final granted = await requestPermissions();
     if (!granted) return;
 
-    await syncData(days: 365, silent: true);
+    final pns = PushNotificationService();
+
+    // Show an initial progress notification so the user knows something is happening
+    await pns.showSyncProgressNotification(done: 0, total: 0);
+
+    final result = await syncData(
+      days: 365,
+      silent: true,
+      onProgress: (done, total) {
+        // Update notification every 10 items to avoid spamming
+        if (done % 10 == 0 || done == total) {
+          pns.showSyncProgressNotification(done: done, total: total);
+        }
+      },
+    );
+
+    await pns.showSyncCompleteNotification(
+      imported: result.imported,
+      skipped: result.skipped,
+    );
+
     await prefs.setBool(key, true);
-    debugPrint('✅ Auto health sync on first install complete');
+    debugPrint('✅ Auto health sync on first install complete — imported: ${result.imported}');
   }
 
   /// Get the last sync date

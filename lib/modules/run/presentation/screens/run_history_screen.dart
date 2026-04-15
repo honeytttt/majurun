@@ -34,6 +34,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   DateTime? _lastRunDate; // cursor for next page
 
   bool _isSyncing = false;
+  int _syncDone = 0;
+  int _syncTotal = 0;
 
   @override
   void initState() {
@@ -77,11 +79,16 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   Future<void> _syncHealthData() async {
     if (_isSyncing || !mounted) return;
 
-    setState(() => _isSyncing = true);
+    setState(() { _isSyncing = true; _syncDone = 0; _syncTotal = 0; });
 
     try {
       final service = HealthSyncService();
-      final result = await service.syncData(days: 365); // Sync last year
+      final result = await service.syncData(
+        days: 365,
+        onProgress: (done, total) {
+          if (mounted) setState(() { _syncDone = done; _syncTotal = total; });
+        },
+      );
 
       if (!mounted) return;
 
@@ -280,6 +287,32 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             SliverToBoxAdapter(
               child: Container(color: Colors.white, child: _buildSummaryHeader(runs)),
             ),
+
+            // Sync progress banner — visible during manual sync
+            if (_isSyncing)
+              SliverToBoxAdapter(
+                child: Container(
+                  color: const Color(0xFFE8F5E9),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2D7A3E)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _syncTotal > 0
+                              ? 'Importing run $_syncDone of $_syncTotal…'
+                              : 'Fetching runs from health apps…',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF2D7A3E), fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             SliverToBoxAdapter(
               child: Container(

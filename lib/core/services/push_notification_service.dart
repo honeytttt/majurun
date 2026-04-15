@@ -605,6 +605,7 @@ class PushNotificationService {
     // Cancel existing reminders
     await cancelRunReminders();
     await _initTimezone();
+    final reminderMode = await _resolveScheduleMode();
 
     // Schedule for each weekday
     for (final weekday in weekdays) {
@@ -621,7 +622,7 @@ class PushNotificationService {
           ),
           iOS: DarwinNotificationDetails(),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: reminderMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
@@ -774,6 +775,36 @@ class PushNotificationService {
     debugPrint('🕐 Timezone set to: $localTz');
   }
 
+  /// Returns the best available AndroidScheduleMode.
+  /// On Android 12+, SCHEDULE_EXACT_ALARM must be explicitly granted by the user.
+  /// If it hasn't been, fall back to inexact (still reliable within ~15 min window).
+  Future<AndroidScheduleMode> _resolveScheduleMode() async {
+    if (!Platform.isAndroid) return AndroidScheduleMode.exactAllowWhileIdle;
+    try {
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final canSchedule = await androidPlugin?.canScheduleExactNotifications() ?? false;
+      if (canSchedule) return AndroidScheduleMode.exactAllowWhileIdle;
+      debugPrint('⚠️ Exact alarms not permitted — using inexact schedule mode');
+      return AndroidScheduleMode.inexactAllowWhileIdle;
+    } catch (_) {
+      return AndroidScheduleMode.inexactAllowWhileIdle;
+    }
+  }
+
+  /// Opens the Android system settings page for "Alarms & Reminders" so the user
+  /// can grant SCHEDULE_EXACT_ALARM. Call from notification settings UI.
+  Future<void> requestExactAlarmPermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestExactAlarmsPermission();
+    } catch (e) {
+      debugPrint('⚠️ Could not open exact alarm settings: $e');
+    }
+  }
+
   // ==================== DAILY MOTIVATION NOTIFICATIONS ====================
 
   static const int _motivationNotifId = 200;
@@ -820,6 +851,7 @@ class PushNotificationService {
     }
 
     final message = (_morningMotivations..shuffle()).first;
+    final scheduleMode = await _resolveScheduleMode();
 
     await _localNotifications.zonedSchedule(
       _motivationNotifId,
@@ -836,7 +868,7 @@ class PushNotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -844,7 +876,7 @@ class PushNotificationService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('daily_motivation_enabled', true);
-    debugPrint('✅ Daily motivation scheduled at $hour:$minute');
+    debugPrint('✅ Daily motivation scheduled at $hour:$minute (mode: $scheduleMode)');
   }
 
   /// Cancel daily motivation notifications.
@@ -867,6 +899,7 @@ class PushNotificationService {
     }
 
     final message = (_eveningReminders..shuffle()).first;
+    final scheduleMode = await _resolveScheduleMode();
 
     await _localNotifications.zonedSchedule(
       _noRunReminderNotifId,
@@ -883,7 +916,7 @@ class PushNotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -891,7 +924,7 @@ class PushNotificationService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('no_run_reminder_enabled', true);
-    debugPrint('✅ No-run reminder scheduled at $hour:$minute');
+    debugPrint('✅ No-run reminder scheduled at $hour:$minute (mode: $scheduleMode)');
   }
 
   /// Cancel no-run reminders.
@@ -978,13 +1011,14 @@ class PushNotificationService {
     ];
     final msg = messages[DateTime.now().millisecond % messages.length];
 
+    final weeklyMode = await _resolveScheduleMode();
     await _localNotifications.zonedSchedule(
       _weeklySummaryNotifId,
       'Weekly Summary',
       msg,
       scheduledDate,
       details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: weeklyMode,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
@@ -992,6 +1026,74 @@ class PushNotificationService {
 
     await prefs.setBool(key, true);
     debugPrint('✅ Weekly summary notification scheduled for Sundays at 8:00 PM');
+  }
+
+  // ==================== SYNC PROGRESS NOTIFICATION ====================
+
+  static const int _syncProgressNotifId = 300;
+
+  /// Show (or update) an indeterminate progress notification during health sync.
+  Future<void> showSyncProgressNotification({
+    required int done,
+    required int total,
+  }) async {
+    if (!Platform.isAndroid) return; // iOS doesn't support progress notifications
+    final percent = total > 0 ? ((done / total) * 100).round() : 0;
+    final body = total > 0
+        ? 'Importing run $done of $total ($percent%)'
+        : 'Importing your run history…';
+
+    final androidDetails = AndroidNotificationDetails(
+      _runReminderChannelId,
+      'Run Reminders',
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      showProgress: true,
+      maxProgress: total > 0 ? total : 100,
+      progress: done,
+      indeterminate: total == 0,
+      autoCancel: false,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    await _localNotifications.show(
+      _syncProgressNotifId,
+      'Syncing run history',
+      body,
+      NotificationDetails(android: androidDetails),
+    );
+  }
+
+  /// Dismiss the sync progress notification and show a completion summary.
+  Future<void> showSyncCompleteNotification({
+    required int imported,
+    required int skipped,
+  }) async {
+    await _localNotifications.cancel(_syncProgressNotifId);
+
+    if (!Platform.isAndroid) return;
+    if (imported == 0) return; // nothing to report
+
+    final androidDetails = AndroidNotificationDetails(
+      _runReminderChannelId,
+      'Run Reminders',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    await _localNotifications.show(
+      _syncProgressNotifId,
+      'Health sync complete',
+      'Imported $imported run${imported == 1 ? '' : 's'} from your health apps.',
+      NotificationDetails(android: androidDetails),
+    );
+  }
+
+  /// Cancel/dismiss the sync progress notification (e.g. on error or if already in foreground).
+  Future<void> cancelSyncNotification() async {
+    await _localNotifications.cancel(_syncProgressNotifId);
   }
 
   /// Cancel weekly summary notification.
@@ -1009,8 +1111,8 @@ class PushNotificationService {
     final prefs = await SharedPreferences.getInstance();
     // Bump this key whenever the schedule logic changes (e.g. timezone fix)
     // so existing installs reschedule with the updated logic.
-    // Bumped to v3: switched to exactAllowWhileIdle for reliable daily delivery
-    const scheduledKey = 'default_notifications_v3';
+    // Bumped to v4: resolve schedule mode at runtime (exact vs inexact fallback)
+    const scheduledKey = 'default_notifications_v4';
     if (prefs.getBool(scheduledKey) == true) return;
 
     await scheduleDailyMotivation(hour: 7, minute: 30);

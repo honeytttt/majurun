@@ -563,7 +563,6 @@ class RunController extends ChangeNotifier {
     BuildContext context, {
     String planTitle = "Free Run",
     Uint8List? mapImageBytes,
-    Uint8List? selfieBytes,
   }) async {
     try {
       setUiContext(context);
@@ -646,42 +645,6 @@ class RunController extends ChangeNotifier {
 
       debugPrint("✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges");
 
-      // Only create a social post for runs >= 1km
-      if (finalDistance >= 1.0) {
-        final aiPost = postController.generateAIPost(
-          planTitle,
-          finalDistanceString,
-          stateController.durationString,
-          finalPace,
-          finalCalories,
-        );
-
-        debugPrint("✅ AI post generated");
-
-        await postController.createAutoPost(
-          aiContent: aiPost,
-          routePoints: finalRoutePoints,
-          distance: finalDistanceString,
-          pace: finalPace,
-          bpm: finalBpm,
-          planTitle: planTitle,
-          mapImageBytes: mapImageBytes,
-          selfieBytes: selfieBytes,
-        );
-
-        debugPrint("✅ Auto post created");
-
-        // Notify user their run post is ready to view/edit
-        try {
-          await PushNotificationService().showRunPostReadyNotification(
-            distance: finalDistanceString,
-            pace: finalPace,
-          );
-        } catch (_) {}
-      } else {
-        debugPrint("ℹ️ Run < 1km — skipping auto post");
-      }
-
       // Clean up
       await RunRecoveryService.clearRecoverableRun();
       try { IntervalTrainingService().stop(); } catch (_) {}
@@ -729,6 +692,17 @@ class RunController extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getRunHistory() async => await statsController.getRunHistory();
   Future<List<Map<String, dynamic>>> getRunHistoryPage({required int pageSize, DateTime? before}) async =>
       await statsController.getRunHistoryPage(pageSize: pageSize, before: before);
+
+  /// Generates a suggested post caption. Call after stopRun() to pre-fill the editor.
+  String generatePostText({
+    required String planTitle,
+    required String distance,
+    required String duration,
+    required String pace,
+    required int calories,
+  }) {
+    return postController.generateAIPost(planTitle, distance, duration, pace, calories);
+  }
 
   @override
   void dispose() {
