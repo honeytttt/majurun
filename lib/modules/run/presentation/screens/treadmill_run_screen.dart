@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
-import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
 
 /// A minimal treadmill run screen — no GPS required.
@@ -143,46 +141,31 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
     setState(() => _isSaving = false);
 
     final durationStr = _formatDuration(durationSeconds);
-    final calories = (distanceKm * 70).round(); // rough estimate
+    final calories = (distanceKm * 85).round(); // ~1.05 kcal/kg/km × 80 kg default
 
-    if (distanceKm >= 1.0) {
-      // Navigate to post editor first
-      final runController = Provider.of<RunController>(context, listen: false);
-      final suggestedText = runController.generatePostText(
-        planTitle: 'Treadmill Run',
-        distance: '${distanceKm.toStringAsFixed(2)} km',
-        duration: durationStr,
-        pace: pace,
-        calories: calories,
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => RunPostEditorScreen(
-            initialText: suggestedText,
-            routePoints: const [],
-            distanceKm: distanceKm,
-            duration: durationStr,
-            pace: pace,
-            calories: calories,
-            planTitle: 'Treadmill Run',
-            pbs: runController.lastRunPbs,
-            badges: runController.lastRunBadges,
-          ),
+    final runController = Provider.of<RunController>(context, listen: false);
+    final suggestedText = runController.generatePostText(
+      planTitle: 'Treadmill Run',
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: durationStr,
+      pace: pace,
+      calories: calories,
+    );
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RunPostEditorScreen(
+          initialText: suggestedText,
+          routePoints: const [],
+          distanceKm: distanceKm,
+          duration: durationStr,
+          pace: pace,
+          calories: calories,
+          planTitle: 'Treadmill Run',
+          pbs: runController.lastRunPbs,
+          badges: runController.lastRunBadges,
         ),
-      );
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => CongratulationsScreen(
-            distanceKm: distanceKm,
-            duration: durationStr,
-            pace: pace,
-            calories: calories,
-            planTitle: 'Treadmill Run',
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 
   @override

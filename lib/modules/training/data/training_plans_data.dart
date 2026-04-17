@@ -8,7 +8,7 @@ import 'package:majurun/modules/training/data/walk_to_run_plan_data.dart';
 const train0To5KPlan = {
   'planId': 'train_0_to_5k',
   'title': 'Train 0 to 5K',
-  'imageUrl': 'https://majurun-media-prod.s3.ap-southeast-1.amazonaws.com/training-plans/0-to-5k-plan.png',
+  'imageUrl': 'https://res.cloudinary.com/ddo14sbqv/image/upload/v1776434845/majurun/plan_covers/images/plan_5k_beginner.jpg',
   'duration': '8 weeks',
   'frequency': '3 days/week',
   'difficulty': 'Beginner',
@@ -231,7 +231,7 @@ const train0To5KPlan = {
 const train5KTo10KPlan = {
   'planId': '5k_to_10k',
   'title': '5K to 10K',
-  'imageUrl': 'https://majurun-media-prod.s3.ap-southeast-1.amazonaws.com/training-plans/5k-to-10k-plan.png',
+  'imageUrl': 'https://res.cloudinary.com/ddo14sbqv/image/upload/v1776434841/majurun/plan_covers/images/plan_10k_builder.jpg',
   'duration': '8 weeks',
   'frequency': '3 days/week',
   'difficulty': 'Intermediate',
@@ -454,7 +454,7 @@ const train5KTo10KPlan = {
 const train10KToHalfPlan = {
   'planId': '10k_to_half',
   'title': '10K to Half Marathon',
-  'imageUrl': 'https://majurun-media-prod.s3.ap-southeast-1.amazonaws.com/training-plans/10k-to-half-marathon-plan.png',
+  'imageUrl': 'https://res.cloudinary.com/ddo14sbqv/image/upload/v1776434849/majurun/plan_covers/images/plan_half_marathon.jpg',
   'duration': '8 weeks',
   'frequency': '3 days/week',
   'difficulty': 'Advanced',
@@ -677,7 +677,7 @@ const train10KToHalfPlan = {
 const trainHalfToFullPlan = {
   'planId': 'half_to_full',
   'title': 'Half to Full Marathon',
-  'imageUrl': 'https://majurun-media-prod.s3.ap-southeast-1.amazonaws.com/training-plans/half-to-full-marathon-plan.png',
+  'imageUrl': 'https://res.cloudinary.com/ddo14sbqv/image/upload/v1776434861/majurun/plan_covers/images/plan_marathon.jpg',
   'duration': '12 weeks',
   'frequency': '3 days/week',
   'difficulty': 'Expert',

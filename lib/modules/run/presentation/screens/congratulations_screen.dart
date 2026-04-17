@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:video_player/video_player.dart';
+import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 class CongratulationsScreen extends StatefulWidget {
@@ -34,6 +36,19 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
 
+  VideoPlayerController? _videoController;
+
+  String get _celebrationVideoUrl {
+    final km = widget.distanceKm;
+    if (km >= 42.195) return AssetUrls.celebrations_videos_celebrate_marathon;
+    if (km >= 21.0975) return AssetUrls.celebrations_videos_celebrate_half_marathon;
+    if (km >= 10.0) return AssetUrls.celebrations_videos_celebrate_10k;
+    if (km >= 5.0) return AssetUrls.celebrations_videos_celebrate_5k;
+    if (widget.pbs.isNotEmpty) return AssetUrls.celebrations_videos_celebrate_pb;
+    if (widget.badges.isNotEmpty) return AssetUrls.celebrations_videos_celebrate_badge_earned;
+    return AssetUrls.celebrations_videos_celebrate_first_run;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -44,10 +59,31 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     _scaleAnim = CurvedAnimation(parent: _animController, curve: Curves.elasticOut);
     _fadeAnim  = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
     _animController.forward();
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    try {
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(_celebrationVideoUrl),
+      );
+      await controller.initialize();
+      controller.setLooping(false);
+      controller.setVolume(0.0); // muted — celebration video is visual only
+      controller.play();
+      if (mounted) {
+        setState(() => _videoController = controller);
+      } else {
+        controller.dispose();
+      }
+    } catch (_) {
+      // Video fails gracefully — emoji header is the fallback
+    }
   }
 
   @override
   void dispose() {
+    _videoController?.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -173,7 +209,19 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       scale: _scaleAnim,
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 72)),
+          if (_videoController != null && _videoController!.value.isInitialized)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                height: 180,
+                child: AspectRatio(
+                  aspectRatio: _videoController!.value.aspectRatio,
+                  child: VideoPlayer(_videoController!),
+                ),
+              ),
+            )
+          else
+            Text(emoji, style: const TextStyle(fontSize: 72)),
           const SizedBox(height: 16),
           Text(
             title,

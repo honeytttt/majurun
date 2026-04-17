@@ -74,3 +74,23 @@ app.*.map.json
 # Firebase env dart configs — NOT committed (contain API keys, injected by CI/CD)
 lib/env/firebase_options_dev.dart
 lib/env/firebase_options_prod.dart
+
+# Raw media assets — already uploaded to Cloudinary, no need to track large binaries
+assets/celebrations/
+assets/coach/
+assets/education/
+assets/features/
+assets/motivational/
+assets/onboarding/
+assets/plan_covers/
+assets/seasonal/
+assets/seed/
+assets/social/
+
+# Asset prompt/planning docs
+assets/OPENART_PROMPTS_V2.md
+
+# Scripts — dependencies and output
+scripts/node_modules/
+scripts/output/
+scripts/package-lock.json

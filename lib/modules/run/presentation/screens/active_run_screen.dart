@@ -12,7 +12,6 @@ import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
-import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 

@@ -348,10 +348,11 @@ class RunStateController extends ChangeNotifier {
     _checkMilestones();
 
     // Accumulate calories incrementally so the count never goes backwards.
-    // Running: ~70 kg average; adjusted by intensity (faster = more cal/km).
+    // Formula: ~1.05 kcal/kg/km for running (MET-based), default 80 kg.
+    // Intensity bonus matches gross calorie output health apps report.
     final distanceDeltaKm = (_totalDistance - _lastCaloriesDistance) / 1000;
     if (distanceDeltaKm > 0) {
-      final caloriesPerKm = averageSpeedMs > 2.5 ? 75 : 65;
+      final caloriesPerKm = averageSpeedMs > 3.5 ? 95 : averageSpeedMs > 2.5 ? 85 : 75;
       totalCalories += (distanceDeltaKm * caloriesPerKm).round();
       _lastCaloriesDistance = _totalDistance;
     }
@@ -411,9 +412,11 @@ class RunStateController extends ChangeNotifier {
       pace: lastKmPaceString,
     ));
 
-    // Compare with previous km
+    // Compare with previous km — only if a consecutive previous split exists
     String? comparison;
-    if (km >= 2 && _kmSplits.length > 1) {
+    final hasPreviousSplit = _kmSplits.length >= 2 &&
+        _kmSplits[_kmSplits.length - 2].kmNumber == km - 1;
+    if (hasPreviousSplit) {
       final previousKm = _kmSplits[_kmSplits.length - 2];
       final timeDiff = thisKmTime - previousKm.durationSeconds;
 

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/core/services/notification_service.dart';
 
 /// Badge definitions with display information
@@ -8,6 +9,7 @@ class RunnerBadge {
   final String name;
   final String description;
   final String icon; // Emoji or icon name
+  final String? imageUrl; // Cloudinary badge image
   final int count; // How many times earned (for repeat badges)
 
   RunnerBadge({
@@ -15,11 +17,24 @@ class RunnerBadge {
     required this.name,
     required this.description,
     required this.icon,
+    this.imageUrl,
     this.count = 0,
   });
 
   bool get isEarned => count > 0;
 }
+
+/// Maps badge IDs to Cloudinary image URLs
+const Map<String, String> _badgeImageUrls = {
+  '5k_runner':    AssetUrls.plan_covers_badges_badge_5k,
+  '10k_runner':   AssetUrls.plan_covers_badges_badge_10k,
+  'half_marathon': AssetUrls.plan_covers_badges_badge_21k,
+  'marathon':     AssetUrls.plan_covers_badges_badge_42k,
+  'weekly_50k':   AssetUrls.plan_covers_badges_badge_50k,
+  'weekly_100k':  AssetUrls.plan_covers_badges_badge_100k,
+  'monthly_100k': AssetUrls.plan_covers_badges_badge_100k,
+  'monthly_200k': AssetUrls.plan_covers_badges_badge_500k,
+};
 
 class BadgeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -76,6 +91,7 @@ class BadgeService {
         name: '5K Runner',
         description: 'Completed a 5km run',
         icon: '🥈', // Silver
+        imageUrl: _badgeImageUrls['5k_runner'],
         count: badge5k,
       ));
     }
@@ -86,6 +102,7 @@ class BadgeService {
         name: '10K Runner',
         description: 'Completed a 10km run',
         icon: '🥇', // Gold
+        imageUrl: _badgeImageUrls['10k_runner'],
         count: badge10k,
       ));
     }
@@ -96,6 +113,7 @@ class BadgeService {
         name: 'Half Marathon',
         description: 'Completed a half marathon (21.1km)',
         icon: '💎', // Platinum
+        imageUrl: _badgeImageUrls['half_marathon'],
         count: badgeHalf,
       ));
     }
@@ -106,6 +124,7 @@ class BadgeService {
         name: 'Marathon',
         description: 'Completed a full marathon (42.2km)',
         icon: '🏆', // Champion
+        imageUrl: _badgeImageUrls['marathon'],
         count: badgeFull,
       ));
     }
@@ -118,6 +137,7 @@ class BadgeService {
         name: 'Weekly 50K',
         description: 'Ran 50km in a single week',
         icon: '🥈', // Silver
+        imageUrl: _badgeImageUrls['weekly_50k'],
         count: badge50kWeek,
       ));
     }
@@ -128,6 +148,7 @@ class BadgeService {
         name: 'Weekly 100K',
         description: 'Ran 100km in a single week',
         icon: '🥇', // Gold
+        imageUrl: _badgeImageUrls['weekly_100k'],
         count: badge100kWeek,
       ));
     }
@@ -140,6 +161,7 @@ class BadgeService {
         name: 'Monthly 100K',
         description: 'Ran 100km in a single month',
         icon: '🥈', // Silver
+        imageUrl: _badgeImageUrls['monthly_100k'],
         count: badge100kMonth,
       ));
     }
@@ -150,6 +172,7 @@ class BadgeService {
         name: 'Monthly 200K',
         description: 'Ran 200km in a single month',
         icon: '🥇', // Gold
+        imageUrl: _badgeImageUrls['monthly_200k'],
         count: badge200kMonth,
       ));
     }
