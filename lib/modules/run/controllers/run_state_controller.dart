@@ -105,6 +105,7 @@ class RunStateController extends ChangeNotifier {
   int currentBpm = 0; // Will be updated from health service
   int totalCalories = 0;
   double _lastCaloriesDistance = 0.0; // tracks distance at last calorie update
+  double _calorieAccumulator = 0.0;   // fractional calories — committed as whole numbers
   GpsQuality _gpsQuality = GpsQuality.good;
   GpsQuality get gpsQuality => _gpsQuality;
 
@@ -209,6 +210,7 @@ class RunStateController extends ChangeNotifier {
     lastVideoUrl = null;
     totalCalories = 0;
     _lastCaloriesDistance = 0.0;
+    _calorieAccumulator = 0.0;
     _lastAnnouncedKm = 0;
     _lastAnnouncedHalfKm = 0.0;
     _kmSplits.clear();
@@ -304,6 +306,7 @@ class RunStateController extends ChangeNotifier {
     lastVideoUrl = null;
     totalCalories = 0;
     _lastCaloriesDistance = 0.0;
+    _calorieAccumulator = 0.0;
     _lastAnnouncedKm = 0;
     _lastAnnouncedHalfKm = 0.0;
     _kmSplits.clear();
@@ -349,11 +352,17 @@ class RunStateController extends ChangeNotifier {
 
     // Accumulate calories incrementally so the count never goes backwards.
     // Formula: ~1.05 kcal/kg/km for running (MET-based), default 80 kg.
-    // Intensity bonus matches gross calorie output health apps report.
+    // Use a fractional accumulator — DO NOT round per-tick or tiny GPS deltas
+    // round to 0 and all calories are lost (e.g. 0.0025 km × 85 = 0.21 → rounds to 0).
     final distanceDeltaKm = (_totalDistance - _lastCaloriesDistance) / 1000;
     if (distanceDeltaKm > 0) {
       final caloriesPerKm = averageSpeedMs > 3.5 ? 95 : averageSpeedMs > 2.5 ? 85 : 75;
-      totalCalories += (distanceDeltaKm * caloriesPerKm).round();
+      _calorieAccumulator += distanceDeltaKm * caloriesPerKm;
+      final earned = _calorieAccumulator.floor();
+      if (earned > 0) {
+        totalCalories += earned;
+        _calorieAccumulator -= earned;
+      }
       _lastCaloriesDistance = _totalDistance;
     }
 
