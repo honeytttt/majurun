@@ -175,7 +175,10 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
                           _SectionToggle(
                             label: 'Route Map',
                             value: _includeMap,
-                            onChanged: (v) => setState(() => _includeMap = v),
+                            onChanged: (v) => setState(() {
+                              _includeMap = v;
+                              if (v) _includeSelfie = false; // mutually exclusive
+                            }),
                           ),
                           if (_includeMap) ...[
                             const SizedBox(height: 8),
@@ -197,7 +200,10 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
                           _SectionToggle(
                             label: 'Post-Run Photo',
                             value: _includeSelfie,
-                            onChanged: (v) => setState(() => _includeSelfie = v),
+                            onChanged: (v) => setState(() {
+                              _includeSelfie = v;
+                              if (v) _includeMap = false; // mutually exclusive
+                            }),
                           ),
                           if (_includeSelfie) ...[
                             const SizedBox(height: 8),

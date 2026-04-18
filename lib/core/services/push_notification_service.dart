@@ -855,43 +855,51 @@ class PushNotificationService {
 
   /// Schedule a daily morning motivation notification.
   Future<void> scheduleDailyMotivation({int hour = 7, int minute = 0}) async {
-    await _ensureInitialized();
-    await _localNotifications.cancel(_motivationNotifId); // cancel stale iOS notification
-    await _initTimezone();
-    final location = tz.local;
-    final now = tz.TZDateTime.now(location);
-    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
+    try {
+      await _ensureInitialized();
+      await _localNotifications.cancel(_motivationNotifId); // cancel stale iOS notification
+      await _initTimezone();
+      final location = tz.local;
+      final now = tz.TZDateTime.now(location);
+      var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
 
-    final message = (_morningMotivations..shuffle()).first;
-    final scheduleMode = await _resolveScheduleMode();
+      final message = (_morningMotivations..shuffle()).first;
+      final scheduleMode = await _resolveScheduleMode();
 
-    await _localNotifications.zonedSchedule(
-      _motivationNotifId,
-      "Good morning, runner! 🌅",
-      message,
-      scheduled,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _runReminderChannelId,
-          'Run Reminders',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          icon: '@mipmap/ic_launcher',
+      await _localNotifications.zonedSchedule(
+        _motivationNotifId,
+        "Good morning, runner! 🌅",
+        message,
+        scheduled,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _runReminderChannelId,
+            'Run Reminders',
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: const DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: scheduleMode,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+        androidScheduleMode: scheduleMode,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.wallClockTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('daily_motivation_enabled', true);
-    debugPrint('✅ Daily motivation scheduled at $hour:$minute (mode: $scheduleMode)');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('daily_motivation_enabled', true);
+      debugPrint('✅ Daily motivation scheduled at $hour:$minute (mode: $scheduleMode)');
+    } catch (e) {
+      debugPrint('❌ scheduleDailyMotivation error: $e');
+    }
   }
 
   /// Cancel daily motivation notifications.
@@ -904,43 +912,51 @@ class PushNotificationService {
   /// Schedule a daily "you haven't run today" reminder.
   /// Fires every evening — users who already ran can ignore/dismiss.
   Future<void> scheduleNoRunReminder({int hour = 19, int minute = 0}) async {
-    await _ensureInitialized();
-    await _localNotifications.cancel(_noRunReminderNotifId); // cancel stale iOS notification
-    await _initTimezone();
-    final location = tz.local;
-    final now = tz.TZDateTime.now(location);
-    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
+    try {
+      await _ensureInitialized();
+      await _localNotifications.cancel(_noRunReminderNotifId); // cancel stale iOS notification
+      await _initTimezone();
+      final location = tz.local;
+      final now = tz.TZDateTime.now(location);
+      var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
 
-    final message = (_eveningReminders..shuffle()).first;
-    final scheduleMode = await _resolveScheduleMode();
+      final message = (_eveningReminders..shuffle()).first;
+      final scheduleMode = await _resolveScheduleMode();
 
-    await _localNotifications.zonedSchedule(
-      _noRunReminderNotifId,
-      "Time for a run? 🏃",
-      message,
-      scheduled,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _runReminderChannelId,
-          'Run Reminders',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+      await _localNotifications.zonedSchedule(
+        _noRunReminderNotifId,
+        "Time for a run? 🏃",
+        message,
+        scheduled,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _runReminderChannelId,
+            'Run Reminders',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: const DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: scheduleMode,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+        androidScheduleMode: scheduleMode,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.wallClockTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('no_run_reminder_enabled', true);
-    debugPrint('✅ No-run reminder scheduled at $hour:$minute (mode: $scheduleMode)');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('no_run_reminder_enabled', true);
+      debugPrint('✅ No-run reminder scheduled at $hour:$minute (mode: $scheduleMode)');
+    } catch (e) {
+      debugPrint('❌ scheduleNoRunReminder error: $e');
+    }
   }
 
   /// Cancel no-run reminders.

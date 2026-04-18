@@ -449,31 +449,40 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   }
 
   void _openFullScreenImage(BuildContext context, String url) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            elevation: 0,
-          ),
-          body: Center(
-            child: InteractiveViewer(
+    showDialog(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            InteractiveViewer(
               minScale: 0.5,
-              maxScale: 5.0,
-              child: Image.network(
-                url,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.broken_image,
-                  color: Colors.white54,
-                  size: 64,
+              maxScale: 8.0,
+              child: Center(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image,
+                    color: Colors.white54,
+                    size: 64,
+                  ),
                 ),
               ),
             ),
-          ),
+            Positioned(
+              top: MediaQuery.of(dialogContext).padding.top + 4,
+              right: 4,
+              child: Material(
+                color: Colors.transparent,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(dialogContext),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -560,7 +569,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         child: buildMediaContainer(
           Stack(
             children: [
-              RunMapPreview(points: widget.post.routePoints!),
+              AbsorbPointer(child: RunMapPreview(points: widget.post.routePoints!)),
               Positioned(
                 bottom: 8,
                 right: 8,

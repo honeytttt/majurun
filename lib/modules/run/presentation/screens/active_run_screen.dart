@@ -782,19 +782,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final routePoints = List.of(runController.stateController.routePoints);
     const planTitle   = 'Free Run';
 
-    // ── Runs < 1 km: skip selfie prompt, skip congratulations, go home ──────
-    if (distanceKm < 1.0) {
-      try {
-        await runController.stopRun(context, planTitle: planTitle, mapImageBytes: mapImageBytes);
-      } catch (e) {
-        debugPrint("❌ Error saving short run: $e");
-      }
-      if (!mounted) return;
-      Navigator.of(context).popUntil((r) => r.isFirst);
-      return;
-    }
-
-    // ── Runs >= 1 km: ask for selfie ─────────────────────────────────────────
+    // ── Ask for selfie (all runs, no distance gate) ──────────────────────────
     final selfieBytes = await _showSelfiePrompt();
 
     if (!mounted) return;
