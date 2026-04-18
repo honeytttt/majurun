@@ -528,6 +528,7 @@ class PushNotificationService {
           .collection('items')
           .add({
         'type': type,
+        'senderId': userId,      // required by Firestore security rules
         'fromUserId': userId,
         'fromUsername': 'MajuRun',
         'message': '$title — $body',
@@ -874,7 +875,7 @@ class PushNotificationService {
         scheduled = scheduled.add(const Duration(days: 1));
       }
 
-      final message = (_morningMotivations..shuffle()).first;
+      final message = (List<String>.from(_morningMotivations)..shuffle()).first;
       final scheduleMode = await _resolveScheduleMode();
 
       await _localNotifications.zonedSchedule(
@@ -931,7 +932,7 @@ class PushNotificationService {
         scheduled = scheduled.add(const Duration(days: 1));
       }
 
-      final message = (_eveningReminders..shuffle()).first;
+      final message = (List<String>.from(_eveningReminders)..shuffle()).first;
       final scheduleMode = await _resolveScheduleMode();
 
       await _localNotifications.zonedSchedule(
@@ -986,7 +987,7 @@ class PushNotificationService {
       scheduled = scheduled.add(const Duration(days: 1));
     }
 
-    final message = (_subscriptionMessages..shuffle()).first;
+    final message = (List<String>.from(_subscriptionMessages)..shuffle()).first;
 
     await _localNotifications.zonedSchedule(
       _subscriptionReminderNotifId,

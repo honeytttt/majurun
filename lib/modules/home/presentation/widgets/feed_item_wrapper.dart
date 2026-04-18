@@ -660,7 +660,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
               transformationController: _ctrl,
               minScale: 0.5,
               maxScale: 8.0,
-              boundaryMargin: const EdgeInsets.all(double.infinity),
+              boundaryMargin: EdgeInsets.zero,
               child: Image.network(
                 widget.imageUrl,
                 fit: BoxFit.contain,
