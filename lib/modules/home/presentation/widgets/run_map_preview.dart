@@ -8,8 +8,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// Tapping opens a full-screen interactive map.
 class RunMapPreview extends StatelessWidget {
   final List<dynamic> points;
+  /// Optional tap override. When set, replaces the default full-screen map navigation.
+  final VoidCallback? onTap;
 
-  const RunMapPreview({super.key, required this.points});
+  const RunMapPreview({super.key, required this.points, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +35,21 @@ class RunMapPreview extends StatelessWidget {
         ? (math.log(320 / maxSpan) / math.ln2).clamp(10.0, 17.0)
         : 13.0;
 
-    void openFullScreen() => Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _FullScreenMapScreen(points: latLngPoints, bounds: bounds),
-      ),
-    );
+    void handleTap() {
+      if (onTap != null) {
+        onTap!();
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _FullScreenMapScreen(points: latLngPoints, bounds: bounds),
+          ),
+        );
+      }
+    }
 
     return GestureDetector(
-      onTap: openFullScreen, // Android lite-mode tap (static bitmap)
+      onTap: handleTap, // Android lite-mode tap (static bitmap)
       child: Stack(
         children: [
           Container(
@@ -54,7 +62,7 @@ class RunMapPreview extends StatelessWidget {
             child: GoogleMap(
               initialCameraPosition: CameraPosition(target: center, zoom: zoom),
               liteModeEnabled: true,
-              onTap: (_) => openFullScreen(), // iOS native view tap (works even when lite mode ignored)
+              onTap: (_) => handleTap(), // iOS native view tap (works even when lite mode ignored)
               polylines: {
                 Polyline(
                   polylineId: const PolylineId('route'),

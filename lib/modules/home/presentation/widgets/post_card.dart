@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
@@ -450,47 +451,52 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   void _openFullScreenImage(BuildContext context, String url) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (viewerCtx) => Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 8.0,
-                child: Center(
-                  child: Image.network(
-                    url,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.broken_image,
-                      color: Colors.white54,
-                      size: 64,
-                    ),
-                  ),
-                ),
-              ),
-              SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Material(
-                      color: Colors.black54,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(viewerCtx),
+      PageRouteBuilder(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (viewerCtx, animation, _) {
+          return FadeTransition(
+            opacity: animation,
+            child: Scaffold(
+              backgroundColor: Colors.black,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 8.0,
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.broken_image,
+                        color: Colors.white54,
+                        size: 64,
                       ),
                     ),
                   ),
-                ),
+                  SafeArea(
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Material(
+                          color: Colors.black54,
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(viewerCtx),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -565,10 +571,16 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     }
 
     if (hasRoute) {
-      // RunMapPreview handles its own tap (full-screen route map) on both Android
-      // and iOS via its internal GestureDetector + GoogleMap.onTap.
       return buildMediaContainer(
-        RunMapPreview(points: widget.post.routePoints!),
+        RunMapPreview(
+          points: widget.post.routePoints!,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+            ),
+          ),
+        ),
       );
     }
 

@@ -177,12 +177,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onItemTapped(int index) {
     if (index != 0) {
-      // Pause all feed videos when navigating away from the home/feed tab
       VideoSessionManager.pauseAll();
     }
-    // Keep tabNotifier in sync so _goToFeed() always triggers the listener
-    // (ValueNotifier only fires when value changes, so tab 0 → run → back to 0
-    // wouldn't fire without this sync).
+    // Twitter behaviour: tapping the already-selected Home tab scrolls to top + refreshes.
+    if (index == 0 && _selectedIndex == 0 && _activeSubPage == null) {
+      HomeFeedContent.refreshTrigger.value++;
+      return;
+    }
     HomeScreen.tabNotifier.value = index;
     setState(() {
       _selectedIndex = index;
@@ -356,6 +357,9 @@ class _HomeScreenState extends State<HomeScreen> {
 class HomeFeedContent extends StatefulWidget {
   const HomeFeedContent({super.key});
 
+  /// Increment to trigger scroll-to-top + feed refresh from outside (e.g. home tab re-tap).
+  static final ValueNotifier<int> refreshTrigger = ValueNotifier(0);
+
   @override
   State<HomeFeedContent> createState() => _HomeFeedContentState();
 }
@@ -401,12 +405,26 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   void initState() {
     super.initState();
     _feedScrollController.addListener(_onScroll);
+    HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
   }
 
   @override
   void dispose() {
+    HomeFeedContent.refreshTrigger.removeListener(_onRefreshTrigger);
     _feedScrollController.dispose();
     super.dispose();
+  }
+
+  void _onRefreshTrigger() {
+    _postRepo.resetPagination();
+    if (mounted) setState(() => _allPosts.clear());
+    if (_feedScrollController.hasClients) {
+      _feedScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _onScroll() {
