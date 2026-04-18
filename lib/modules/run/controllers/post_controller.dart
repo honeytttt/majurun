@@ -110,14 +110,15 @@ class PostController extends ChangeNotifier {
       }
 
       // Sample route points to limit document size (max 200 points).
-      // Only store routePoints when no map image was uploaded — they serve as
-      // a fallback live-render (RunMapPreview). If a screenshot is already
-      // uploaded we don't need raw points, and storing both causes the feed
-      // to show two maps.
-      final sampledPoints = (mapImageUrl == null || mapImageUrl.isEmpty)
-          ? RouteUtils.sampleRoutePoints(routePoints)
-          : <LatLng>[];
-      debugPrint("📍 Route points stored: ${sampledPoints.length} (mapImageUrl present: ${mapImageUrl != null})");
+      // Only store routePoints when no map image AND no selfie was uploaded —
+      // they serve as a fallback live-render (RunMapPreview).
+      // If either image is uploaded, skip raw points to prevent double-map in feed.
+      final hasUploadedImage = (mapImageUrl != null && mapImageUrl.isNotEmpty) ||
+          (selfieUrl != null && selfieUrl.isNotEmpty);
+      final sampledPoints = hasUploadedImage
+          ? <LatLng>[]
+          : RouteUtils.sampleRoutePoints(routePoints);
+      debugPrint("📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)");
 
       // Create post document in Firestore
       final postData = {

@@ -110,8 +110,11 @@ class StatsController extends ChangeNotifier {
         );
       }
 
-      // Notify followers when user earns a brand-new badge (first time)
+      // Badge notifications — phone push + in-app for the user, in-app for followers
       if (result.badges.isNotEmpty) {
+        for (final badge in result.badges) {
+          await PushNotificationService().showBadgeEarnedNotification(badgeName: badge);
+        }
         _notifyFollowersOfBadge(uid, result.badges.first);
       }
     } catch (e) {

@@ -441,6 +441,20 @@ class PushNotificationService {
     );
   }
 
+  /// Show phone + in-app notification when user earns a badge.
+  Future<void> showBadgeEarnedNotification({required String badgeName}) async {
+    await _ensureInitialized();
+    const title = 'Badge Earned! 🏅';
+    final body = 'You earned the $badgeName badge! Keep running!';
+    await _showLocalNotification(
+      title: title,
+      body: body,
+      channelId: _achievementChannelId,
+      payload: jsonEncode({'type': 'badge', 'badgeName': badgeName}),
+    );
+    await _writeInAppNotification(title: title, body: body, type: 'badge');
+  }
+
   /// Send personal record notification
   Future<void> showPersonalRecordNotification({
     required String recordType,
@@ -842,6 +856,7 @@ class PushNotificationService {
   /// Schedule a daily morning motivation notification.
   Future<void> scheduleDailyMotivation({int hour = 7, int minute = 0}) async {
     await _ensureInitialized();
+    await _localNotifications.cancel(_motivationNotifId); // cancel stale iOS notification
     await _initTimezone();
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
@@ -890,6 +905,7 @@ class PushNotificationService {
   /// Fires every evening — users who already ran can ignore/dismiss.
   Future<void> scheduleNoRunReminder({int hour = 19, int minute = 0}) async {
     await _ensureInitialized();
+    await _localNotifications.cancel(_noRunReminderNotifId); // cancel stale iOS notification
     await _initTimezone();
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
@@ -1104,23 +1120,15 @@ class PushNotificationService {
   }
 
   /// Set up all default scheduled notifications.
-  /// Guards with a SharedPreferences flag so it only schedules once per install
-  /// — calling this on every app launch would wipe and reschedule, causing today's
-  /// notification to be pushed to tomorrow whenever the user opens the app.
+  /// Reschedules on every login — each schedule function cancels its existing
+  /// notification before re-adding, so this is idempotent and iOS-safe.
+  /// (iOS can silently drop pending notifications after permission changes or
+  /// updates, so re-scheduling on each login ensures they always exist.)
   Future<void> scheduleDefaultNotifications() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Bump this key whenever the schedule logic changes (e.g. timezone fix)
-    // so existing installs reschedule with the updated logic.
-    // Bumped to v4: resolve schedule mode at runtime (exact vs inexact fallback)
-    const scheduledKey = 'default_notifications_v4';
-    if (prefs.getBool(scheduledKey) == true) return;
-
     await scheduleDailyMotivation(hour: 7, minute: 30);
     await scheduleNoRunReminder(hour: 19, minute: 0);
     await scheduleWeeklySummary();
-
-    await prefs.setBool(scheduledKey, true);
-    debugPrint('✅ Default notifications scheduled for the first time');
+    debugPrint('✅ Default notifications (re)scheduled');
   }
 
   /// Dispose service
