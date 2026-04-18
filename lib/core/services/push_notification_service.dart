@@ -69,6 +69,18 @@ class PushNotificationService {
 
       debugPrint('Push permission status: ${settings.authorizationStatus}');
 
+      // iOS: tell FCM to surface push notifications in the foreground.
+      // Done here (after requestPermission) so it never crashes _initializeLocalNotifications.
+      try {
+        await _fcm.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      } catch (e) {
+        debugPrint('⚠️ setForegroundNotificationPresentationOptions: $e');
+      }
+
       if (settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional) {
 
@@ -136,13 +148,9 @@ class PushNotificationService {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.requestNotificationsPermission();
     }
-
-    // iOS: configure FCM to show foreground notifications
-    await _fcm.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    // NOTE: _fcm.setForegroundNotificationPresentationOptions() is called in
+    // initialize() after requestPermission, NOT here, to avoid crashing the
+    // local-notification setup if FCM hasn't fully started yet.
   }
 
   /// Create Android notification channels
@@ -1141,9 +1149,14 @@ class PushNotificationService {
   /// (iOS can silently drop pending notifications after permission changes or
   /// updates, so re-scheduling on each login ensures they always exist.)
   Future<void> scheduleDefaultNotifications() async {
+    debugPrint('📅 scheduleDefaultNotifications() called');
     await scheduleDailyMotivation(hour: 7, minute: 30);
     await scheduleNoRunReminder(hour: 19, minute: 0);
-    await scheduleWeeklySummary();
+    try {
+      await scheduleWeeklySummary();
+    } catch (e) {
+      debugPrint('❌ scheduleWeeklySummary error: $e');
+    }
     debugPrint('✅ Default notifications (re)scheduled');
   }
 

@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/core/services/subscription_service.dart';
-import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
 import 'run_map_preview.dart';
@@ -449,40 +448,48 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   }
 
   void _openFullScreenImage(BuildContext context, String url) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black,
-      builder: (dialogContext) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 8.0,
-              child: Center(
-                child: Image.network(
-                  url,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.broken_image,
-                    color: Colors.white54,
-                    size: 64,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (viewerCtx) => Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 8.0,
+                child: Center(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.broken_image,
+                      color: Colors.white54,
+                      size: 64,
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: MediaQuery.of(dialogContext).padding.top + 4,
-              right: 4,
-              child: Material(
-                color: Colors.transparent,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(dialogContext),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(viewerCtx),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -558,40 +565,10 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     }
 
     if (hasRoute) {
-      // Tap on route map → open Run History
-      return GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
-          ),
-        ),
-        child: buildMediaContainer(
-          Stack(
-            children: [
-              AbsorbPointer(child: RunMapPreview(points: widget.post.routePoints!)),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.history_rounded, color: Colors.white, size: 13),
-                      SizedBox(width: 4),
-                      Text('View run', style: TextStyle(color: Colors.white, fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      // RunMapPreview handles its own tap (full-screen route map) on both Android
+      // and iOS via its internal GestureDetector + GoogleMap.onTap.
+      return buildMediaContainer(
+        RunMapPreview(points: widget.post.routePoints!),
       );
     }
 

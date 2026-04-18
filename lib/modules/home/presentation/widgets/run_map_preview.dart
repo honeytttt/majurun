@@ -33,16 +33,15 @@ class RunMapPreview extends StatelessWidget {
         ? (math.log(320 / maxSpan) / math.ln2).clamp(10.0, 17.0)
         : 13.0;
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _FullScreenMapScreen(
-            points: latLngPoints,
-            bounds: bounds,
-          ),
-        ),
+    void openFullScreen() => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FullScreenMapScreen(points: latLngPoints, bounds: bounds),
       ),
+    );
+
+    return GestureDetector(
+      onTap: openFullScreen, // Android lite-mode tap (static bitmap)
       child: Stack(
         children: [
           Container(
@@ -55,6 +54,7 @@ class RunMapPreview extends StatelessWidget {
             child: GoogleMap(
               initialCameraPosition: CameraPosition(target: center, zoom: zoom),
               liteModeEnabled: true,
+              onTap: (_) => openFullScreen(), // iOS native view tap (works even when lite mode ignored)
               polylines: {
                 Polyline(
                   polylineId: const PolylineId('route'),
