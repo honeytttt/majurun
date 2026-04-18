@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
@@ -234,11 +235,25 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
                 ),
               ),
 
-            // --- NEW: Run Map Preview (If it's a Run Activity) ---
+            // --- Run Map Preview ---
             if (widget.post.routePoints != null && widget.post.routePoints!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: RunMapPreview(points: widget.post.routePoints!),
+                // GestureDetector(opaque) wins Flutter arena over the outer card tap.
+                // AbsorbPointer prevents GoogleMap platform view from handling iOS
+                // native touches independently (which would push PostDetailScreen too).
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+                    ),
+                  ),
+                  child: AbsorbPointer(
+                    child: RunMapPreview(points: widget.post.routePoints!),
+                  ),
+                ),
               ),
 
             // --- Media / Images Section ---
@@ -387,6 +402,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
       );
     } else {
       return GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => _showFullscreenImage(context, media.url),
         child: Container(
           constraints: const BoxConstraints(
@@ -445,22 +461,50 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            leading: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+      PageRouteBuilder(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (viewerCtx, animation, _) {
+          return FadeTransition(
+            opacity: animation,
+            child: Scaffold(
+              backgroundColor: Colors.black,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 8.0,
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image, color: Colors.grey, size: 64),
+                      ),
+                    ),
+                  ),
+                  SafeArea(
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Material(
+                          color: Colors.black54,
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(viewerCtx),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              child: Image.network(imageUrl),
-            ),
-          ),
-        ),
+          );
+        },
       ),
     ).then((_) {
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
