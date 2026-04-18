@@ -587,7 +587,8 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
   }
 }
 
-/// Full-screen image viewer with pinch-to-zoom and double-tap to zoom/reset.
+/// Full-screen image viewer with pinch-to-zoom and animated double-tap zoom/reset.
+/// Double-tap zooms 2.5x centred on the tap point; second double-tap animates back.
 class _FullScreenImageViewer extends StatefulWidget {
   final String imageUrl;
   const _FullScreenImageViewer({required this.imageUrl});
@@ -596,26 +597,53 @@ class _FullScreenImageViewer extends StatefulWidget {
   State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
 }
 
-class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
+    with SingleTickerProviderStateMixin {
   final TransformationController _ctrl = TransformationController();
+  late final AnimationController _animCtrl;
+  Animation<Matrix4>? _animation;
+  bool _isZoomed = false;
+  Offset _tapPos = Offset.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    )..addListener(() {
+        if (_animation != null) _ctrl.value = _animation!.value;
+      });
+  }
 
   @override
   void dispose() {
+    _animCtrl.dispose();
     _ctrl.dispose();
     super.dispose();
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
-    if (_ctrl.value != Matrix4.identity()) {
-      // Already zoomed — reset to fit
-      _ctrl.value = Matrix4.identity();
+    _tapPos = details.localPosition;
+  }
+
+  void _onDoubleTap() {
+    final Matrix4 target;
+    if (_isZoomed) {
+      target = Matrix4.identity();
     } else {
-      // Zoom 3x centred on the tap point
-      final pos = details.localPosition;
-      _ctrl.value = Matrix4.identity()
-        ..translate(-pos.dx * 2.0, -pos.dy * 2.0)
-        ..scale(3.0);
+      const scale = 2.5;
+      final dx = _tapPos.dx * (1 - scale);
+      final dy = _tapPos.dy * (1 - scale);
+      target = Matrix4.identity()
+        ..translate(dx, dy)
+        ..scale(scale);
     }
+    _animation = Matrix4Tween(begin: _ctrl.value, end: target).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
+    );
+    _animCtrl.forward(from: 0);
+    _isZoomed = !_isZoomed;
   }
 
   @override
@@ -627,7 +655,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
         children: [
           GestureDetector(
             onDoubleTapDown: _onDoubleTapDown,
-            onDoubleTap: () {}, // required for onDoubleTapDown to fire
+            onDoubleTap: _onDoubleTap,
             child: InteractiveViewer(
               transformationController: _ctrl,
               minScale: 0.5,

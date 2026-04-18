@@ -161,6 +161,7 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
           pace: pace,
           calories: calories,
           planTitle: 'Treadmill Run',
+          durationSeconds: durationSeconds,
           pbs: runController.lastRunPbs,
           badges: runController.lastRunBadges,
         ),

@@ -31,6 +31,8 @@ class RunPostEditorScreen extends StatefulWidget {
   final String planTitle;
   final List<String> pbs;
   final List<String> badges;
+  final int durationSeconds;
+  final int avgBpm;
 
   const RunPostEditorScreen({
     super.key,
@@ -41,6 +43,8 @@ class RunPostEditorScreen extends StatefulWidget {
     required this.pace,
     required this.calories,
     required this.planTitle,
+    required this.durationSeconds,
+    this.avgBpm = 0,
     this.mapImageBytes,
     this.selfieBytes,
     this.pbs = const [],
@@ -82,9 +86,11 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
             ? widget.initialText
             : _textController.text.trim(),
         routePoints: widget.routePoints,
-        distance: '${widget.distanceKm.toStringAsFixed(2)} km',
+        distance: widget.distanceKm,
         pace: widget.pace,
-        bpm: 0,
+        bpm: widget.avgBpm,
+        durationSeconds: widget.durationSeconds,
+        calories: widget.calories,
         planTitle: widget.planTitle,
         mapImageBytes: _includeMap ? widget.mapImageBytes : null,
         selfieBytes: _includeSelfie ? widget.selfieBytes : null,

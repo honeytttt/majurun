@@ -775,12 +775,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     if (!mounted) return;
 
     // Capture final stats BEFORE stop clears them
-    final distanceKm  = runController.stateController.totalDistance / 1000;
-    final duration    = runController.stateController.durationString;
-    final pace        = runController.stateController.paceString;
-    final calories    = runController.stateController.totalCalories;
-    final routePoints = List.of(runController.stateController.routePoints);
-    const planTitle   = 'Free Run';
+    final distanceKm      = runController.stateController.totalDistance / 1000;
+    final duration        = runController.stateController.durationString;
+    final pace            = runController.stateController.paceString;
+    final calories        = runController.stateController.totalCalories;
+    final durationSeconds = runController.stateController.secondsElapsed;
+    final avgBpm          = runController.stateController.currentBpm;
+    final routePoints     = List.of(runController.stateController.routePoints);
+    const planTitle       = 'Free Run';
 
     // ── Ask for selfie (all runs, no distance gate) ──────────────────────────
     final selfieBytes = await _showSelfiePrompt();
@@ -853,6 +855,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           pace: pace,
           calories: calories,
           planTitle: planTitle,
+          durationSeconds: durationSeconds,
+          avgBpm: avgBpm,
           pbs: runController.lastRunPbs,
           badges: runController.lastRunBadges,
         ),
