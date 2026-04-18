@@ -86,6 +86,12 @@ class PostRepositoryImpl {
           .toList();
     }
 
+    // Parse run stats stored as top-level fields in run_activity posts
+    final rawDistance = data['distance'];
+    final double? runDistance = rawDistance is num
+        ? rawDistance.toDouble()
+        : (rawDistance is String ? double.tryParse(rawDistance.replaceAll(RegExp(r'[^0-9.]'), '')) : null);
+
     return AppPost(
       id: doc.id,
       userId: data['userId'] ?? 'unknown',
@@ -97,6 +103,12 @@ class PostRepositoryImpl {
       comments: const [],
       quotedPostId: data['quotedPostId'],
       routePoints: routePoints,
+      runPlanTitle: data['planTitle'] as String?,
+      runDistance: runDistance,
+      runPace: data['pace'] as String?,
+      runBpm: (data['bpm'] as num?)?.toInt(),
+      runDurationSeconds: (data['durationSeconds'] as num?)?.toInt(),
+      runCalories: (data['calories'] as num?)?.toInt(),
     );
   }
 

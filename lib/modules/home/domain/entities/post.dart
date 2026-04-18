@@ -51,6 +51,14 @@ class AppPost extends Equatable {
   final String? quotedPostId;
   final List<LatLng>? routePoints;
 
+  // Run-activity stats (populated for type=='run_activity' posts)
+  final String? runPlanTitle;
+  final double? runDistance;
+  final String? runPace;
+  final int? runBpm;
+  final int? runDurationSeconds;
+  final int? runCalories;
+
   const AppPost({
     required this.id,
     required this.userId,
@@ -62,6 +70,12 @@ class AppPost extends Equatable {
     this.comments = const [],
     this.quotedPostId,
     this.routePoints,
+    this.runPlanTitle,
+    this.runDistance,
+    this.runPace,
+    this.runBpm,
+    this.runDurationSeconds,
+    this.runCalories,
   });
 
   // NEW HELPER – makes conditional rendering cleaner
@@ -86,6 +100,12 @@ class AppPost extends Equatable {
       comments: _parseComments(map['comments']),
       quotedPostId: map['quotedPostId'] as String?,
       routePoints: _parseRoutePoints(map['routePoints']),
+      runPlanTitle: map['planTitle'] as String?,
+      runDistance: (map['distance'] as num?)?.toDouble(),
+      runPace: map['pace'] as String?,
+      runBpm: (map['bpm'] as num?)?.toInt(),
+      runDurationSeconds: (map['durationSeconds'] as num?)?.toInt(),
+      runCalories: (map['calories'] as num?)?.toInt(),
     );
   }
 
@@ -148,5 +168,5 @@ class AppPost extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints];
+  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints, runPlanTitle, runDistance, runPace];
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/presentation/widgets/comment_sheet.dart';
@@ -239,17 +240,36 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
             if (widget.post.routePoints != null && widget.post.routePoints!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                // GestureDetector(opaque) wins Flutter arena over the outer card tap.
-                // AbsorbPointer prevents GoogleMap platform view from handling iOS
-                // native touches independently (which would push PostDetailScreen too).
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
-                    ),
-                  ),
+                  onTap: () {
+                    final post = widget.post;
+                    // Build a runData map from the post's run stats so we open
+                    // the detail view for THIS specific run, not the full history list.
+                    final hasStats = post.runDistance != null || post.runPace != null;
+                    if (hasStats) {
+                      final runData = <String, dynamic>{
+                        'date': post.createdAt,
+                        'distance': post.runDistance ?? 0.0,
+                        'durationSeconds': post.runDurationSeconds ?? 0,
+                        'pace': post.runPace ?? '0:00',
+                        'calories': post.runCalories ?? 0,
+                        'avgBpm': post.runBpm ?? 0,
+                        'planTitle': post.runPlanTitle ?? 'Free Run',
+                        'routePoints': post.routePoints,
+                      };
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => RunDetailScreen(runData: runData)),
+                      );
+                    } else {
+                      // Fallback: open full run history list
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context))),
+                      );
+                    }
+                  },
                   child: AbsorbPointer(
                     child: RunMapPreview(points: widget.post.routePoints!),
                   ),
@@ -464,51 +484,12 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
       PageRouteBuilder(
         opaque: true,
         transitionDuration: const Duration(milliseconds: 220),
-        pageBuilder: (viewerCtx, animation, _) {
-          return FadeTransition(
-            opacity: animation,
-            child: Scaffold(
-              backgroundColor: Colors.black,
-              body: Stack(
-                fit: StackFit.expand,
-                children: [
-                  InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 8.0,
-                    boundaryMargin: const EdgeInsets.all(double.infinity),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.broken_image, color: Colors.grey, size: 64),
-                      ),
-                    ),
-                  ),
-                  SafeArea(
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Material(
-                          color: Colors.black54,
-                          shape: const CircleBorder(),
-                          child: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.pop(viewerCtx),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+        pageBuilder: (_, animation, __) => FadeTransition(
+          opacity: animation,
+          child: _FullScreenImageViewer(imageUrl: imageUrl),
+        ),
       ),
-    ).then((_) {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    });
+    ).then((_) => SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]));
   }
 
   void _showOptionsBottomSheet(BuildContext context) {
@@ -601,6 +582,83 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
         content: Text('Please log in to interact with posts'),
         backgroundColor: Colors.orange,
         duration: Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+/// Full-screen image viewer with pinch-to-zoom and double-tap to zoom/reset.
+class _FullScreenImageViewer extends StatefulWidget {
+  final String imageUrl;
+  const _FullScreenImageViewer({required this.imageUrl});
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  final TransformationController _ctrl = TransformationController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onDoubleTapDown(TapDownDetails details) {
+    if (_ctrl.value != Matrix4.identity()) {
+      // Already zoomed — reset to fit
+      _ctrl.value = Matrix4.identity();
+    } else {
+      // Zoom 3x centred on the tap point
+      final pos = details.localPosition;
+      _ctrl.value = Matrix4.identity()
+        ..translate(-pos.dx * 2.0, -pos.dy * 2.0)
+        ..scale(3.0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            onDoubleTapDown: _onDoubleTapDown,
+            onDoubleTap: () {}, // required for onDoubleTapDown to fire
+            child: InteractiveViewer(
+              transformationController: _ctrl,
+              minScale: 0.5,
+              maxScale: 8.0,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              child: Image.network(
+                widget.imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey, size: 64),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
