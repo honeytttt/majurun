@@ -525,7 +525,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
         await postController.createAutoPost(
           aiContent: trainingContent,
           routePoints: finalRoutePoints,
-          distance: distStr,
+          distance: estimatedKm,
           pace: paceStr,
           bpm: 0,
           planTitle: widget.planTitle,
