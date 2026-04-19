@@ -257,6 +257,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
                         'avgBpm': post.runBpm ?? 0,
                         'planTitle': post.runPlanTitle ?? 'Free Run',
                         'routePoints': post.routePoints,
+                        'userId': post.userId,
                       };
                       Navigator.push(
                         context,

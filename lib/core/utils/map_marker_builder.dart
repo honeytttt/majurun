@@ -20,6 +20,14 @@ class MapMarkerBuilder {
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
+    return buildForUser(uid, borderColor: borderColor);
+  }
+
+  /// Fetches any user's photo from Firestore by uid and builds a marker.
+  static Future<BitmapDescriptor> buildForUser(
+    String uid, {
+    Color borderColor = const Color(0xFF7ED957),
+  }) async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')

@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 
 
@@ -28,10 +29,13 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   }
 
   Future<void> _loadMarkers() async {
-    final start = await MapMarkerBuilder.buildForCurrentUser(
+    final runUserId = widget.runData['userId'] as String?;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = (runUserId != null && runUserId.isNotEmpty) ? runUserId : currentUid;
+    final start = await MapMarkerBuilder.buildForUser(uid,
       borderColor: const Color(0xFFFC4C02),
     );
-    final end = await MapMarkerBuilder.buildForCurrentUser(
+    final end = await MapMarkerBuilder.buildForUser(uid,
       borderColor: const Color(0xFF7ED957),
     );
     if (mounted) {
