@@ -45,18 +45,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.black),
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'mark_all_read') {
                 _notificationService.markAllAsRead();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('All notifications marked as read')),
                 );
+              } else if (value == 'test_notification') {
+                await PushNotificationService().sendTestNotification();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Test notification sent — check your phone'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
               }
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'mark_all_read',
                 child: Text('Mark all as read'),
+              ),
+              const PopupMenuItem(
+                value: 'test_notification',
+                child: Text('Send test notification'),
               ),
             ],
           ),

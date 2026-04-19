@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -415,6 +416,35 @@ class PushNotificationService {
   /// Calling initialize() multiple times is safe — it early-returns if already done.
   Future<void> _ensureInitialized() async {
     if (!_isInitialized) await initialize();
+  }
+
+  /// Fire an immediate test notification to verify the entire pipeline works.
+  Future<void> sendTestNotification() async {
+    await _ensureInitialized();
+    await _showLocalNotification(
+      title: 'MajuRun Notifications ✅',
+      body: 'Notifications are working! Your daily reminders will appear here.',
+      channelId: _runReminderChannelId,
+      payload: jsonEncode({'type': 'reminder'}),
+    );
+  }
+
+  /// Request Android battery optimization exemption so scheduled alarms
+  /// survive Doze mode. No-op on iOS. Safe to call every launch — the system
+  /// dialog only appears once unless the user later re-enables optimization.
+  Future<void> requestBatteryOptimizationExemption() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      if (!status.isGranted) {
+        await Permission.ignoreBatteryOptimizations.request();
+        debugPrint('🔋 Battery optimization exemption requested');
+      } else {
+        debugPrint('🔋 Battery optimization already exempt');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Could not request battery optimization exemption: $e');
+    }
   }
 
   /// Send run reminder notification
@@ -1151,6 +1181,8 @@ class PushNotificationService {
   /// updates, so re-scheduling on each login ensures they always exist.)
   Future<void> scheduleDefaultNotifications() async {
     debugPrint('📅 scheduleDefaultNotifications() called');
+    // Android: request battery optimization exemption so alarms survive Doze
+    await requestBatteryOptimizationExemption();
     await scheduleDailyMotivation(hour: 7, minute: 30);
     await scheduleNoRunReminder(hour: 19, minute: 0);
     try {
