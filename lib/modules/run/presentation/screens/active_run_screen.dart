@@ -873,6 +873,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
     if (!mounted) return null;
 
+    // On Android the dialog dismiss animation may still be running when this
+    // is called. Yielding to the event loop lets the navigator settle so the
+    // bottom sheet isn't silently dropped mid-transition.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return null;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
