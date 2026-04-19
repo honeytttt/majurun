@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+94
+version: 1.0.0+95
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -87,6 +87,9 @@ dependencies:
   # Background Location - DISABLED (requires paid license for release builds)
   # flutter_background_geolocation: ^5.0.0
   # Using geolocator with foreground service instead (free)
+
+  # App version info (reads actual build number from pubspec at runtime)
+  package_info_plus: ^8.0.0
 
   # Performance & Monitoring ──────────────────────────────────
   firebase_performance: ^0.10.0

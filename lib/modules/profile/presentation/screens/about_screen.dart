@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:majurun/core/utils/app_constants.dart';
 
 /// About Screen with App Info, Privacy Policy, Terms of Service
 /// Required for App Store compliance
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _version = '';
+  String _buildNumber = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) {
+        setState(() {
+          _version = info.version;
+          _buildNumber = info.buildNumber;
+        });
+      }
+    });
+  }
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
@@ -17,6 +39,9 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const brandGreen = Color(0xFF00E676);
+    final versionText = _version.isEmpty
+        ? 'Loading...'
+        : 'Version $_version (build $_buildNumber)';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -72,7 +97,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Version ${AppConstants.appVersion} (${AppConstants.buildNumber})',
+                    versionText,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
