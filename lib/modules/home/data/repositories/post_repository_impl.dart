@@ -63,7 +63,7 @@ class PostRepositoryImpl {
       if (selfieUrl != null && selfieUrl.isNotEmpty) {
         mediaList.add(PostMedia(url: selfieUrl, type: MediaType.image));
       } else if (mapImageUrl != null && mapImageUrl.isNotEmpty) {
-        mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.image));
+        mediaList.add(PostMedia(url: mapImageUrl, type: MediaType.runMap));
       }
     }
 

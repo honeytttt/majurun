@@ -13,6 +13,7 @@ import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 
 
@@ -842,7 +843,43 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       calories: calories,
     );
 
-    // Navigate to post editor — user can edit text, toggle map/selfie, then post or skip
+    final pbs = runController.lastRunPbs;
+    final badges = runController.lastRunBadges;
+
+    if (selfieBytes == null) {
+      // User didn't pick a selfie — auto-post in background with map (if available)
+      // then go straight to congratulations. No need to show the editor.
+      runController.postController.createAutoPost(
+        aiContent: suggestedText,
+        routePoints: routePoints,
+        distance: distanceKm,
+        pace: pace,
+        bpm: avgBpm,
+        durationSeconds: durationSeconds,
+        calories: calories,
+        planTitle: planTitle,
+        mapImageBytes: mapImageBytes,
+      ).catchError((e) {
+        debugPrint('❌ Auto-post failed: $e');
+      });
+
+      nav.pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => CongratulationsScreen(
+            distanceKm: distanceKm,
+            duration: duration,
+            pace: pace,
+            calories: calories,
+            planTitle: planTitle,
+            pbs: pbs,
+            badges: badges,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Selfie selected — show editor so user can choose between selfie and map
     nav.pushReplacement(
       MaterialPageRoute(
         builder: (_) => RunPostEditorScreen(
@@ -857,8 +894,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           planTitle: planTitle,
           durationSeconds: durationSeconds,
           avgBpm: avgBpm,
-          pbs: runController.lastRunPbs,
-          badges: runController.lastRunBadges,
+          pbs: pbs,
+          badges: badges,
         ),
       ),
     );

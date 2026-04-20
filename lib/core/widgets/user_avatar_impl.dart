@@ -12,6 +12,12 @@ Widget buildUserAvatar({required String photoUrl, required double radius}) {
     );
   }
 
+  // Cap the decoded image size to 3× the display size (handles high-DPI screens).
+  // On Android, decoding a 500×500 profile photo for a 40px circle was causing
+  // a 2–3 second delay because the full image had to be decoded into memory.
+  // Constraining memCache dimensions makes Android avatar loads near-instant.
+  final cacheSize = (radius * 2 * 3).ceil();
+
   return ClipOval(
     child: SizedBox(
       width: radius * 2,
@@ -19,10 +25,12 @@ Widget buildUserAvatar({required String photoUrl, required double radius}) {
       child: CachedNetworkImage(
         imageUrl: url,
         fit: BoxFit.cover,
+        memCacheWidth: cacheSize,
+        memCacheHeight: cacheSize,
         placeholder: (context, url) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey.shade200,
-          child: const CircularProgressIndicator(strokeWidth: 2),
+          child: Icon(Icons.person, size: radius, color: Colors.grey.shade400),
         ),
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,

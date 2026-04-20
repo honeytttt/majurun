@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-enum MediaType { text, image, video }
+enum MediaType { text, image, video, runMap }
 
 class PostMedia extends Equatable {
   final String url;

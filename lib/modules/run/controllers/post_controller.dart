@@ -78,6 +78,14 @@ class PostController extends ChangeNotifier {
       // Use the override URL if provided, otherwise upload to Cloudinary
       String? mapImageUrl = mapImageUrlOverride;
 
+      // Only use the map screenshot if the route has enough GPS points to look
+      // meaningful in the feed. Very short routes produce a gray/zoomed-out map
+      // that looks unprofessional. Threshold: 5 points ≈ ~50–100 m of tracking.
+      if (routePoints.length < 5) {
+        mapImageBytes = null;
+        debugPrint('📍 Route too short (${routePoints.length} pts) — skipping map image');
+      }
+
       // Upload map image to Cloudinary if bytes are available and no override exists
       if (mapImageUrl == null && mapImageBytes != null && mapImageBytes.isNotEmpty) {
         try {
@@ -115,9 +123,12 @@ class PostController extends ChangeNotifier {
       // Only store routePoints when no map image AND no selfie was uploaded —
       // they serve as a fallback live-render (RunMapPreview).
       // If either image is uploaded, skip raw points to prevent double-map in feed.
+      // Also skip raw points when route is too short — a < 5-point RunMapPreview
+      // renders as a gray zoomed-in map which looks worse than text-only.
       final hasUploadedImage = (mapImageUrl != null && mapImageUrl.isNotEmpty) ||
           (selfieUrl != null && selfieUrl.isNotEmpty);
-      final sampledPoints = hasUploadedImage
+      final hasGoodRoute = routePoints.length >= 5;
+      final sampledPoints = (hasUploadedImage || !hasGoodRoute)
           ? <LatLng>[]
           : RouteUtils.sampleRoutePoints(routePoints);
       debugPrint("📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)");
