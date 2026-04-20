@@ -539,6 +539,10 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           },
           child: CustomScrollView(
             controller: _feedScrollController,
+            // Keep ~5 screens worth of content built above/below the viewport.
+            // Default is 250px which is less than one post card — far too small
+            // for a social feed and causes constant rebuild churn on scroll.
+            cacheExtent: 2000,
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),

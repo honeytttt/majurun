@@ -57,6 +57,12 @@ Future<void> main() async {
   await SentryService.initializeApp(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Increase Flutter's image memory cache from 100 MB (default) to 250 MB.
+    // With 30-40 feed posts each carrying an avatar + post image, the default
+    // fills quickly and starts evicting images — causing loading spinners to
+    // reappear when scrolling back up.
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 250 * 1024 * 1024;
+
     // Initialize timezone data so scheduled notifications fire at the correct
     // LOCAL time. Without this, tz.local defaults to UTC which causes reminders
     // to fire at wrong times (e.g. 7:30 UTC = 3:30 PM in Malaysia UTC+8).
@@ -160,13 +166,27 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _setupAuthListener();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-schedule notifications every time the app comes back to foreground.
+    // Android cancels AlarmManager alarms on app update or device restart, so
+    // rescheduling on resume ensures daily notifications survive both events.
+    if (state == AppLifecycleState.resumed) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        PushNotificationService().scheduleDefaultNotifications();
+      }
+    }
   }
 
   void _setupAuthListener() {
@@ -199,6 +219,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     super.dispose();
   }

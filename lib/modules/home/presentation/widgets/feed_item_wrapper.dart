@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -26,7 +27,12 @@ class FeedItemWrapper extends StatefulWidget {
   State<FeedItemWrapper> createState() => _FeedItemWrapperState();
 }
 
-class _FeedItemWrapperState extends State<FeedItemWrapper> {
+class _FeedItemWrapperState extends State<FeedItemWrapper>
+    with AutomaticKeepAliveClientMixin {
+  // Keep this widget alive while it's within the SliverList — prevents disposal
+  // when scrolled off screen, which was causing all images and avatars to reload.
+  @override
+  bool get wantKeepAlive => true;
   late bool _isLiked;
   late int _localLikesCount;
   // Cache the future so it survives widget rebuilds — recreating it inline in
@@ -82,6 +88,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     final currentUser = FirebaseAuth.instance.currentUser;
     final currentUserId = currentUser?.uid;
     final isOwnPost = currentUserId != null && widget.post.userId == currentUserId;
@@ -138,43 +145,23 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
                       );
                     }
 
-                    return CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey,
-                      child: ClipOval(
-                        child: Image.network(
-                          photoUrl,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) {
-                              debugPrint('✅ FeedItem: Avatar loaded successfully for ${widget.post.userId}');
-                              return child;
-                            }
-                            final progress = loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                : 0.0;
-                            debugPrint('⏳ FeedItem: Loading avatar for ${widget.post.userId}... ${(progress * 100).toStringAsFixed(0)}%');
-                            return Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  value: progress,
-                                  strokeWidth: 2,
-                                  color: const Color(0xFF00E676),
-                                ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            debugPrint('❌ FeedItem: Error loading avatar for ${widget.post.userId}: $error');
-                            return const CircleAvatar(
-                              backgroundColor: Colors.redAccent,
-                              child: Icon(Icons.error, color: Colors.white),
-                            );
-                          },
+                    return ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: photoUrl,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 120,
+                        memCacheHeight: 120,
+                        placeholder: (context, url) => const CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.grey,
+                          child: Icon(Icons.person, size: 20, color: Colors.white),
+                        ),
+                        errorWidget: (context, url, error) => const CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.blueGrey,
+                          child: Icon(Icons.person, color: Colors.white),
                         ),
                       ),
                     );
@@ -443,25 +430,17 @@ class _FeedItemWrapperState extends State<FeedItemWrapper> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              media.url,
+            child: CachedNetworkImage(
+              imageUrl: media.url,
               fit: BoxFit.contain,
               width: double.infinity,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 300,
-                  color: Colors.grey[100],
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                          : null,
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
+              memCacheWidth: 800,
+              placeholder: (context, url) => Container(
+                height: 300,
+                color: Colors.grey[100],
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (context, url, error) {
                 debugPrint('❌ Error loading image: $error');
                 return Container(
                   height: 200,
