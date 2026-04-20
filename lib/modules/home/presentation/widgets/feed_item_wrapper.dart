@@ -35,9 +35,11 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   bool get wantKeepAlive => true;
   late bool _isLiked;
   late int _localLikesCount;
-  // Cache the future so it survives widget rebuilds — recreating it inline in
-  // build() would reset the FutureBuilder every time the parent calls setState.
+  // Cache futures/streams so parent setState() rebuilds don't recreate them.
+  // Without this, every Firestore like-update triggers a parent setState which
+  // rebuilds visible FeedItemWrapper widgets and spawns new stream subscriptions.
   late Future<String> _userPhotoFuture;
+  late Stream<List<Map<String, dynamic>>> _commentsStream;
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     _isLiked = currentUserId != null && widget.post.likes.contains(currentUserId);
     _localLikesCount = widget.post.likes.length;
     _userPhotoFuture = _getUserPhotoUrl(widget.post.userId);
+    _commentsStream = PostRepositoryImpl().getCommentsStream(widget.post.id);
   }
 
   @override
@@ -319,7 +322,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                           },
                         ),
                         StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: PostRepositoryImpl().getCommentsStream(widget.post.id),
+                          stream: _commentsStream,
                           builder: (context, snapshot) {
                             final count = snapshot.data?.length ?? 0;
                             return Text(
@@ -401,12 +404,72 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     }
   }
 
-  Widget _buildMedia(BuildContext context, media) {
+  Widget _buildMedia(BuildContext context, PostMedia media) {
     if (media.type == MediaType.video) {
       return Container(
         height: 300,
         margin: const EdgeInsets.symmetric(horizontal: 8),
         child: PostVideoPlayer(videoUrl: media.url),
+      );
+    } else if (media.type == MediaType.runMap) {
+      // Run map image — tap navigates to run detail (not fullscreen viewer).
+      // This image is the Cloudinary-uploaded map screenshot stored as
+      // mapImageUrl in Firestore; the MediaType.runMap tag distinguishes it
+      // from a regular selfie/photo so tapping works correctly.
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          final post = widget.post;
+          final hasStats = post.runDistance != null || post.runPace != null;
+          if (hasStats) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RunDetailScreen(runData: {
+                  'date': post.createdAt,
+                  'distance': post.runDistance ?? 0.0,
+                  'durationSeconds': post.runDurationSeconds ?? 0,
+                  'pace': post.runPace ?? '0:00',
+                  'calories': post.runCalories ?? 0,
+                  'avgBpm': post.runBpm ?? 0,
+                  'planTitle': post.runPlanTitle ?? 'Free Run',
+                  'routePoints': post.routePoints,
+                  'userId': post.userId,
+                }),
+              ),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+              ),
+            );
+          }
+        },
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 350, minHeight: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: CachedNetworkImage(
+              imageUrl: media.url,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              memCacheWidth: 800,
+              placeholder: (context, url) => Container(
+                height: 220,
+                color: Colors.grey[200],
+                child: const Center(child: Icon(Icons.map_outlined, size: 48, color: Colors.grey)),
+              ),
+              errorWidget: (context, url, error) => Container(
+                height: 180,
+                color: Colors.grey[200],
+                child: const Center(child: Icon(Icons.broken_image, size: 60, color: Colors.grey)),
+              ),
+            ),
+          ),
+        ),
       );
     } else {
       return GestureDetector(
