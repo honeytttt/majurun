@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/core/services/dm_service.dart';
+import 'package:majurun/core/widgets/report_bottom_sheet.dart';
 import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
 import 'run_map_preview.dart';
@@ -341,6 +343,70 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                                   isAdmin && !isOwnPost ? 'Delete (Admin)' : 'Delete Post',
                                   style: const TextStyle(color: Colors.red),
                                 ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (!isOwnPost && currentUserId.isNotEmpty)
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: Colors.grey, size: 24),
+                        onSelected: (value) async {
+                          if (value == 'report') {
+                            await ReportBottomSheet.showForPost(
+                              context,
+                              postId: widget.post.id,
+                              postOwnerId: widget.post.userId,
+                            );
+                          } else if (value == 'block') {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Block User'),
+                                content: Text(
+                                  'Block ${widget.post.username}? You won\'t see their posts anymore.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                    child: const Text('Block'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && context.mounted) {
+                              await DmService().blockUser(currentUserId, widget.post.userId);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('${widget.post.username} blocked')),
+                                );
+                              }
+                            }
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'report',
+                            child: Row(
+                              children: [
+                                Icon(Icons.flag_outlined, color: Colors.red, size: 20),
+                                SizedBox(width: 8),
+                                Text('Report Post', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'block',
+                            child: Row(
+                              children: [
+                                Icon(Icons.block, color: Colors.orange, size: 20),
+                                SizedBox(width: 8),
+                                Text('Block Author'),
                               ],
                             ),
                           ),

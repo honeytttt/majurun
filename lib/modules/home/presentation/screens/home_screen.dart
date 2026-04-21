@@ -53,13 +53,32 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _feedScrollController = ScrollController();
   final List<AppPost> _allPosts = [];
   bool _isLoadingMore = false;
+  Set<String> _blockedUserIds = {};
 
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
+    _loadBlockedUsers();
     _feedScrollController.addListener(_onScroll);
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
+  }
+
+  Future<void> _loadBlockedUsers() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('blockedUsers')
+          .get();
+      if (mounted) {
+        setState(() {
+          _blockedUserIds = snap.docs.map((d) => d.id).toSet();
+        });
+      }
+    } catch (_) {}
   }
 
   void _onTabNotifier() {
@@ -525,7 +544,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           }
         }
 
-        final displayPosts = _allPosts.isNotEmpty ? _allPosts : posts;
+        final displayPosts = (_allPosts.isNotEmpty ? _allPosts : posts)
+            .where((p) => !_blockedUserIds.contains(p.userId))
+            .toList();
 
         return RefreshIndicator(
           color: brandGreen,

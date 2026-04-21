@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:majurun/core/services/dm_service.dart';
+import 'package:majurun/core/widgets/report_bottom_sheet.dart';
 import 'package:majurun/modules/dm/domain/entities/message.dart';
 import 'package:majurun/modules/dm/presentation/widgets/message_bubble.dart';
 import 'package:majurun/modules/dm/presentation/widgets/message_input.dart';
@@ -316,12 +317,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showOptions() {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => SafeArea(
+      builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -329,18 +331,53 @@ class _ChatScreenState extends State<ChatScreen> {
               leading: const Icon(Icons.person),
               title: Text('View ${widget.otherUserName}\'s profile'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(ctx);
                 _navigateToProfile();
               },
             ),
             ListTile(
               leading: const Icon(Icons.block, color: Colors.orange),
               title: const Text('Block user'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Block feature coming soon')),
+              onTap: () async {
+                Navigator.pop(ctx);
+                if (currentUserId.isEmpty) return;
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (d) => AlertDialog(
+                    title: const Text('Block User'),
+                    content: Text(
+                      'Block ${widget.otherUserName}? They won\'t be able to message you.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(d, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(d, true),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('Block'),
+                      ),
+                    ],
+                  ),
                 );
+                if (confirm == true && mounted) {
+                  await _dmService.blockUser(currentUserId, widget.otherUserId);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${widget.otherUserName} blocked')),
+                    );
+                    Navigator.pop(context); // leave chat screen
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: Colors.red),
+              title: const Text('Report user', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                ReportBottomSheet.showForUser(context, userId: widget.otherUserId);
               },
             ),
             const SizedBox(height: 8),

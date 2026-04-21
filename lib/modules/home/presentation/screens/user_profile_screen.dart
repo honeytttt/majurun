@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 
 import 'package:majurun/core/widgets/user_avatar.dart';
+import 'package:majurun/core/widgets/report_bottom_sheet.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_card.dart';
 import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
@@ -34,6 +35,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final DmService _dmService = DmService();
 
   bool _isFollowing = false;
+  bool _isBlocked = false;
   bool _isLoading = true;
   bool _showPosts = true;
   bool _isCheckingMessagePermission = false;
@@ -56,7 +58,57 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     super.initState();
     isOwnProfile = widget.userId == FirebaseAuth.instance.currentUser?.uid;
     _loadUserData();
-    if (!isOwnProfile) _checkFollowStatus();
+    if (!isOwnProfile) {
+      _checkFollowStatus();
+      _checkBlockStatus();
+    }
+  }
+
+  Future<void> _checkBlockStatus() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final blocked = await _dmService.checkIfBlocked(uid, widget.userId);
+    if (mounted) setState(() => _isBlocked = blocked);
+  }
+
+  Future<void> _toggleBlock() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    if (_isBlocked) {
+      await _dmService.unblockUser(uid, widget.userId);
+      if (mounted) {
+        setState(() => _isBlocked = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.username} unblocked')),
+        );
+      }
+    } else {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Block User'),
+          content: Text(
+            'Block ${widget.username}? They won\'t be able to message you and you won\'t see their content.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Block'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      await _dmService.blockUser(uid, widget.userId);
+      if (mounted) {
+        setState(() => _isBlocked = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.username} blocked')),
+        );
+      }
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -307,6 +359,51 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (!isOwnProfile)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.black),
+              onSelected: (value) async {
+                final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                if (value == 'block') {
+                  await _toggleBlock();
+                } else if (value == 'report') {
+                  if (context.mounted) {
+                    await ReportBottomSheet.showForUser(
+                      context,
+                      userId: widget.userId,
+                    );
+                  }
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'block',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isBlocked ? Icons.lock_open : Icons.block,
+                        color: Colors.orange,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_isBlocked ? 'Unblock' : 'Block'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag_outlined, color: Colors.red, size: 20),
+                      SizedBox(width: 8),
+                      Text('Report', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: CustomScrollView(
         slivers: [
