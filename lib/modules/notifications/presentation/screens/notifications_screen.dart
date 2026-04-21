@@ -176,6 +176,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         // TODO: Navigate to post
         _navigateToUserProfile(notification);
         break;
+      case NotificationType.reminder:
+        // Daily reminders have no specific destination — just mark as read.
+        break;
     }
   }
 
