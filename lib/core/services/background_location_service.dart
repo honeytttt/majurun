@@ -166,15 +166,8 @@ class BackgroundLocationService {
         return false;
       }
 
-      // Request background location permission on Android
-      if (!kIsWeb && Platform.isAndroid) {
-        if (permission == LocationPermission.whileInUse) {
-          // For Android 10+, we need to request background permission separately
-          debugPrint('📍 Requesting background location permission...');
-          permission = await Geolocator.requestPermission();
-        }
-      }
-
+      // Foreground service with foregroundServiceType="location" keeps GPS
+      // active even when the screen is off — no background location permission needed.
       return true;
     } catch (e) {
       onError?.call('Error checking permissions: $e');
