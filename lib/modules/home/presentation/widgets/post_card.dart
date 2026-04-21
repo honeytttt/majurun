@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -69,6 +70,11 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   }
 
   void _toggleLike(String currentUserId) {
+    if (_isLiked) {
+      HapticFeedback.lightImpact();
+    } else {
+      HapticFeedback.mediumImpact(); // stronger pulse when liking
+    }
     setState(() {
       if (_isLiked) {
         _isLiked = false;

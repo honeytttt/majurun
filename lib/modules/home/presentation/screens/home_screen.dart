@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:majurun/core/services/video_session_manager.dart';
+import 'package:majurun/core/widgets/shimmer_loading.dart';
+import 'package:majurun/core/widgets/connectivity_banner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -50,35 +53,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
-  final ScrollController _feedScrollController = ScrollController();
-  final List<AppPost> _allPosts = [];
-  bool _isLoadingMore = false;
-  Set<String> _blockedUserIds = {};
-
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
-    _loadBlockedUsers();
-    _feedScrollController.addListener(_onScroll);
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
-  }
-
-  Future<void> _loadBlockedUsers() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('blockedUsers')
-          .get();
-      if (mounted) {
-        setState(() {
-          _blockedUserIds = snap.docs.map((d) => d.id).toSet();
-        });
-      }
-    } catch (_) {}
   }
 
   void _onTabNotifier() {
@@ -195,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
+    HapticFeedback.selectionClick();
     if (index != 0) {
       VideoSessionManager.pauseAll();
     }
@@ -236,7 +216,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return Scaffold(
+    return ConnectivityBanner(
+     child: Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.white,
       drawer: TrainingDrawer(
@@ -285,7 +266,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
+    ), // Scaffold
+    ); // ConnectivityBanner
   }
 
   Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
@@ -391,6 +373,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _isLoadingMore = false;
   bool _bannerDismissed = false;
   bool _sendingVerification = false;
+  Set<String> _blockedUserIds = {};
+  bool _showNewPostsBanner = false;
+  int _newPostCount = 0;
 
   bool get _showVerifyBanner {
     if (_bannerDismissed) return false;
@@ -425,6 +410,20 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     super.initState();
     _feedScrollController.addListener(_onScroll);
     HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
+    _loadBlockedUsers();
+  }
+
+  Future<void> _loadBlockedUsers() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('blockedUsers')
+          .get();
+      if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
+    } catch (_) {}
   }
 
   @override
@@ -481,11 +480,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
       stream: _postRepo.getPostsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting && _allPosts.isEmpty) {
-          return Center(
-            child: CircularProgressIndicator(
-              color: brandGreen,
-              strokeWidth: 3,
-            ),
+          return const SingleChildScrollView(
+            physics: NeverScrollableScrollPhysics(),
+            child: FeedSkeleton(count: 5),
           );
         }
         if (snapshot.hasError) {
@@ -512,8 +509,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
         final posts = snapshot.data ?? [];
 
         // Only rebuild when meaningful data changes (new/removed posts or like counts).
-        // Do NOT rebuild on every stream event — it recreates FutureBuilders in
-        // child widgets and causes images/maps to reset and reload indefinitely.
         if (posts.isNotEmpty) {
           final newPostIds = posts.map((p) => p.id).toSet();
           final currentPostIds = _allPosts.map((p) => p.id).toSet();
@@ -532,8 +527,29 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
           if (_allPosts.isEmpty || idsChanged || likesChanged) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
+              if (!mounted) return;
+              // If user has scrolled down and new posts arrived at the top,
+              // show the "new posts" banner instead of silently updating.
+              final scrolledDown = _feedScrollController.hasClients &&
+                  _feedScrollController.offset > 300;
+              final trulyNewIds = newPostIds.difference(currentPostIds);
+
+              if (scrolledDown && trulyNewIds.isNotEmpty && _allPosts.isNotEmpty) {
                 setState(() {
+                  _showNewPostsBanner = true;
+                  _newPostCount = trulyNewIds.length;
+                  // Still update likes without jumping
+                  if (likesChanged) {
+                    for (var i = 0; i < _allPosts.length; i++) {
+                      final updated = posts.where((p) => p.id == _allPosts[i].id);
+                      if (updated.isNotEmpty) _allPosts[i] = updated.first;
+                    }
+                  }
+                });
+              } else {
+                setState(() {
+                  _showNewPostsBanner = false;
+                  _newPostCount = 0;
                   final paginatedPosts = _allPosts.where((p) => !newPostIds.contains(p.id)).toList();
                   _allPosts.clear();
                   _allPosts.addAll(posts);
@@ -548,7 +564,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
             .where((p) => !_blockedUserIds.contains(p.userId))
             .toList();
 
-        return RefreshIndicator(
+        return Stack(
+          children: [
+            RefreshIndicator(
           color: brandGreen,
           backgroundColor: Colors.white,
           onRefresh: () async {
@@ -787,7 +805,60 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
             ],
           ),
-        );
+        ), // RefreshIndicator
+            // "New posts" floating banner
+            if (_showNewPostsBanner)
+              Positioned(
+                top: 12,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        _showNewPostsBanner = false;
+                        _newPostCount = 0;
+                      });
+                      _feedScrollController.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                    child: Material(
+                      borderRadius: BorderRadius.circular(20),
+                      elevation: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E676),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.black),
+                            const SizedBox(width: 6),
+                            Text(
+                              _newPostCount == 1
+                                  ? '1 new post'
+                                  : '$_newPostCount new posts',
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ], // Stack children
+        ); // Stack
       },
     );
   }

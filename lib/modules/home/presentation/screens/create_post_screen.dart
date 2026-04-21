@@ -445,7 +445,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           )
         ],
       ),
-      body: Column(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
         children: [
           // TEXT INPUT
           Expanded(
@@ -619,7 +622,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             ),
           ),
         ],
-      ),
+        ), // Column
+      ), // GestureDetector
     );
   }
 }
