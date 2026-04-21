@@ -78,6 +78,22 @@ class NotificationTile extends StatelessWidget {
       );
     }
 
+    if (notification.type == NotificationType.reminder) {
+      return Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.directions_run_rounded,
+          color: Colors.orange,
+          size: 28,
+        ),
+      );
+    }
+
     return CircleAvatar(
       radius: 24,
       backgroundColor: Colors.grey[200],
@@ -93,6 +109,10 @@ class NotificationTile extends StatelessWidget {
   }
 
   Widget _buildMessage() {
+    // System notifications (badge, reminder) show the full message directly
+    // without a "from user" prefix.
+    final isSystemNotif = notification.type == NotificationType.badge ||
+        notification.type == NotificationType.reminder;
     return RichText(
       text: TextSpan(
         style: const TextStyle(
@@ -100,13 +120,13 @@ class NotificationTile extends StatelessWidget {
           color: Colors.black87,
         ),
         children: [
-          if (notification.type != NotificationType.badge)
+          if (!isSystemNotif)
             TextSpan(
               text: notification.fromUsername,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           TextSpan(
-            text: notification.type == NotificationType.badge
+            text: isSystemNotif
                 ? notification.message
                 : ' ${_getActionText()}',
           ),
@@ -128,6 +148,7 @@ class NotificationTile extends StatelessWidget {
       case NotificationType.post:
         return 'shared a new post';
       case NotificationType.badge:
+      case NotificationType.reminder:
         return '';
     }
   }
@@ -160,6 +181,10 @@ class NotificationTile extends StatelessWidget {
       case NotificationType.post:
         icon = Icons.article;
         color = const Color(0xFF00E676);
+        break;
+      case NotificationType.reminder:
+        icon = Icons.directions_run_rounded;
+        color = Colors.orange;
         break;
     }
 

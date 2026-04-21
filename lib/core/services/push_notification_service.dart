@@ -1190,7 +1190,67 @@ class PushNotificationService {
     } catch (e) {
       debugPrint('❌ scheduleWeeklySummary error: $e');
     }
+    // Write any fired daily notifications to the in-app notification centre
+    // so users can find them in the bell screen even if they swiped away the
+    // phone notification without tapping it.
+    await _catchUpDailyInAppNotifications();
     debugPrint('✅ Default notifications (re)scheduled');
+  }
+
+  /// Checks whether today's morning (07:30) and/or evening (19:00) scheduled
+  /// notifications have already fired, and if so writes them once to the
+  /// Firestore in-app notification centre.
+  ///
+  /// Uses SharedPreferences keys scoped to the calendar date so each
+  /// notification slot is written exactly once per day regardless of how many
+  /// times the user opens or foregrounds the app.
+  Future<void> _catchUpDailyInAppNotifications() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      // Date key — resets automatically at midnight without any cleanup needed.
+      final dateKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      // ── Morning motivation (07:30) ──────────────────────────────────────────
+      const morningHour = 7, morningMinute = 30;
+      final morningFired = now.hour > morningHour ||
+          (now.hour == morningHour && now.minute >= morningMinute);
+      final morningWrittenKey = 'inapp_morning_$dateKey';
+
+      if (morningFired && prefs.getBool(morningWrittenKey) != true) {
+        final message = (List<String>.from(_morningMotivations)..shuffle()).first;
+        await _writeInAppNotification(
+          title: 'Good morning, runner! 🌅',
+          body: message,
+          type: 'reminder',
+        );
+        await prefs.setBool(morningWrittenKey, true);
+        debugPrint('📬 Morning motivation written to in-app inbox');
+      }
+
+      // ── Evening reminder (19:00) ────────────────────────────────────────────
+      const eveningHour = 19, eveningMinute = 0;
+      final eveningFired = now.hour > eveningHour ||
+          (now.hour == eveningHour && now.minute >= eveningMinute);
+      final eveningWrittenKey = 'inapp_evening_$dateKey';
+
+      if (eveningFired && prefs.getBool(eveningWrittenKey) != true) {
+        final message = (List<String>.from(_eveningReminders)..shuffle()).first;
+        await _writeInAppNotification(
+          title: 'Time for a run? 🏃',
+          body: message,
+          type: 'reminder',
+        );
+        await prefs.setBool(eveningWrittenKey, true);
+        debugPrint('📬 Evening reminder written to in-app inbox');
+      }
+    } catch (e) {
+      debugPrint('⚠️ _catchUpDailyInAppNotifications error: $e');
+    }
   }
 
   /// Dispose service

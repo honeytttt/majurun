@@ -7,6 +7,7 @@ enum NotificationType {
   like,
   comment,
   post, // When a subscribed user posts
+  reminder, // Daily motivation / evening run reminder from MajuRun
 }
 
 class AppNotification {
@@ -76,6 +77,8 @@ class AppNotification {
         return NotificationType.comment;
       case 'post':
         return NotificationType.post;
+      case 'reminder':
+        return NotificationType.reminder;
       default:
         return NotificationType.follow;
     }
