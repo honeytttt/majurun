@@ -769,6 +769,20 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                                 color: AppTheme.textSecondary,
                               ),
                             ),
+                            const SizedBox(height: 20),
+                            ElevatedButton.icon(
+                              onPressed: () => HomeScreen.tabNotifier.value = 4,
+                              icon: const Icon(Icons.directions_run, size: 18),
+                              label: const Text('Start Running'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brandGreen,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),

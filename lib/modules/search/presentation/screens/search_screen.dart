@@ -265,7 +265,11 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
               )
             : null,
       ),
-      body: _buildBody(),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: _buildBody(),
+      ),
     );
   }
 

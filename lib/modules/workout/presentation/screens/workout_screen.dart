@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:majurun/core/services/subscription_service.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_player_screen.dart';
 
@@ -22,6 +23,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _isPro = false;
   int _selectedCategoryIndex = 0;
   int _selectedLevelIndex = 0;
+  Set<String> _favoriteWorkoutNames = {};
 
   // Level configuration
   final List<Map<String, dynamic>> _levels = [
@@ -330,10 +332,31 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     },
   ];
 
+  static const _favPrefKey = 'favorite_workouts';
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_favPrefKey) ?? [];
+    if (mounted) setState(() => _favoriteWorkoutNames = saved.toSet());
+  }
+
+  Future<void> _toggleFavorite(String workoutName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final updated = Set<String>.from(_favoriteWorkoutNames);
+    if (updated.contains(workoutName)) {
+      updated.remove(workoutName);
+    } else {
+      updated.add(workoutName);
+    }
+    await prefs.setStringList(_favPrefKey, updated.toList());
+    if (mounted) setState(() => _favoriteWorkoutNames = updated);
+  }
+
   @override
   void initState() {
     super.initState();
     _checkProStatus();
+    _loadFavorites();
     _scrollController.addListener(() {
       setState(() {
         _showBackToTop = _scrollController.offset > 200;
@@ -1012,6 +1035,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final bool isLocked = requiresPro && !_isPro;
     final String? thumbnailUrl = workout['thumbnail'] as String?;
     final IconData iconData = workout['icon'] as IconData;
+    final bool isFavorite = _favoriteWorkoutNames.contains(workout['name'] as String);
 
     return Semantics(
       button: true,
@@ -1123,7 +1147,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top row with icon and badge
+                    // Top row with icon, badge and favorite
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1142,17 +1166,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             color: isLocked ? Colors.grey : accentColor,
                           ),
                         ),
-                        if (isLocked)
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(8),
+                        Row(
+                          children: [
+                            if (isLocked)
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.lock, size: 14, color: Colors.grey),
+                              )
+                            else
+                              _buildLevelBadge(workout['level'] as String, accentColor),
+                            const SizedBox(width: 6),
+                            GestureDetector(
+                              onTap: () => _toggleFavorite(workout['name'] as String),
+                              child: Icon(
+                                isFavorite ? Icons.favorite : Icons.favorite_border,
+                                size: 18,
+                                color: isFavorite ? Colors.redAccent : Colors.white38,
+                              ),
                             ),
-                            child: const Icon(Icons.lock, size: 14, color: Colors.grey),
-                          )
-                        else
-                          _buildLevelBadge(workout['level'] as String, accentColor),
+                          ],
+                        ),
                       ],
                     ),
                     const Spacer(),

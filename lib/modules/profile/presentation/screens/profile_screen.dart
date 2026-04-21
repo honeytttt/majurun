@@ -19,6 +19,7 @@ import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.
 import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/about_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -235,6 +236,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: true,
         actions: [
+          // Share Profile Button
+          Semantics(
+            button: true,
+            label: 'Share profile',
+            child: IconButton(
+              icon: const Icon(Icons.share_outlined, color: Color(0xFF00E676)),
+              tooltip: 'Share Profile',
+              onPressed: () {
+                Share.share(
+                  'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
+                );
+              },
+            ),
+          ),
           // Voice Coach Settings Button
           Semantics(
             button: true,
@@ -313,7 +328,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Get totalRuns from workoutsCount (run history), not postsCount
               final totalRuns = (data['workoutsCount'] as int?) ?? 0;
 
-              return CustomScrollView(
+              return RefreshIndicator(
+                color: const Color(0xFF00E676),
+                backgroundColor: Colors.white,
+                onRefresh: () async {
+                  await _syncBadges();
+                },
+                child: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
                     child: _buildProfileHeader(
@@ -349,6 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Bottom padding so last item isn't hidden behind system navigation bar
                   const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
                 ],
+              ),
               );
             },
           );
