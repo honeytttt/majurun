@@ -382,15 +382,23 @@ class PushNotificationService {
   Future<void> clearBadge() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_badgeCountKey, 0);
-    // Reset iOS badge to 0 via a silent notification
-    const iosDetails = DarwinNotificationDetails(badgeNumber: 0);
-    await _localNotifications.show(
-      _clearBadgeNotifId,
-      null,
-      null,
-      const NotificationDetails(iOS: iosDetails),
-    );
-    await _localNotifications.cancel(_clearBadgeNotifId);
+    // iOS only: reset the app-icon badge to 0 via a silent notification.
+    // Skipped on Android — badge counts work differently there and
+    // showing a notification with no Android details causes a crash.
+    if (!kIsWeb && Platform.isIOS) {
+      try {
+        const iosDetails = DarwinNotificationDetails(badgeNumber: 0);
+        await _localNotifications.show(
+          _clearBadgeNotifId,
+          null,
+          null,
+          const NotificationDetails(iOS: iosDetails),
+        );
+        await _localNotifications.cancel(_clearBadgeNotifId);
+      } catch (e) {
+        debugPrint('⚠️ clearBadge iOS error: $e');
+      }
+    }
   }
 
   String _getChannelName(String channelId) {
@@ -822,10 +830,31 @@ class PushNotificationService {
   Future<void> _initTimezone() async {
     if (_tzInitialized) return;
     tz_data.initializeTimeZones();
-    final String localTz = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(localTz));
+    final String rawTz = await FlutterTimezone.getLocalTimezone();
+    final String localTz = _normalizeTimezone(rawTz);
+    try {
+      tz.setLocalLocation(tz.getLocation(localTz));
+    } catch (_) {
+      // Fallback to UTC if the timezone name is unrecognised
+      tz.setLocalLocation(tz.getLocation('UTC'));
+      debugPrint('⚠️ Unknown timezone "$localTz", falling back to UTC');
+    }
     _tzInitialized = true;
     debugPrint('🕐 Timezone set to: $localTz');
+  }
+
+  /// Map deprecated/legacy IANA timezone names to their current equivalents.
+  String _normalizeTimezone(String name) {
+    const aliases = {
+      'Asia/Calcutta': 'Asia/Kolkata',
+      'Asia/Rangoon': 'Asia/Yangon',
+      'Asia/Katmandu': 'Asia/Kathmandu',
+      'America/Godthab': 'America/Nuuk',
+      'Atlantic/Faeroe': 'Atlantic/Faroe',
+      'Pacific/Truk': 'Pacific/Chuuk',
+      'Pacific/Ponape': 'Pacific/Pohnpei',
+    };
+    return aliases[name] ?? name;
   }
 
   /// Returns the best available AndroidScheduleMode.

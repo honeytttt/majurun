@@ -262,13 +262,28 @@ class BackgroundLocationService {
       );
     }
 
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      _handlePositionUpdate,
-      onError: _handleStreamError,
-      onDone: () => debugPrint('📍 Position stream closed'),
-    );
+    try {
+      _positionStream = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen(
+        _handlePositionUpdate,
+        onError: _handleStreamError,
+        onDone: () => debugPrint('📍 Position stream closed'),
+      );
+    } catch (e) {
+      // Android 14+ blocks startForeground() when called from background state.
+      // Fall back to a basic (non-foreground-service) location stream.
+      debugPrint('⚠️ Foreground service blocked, falling back to basic stream: $e');
+      _positionStream = Geolocator.getPositionStream(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 3,
+        ),
+      ).listen(
+        _handlePositionUpdate,
+        onError: _handleStreamError,
+      );
+    }
   }
 
   void _handlePositionUpdate(Position position) {

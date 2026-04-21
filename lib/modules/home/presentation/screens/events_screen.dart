@@ -46,7 +46,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
   Future<void> _loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -79,6 +79,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         xpNeeded = (xpNeeded * 1.2).toInt();
       }
 
+      if (!mounted) return;
       setState(() {
         _userBadges = badges;
         _currentStreak = (data['currentStreak'] as int?) ?? 0;
@@ -87,7 +88,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
