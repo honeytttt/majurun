@@ -46,6 +46,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   final Map<int, VideoPlayerController> _videoControllers = {};
   final Map<int, ChewieController> _chewieControllers = {};
   bool _videoInitialized = false;
+  final Set<int> _failedVideoIndices = {};
 
   // Animation
   late AnimationController _pulseController;
@@ -202,9 +203,13 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
       }
     } catch (e) {
       debugPrint('❌ Error initializing video $index: $e');
-      // Remove failed controller
+      // Remove failed controller and update UI so loading spinner doesn't spin forever
+      _videoControllers[index]?.removeListener(_onVideoStateChanged);
+      try { _videoControllers[index]?.dispose(); } catch (_) {}
       _chewieControllers.remove(index);
       _videoControllers.remove(index);
+      _failedVideoIndices.add(index);
+      if (mounted) setState(() {});
     }
   }
 
@@ -618,7 +623,42 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
                           ),
                         );
                       } else if (isVideo) {
-                        // Video is loading - show loading placeholder with thumbnail background
+                        // Failed to load — show retry option instead of infinite spinner
+                        if (_failedVideoIndices.contains(_currentExerciseIndex)) {
+                          return Container(
+                            color: darkSurface,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.wifi_off_rounded,
+                                      size: 48, color: Colors.white.withValues(alpha: 0.4)),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Video failed to load',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      _failedVideoIndices.remove(_currentExerciseIndex);
+                                      _initializeVideoController(_currentExerciseIndex);
+                                    },
+                                    icon: Icon(Icons.refresh, color: widget.accentColor),
+                                    label: Text(
+                                      'Retry',
+                                      style: TextStyle(color: widget.accentColor),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+                        // Video is still loading — show loading placeholder with thumbnail
                         return Stack(
                           fit: StackFit.expand,
                           children: [

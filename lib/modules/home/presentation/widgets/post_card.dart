@@ -535,7 +535,43 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         );
       }
 
-      // Handle images — tap opens full-screen viewer
+      // Run map screenshot — tap opens run history (same as the live RunMapPreview)
+      if (firstMedia.type == MediaType.runMap) {
+        return buildMediaContainer(
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context)),
+              ),
+            ),
+            child: Image.network(
+              firstMedia.url,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.grey.shade200,
+                child: const Center(
+                  child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                ),
+              ),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+
+      // Regular image (selfie) — tap opens full-screen viewer
       return buildMediaContainer(
         LayoutBuilder(
           builder: (context, constraints) {
