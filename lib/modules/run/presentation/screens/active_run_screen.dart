@@ -15,6 +15,7 @@ import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.
 import 'package:majurun/modules/run/presentation/widgets/static_map_url.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
+import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 
 /// Production-grade active run screen with:
@@ -138,7 +139,10 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             mainAxisSize: MainAxisSize.min,
             children: [
               GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  HomeScreen.tabNotifier.value = 0; // switch to feed so pill is visible
+                },
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
