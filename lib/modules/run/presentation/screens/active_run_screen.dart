@@ -1,18 +1,18 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/core/config/app_config.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
+import 'package:majurun/modules/run/presentation/widgets/static_map_url.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 
@@ -754,22 +754,32 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   Future<void> _handleStopRun(RunController runController) async {
     Uint8List? mapImageBytes;
 
-    // Capture map image before navigating
-    if (runController.routePoints.isNotEmpty) {
+    // Capture map image using Static Maps API.
+    // Flutter's RepaintBoundary.toImage() cannot capture Google Maps on Android
+    // (platform view renders natively, outside Flutter's render tree — always gray).
+    // Instead, build a Static Maps URL from the route points and download the image.
+    if (runController.routePoints.length >= 2) {
       try {
-        await Future.delayed(const Duration(milliseconds: 200));
-        if (_mapKey.currentContext != null) {
-          final boundary = _mapKey.currentContext!.findRenderObject() as RenderRepaintBoundary?;
-          if (boundary != null) {
-            final image = await boundary.toImage(pixelRatio: 2.0);
-            final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-            if (byteData != null) {
-              mapImageBytes = byteData.buffer.asUint8List();
-            }
+        const apiKey = AppConfig.googleMapsApiKey;
+        final staticUrl = StaticMapUrl.build(
+          points: runController.routePoints,
+          apiKey: apiKey,
+          width: 640,
+          height: 320,
+          scale: 2,
+        );
+        if (staticUrl.isNotEmpty) {
+          final response = await http.get(Uri.parse(staticUrl))
+              .timeout(const Duration(seconds: 10));
+          if (response.statusCode == 200) {
+            mapImageBytes = response.bodyBytes;
+            debugPrint('✅ Static map fetched: ${mapImageBytes.length} bytes');
+          } else {
+            debugPrint('⚠️ Static map HTTP ${response.statusCode}');
           }
         }
       } catch (e) {
-        debugPrint("❌ Error capturing map: $e");
+        debugPrint('❌ Error fetching static map: $e');
       }
     }
 
