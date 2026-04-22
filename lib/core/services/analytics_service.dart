@@ -91,6 +91,8 @@ class AnalyticsService {
     required double distanceKm,
     required int durationSeconds,
     required double avgPaceMinPerKm,
+    int routePointCount = 0,
+    double gpsAcceptanceRate = 100,
   }) async {
     await logEvent(
       name: 'run_completed',
@@ -98,6 +100,9 @@ class AnalyticsService {
         'distance_km': distanceKm,
         'duration_seconds': durationSeconds,
         'avg_pace': avgPaceMinPerKm,
+        'route_point_count': routePointCount,       // 0 = GPS failed silently
+        'gps_acceptance_rate': gpsAcceptanceRate,   // % of readings accepted
+        'gps_failed': routePointCount == 0 ? 1 : 0, // easy filter in Firebase
       },
     );
   }

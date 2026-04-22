@@ -122,6 +122,7 @@ class RunStateController extends ChangeNotifier {
   bool _hasNotifiedIdle = false;
 
   // Callbacks
+  VoidCallback? onGpsSilent; // GPS stopped updating for 30s — show warning in UI
   VoidCallback? onIdleDetected;
   Function({
     required int km,
@@ -171,6 +172,11 @@ class RunStateController extends ChangeNotifier {
       _lastError = error;
       onError?.call(error);
       debugPrint('❌ Location error: $error');
+    };
+
+    _locationService.onGpsSilent = () {
+      debugPrint('⚠️ GPS silent — notifying UI');
+      onGpsSilent?.call();
     };
 
     _locationService.onGpsQualityChanged = (quality) {

@@ -122,11 +122,17 @@ class BackgroundLocationService {
   int _discardedReadings = 0;
   int _totalReadings = 0;
 
+  // GPS watchdog — detects when iOS/Android silently stops delivering updates
+  Timer? _watchdogTimer;
+  DateTime? _lastUpdateTime;
+  static const int _watchdogSilenceSeconds = 30; // alert after 30s with no GPS
+
   // Callbacks
   void Function(FilteredPosition position, double totalDistance)? onPositionUpdate;
   void Function(bool isAutoPaused)? onAutoPauseChanged;
   void Function(String error)? onError;
   void Function(GpsQuality quality)? onGpsQualityChanged;
+  void Function()? onGpsSilent; // fired when GPS stops updating for 30s
 
   // Getters
   Stream<FilteredPosition> get positionStream => _positionController.stream;
@@ -220,6 +226,7 @@ class BackgroundLocationService {
 
     // Start position stream with optimized settings
     _startPositionStream();
+    _startWatchdog();
     _isTracking = true;
 
     debugPrint('🏃 Background location tracking started');
@@ -289,6 +296,7 @@ class BackgroundLocationService {
   void _handlePositionUpdate(Position position) {
     if (!_isTracking) return;
 
+    _lastUpdateTime = DateTime.now(); // reset watchdog on every real update
     _totalReadings++;
 
     // Check GPS quality first
@@ -433,6 +441,24 @@ class BackgroundLocationService {
     }());
   }
 
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _lastUpdateTime = DateTime.now();
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!_isTracking || _isPaused) return;
+      final last = _lastUpdateTime;
+      if (last == null) return;
+      final silentSeconds = DateTime.now().difference(last).inSeconds;
+      if (silentSeconds >= _watchdogSilenceSeconds) {
+        debugPrint('⚠️ GPS watchdog: no update for ${silentSeconds}s — attempting stream restart');
+        onGpsSilent?.call();
+        // Restart the stream — covers iOS silent pause and Android GPS loss
+        _startPositionStream();
+        _lastUpdateTime = DateTime.now(); // reset so we don't spam restarts
+      }
+    });
+  }
+
   void _handleStreamError(dynamic error) {
     debugPrint('❌ GPS Stream error: $error');
     onError?.call('GPS signal lost. Move to an open area.');
@@ -483,6 +509,9 @@ class BackgroundLocationService {
     _isTracking = false;
     _isPaused = false;
     _autoPaused = false;
+
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
 
     await _positionStream?.cancel();
     _positionStream = null;

@@ -81,6 +81,15 @@ class RunController extends ChangeNotifier {
       _showErrorSnackBar(error);
     };
 
+    // GPS silent failure — stream stopped delivering updates for 30s
+    stateController.onGpsSilent = () {
+      _crashReporting.recordLocationError(
+        errorType: 'gps_silent_failure',
+        errorMessage: 'No GPS update for 30s — stream restarted',
+      );
+      _showErrorSnackBar('GPS signal lost — reconnecting...');
+    };
+
     // Km milestone callback
     stateController.onKmMilestone = ({
       required int km,
@@ -589,11 +598,13 @@ class RunController extends ChangeNotifier {
       debugPrint("📊 GPS Acceptance Rate: ${stateController.gpsAcceptanceRate.toStringAsFixed(1)}%");
       debugPrint("📊 Elevation gain: ${routeStats['elevationGain']?.toStringAsFixed(0) ?? '0'}m");
 
-      // Log analytics
+      // Log analytics — includes GPS health so silent failures show up in Firebase
       _analytics.logRunCompleted(
         distanceKm: finalDistance,
         durationSeconds: finalDuration,
         avgPaceMinPerKm: _paceStringToMinutes(finalPace),
+        routePointCount: finalRoutePoints.length,
+        gpsAcceptanceRate: stateController.gpsAcceptanceRate,
       );
 
       // Save to history and capture achievements
