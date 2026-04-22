@@ -19,6 +19,10 @@ import 'package:majurun/modules/home/presentation/screens/events_screen.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_tracker_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
+import 'package:provider/provider.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/profile/presentation/screens/profile_screen.dart';
 import 'package:majurun/modules/search/presentation/screens/search_screen.dart';
@@ -207,6 +211,53 @@ class _HomeScreenState extends State<HomeScreen> {
           RunTrackerScreen(),
         ],
       ),
+      floatingActionButton: Consumer<RunController>(
+        builder: (context, runController, _) {
+          final isRunActive = runController.state != RunState.idle;
+          if (!isRunActive || _selectedIndex == 4) return const SizedBox.shrink();
+          final dist = (runController.stateController.totalDistance / 1000)
+              .toStringAsFixed(2);
+          final pace = runController.stateController.paceString;
+          return GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ActiveRunScreen()),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00E676).withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.directions_run, color: Colors.black, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Live Run  $dist km · $pace /km',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.keyboard_arrow_up_rounded,
+                      color: Colors.black, size: 18),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

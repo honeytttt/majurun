@@ -133,8 +133,26 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // GPS Quality Indicator
-          _buildGpsIndicator(runController),
+          // Minimize + GPS indicator
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildGpsIndicator(runController),
+            ],
+          ),
 
           // Center spacer with current pace
           Expanded(
