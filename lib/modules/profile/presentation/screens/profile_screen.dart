@@ -19,7 +19,7 @@ import 'package:majurun/modules/dm/presentation/screens/privacy_settings_screen.
 import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/about_screen.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -244,9 +244,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: const Icon(Icons.share_outlined, color: Color(0xFF00E676)),
               tooltip: 'Share Profile',
               onPressed: () {
-                Share.share(
-                  'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
-                );
+                SharePlus.instance.share(ShareParams(
+                  text: 'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
+                ));
               },
             ),
           ),

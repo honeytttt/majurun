@@ -43,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   Widget? _activeSubPage;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final PostRepositoryImpl _postRepo = PostRepositoryImpl();
   final StorageService _storageService = StorageService();
 
   String _userName = "Loading...";
@@ -74,32 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     HomeScreen.tabNotifier.removeListener(_onTabNotifier);
     _userDataSubscription?.cancel();
-    _feedScrollController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_feedScrollController.position.pixels >=
-            _feedScrollController.position.maxScrollExtent - 200 &&
-        !_isLoadingMore &&
-        _postRepo.hasMorePosts) {
-      _loadMorePosts();
-    }
-  }
-
-  Future<void> _loadMorePosts() async {
-    if (_isLoadingMore) return;
-    setState(() => _isLoadingMore = true);
-
-    final morePosts = await _postRepo.loadMorePosts();
-    if (morePosts.isNotEmpty && mounted) {
-      setState(() {
-        _allPosts.addAll(morePosts);
-        _isLoadingMore = false;
-      });
-    } else {
-      setState(() => _isLoadingMore = false);
-    }
   }
 
   void _fetchFirebaseUserData() {
