@@ -231,6 +231,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               ),
             ),
             const SizedBox(height: 40),
+            _buildGpsStatus(runController),
+            const SizedBox(height: 12),
             Semantics(
               button: true,
               label: 'Start a new run',
@@ -287,6 +289,38 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           ],
         );
       },
+    );
+  }
+
+  Widget _buildGpsStatus(RunController runController) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: runController.gpsQualityColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: runController.gpsQualityColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.location_on_rounded,
+            size: 14,
+            color: runController.gpsQualityColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            runController.gpsQualityText,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: runController.gpsQualityColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

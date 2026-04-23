@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/modules/run/constants/run_constants.dart';
 
 /// GPS accuracy levels for filtering
 enum GpsQuality { excellent, good, fair, poor, unusable }
@@ -45,11 +46,10 @@ class FilteredPosition {
   }
 
   static GpsQuality _calculateQuality(double accuracy, double speed) {
-    // Running GPS accuracy thresholds
-    if (accuracy <= 5) return GpsQuality.excellent;
-    if (accuracy <= 10) return GpsQuality.good;
-    if (accuracy <= 20) return GpsQuality.fair;
-    if (accuracy <= 50) return GpsQuality.poor;
+    if (accuracy <= RunConstants.gpsExcellentThreshold) return GpsQuality.excellent;
+    if (accuracy <= RunConstants.gpsGoodThreshold) return GpsQuality.good;
+    if (accuracy <= RunConstants.gpsFairThreshold) return GpsQuality.fair;
+    if (accuracy <= RunConstants.gpsPoorThreshold) return GpsQuality.poor;
     return GpsQuality.unusable;
   }
 }
@@ -93,17 +93,6 @@ class BackgroundLocationService {
   factory BackgroundLocationService() => _instance;
   BackgroundLocationService._internal();
 
-  // Configuration
-  static const double _minAccuracyMeters = 25.0;  // Discard readings worse than this
-  static const double _gpsJumpThreshold = 200.0;  // 50m was too tight — at 5min/km pace a
-                                                    // 15s GPS gap moves ~50m legitimately.
-                                                    // 200m only catches genuine satellite jumps.
-  static const double _minPointDistance = 5.0;    // Min metres between consecutive route
-                                                    // points — prevents start-of-run cluster.
-  static const double _stationaryThreshold = 1.5; // m/s - below this is "stationary"
-  static const int _stationaryTimeThreshold = 10; // seconds of no movement before auto-pause
-  static const int _maxRoutePointsInMemory = 5000; // Prevent memory issues on long runs
-
   // State
   StreamSubscription<Position>? _positionStream;
   final _positionController = StreamController<FilteredPosition>.broadcast();
@@ -116,6 +105,7 @@ class BackgroundLocationService {
   bool _isTracking = false;
   bool _isPaused = false;
   bool _autoPaused = false;
+  bool _isAutoPauseEnabled = true;
 
   // Route data with memory management
   final List<FilteredPosition> _routePoints = [];
@@ -139,6 +129,9 @@ class BackgroundLocationService {
   bool get isTracking => _isTracking;
   bool get isPaused => _isPaused;
   bool get isAutoPaused => _autoPaused;
+  bool get isAutoPauseEnabled => _isAutoPauseEnabled;
+  set isAutoPauseEnabled(bool value) => _isAutoPauseEnabled = value;
+
   double get totalDistance => _totalDistance;
   List<FilteredPosition> get routePoints => List.unmodifiable(_routePoints);
   FilteredPosition? get lastPosition => _lastPosition;
@@ -172,8 +165,6 @@ class BackgroundLocationService {
         return false;
       }
 
-      // Foreground service with foregroundServiceType="location" keeps GPS
-      // active even when the screen is off — no background location permission needed.
       return true;
     } catch (e) {
       onError?.call('Error checking permissions: $e');
@@ -217,7 +208,7 @@ class BackgroundLocationService {
       _routePoints.add(_lastPosition!);
       onGpsQualityChanged?.call(_lastPosition!.quality);
 
-      _lastRawPosition = initialPosition; // Store raw position for distance calculation
+      _lastRawPosition = initialPosition;
       debugPrint('✅ Initial position: ${initialPosition.latitude}, ${initialPosition.longitude} (accuracy: ${initialPosition.accuracy}m)');
     } catch (e) {
       onError?.call('Failed to get initial GPS position. Please ensure GPS is enabled.');
@@ -236,15 +227,13 @@ class BackgroundLocationService {
   void _startPositionStream() {
     _positionStream?.cancel();
 
-    // Use platform-specific optimal settings
     late LocationSettings locationSettings;
 
     if (!kIsWeb && Platform.isAndroid) {
-      // Android: Use foreground service for background tracking
       locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3, // More frequent updates for accuracy
-        intervalDuration: const Duration(seconds: 1),
+        distanceFilter: RunConstants.distanceFilterMeters,
+        intervalDuration: const Duration(milliseconds: RunConstants.androidGpsIntervalMs),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'MajuRun - Tracking Your Run',
           notificationText: 'GPS tracking active in background',
@@ -253,16 +242,14 @@ class BackgroundLocationService {
         ),
       );
     } else if (!kIsWeb && Platform.isIOS) {
-      // iOS: Use Apple's location settings
       locationSettings = AppleSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3,
+        distanceFilter: RunConstants.distanceFilterMeters,
         activityType: ActivityType.fitness,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
-      // Web/other: Basic settings
       locationSettings = const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 5,
@@ -278,11 +265,9 @@ class BackgroundLocationService {
         onDone: () => debugPrint('📍 Position stream closed'),
       );
     } catch (e) {
-      // Android 14+ blocks startForeground() when called from background state.
-      // Fall back to a basic (non-foreground-service) location stream.
       debugPrint('⚠️ Foreground service blocked, falling back to basic stream: $e');
       _positionStream = Geolocator.getPositionStream(
-        locationSettings: LocationSettings(
+        locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.bestForNavigation,
           distanceFilter: 3,
         ),
@@ -296,25 +281,18 @@ class BackgroundLocationService {
   void _handlePositionUpdate(Position position) {
     if (!_isTracking) return;
 
-    _lastUpdateTime = DateTime.now(); // reset watchdog on every real update
+    _lastUpdateTime = DateTime.now();
     _totalReadings++;
 
-    // Check GPS quality first
     final quality = FilteredPosition._calculateQuality(position.accuracy, position.speed);
     onGpsQualityChanged?.call(quality);
 
-    // Discard unusable readings
-    if (position.accuracy > _minAccuracyMeters) {
+    if (position.accuracy > RunConstants.maxAccuracyMeters) {
       _discardedReadings++;
       debugPrint('⚠️ Discarding poor GPS reading (accuracy: ${position.accuracy.toStringAsFixed(1)}m)');
       return;
     }
 
-    // Apply Kalman filter for smoothing.
-    // If the raw position moved significantly from the last filtered position
-    // (e.g., a sharp turn or GPS gap), reset the filter so it snaps to the new
-    // raw position instead of slowly drifting — this is what causes L-shapes
-    // and rounded corners on square routes.
     if (_lastPosition != null) {
       final distFromFiltered = Geolocator.distanceBetween(
         _lastPosition!.latitude,
@@ -323,8 +301,6 @@ class BackgroundLocationService {
         position.longitude,
       );
       if (distFromFiltered > 30) {
-        // Large distance from last filtered point — likely a direction change
-        // or GPS gap recovery. Re-initialize filter at raw position.
         _kalmanFilter.reset();
       }
     }
@@ -345,14 +321,11 @@ class BackgroundLocationService {
       quality: quality,
     );
 
-    // Skip if paused (but still track position for when we resume)
     if (_isPaused) {
       _lastPosition = filteredPosition;
       return;
     }
 
-    // Calculate distance from last RAW position (not filtered) for accurate distance
-    // Kalman filtering causes path shortening which underreports actual distance
     if (_lastRawPosition != null) {
       final rawDistance = Geolocator.distanceBetween(
         _lastRawPosition!.latitude,
@@ -361,48 +334,45 @@ class BackgroundLocationService {
         position.longitude,
       );
 
-      // Check for GPS jump (genuine satellite teleport, not just a large legitimate gap).
-      // IMPORTANT: always update _lastRawPosition even on a jump — previously we didn't,
-      // which caused a cascade where every subsequent valid point was also discarded
-      // (distance kept growing from the stuck reference), producing an L-shape on the map.
-      if (rawDistance > _gpsJumpThreshold) {
+      if (rawDistance > RunConstants.gpsJumpThresholdMeters) {
         _discardedReadings++;
-        _lastRawPosition = position; // ← advance reference so next reading isn't also discarded
-        _kalmanFilter.reset();       // ← re-initialize filter at new position
+        _lastRawPosition = position;
+        _kalmanFilter.reset();
         debugPrint('⚠️ GPS jump detected: ${rawDistance.toStringAsFixed(1)}m — resetting reference');
         return;
       }
 
       // Check for stationary state (auto-pause) using raw distance
-      if (position.speed < _stationaryThreshold && rawDistance < 2) {
-        _stationarySeconds++;
-        if (_stationarySeconds >= _stationaryTimeThreshold && !_autoPaused) {
-          _autoPaused = true;
-          onAutoPauseChanged?.call(true);
-          debugPrint('⏸️ Auto-paused: stationary for $_stationarySeconds seconds');
+      if (_isAutoPauseEnabled) {
+        if (position.speed < RunConstants.stationarySpeedThreshold && rawDistance < 2) {
+          _stationarySeconds++;
+          if (_stationarySeconds >= RunConstants.autoPauseDelaySeconds && !_autoPaused) {
+            _autoPaused = true;
+            onAutoPauseChanged?.call(true);
+            debugPrint('⏸️ Auto-paused: stationary for $_stationarySeconds seconds');
+          }
+        } else {
+          if (_autoPaused && _stationarySeconds >= RunConstants.autoResumeDelaySeconds) {
+            _autoPaused = false;
+            onAutoPauseChanged?.call(false);
+            debugPrint('▶️ Auto-resumed: movement detected');
+          }
+          if (!_autoPaused) {
+            _stationarySeconds = 0;
+          }
         }
       } else {
-        if (_autoPaused) {
-          _autoPaused = false;
-          onAutoPauseChanged?.call(false);
-          debugPrint('▶️ Auto-resumed: movement detected');
-        }
+        _autoPaused = false;
         _stationarySeconds = 0;
       }
 
-      // Only add distance if not auto-paused - use RAW distance for accuracy
       if (!_autoPaused) {
         _totalDistance += rawDistance;
       }
     }
 
-    // Update raw position for next distance calculation
     _lastRawPosition = position;
 
-    // --- Minimum point distance guard ---
-    // Prevents start-of-run GPS settling from clustering many near-identical
-    // points at the start (the "second point keeps circling" issue).
-    // Also keeps the route clean without requiring the Kalman filter to do all the work.
     if (_lastPosition != null) {
       final distFromLast = Geolocator.distanceBetween(
         _lastPosition!.latitude,
@@ -410,8 +380,7 @@ class BackgroundLocationService {
         filteredPosition.latitude,
         filteredPosition.longitude,
       );
-      if (distFromLast < _minPointDistance) {
-        // Too close to last point — update position state but don't add to route
+      if (distFromLast < 3.0) {
         _lastPosition = filteredPosition;
         _positionController.add(filteredPosition);
         onPositionUpdate?.call(filteredPosition, _totalDistance);
@@ -419,19 +388,16 @@ class BackgroundLocationService {
       }
     }
 
-    // Memory management: compress old route points if getting too large
-    if (_routePoints.length >= _maxRoutePointsInMemory) {
+    if (_routePoints.length >= RunConstants.maxRoutePointsInMemory) {
       _compressRoutePoints();
     }
 
     _routePoints.add(filteredPosition);
     _lastPosition = filteredPosition;
 
-    // Emit update
     _positionController.add(filteredPosition);
     onPositionUpdate?.call(filteredPosition, _totalDistance);
 
-    // GPS fires every 1-3 seconds — only log in debug builds
     assert(() {
       debugPrint('📍 Pos: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} | '
           'Acc: ${position.accuracy.toStringAsFixed(1)}m | '
@@ -452,9 +418,8 @@ class BackgroundLocationService {
       if (silentSeconds >= _watchdogSilenceSeconds) {
         debugPrint('⚠️ GPS watchdog: no update for ${silentSeconds}s — attempting stream restart');
         onGpsSilent?.call();
-        // Restart the stream — covers iOS silent pause and Android GPS loss
         _startPositionStream();
-        _lastUpdateTime = DateTime.now(); // reset so we don't spam restarts
+        _lastUpdateTime = DateTime.now();
       }
     });
   }
@@ -463,7 +428,6 @@ class BackgroundLocationService {
     debugPrint('❌ GPS Stream error: $error');
     onError?.call('GPS signal lost. Move to an open area.');
 
-    // Try to restart the stream after a delay
     Future.delayed(const Duration(seconds: 3), () {
       if (_isTracking && !_isPaused) {
         debugPrint('🔄 Attempting to restart GPS stream...');
@@ -472,12 +436,11 @@ class BackgroundLocationService {
     });
   }
 
-  /// Compress route points to save memory (keep every 3rd point)
   void _compressRoutePoints() {
     debugPrint('🗜️ Compressing route points from ${_routePoints.length}...');
     final compressed = <FilteredPosition>[];
     for (int i = 0; i < _routePoints.length; i++) {
-      if (i % 3 == 0 || i == _routePoints.length - 1) {
+      if (i % RunConstants.routeCompressionRatio == 0 || i == _routePoints.length - 1) {
         compressed.add(_routePoints[i]);
       }
     }
@@ -486,14 +449,12 @@ class BackgroundLocationService {
     debugPrint('🗜️ Compressed to ${_routePoints.length} points');
   }
 
-  /// Pause tracking (manual pause)
   void pause() {
     if (!_isTracking || _isPaused) return;
     _isPaused = true;
     debugPrint('⏸️ Location tracking paused');
   }
 
-  /// Resume tracking
   void resume() {
     if (!_isTracking || !_isPaused) return;
     _isPaused = false;
@@ -502,7 +463,6 @@ class BackgroundLocationService {
     debugPrint('▶️ Location tracking resumed');
   }
 
-  /// Stop tracking completely
   Future<void> stopTracking() async {
     if (!_isTracking) return;
 
@@ -517,21 +477,17 @@ class BackgroundLocationService {
     _positionStream = null;
 
     debugPrint('⏹️ Location tracking stopped');
-    debugPrint('📊 GPS Stats: $_totalReadings readings, $_discardedReadings discarded (${gpsAcceptanceRate.toStringAsFixed(1)}% acceptance rate)');
   }
 
-  /// Clean up resources
   void dispose() {
     stopTracking();
     _positionController.close();
   }
 
-  /// Get route as LatLng list for map display
   List<LatLng> getRouteLatLngs() {
     return _routePoints.map((p) => p.latLng).toList();
   }
 
-  /// Calculate route statistics
   Map<String, dynamic> getRouteStats() {
     if (_routePoints.isEmpty) {
       return {
@@ -553,7 +509,6 @@ class BackgroundLocationService {
       final prev = _routePoints[i - 1];
       final curr = _routePoints[i];
 
-      // Elevation changes
       final elevDiff = curr.altitude - prev.altitude;
       if (elevDiff > 0) {
         elevationGain += elevDiff;
@@ -561,7 +516,6 @@ class BackgroundLocationService {
         elevationLoss += elevDiff.abs();
       }
 
-      // Max speed
       if (curr.speed > maxSpeed) {
         maxSpeed = curr.speed;
       }
@@ -579,3 +533,4 @@ class BackgroundLocationService {
     };
   }
 }
+
