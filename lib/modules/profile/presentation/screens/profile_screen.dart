@@ -366,6 +366,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         userId: uid,
                       ),
                     ),
+                  
+                  if (!_showPosts)
+                    SliverToBoxAdapter(
+                      child: _buildNotificationFixer(),
+                    ),
 
                   // Bottom padding so last item isn't hidden behind system navigation bar
                   const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
@@ -764,6 +769,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationFixer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notification_important, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Notification Fixer',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'If your daily reminders aren\'t appearing, your phone may be blocking them to save battery.',
+              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => PushNotificationService().requestBatteryOptimizationExemption(),
+                    icon: const Icon(Icons.battery_saver, size: 16),
+                    label: const Text('Ignore Optimization'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => PushNotificationService().requestExactAlarmPermission(),
+                    icon: const Icon(Icons.alarm, size: 16),
+                    label: const Text('Allow Exact Alarms'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await PushNotificationService().sendTestNotification();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Test notification sent!')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.send, size: 16),
+                label: const Text('Send Test Notification'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
