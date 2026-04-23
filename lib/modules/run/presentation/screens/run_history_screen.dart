@@ -329,8 +329,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ),
 
             if (_initialLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: Colors.black)),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => ShimmerLoader.runTileSkeleton(),
+                  childCount: 8,
+                ),
               )
             else if (runs.isEmpty)
               const SliverFillRemaining(

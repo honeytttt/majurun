@@ -142,6 +142,9 @@ class PostRepositoryImpl {
       _cachedPosts
         ..clear()
         ..addAll(posts);
+      
+      // Cache locally for offline mode
+      CacheService().cachePosts(posts);
 
       return posts;
     });

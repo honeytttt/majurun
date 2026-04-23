@@ -407,40 +407,18 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _showNewPostsBanner = false;
   int _newPostCount = 0;
 
-  bool get _showVerifyBanner {
-    if (_bannerDismissed) return false;
-    final u = FirebaseAuth.instance.currentUser;
-    if (u == null || u.emailVerified) return false;
-    return u.providerData.any((p) => p.providerId == 'password');
-  }
-
-  Future<void> _sendVerification() async {
-    setState(() => _sendingVerification = true);
-    try {
-      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
-      if (!mounted) return;
-      setState(() => _bannerDismissed = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Verification email sent to ${FirebaseAuth.instance.currentUser?.email ?? ""}',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (_) {
-      // silently ignore — user can retry
-    } finally {
-      if (mounted) setState(() => _sendingVerification = false);
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _feedScrollController.addListener(_onScroll);
     HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
     _loadBlockedUsers();
+    
+    // Load cached posts for instant startup
+    final cached = CacheService().getCachedPosts();
+    if (cached.isNotEmpty) {
+      _allPosts.addAll(cached);
+    }
   }
 
   Future<void> _loadBlockedUsers() async {
@@ -1024,6 +1002,33 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                       minHeight: 20,
                     ),
                     child: Text(
+                      unreadCount > 99 ? '99+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class RunHistoryScreenWrapper extends StatelessWidget {
+  final VoidCallback onBack;
+  const RunHistoryScreenWrapper({super.key, required this.onBack});
+  
+  @override
+  Widget build(BuildContext context) {
+    return RunHistoryScreen(onBack: onBack);
+  }
+}     child: Text(
                       unreadCount > 99 ? '99+' : unreadCount.toString(),
                       style: const TextStyle(
                         color: Colors.white,

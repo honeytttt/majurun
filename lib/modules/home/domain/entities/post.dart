@@ -122,13 +122,40 @@ class AppPost extends Equatable {
       runDurationSeconds: (map['durationSeconds'] as num?)?.toInt(),
       runCalories: (map['calories'] as num?)?.toInt(),
       kmSplits: _parseKmSplits(map['kmSplits']),
-      postType: map['type'] as String?,
+      postType: map['type'] as String? ?? map['postType'] as String?,
       badgeName: map['badgeName'] as String?,
       streakDays: (map['streakDays'] as num?)?.toInt(),
       weeklyRuns: (map['weeklyRuns'] as num?)?.toInt(),
       weeklyKm: (map['weeklyKm'] as num?)?.toDouble(),
       weeklySeconds: (map['weeklySeconds'] as num?)?.toInt(),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'userId': userId,
+      'username': username,
+      'content': content,
+      'media': media.map((m) => {'url': m.url, 'type': m.type.name}).toList(),
+      'createdAt': createdAt.toIso8601String(),
+      'likes': likes,
+      'quotedPostId': quotedPostId,
+      'routePoints': routePoints?.map((p) => {'lat': p.latitude, 'lng': p.longitude}).toList(),
+      'planTitle': runPlanTitle,
+      'distance': runDistance,
+      'pace': runPace,
+      'bpm': runBpm,
+      'durationSeconds': runDurationSeconds,
+      'calories': runCalories,
+      'kmSplits': kmSplits,
+      'type': postType,
+      'badgeName': badgeName,
+      'streakDays': streakDays,
+      'weeklyRuns': weeklyRuns,
+      'weeklyKm': weeklyKm,
+      'weeklySeconds': weeklySeconds,
+    };
   }
 
   static List<PostMedia> _parseMedia(dynamic value) {

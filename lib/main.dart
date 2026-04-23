@@ -31,6 +31,7 @@ import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/health_sync_service.dart';
 import 'core/services/remote_logger.dart';
+import 'core/services/cache_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -99,6 +100,9 @@ Future<void> main() async {
     // audio_session manages setActive(true/false) lifecycle properly — this is
     // what was missing in previous builds (music never restored after ducking).
     await _configureAudioSession();
+
+    // Initialize local cache service for offline mode
+    await CacheService().initialize();
 
     // Initialize Firebase — picks project based on ENVIRONMENT dart-define
     // Dev:  flutter run  (default)

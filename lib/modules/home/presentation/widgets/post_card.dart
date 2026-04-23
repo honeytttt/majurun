@@ -476,6 +476,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                             label: 'Repost',
                             onTap: currentUserId.isNotEmpty
                                 ? () {
+                                    HapticService().medium();
                                     final username = currentUser?.displayName ?? "Runner";
                                     _repo.repost(widget.post, currentUserId, username);
                                   }

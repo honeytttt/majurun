@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+114
+version: 1.0.0+115
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -73,6 +73,11 @@ dependencies:
   # Offline storage ───────────────────────────────────────────
   sqflite: ^2.3.3
   sqflite_common_ffi_web: ^0.4.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Performance & Look ────────────────────────────────────────
+  shimmer: ^3.0.0
 
   # WebView for workout videos ─────────────────────────────────
   webview_flutter: ^4.8.0
