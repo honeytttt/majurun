@@ -233,24 +233,26 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             const SizedBox(height: 40),
             _buildGpsStatus(runController),
             const SizedBox(height: 12),
-            Semantics(
-              button: true,
-              label: 'Start a new run',
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2D7A3E),
+            BounceClick(
+              onTap: () => _handleStartRun(context),
+              child: Semantics(
+                button: true,
+                label: 'Start a new run',
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 22),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
-                ),
-                onPressed: () => _handleStartRun(context),
-                child: const Text(
-                  "START",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Colors.white,
-                    letterSpacing: 1.5,
+                  decoration: BoxDecoration(
+                    gradient: AppEffects.accentGradient(),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppEffects.neonGlow(),
+                  ),
+                  child: const Text(
+                    "START",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                    ),
                   ),
                 ),
               ),
@@ -756,6 +758,28 @@ class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog>
       builder: (_, __) {
         return Stack(
           alignment: Alignment.center,
+          children: [
+            for (int i = 1; i <= 3; i++)
+              Opacity(
+                opacity: (0.03 + 0.02 * i) * (1 - _ringController.value * 0.3),
+                child: Container(
+                  width: 280.0 + i * 80,
+                  height: 280.0 + i * 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF7ED957),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}lignment: Alignment.center,
           children: [
             for (int i = 1; i <= 3; i++)
               Opacity(

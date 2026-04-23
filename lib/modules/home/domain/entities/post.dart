@@ -217,11 +217,16 @@ class AppPost extends Equatable {
     if (value == null || value is! List) return null;
     final points = <LatLng>[];
     for (final p in value) {
-      if (p is! Map<String, dynamic>) continue;
-      final lat = p['lat'] as num?;
-      final lng = p['lng'] as num?;
-      if (lat != null && lng != null) {
-        points.add(LatLng(lat.toDouble(), lng.toDouble()));
+      if (p is LatLng) {
+        points.add(p);
+      } else if (p is GeoPoint) {
+        points.add(LatLng(p.latitude, p.longitude));
+      } else if (p is Map) {
+        final lat = (p['lat'] ?? p['latitude'] ?? p['latitude']) as num?;
+        final lng = (p['lng'] ?? p['longitude'] ?? p['longitude']) as num?;
+        if (lat != null && lng != null) {
+          points.add(LatLng(lat.toDouble(), lng.toDouble()));
+        }
       }
     }
     return points.isNotEmpty ? points : null;
