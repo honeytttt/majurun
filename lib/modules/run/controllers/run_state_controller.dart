@@ -53,6 +53,7 @@ class RunStateController extends ChangeNotifier {
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
   double get totalDistance => _totalDistance;
   int get secondsElapsed => _secondsElapsed;
+  int get activeRunSeconds => _activeRunSeconds; // moving time only (excludes paused time)
 
   // Pace calculation
   double get averageSpeedMs => _activeRunSeconds > 0 ? _totalDistance / _activeRunSeconds : 0.0;

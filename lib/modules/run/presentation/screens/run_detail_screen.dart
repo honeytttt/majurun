@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
@@ -66,6 +67,25 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     return out;
   }
 
+  // HR Zone helpers (220 - age 30 = 190 maxHR as conservative default)
+  static const _maxHr = 190;
+  static const _hrZoneNames = ['', 'Z1', 'Z2', 'Z3', 'Z4', 'Z5'];
+  int _hrZoneFromBpm(int bpm) {
+    if (bpm <= 0) return 0;
+    final pct = bpm / _maxHr;
+    if (pct < 0.60) return 1;
+    if (pct < 0.70) return 2;
+    if (pct < 0.80) return 3;
+    if (pct < 0.90) return 4;
+    return 5;
+  }
+
+  String _formatSeconds(int secs) {
+    final m = secs ~/ 60;
+    final s = secs % 60;
+    return "$m:${s.toString().padLeft(2, '0')}";
+  }
+
   DateTime _parseDate(dynamic raw) {
     if (raw is DateTime) return raw;
     if (raw is Timestamp) return raw.toDate();
@@ -115,7 +135,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final distanceDouble = (distVal is num) ? distVal.toDouble() : 0.0;
     final distance = distanceDouble.toStringAsFixed(2);
 
-    final durationSeconds = widget.runData['durationSeconds'] ?? 0;
+    final durationSeconds = (widget.runData['durationSeconds'] as num?)?.toInt() ?? 0;
     final hours = durationSeconds ~/ 3600;
     final minutes = (durationSeconds % 3600) ~/ 60;
     final seconds = durationSeconds % 60;
@@ -123,9 +143,21 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         ? "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
         : "$minutes:${seconds.toString().padLeft(2, '0')}";
 
+    // Moving time (excludes paused time) — saved from +108 onwards
+    final movingTimeSecs = (widget.runData['movingTimeSeconds'] as num?)?.toInt() ?? 0;
+    final hasMovingTime = movingTimeSecs > 0 && movingTimeSecs < durationSeconds;
+    final movingHours = movingTimeSecs ~/ 3600;
+    final movingMins = (movingTimeSecs % 3600) ~/ 60;
+    final movingSecs = movingTimeSecs % 60;
+    final movingTimeString = movingHours > 0
+        ? "$movingHours:${movingMins.toString().padLeft(2, '0')}:${movingSecs.toString().padLeft(2, '0')}"
+        : "$movingMins:${movingSecs.toString().padLeft(2, '0')}";
+
     final pace = widget.runData['pace'] ?? "0:00";
     final calories = widget.runData['calories'] ?? 0;
-    final avgBpm = widget.runData['avgBpm'] ?? widget.runData['bpm'] ?? 0;
+    final avgBpmRaw = widget.runData['avgBpm'] ?? widget.runData['bpm'] ?? 0;
+    final avgBpm = avgBpmRaw is num ? avgBpmRaw.toInt() : 0;
+    final hrZone = _hrZoneFromBpm(avgBpm);
 
     final isSession = _isSession(widget.runData);
     final wkDay = _wkDayLabel(widget.runData);
@@ -243,13 +275,25 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildSecondaryStat(Icons.favorite, "AVG HR", "$avgBpm"),
+                    _buildSecondaryStat(Icons.favorite, "AVG HR", avgBpm > 0 ? "$avgBpm ${_hrZoneNames[hrZone]}" : "--", valueColor: hrZone > 0 ? [Colors.blue, Colors.green, Colors.orange, const Color(0xFFFC4C02), Colors.red][hrZone - 1] : null),
                     _buildSecondaryStat(Icons.local_fire_department, "CALORIES", "$calories"),
-                    if (hasElevation) ...[
+                    if (hasElevation)
                       _buildSecondaryStat(Icons.trending_up, "ELEV +", "${elevGain.toStringAsFixed(0)}m"),
-                    ],
                   ],
                 ),
+                if (hasMovingTime) ...[
+                  const SizedBox(height: 12),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildSecondaryStat(Icons.timer_outlined, "TOTAL TIME", timeString),
+                      _buildSecondaryStat(Icons.directions_run, "MOVING TIME", movingTimeString),
+                      _buildSecondaryStat(Icons.pause_circle_outline, "PAUSED", _formatSeconds(durationSeconds - movingTimeSecs)),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -443,7 +487,7 @@ Keep moving 💪
     );
   }
 
-  Widget _buildSecondaryStat(IconData icon, String label, String value) {
+  Widget _buildSecondaryStat(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(
       children: [
         Icon(icon, color: const Color(0xFF00FF87), size: 16),
@@ -451,7 +495,7 @@ Keep moving 💪
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(value, style: TextStyle(color: valueColor ?? Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
           ],
         ),
@@ -475,6 +519,66 @@ Keep moving 💪
   }
 
 
+  /// Build colored polylines for pace visualization.
+  /// Splits route points into per-km segments and colors each by pace.
+  Set<Polyline> _buildPacePolylines(List<LatLng> routePoints) {
+    final rawSplits = widget.runData['kmSplits'];
+    if (rawSplits == null || rawSplits is! List || rawSplits.isEmpty) {
+      return {Polyline(polylineId: const PolylineId('route'), points: routePoints, color: const Color(0xFFFC4C02), width: 6)};
+    }
+
+    // Parse pace strings to seconds/km for comparison
+    double paceToSecs(String p) {
+      final parts = p.split(':');
+      if (parts.length != 2) return 300;
+      return (int.tryParse(parts[0]) ?? 5) * 60.0 + (int.tryParse(parts[1]) ?? 0);
+    }
+
+    final splits = rawSplits.cast<Map>();
+    final paces = splits.map((s) => paceToSecs(s['pace']?.toString() ?? '5:00')).toList();
+    final minPace = paces.reduce((a, b) => a < b ? a : b); // fastest (smallest secs)
+    final maxPace = paces.reduce((a, b) => a > b ? a : b); // slowest (largest secs)
+    final range = maxPace - minPace;
+
+    // Calculate cumulative distance for each route point
+    final cumDist = <double>[0.0];
+    for (int i = 1; i < routePoints.length; i++) {
+      cumDist.add(cumDist.last + Geolocator.distanceBetween(
+        routePoints[i-1].latitude, routePoints[i-1].longitude,
+        routePoints[i].latitude, routePoints[i].longitude,
+      ));
+    }
+
+    final polylines = <Polyline>{};
+    for (int si = 0; si < splits.length; si++) {
+      final startM = si * 1000.0;
+      final endM = (si + 1) * 1000.0;
+      final segPoints = <LatLng>[];
+      for (int i = 0; i < routePoints.length; i++) {
+        if (cumDist[i] >= startM && cumDist[i] <= endM) segPoints.add(routePoints[i]);
+      }
+      if (segPoints.length < 2) continue;
+
+      final t = range > 0 ? ((paces[si] - minPace) / range).clamp(0.0, 1.0) : 0.5;
+      // Green (fast) → Orange → Red (slow)
+      final color = Color.lerp(Colors.green.shade600, Colors.red.shade700, t)!;
+      polylines.add(Polyline(
+        polylineId: PolylineId('seg_$si'),
+        points: segPoints,
+        color: color,
+        width: 6,
+        jointType: JointType.round,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+      ));
+    }
+    // Fallback if splits don't cover full distance
+    if (polylines.isEmpty) {
+      polylines.add(Polyline(polylineId: const PolylineId('route'), points: routePoints, color: const Color(0xFFFC4C02), width: 6));
+    }
+    return polylines;
+  }
+
   Widget _buildRouteMap(List<LatLng> routePoints) {
     final bounds = _calculateBounds(routePoints);
     final initialPosition = CameraPosition(
@@ -484,6 +588,20 @@ Keep moving 💪
       ),
       zoom: 13,
     );
+
+    final polylines = _mapVisualization == 'pace'
+        ? _buildPacePolylines(routePoints)
+        : {
+            Polyline(
+              polylineId: const PolylineId('route'),
+              points: routePoints,
+              color: const Color(0xFFFC4C02),
+              width: 6,
+              jointType: JointType.round,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+            ),
+          };
 
     return Container(
       height: 300,
@@ -495,17 +613,7 @@ Keep moving 💪
       child: GoogleMap(
         initialCameraPosition: initialPosition,
         mapType: MapType.normal,
-        polylines: {
-          Polyline(
-            polylineId: const PolylineId('route'),
-            points: routePoints,
-            color: const Color(0xFFFC4C02),
-            width: 6,
-            jointType: JointType.round,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-        },
+        polylines: polylines,
         markers: {
           Marker(
             markerId: const MarkerId('start'),
@@ -634,30 +742,61 @@ Keep moving 💪
   }
 
   Widget _buildSplitsList() {
-    final distance = widget.runData['distance'] ?? 0.0;
-    final dist = (distance is num) ? distance.toDouble() : 0.0;
+    final rawSplits = widget.runData['kmSplits'];
+    final hasSplits = rawSplits is List && rawSplits.isNotEmpty;
 
-    final splitKm = _splitDistance == '1km' ? 1.0 : _splitDistance == '2km' ? 2.0 : 5.0;
-    final numSplits = (dist / splitKm).ceil();
+    if (!hasSplits) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
+        child: const Center(child: Text('Split data available for runs after v1.0.0+108', style: TextStyle(color: Colors.grey, fontSize: 13))),
+      );
+    }
+
+    final splitKm = _splitDistance == '1km' ? 1 : _splitDistance == '2km' ? 2 : 5;
+    // Group 1km splits into the requested bucket (e.g. 5km = combine 5×1km splits)
+    final splits = List<Map>.from(rawSplits);
+    final grouped = <List<Map>>[];
+    for (int i = 0; i < splits.length; i += splitKm) {
+      grouped.add(splits.sublist(i, (i + splitKm).clamp(0, splits.length)));
+    }
+
+    // Find fastest and slowest pace for color scaling
+    double paceToSecs(String p) {
+      final parts = p.split(':');
+      if (parts.length != 2) return 300;
+      return (int.tryParse(parts[0]) ?? 5) * 60.0 + (int.tryParse(parts[1]) ?? 0);
+    }
+    final allPaces = splits.map((s) => paceToSecs(s['pace']?.toString() ?? '5:00')).toList();
+    final bestPace = allPaces.isEmpty ? 300.0 : allPaces.reduce((a, b) => a < b ? a : b);
+    final worstPace = allPaces.isEmpty ? 300.0 : allPaces.reduce((a, b) => a > b ? a : b);
+    final range = worstPace - bestPace;
 
     return Column(
-      children: List.generate(numSplits, (index) {
-        final splitNum = index + 1;
-        final actualDistance = (splitNum * splitKm > dist) ? (dist - (index * splitKm)) : splitKm;
+      children: grouped.asMap().entries.map((entry) {
+        final groupIndex = entry.key;
+        final group = entry.value;
+        final totalSecs = group.fold<int>(0, (s, e) => s + ((e['durationSeconds'] as num?)?.toInt() ?? 0));
+        final distKm = splitKm.toDouble().clamp(0, (widget.runData['distance'] as num?)?.toDouble() ?? 0);
 
-        final basePace = 5 + (index % 3) * 0.5;
-        final paceMinutes = basePace.floor();
-        final paceSeconds = ((basePace - paceMinutes) * 60).floor();
-        final paceString = "$paceMinutes:${paceSeconds.toString().padLeft(2, '0')}";
+        // Compute average pace for this group
+        final avgPaceSecs = totalSecs / group.length;
+        final paceMin = (avgPaceSecs ~/ 60);
+        final paceSec = (avgPaceSecs % 60).round();
+        final paceStr = "$paceMin:${paceSec.toString().padLeft(2, '0')}";
 
-        final elevationChange = (index % 5) * 10 - 20;
-        final elevationColor = elevationChange > 0
-            ? Colors.orange.shade700
-            : elevationChange < 0
-                ? Colors.blue.shade700
-                : Colors.grey;
+        // Color: green (fast) → red (slow)
+        final t = range > 0 ? ((avgPaceSecs - bestPace) / range).clamp(0.0, 1.0) : 0.5;
+        final paceColor = Color.lerp(Colors.green.shade600, Colors.red.shade700, t)!;
 
-        final paceColor = basePace < 5.5 ? Colors.green : Colors.red;
+        // Elevation from first split in group
+        final elevChange = (group.first['elevationChange'] as num?)?.toDouble() ?? 0.0;
+        final elevColor = elevChange > 0 ? Colors.orange.shade700 : elevChange < 0 ? Colors.blue.shade700 : Colors.grey;
+
+        // Time formatting
+        final tMin = totalSecs ~/ 60;
+        final tSec = totalSecs % 60;
+        final timeStr = "$tMin:${tSec.toString().padLeft(2, '0')}";
 
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -672,10 +811,10 @@ Keep moving 💪
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: paceColor, borderRadius: BorderRadius.circular(8)),
                 child: Center(
                   child: Text(
-                    "$splitNum",
+                    "${groupIndex + 1}",
                     style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -683,29 +822,27 @@ Keep moving 💪
               const SizedBox(width: 16),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text("${actualDistance.toStringAsFixed(2)} km", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text("${distKm.toStringAsFixed(splitKm > 1 ? 0 : 2)} km · $timeStr",
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.speed, size: 12, color: paceColor),
-                      const SizedBox(width: 4),
-                      Text(paceString, style: TextStyle(fontSize: 12, color: paceColor, fontWeight: FontWeight.w600)),
+                  Row(children: [
+                    Icon(Icons.speed, size: 12, color: paceColor),
+                    const SizedBox(width: 4),
+                    Text("$paceStr /km", style: TextStyle(fontSize: 12, color: paceColor, fontWeight: FontWeight.w600)),
+                    if (elevChange != 0) ...[
                       const SizedBox(width: 16),
-                      Icon(Icons.terrain, size: 12, color: elevationColor),
+                      Icon(Icons.terrain, size: 12, color: elevColor),
                       const SizedBox(width: 4),
-                      // ✅ remove unnecessary braces warning (use $elevationChange)
-                      Text(
-                        "${elevationChange > 0 ? '+' : ''}$elevationChange m",
-                        style: TextStyle(fontSize: 12, color: elevationColor, fontWeight: FontWeight.w600),
-                      ),
+                      Text("${elevChange > 0 ? '+' : ''}${elevChange.toStringAsFixed(0)}m",
+                          style: TextStyle(fontSize: 12, color: elevColor, fontWeight: FontWeight.w600)),
                     ],
-                  ),
+                  ]),
                 ]),
               ),
             ],
           ),
         );
-      }),
+      }).toList(),
     );
   }
 }

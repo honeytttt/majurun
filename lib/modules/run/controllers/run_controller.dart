@@ -582,12 +582,20 @@ class RunController extends ChangeNotifier {
       // Capture final stats before stopping
       final finalDistance = stateController.totalDistance / 1000;
       final finalDuration = stateController.secondsElapsed;
+      final finalMovingTime = stateController.activeRunSeconds; // excludes paused time
       final finalPace = stateController.paceString;
       final finalCalories = stateController.totalCalories;
       final finalDistanceString = stateController.distanceString;
       final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
       final finalBpm = stateController.currentBpm;
       final routeStats = stateController.getRouteStats();
+      // Real per-km splits for split display in RunDetailScreen
+      final finalKmSplits = stateController.kmSplits.map((s) => {
+        'kmNumber': s.kmNumber,
+        'durationSeconds': s.durationSeconds,
+        'pace': s.pace,
+        'elevationChange': s.elevationChange,
+      }).toList();
 
       // Stop tracking
       await stateController.stopRun();
@@ -621,6 +629,8 @@ class RunController extends ChangeNotifier {
           extra: {
             'elevationGain': routeStats['elevationGain'] ?? 0.0,
             'elevationLoss': routeStats['elevationLoss'] ?? 0.0,
+            'movingTimeSeconds': finalMovingTime,
+            'kmSplits': finalKmSplits,
           },
         );
       } catch (saveError) {

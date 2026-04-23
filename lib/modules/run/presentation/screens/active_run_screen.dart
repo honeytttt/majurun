@@ -546,8 +546,16 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildSecondaryStat('AVG PACE', '${runController.paceString}/km'),
-              _buildSecondaryStat('BPM', '${runController.currentBpm}'),
+              _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km'),
               _buildSecondaryStat('CAL', '${runController.totalCalories}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // BPM + HR Zone row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildHrZoneStat(runController.currentBpm),
             ],
           ),
         ],
@@ -595,6 +603,52 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           ],
         ),
       ],
+    );
+  }
+
+  /// HR Zone thresholds (% of max HR, using 220-age; default age 30 → maxHR 190)
+  /// Zone 1: <60%  Zone 2: 60-70%  Zone 3: 70-80%  Zone 4: 80-90%  Zone 5: >90%
+  static const _zoneNames  = ['', 'Z1 Recovery', 'Z2 Aerobic', 'Z3 Tempo', 'Z4 Threshold', 'Z5 Max'];
+  static const _zoneColors = [Colors.grey, Colors.blue, Colors.green, Colors.orange, Color(0xFFFC4C02), Colors.red];
+  static const _maxHr = 190; // 220 - 30 (conservative default)
+
+  int _hrZone(int bpm) {
+    if (bpm <= 0) return 0;
+    final pct = bpm / _maxHr;
+    if (pct < 0.60) return 1;
+    if (pct < 0.70) return 2;
+    if (pct < 0.80) return 3;
+    if (pct < 0.90) return 4;
+    return 5;
+  }
+
+  Widget _buildHrZoneStat(int bpm) {
+    final zone = _hrZone(bpm);
+    final zoneColor = _zoneColors[zone];
+    final zoneName = zone == 0 ? 'No HR Data' : _zoneNames[zone];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: zoneColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: zoneColor.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.favorite_rounded, color: zoneColor, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            bpm > 0 ? '$bpm BPM' : '-- BPM',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: zoneColor),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '· $zoneName',
+            style: TextStyle(fontSize: 12, color: zoneColor.withValues(alpha: 0.85), fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 
