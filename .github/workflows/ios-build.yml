@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 90
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      BUILD_MODE: ${{ github.event.inputs.build_mode || 'release' }}
 
     steps:
       - name: Select Xcode version

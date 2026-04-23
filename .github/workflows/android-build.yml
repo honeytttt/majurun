@@ -26,11 +26,14 @@ on:
 
 jobs:
   build-android:
-    name: Android ${{ github.event.inputs.build_type }} (${{ github.event.inputs.environment }})
+    # Use inputs if manual, otherwise default to appbundle/prod for pushes
+    name: Android Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      BUILD_TYPE: ${{ github.event.inputs.build_type || 'appbundle' }}
+      ENV_TARGET: ${{ github.event.inputs.environment || 'prod' }}
 
     steps:
       - name: Checkout
@@ -54,29 +57,23 @@ jobs:
 
       # ── Firebase config injection ──────────────────────────────────────────
       - name: Inject google-services.json (prod)
-        if: ${{ github.event.inputs.environment == 'prod' }}
+        if: ${{ env.ENV_TARGET == 'prod' }}
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON_PROD }}" | base64 --decode > android/app/google-services.json
 
       # ── Validate google-services.json has Play Store signing SHA ───────────
-      # Google Play re-signs AABs with their own key (CN=Google Inc.).
-      # That SHA must be registered in Firebase or Google Sign-In fails in prod.
-      # Play signing SHA-1: 93f356bbfbda84a754f398eef44d2d54c300b46a (permanent)
       - name: Verify Play Store SHA in google-services.json (prod)
-        if: ${{ github.event.inputs.environment == 'prod' }}
+        if: ${{ env.ENV_TARGET == 'prod' }}
         run: |
           PLAY_SHA="93f356bbfbda84a754f398eef44d2d54c300b46a"
           if grep -qi "$PLAY_SHA" android/app/google-services.json; then
             echo "✅ Play Store signing SHA present in google-services.json"
           else
             echo "❌ MISSING Play Store signing SHA in google-services.json!"
-            echo "   Google Sign-In will fail on Play Store builds."
-            echo "   Run: firebase apps:android:sha:create <APP_ID> $PLAY_SHA --project majurun-8d8b5"
-            echo "   Then re-download google-services.json and update GOOGLE_SERVICES_JSON_PROD secret."
             exit 1
           fi
 
       - name: Inject google-services.json (dev)
-        if: ${{ github.event.inputs.environment == 'dev' }}
+        if: ${{ env.ENV_TARGET == 'dev' }}
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON_DEV }}" | base64 --decode > android/app/google-services.json
 
       - name: Inject firebase_options (both always required by main.dart)
@@ -98,47 +95,47 @@ jobs:
 
       # ── Build ──────────────────────────────────────────────────────────────
       - name: Build App Bundle
-        if: ${{ github.event.inputs.build_type == 'appbundle' }}
+        if: ${{ env.BUILD_TYPE == 'appbundle' }}
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
           flutter build appbundle --release \
-            --dart-define=ENVIRONMENT=${{ github.event.inputs.environment == 'prod' && 'production' || 'development' }} \
+            --dart-define=ENVIRONMENT=${{ env.ENV_TARGET == 'prod' && 'production' || 'development' }} \
             --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
             --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
 
       - name: Build APK
-        if: ${{ github.event.inputs.build_type == 'apk' }}
+        if: ${{ env.BUILD_TYPE == 'apk' }}
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
           flutter build apk --release \
-            --dart-define=ENVIRONMENT=${{ github.event.inputs.environment == 'prod' && 'production' || 'development' }} \
+            --dart-define=ENVIRONMENT=${{ env.ENV_TARGET == 'prod' && 'production' || 'development' }} \
             --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
             --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
 
       # ── Upload artifacts ───────────────────────────────────────────────────
       - name: Upload AAB
-        if: ${{ github.event.inputs.build_type == 'appbundle' }}
+        if: ${{ env.BUILD_TYPE == 'appbundle' }}
         uses: actions/upload-artifact@v4
         with:
-          name: MajuRun-${{ github.event.inputs.environment }}-AAB-${{ github.run_number }}
+          name: MajuRun-${{ env.ENV_TARGET }}-AAB-${{ github.run_number }}
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
 
       - name: Upload APK
-        if: ${{ github.event.inputs.build_type == 'apk' }}
+        if: ${{ env.BUILD_TYPE == 'apk' }}
         uses: actions/upload-artifact@v4
         with:
-          name: MajuRun-${{ github.event.inputs.environment }}-APK-${{ github.run_number }}
+          name: MajuRun-${{ env.ENV_TARGET }}-APK-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
 
       # ── Deploy to Play Store (prod AAB only) ───────────────────────────────
       - name: Upload to Play Store internal track
-        if: ${{ github.event.inputs.build_type == 'appbundle' && github.event.inputs.environment == 'prod' }}
+        if: ${{ env.BUILD_TYPE == 'appbundle' && env.ENV_TARGET == 'prod' }}
         continue-on-error: true   # AAB artifact is still uploaded above; investigate Play Console separately
         uses: r0adkll/upload-google-play@v1.1.3
         env:
