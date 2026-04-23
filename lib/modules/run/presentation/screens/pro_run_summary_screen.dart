@@ -79,9 +79,23 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
       }
     }
 
+import 'package:majurun/core/services/celebration_service.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:majurun/core/theme/app_effects.dart';
+import 'package:majurun/core/widgets/unified_metric_tile.dart';
+
+// ... (other imports)
+
     setState(() {
       _isLoading = false;
     });
+
+    // Trigger elite celebration if user hit PRs
+    if (_newPRs?.isNotEmpty ?? false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        CelebrationService().showPRCelebration(context);
+      });
+    }
   }
 
   @override
