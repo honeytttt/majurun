@@ -51,6 +51,7 @@ class RunController extends ChangeNotifier {
   // Last run achievements — read by UI to show congratulations screen
   List<String> lastRunPbs = [];
   List<String> lastRunBadges = [];
+  List<Map<String, dynamic>> lastRunKmSplits = [];
 
   RunController() {
     _setupCallbacks();
@@ -663,6 +664,7 @@ class RunController extends ChangeNotifier {
       }
       lastRunPbs = runResult.pbs;
       lastRunBadges = runResult.badges;
+      lastRunKmSplits = finalKmSplits;
 
       debugPrint("✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges");
 

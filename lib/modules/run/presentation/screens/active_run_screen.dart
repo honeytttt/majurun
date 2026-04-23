@@ -945,6 +945,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         calories: calories,
         planTitle: planTitle,
         mapImageBytes: mapImageBytes,
+        kmSplits: runController.lastRunKmSplits,
       ).catchError((e) {
         debugPrint('❌ Auto-post failed: $e');
       });
@@ -982,6 +983,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           avgBpm: avgBpm,
           pbs: pbs,
           badges: badges,
+          kmSplits: runController.lastRunKmSplits,
         ),
       ),
     );

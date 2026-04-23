@@ -58,6 +58,7 @@ class AppPost extends Equatable {
   final int? runBpm;
   final int? runDurationSeconds;
   final int? runCalories;
+  final List<Map<String, dynamic>>? kmSplits;
 
   const AppPost({
     required this.id,
@@ -76,6 +77,7 @@ class AppPost extends Equatable {
     this.runBpm,
     this.runDurationSeconds,
     this.runCalories,
+    this.kmSplits,
   });
 
   // NEW HELPER – makes conditional rendering cleaner
@@ -106,6 +108,7 @@ class AppPost extends Equatable {
       runBpm: (map['bpm'] as num?)?.toInt(),
       runDurationSeconds: (map['durationSeconds'] as num?)?.toInt(),
       runCalories: (map['calories'] as num?)?.toInt(),
+      kmSplits: _parseKmSplits(map['kmSplits']),
     );
   }
 
@@ -151,6 +154,17 @@ class AppPost extends Equatable {
         replies: _parseComments(item['replies']),
       );
     }).whereType<AppComment>().toList();
+  }
+
+  static List<Map<String, dynamic>>? _parseKmSplits(dynamic value) {
+    if (value == null || value is! List) return null;
+    final result = <Map<String, dynamic>>[];
+    for (final item in value) {
+      if (item is Map) {
+        result.add(Map<String, dynamic>.from(item));
+      }
+    }
+    return result.isNotEmpty ? result : null;
   }
 
   static List<LatLng>? _parseRoutePoints(dynamic value) {

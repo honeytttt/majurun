@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
@@ -248,6 +249,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                         'planTitle': post.runPlanTitle ?? 'Free Run',
                         'routePoints': post.routePoints,
                         'userId': post.userId,
+                        if (post.kmSplits != null) 'kmSplits': post.kmSplits,
                       };
                       Navigator.push(
                         context,
@@ -435,6 +437,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                   'planTitle': post.runPlanTitle ?? 'Free Run',
                   'routePoints': post.routePoints,
                   'userId': post.userId,
+                  if (post.kmSplits != null) 'kmSplits': post.kmSplits,
                 }),
               ),
             );
@@ -610,13 +613,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     final shareText = widget.post.content.isNotEmpty
         ? widget.post.content
         : 'Check out this post on MajuRun!';
-    Clipboard.setData(ClipboardData(text: shareText));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Post link copied to clipboard!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    SharePlus.instance.share(ShareParams(text: shareText));
   }
 
   void _showLoginSnack(BuildContext context) {

@@ -33,6 +33,7 @@ class RunPostEditorScreen extends StatefulWidget {
   final List<String> badges;
   final int durationSeconds;
   final int avgBpm;
+  final List<Map<String, dynamic>> kmSplits;
 
   const RunPostEditorScreen({
     super.key,
@@ -49,6 +50,7 @@ class RunPostEditorScreen extends StatefulWidget {
     this.selfieBytes,
     this.pbs = const [],
     this.badges = const [],
+    this.kmSplits = const [],
   });
 
   @override
@@ -94,6 +96,7 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
         planTitle: widget.planTitle,
         mapImageBytes: _includeMap ? widget.mapImageBytes : null,
         selfieBytes: _includeSelfie ? widget.selfieBytes : null,
+        kmSplits: widget.kmSplits,
       );
     } catch (e) {
       debugPrint('❌ RunPostEditorScreen: post error $e');

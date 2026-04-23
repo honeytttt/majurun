@@ -53,6 +53,7 @@ class PostController extends ChangeNotifier {
     Uint8List? mapImageBytes,
     String? mapImageUrlOverride,
     Uint8List? selfieBytes,
+    List<Map<String, dynamic>> kmSplits = const [],
   }) async {
     try {
       final user = _auth.currentUser;
@@ -148,6 +149,7 @@ class PostController extends ChangeNotifier {
         'routePoints': RouteUtils.toFirestoreFormat(sampledPoints),
         'mapImageUrl': mapImageUrl,
         if (selfieUrl != null) 'selfieUrl': selfieUrl,
+        if (kmSplits.isNotEmpty) 'kmSplits': kmSplits,
         'likes': [],
         'type': 'run_activity',
       };
