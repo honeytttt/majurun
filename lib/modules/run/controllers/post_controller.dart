@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/core/services/cloudinary_service.dart';
 import 'package:majurun/core/utils/route_utils.dart';
 
@@ -162,6 +163,77 @@ class PostController extends ChangeNotifier {
     } catch (e) {
       debugPrint("❌ Error creating auto post: $e");
       rethrow;
+    }
+  }
+
+  // ─── Badge image URLs keyed by the badge name returned from UserStatsService ───
+  static const Map<String, String> _badgeImages = {
+    '5K':            AssetUrls.plan_covers_badges_badge_5k,
+    '10K':           AssetUrls.plan_covers_badges_badge_10k,
+    'Half Marathon': AssetUrls.plan_covers_badges_badge_21k,
+    'Marathon':      AssetUrls.plan_covers_badges_badge_42k,
+    'Weekly 50K':    AssetUrls.plan_covers_badges_badge_50k,
+    'Weekly 100K':   AssetUrls.plan_covers_badges_badge_100k,
+    'Monthly 100K':  AssetUrls.plan_covers_badges_badge_100k,
+    'Monthly 200K':  AssetUrls.plan_covers_badges_badge_500k,
+  };
+
+  /// Returns the Cloudinary badge image URL for a given badge name, or null.
+  static String? badgeImageForName(String badgeName) => _badgeImages[badgeName];
+
+  static String _badgeCaption(String badgeName) {
+    switch (badgeName) {
+      case '5K':
+        return 'Just earned my 5K Runner badge! First 5km done — the journey starts here. #MajuRun #5KRunner #BadgeEarned';
+      case '10K':
+        return '10K Runner badge unlocked! Hard work and consistency pay off. #MajuRun #10KRunner #BadgeEarned';
+      case 'Half Marathon':
+        return 'Half Marathon badge earned! 21.1km of grit and determination. #MajuRun #HalfMarathon #BadgeEarned';
+      case 'Marathon':
+        return 'MARATHON badge! 42.2km completed. I am a marathoner. #MajuRun #Marathon #BadgeEarned';
+      case 'Weekly 50K':
+        return '50km in a single week! Weekly 50K badge unlocked — consistency wins. #MajuRun #WeeklyGoal';
+      case 'Weekly 100K':
+        return '100km in one week! Elite territory. Weekly 100K badge earned. #MajuRun #WeeklyGoal';
+      case 'Monthly 100K':
+        return '100km this month! Monthly warrior badge earned. Keep going! #MajuRun #MonthlyGoal';
+      case 'Monthly 200K':
+        return '200km in a month. Absolutely crushing it. Monthly 200K badge! #MajuRun #MonthlyGoal';
+      default:
+        return 'New badge earned on MajuRun! Levelling up every run. #MajuRun #BadgeEarned';
+    }
+  }
+
+  /// Creates a separate feed post celebrating a badge achievement.
+  /// Called automatically by RunController when a badge is earned.
+  Future<void> createBadgePost({
+    required String badgeName,
+    required String badgeImageUrl,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      String username = 'Runner';
+      try {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
+      } catch (_) {}
+
+      await _firestore.collection('posts').add({
+        'userId': user.uid,
+        'username': username,
+        'content': _badgeCaption(badgeName),
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'badge_earned',
+        'badgeName': badgeName,
+        'media': [{'url': badgeImageUrl, 'type': 'image'}],
+        'likes': [],
+      });
+
+      debugPrint('🏅 Badge post created: $badgeName');
+    } catch (e) {
+      debugPrint('❌ Error creating badge post: $e');
     }
   }
 

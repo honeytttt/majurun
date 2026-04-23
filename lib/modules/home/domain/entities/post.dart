@@ -59,6 +59,9 @@ class AppPost extends Equatable {
   final int? runDurationSeconds;
   final int? runCalories;
   final List<Map<String, dynamic>>? kmSplits;
+  // Badge achievement posts
+  final String? postType;   // 'run_activity' | 'badge_earned' | etc.
+  final String? badgeName;  // e.g. '5K', '10K', 'Half Marathon', 'Marathon'
 
   const AppPost({
     required this.id,
@@ -78,6 +81,8 @@ class AppPost extends Equatable {
     this.runDurationSeconds,
     this.runCalories,
     this.kmSplits,
+    this.postType,
+    this.badgeName,
   });
 
   // NEW HELPER – makes conditional rendering cleaner
@@ -109,6 +114,8 @@ class AppPost extends Equatable {
       runDurationSeconds: (map['durationSeconds'] as num?)?.toInt(),
       runCalories: (map['calories'] as num?)?.toInt(),
       kmSplits: _parseKmSplits(map['kmSplits']),
+      postType: map['type'] as String?,
+      badgeName: map['badgeName'] as String?,
     );
   }
 
@@ -182,5 +189,5 @@ class AppPost extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints, runPlanTitle, runDistance, runPace];
+  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints, runPlanTitle, runDistance, runPace, postType, badgeName];
 }

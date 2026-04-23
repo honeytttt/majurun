@@ -251,7 +251,13 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       day: data['day'] as int?,
       completed: data['completed'] as bool?,
       mapImageUrl: data['mapImageUrl']?.toString(),
-      extra: null,
+      extra: () {
+        final e = <String, dynamic>{};
+        for (final k in ['kmSplits', 'movingTimeSeconds', 'elevationGain', 'elevationLoss']) {
+          if (data[k] != null) e[k] = data[k];
+        }
+        return e.isEmpty ? null : e;
+      }(),
       isExternal: data['isExternal'] as bool?,
       source: data['source']?.toString(),
     );

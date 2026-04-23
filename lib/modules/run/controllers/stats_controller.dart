@@ -219,7 +219,7 @@ class StatsController extends ChangeNotifier {
     DateTime? before,
   }) async {
     final runs = await _repository.getRunsPage(pageSize: pageSize, before: before);
-    return runs.map((run) => {
+    return runs.map((run) => <String, dynamic>{
       'id': run.id,
       'date': run.completedAt,
       'distance': run.distanceKm,
@@ -235,6 +235,7 @@ class StatsController extends ChangeNotifier {
       'completed': run.completed,
       'mapImageUrl': run.mapImageUrl,
       'extra': run.extra,
+      if (run.extra != null) ...run.extra!,  // spread so RunDetailScreen can read kmSplits etc. at top level
       'isExternal': run.isExternal,
       'source': run.source,
     }).toList();
@@ -245,7 +246,7 @@ class StatsController extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getRunHistory() async {
     final runs = await _repository.getAllRuns();
     return runs
-        .map((run) => {
+        .map((run) => <String, dynamic>{
               'id': run.id,
               'date': run.completedAt,
               'distance': run.distanceKm,
@@ -261,6 +262,7 @@ class StatsController extends ChangeNotifier {
               'completed': run.completed,
               'mapImageUrl': run.mapImageUrl,
               'extra': run.extra,
+              if (run.extra != null) ...run.extra!,  // spread so RunDetailScreen can read kmSplits etc. at top level
               'isExternal': run.isExternal,
               'source': run.source,
             })

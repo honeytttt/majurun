@@ -666,6 +666,18 @@ class RunController extends ChangeNotifier {
       lastRunBadges = runResult.badges;
       lastRunKmSplits = finalKmSplits;
 
+      // Auto-post a badge achievement card to the feed for each badge earned.
+      // Fires in the background so it doesn't block the UI transition.
+      for (final badge in lastRunBadges) {
+        final imageUrl = PostController.badgeImageForName(badge);
+        if (imageUrl != null) {
+          postController.createBadgePost(
+            badgeName: badge,
+            badgeImageUrl: imageUrl,
+          ).catchError((e) => debugPrint('⚠️ Badge post failed: $e'));
+        }
+      }
+
       debugPrint("✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges");
 
       // Clean up

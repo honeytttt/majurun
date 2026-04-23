@@ -97,6 +97,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     final currentUserId = currentUser?.uid;
     final isOwnPost = currentUserId != null && widget.post.userId == currentUserId;
     final isRepost = widget.post.quotedPostId != null && widget.post.content.trim().isEmpty;
+    final isBadgePost = widget.post.postType == 'badge_earned';
 
     // ✅ Wrap entire card in GestureDetector to make it tappable
     return GestureDetector(
@@ -112,12 +113,19 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       },
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 0.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: isBadgePost
+              ? const BorderSide(color: Color(0xFFFFD700), width: 1.5)
+              : BorderSide.none,
+        ),
+        elevation: isBadgePost ? 2 : 0.5,
         color: Colors.white,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- Badge achievement banner (badge posts only) ---
+            if (isBadgePost) _buildBadgeBanner(),
             // --- Header Section ---
             ListTile(
               leading: GestureDetector(
@@ -376,6 +384,37 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   }
 
   // ================== HELPER METHODS ==================
+
+  Widget _buildBadgeBanner() {
+    final badgeName = widget.post.badgeName ?? 'Achievement';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Row(
+        children: [
+          const Text('🏅', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Text(
+            'Badge Earned: $badgeName',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<String> _getUserPhotoUrl(String userId) async {
     debugPrint('📡 FeedItem: STARTING fetch for userId="$userId"');
