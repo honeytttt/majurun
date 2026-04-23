@@ -237,6 +237,191 @@ class PostController extends ChangeNotifier {
     }
   }
 
+  // ─── Streak milestone images keyed by day count ───────────────────────────
+  static const Map<int, String> _streakImages = {
+    3:   AssetUrls.plan_covers_badges_badge_streak_3,
+    7:   AssetUrls.plan_covers_badges_badge_streak_7,
+    14:  AssetUrls.plan_covers_badges_badge_streak_14,
+    30:  AssetUrls.plan_covers_badges_badge_streak_30,
+    60:  AssetUrls.plan_covers_badges_badge_streak_60,
+    90:  AssetUrls.plan_covers_badges_badge_streak_90,
+    180: AssetUrls.plan_covers_badges_badge_streak_180,
+    365: AssetUrls.plan_covers_badges_badge_streak_365,
+  };
+
+  static String? streakImageForDays(int days) => _streakImages[days];
+
+  static String _streakCaption(int days) {
+    if (days >= 365) return '$days days straight! A full year of running — you are unstoppable. #MajuRun #YearStreak';
+    if (days >= 180) return '$days-day streak! Half a year of consistency. Most people quit — you didn\'t. #MajuRun #180DayStreak';
+    if (days >= 90)  return '$days-day streak! 3 months of daily runs. This is who you are now. #MajuRun #90DayStreak';
+    if (days >= 60)  return '$days-day streak! 2 months strong. Discipline is your superpower. #MajuRun #60DayStreak';
+    if (days >= 30)  return '$days-day streak! A full month without missing a day. Phenomenal. #MajuRun #30DayStreak';
+    if (days >= 14)  return '$days-day streak! Two weeks of showing up every single day. #MajuRun #14DayStreak';
+    if (days >= 7)   return '$days-day streak! One full week of consistent running. Keep the fire burning! #MajuRun #7DayStreak';
+    return '$days-day running streak! The habit is forming. Don\'t break it! #MajuRun #Streak';
+  }
+
+  /// Creates a streak milestone post. Called when user hits 3/7/14/30/60/90/180/365-day streak.
+  Future<void> createStreakPost({required int streakDays}) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      String username = 'Runner';
+      try {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
+      } catch (_) {}
+
+      final imageUrl = _streakImages[streakDays];
+      final media = imageUrl != null ? [{'url': imageUrl, 'type': 'image'}] : <Map<String, dynamic>>[];
+
+      await _firestore.collection('posts').add({
+        'userId': user.uid,
+        'username': username,
+        'content': _streakCaption(streakDays),
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'streak_milestone',
+        'streakDays': streakDays,
+        'media': media,
+        'likes': [],
+      });
+
+      debugPrint('🔥 Streak post created: $streakDays days');
+    } catch (e) {
+      debugPrint('❌ Error creating streak post: $e');
+    }
+  }
+
+  // ─── Weekly recap ──────────────────────────────────────────────────────────
+
+  /// Creates a Monday weekly recap post summarising the past 7 days.
+  Future<void> createWeeklyRecapPost({
+    required int totalRuns,
+    required double totalKm,
+    required int totalSeconds,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      String username = 'Runner';
+      try {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
+      } catch (_) {}
+
+      final km = totalKm.toStringAsFixed(1);
+      final hours = totalSeconds ~/ 3600;
+      final mins = (totalSeconds % 3600) ~/ 60;
+      final timeStr = hours > 0 ? '${hours}h ${mins}m' : '${mins}m';
+      final content = 'Week in review: $totalRuns run${totalRuns == 1 ? '' : 's'} · ${km}km · $timeStr on the road. Onwards! #MajuRun #WeeklyRecap';
+
+      await _firestore.collection('posts').add({
+        'userId': user.uid,
+        'username': username,
+        'content': content,
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'weekly_recap',
+        'weeklyRuns': totalRuns,
+        'weeklyKm': totalKm,
+        'weeklySeconds': totalSeconds,
+        'media': [],
+        'likes': [],
+      });
+
+      debugPrint('📊 Weekly recap post created: $totalRuns runs, ${km}km');
+    } catch (e) {
+      debugPrint('❌ Error creating weekly recap post: $e');
+    }
+  }
+
+  // ─── Motivational cards ────────────────────────────────────────────────────
+
+  static const List<String> _motivationalImages = [
+    AssetUrls.motivational_cards_card_01, AssetUrls.motivational_cards_card_02,
+    AssetUrls.motivational_cards_card_03, AssetUrls.motivational_cards_card_04,
+    AssetUrls.motivational_cards_card_05, AssetUrls.motivational_cards_card_06,
+    AssetUrls.motivational_cards_card_07, AssetUrls.motivational_cards_card_08,
+    AssetUrls.motivational_cards_card_09, AssetUrls.motivational_cards_card_10,
+    AssetUrls.motivational_cards_card_11, AssetUrls.motivational_cards_card_12,
+    AssetUrls.motivational_cards_card_13, AssetUrls.motivational_cards_card_14,
+    AssetUrls.motivational_cards_card_15, AssetUrls.motivational_cards_card_16,
+    AssetUrls.motivational_cards_card_17, AssetUrls.motivational_cards_card_18,
+    AssetUrls.motivational_cards_card_19, AssetUrls.motivational_cards_card_20,
+    AssetUrls.motivational_cards_card_21, AssetUrls.motivational_cards_card_22,
+    AssetUrls.motivational_cards_card_23, AssetUrls.motivational_cards_card_24,
+    AssetUrls.motivational_cards_card_25, AssetUrls.motivational_cards_card_26,
+    AssetUrls.motivational_cards_card_27, AssetUrls.motivational_cards_card_28,
+    AssetUrls.motivational_cards_card_29, AssetUrls.motivational_cards_card_30,
+  ];
+
+  static const List<String> _educationImages = [
+    AssetUrls.education_cards_edu_breathing_01, AssetUrls.education_cards_edu_cadence_01,
+    AssetUrls.education_cards_edu_gear_01,     AssetUrls.education_cards_edu_heat_01,
+    AssetUrls.education_cards_edu_hills_01,    AssetUrls.education_cards_edu_injury_01,
+    AssetUrls.education_cards_edu_injury_02,   AssetUrls.education_cards_edu_mental_01,
+    AssetUrls.education_cards_edu_mental_02,   AssetUrls.education_cards_edu_nutrition_01,
+    AssetUrls.education_cards_edu_nutrition_02, AssetUrls.education_cards_edu_pacing_01,
+    AssetUrls.education_cards_edu_race_day_01, AssetUrls.education_cards_edu_recovery_01,
+    AssetUrls.education_cards_edu_recovery_02, AssetUrls.education_cards_edu_running_form_01,
+    AssetUrls.education_cards_edu_running_form_02, AssetUrls.education_cards_edu_training_01,
+    AssetUrls.education_cards_edu_training_02, AssetUrls.education_cards_edu_warmup_01,
+  ];
+
+  /// Returns the motivational image URL for a given calendar day (rotates through all 30).
+  static String motivationalImageForDay(int dayOfYear) =>
+      _motivationalImages[dayOfYear % _motivationalImages.length];
+
+  /// Returns the education image URL for a given calendar day (rotates through all 20).
+  static String educationImageForDay(int dayOfYear) =>
+      _educationImages[dayOfYear % _educationImages.length];
+
+  /// Posts today's motivational card to the global feed (called by DailyContentService).
+  Future<void> createMotivationalPost({
+    required String imageUrl,
+    required String userId,
+    required String username,
+  }) async {
+    try {
+      await _firestore.collection('posts').add({
+        'userId': userId,
+        'username': username,
+        'content': '💪 Stay motivated — every run counts. Keep going, MajuRun community! #MajuRun #Motivation',
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'motivational',
+        'media': [{'url': imageUrl, 'type': 'image'}],
+        'likes': [],
+      });
+      debugPrint('💪 Motivational post created');
+    } catch (e) {
+      debugPrint('❌ Error creating motivational post: $e');
+    }
+  }
+
+  /// Posts today's education card to the global feed (called by DailyContentService).
+  Future<void> createEducationPost({
+    required String imageUrl,
+    required String userId,
+    required String username,
+  }) async {
+    try {
+      await _firestore.collection('posts').add({
+        'userId': userId,
+        'username': username,
+        'content': '📚 Running tip of the day — learn something new every day to run smarter. #MajuRun #RunningTips',
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'education',
+        'media': [{'url': imageUrl, 'type': 'image'}],
+        'likes': [],
+      });
+      debugPrint('📚 Education post created');
+    } catch (e) {
+      debugPrint('❌ Error creating education post: $e');
+    }
+  }
+
   Future<void> generateVeoVideo() async {
     try {
       debugPrint("🎬 Generating Veo video...");

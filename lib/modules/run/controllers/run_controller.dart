@@ -11,6 +11,7 @@ import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
+import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
@@ -678,6 +679,17 @@ class RunController extends ChangeNotifier {
         }
       }
 
+      // Update run streak and post milestone cards (3/7/14/30/60/90/180/365 days).
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        _updateStreakAndPost(uid).catchError((e) => debugPrint('⚠️ Streak update failed: $e'));
+
+        // Weekly recap — post on Monday after finishing a run (once per week).
+        if (DateTime.now().weekday == DateTime.monday) {
+          _maybePostWeeklyRecap(uid).catchError((e) => debugPrint('⚠️ Weekly recap failed: $e'));
+        }
+      }
+
       debugPrint("✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges");
 
       // Clean up
@@ -709,6 +721,42 @@ class RunController extends ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+
+  /// Updates the user's run streak and creates a streak milestone post if a
+  /// milestone (3/7/14/30/60/90/180/365 days) was just crossed.
+  Future<void> _updateStreakAndPost(String uid) async {
+    final result = await StreakService().updateStreak(uid);
+    final prev = (result['previousStreak'] as int?) ?? 0;
+    final current = (result['currentStreak'] as int?) ?? 0;
+    for (final milestone in [3, 7, 14, 30, 60, 90, 180, 365]) {
+      if (prev < milestone && current >= milestone) {
+        await postController.createStreakPost(streakDays: milestone);
+        debugPrint('🔥 Streak milestone post: $milestone days');
+      }
+    }
+  }
+
+  /// Posts a weekly recap summary on Monday, at most once per calendar week.
+  Future<void> _maybePostWeeklyRecap(String uid) async {
+    final now = DateTime.now();
+    // ISO week number: a simple but consistent key per week
+    final weekKey = '${now.year}_${now.month}_${(now.day / 7).ceil()}';
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final userSnap = await userRef.get();
+    if ((userSnap.data()?['lastWeeklyRecap'] as String?) == weekKey) return;
+
+    final stats = await statsController.getLastWeekStats();
+    if (stats.totalRuns == 0) return; // nothing to recap
+
+    await postController.createWeeklyRecapPost(
+      totalRuns: stats.totalRuns,
+      totalKm: stats.totalKm,
+      totalSeconds: stats.totalSeconds,
+    );
+
+    await userRef.set({'lastWeeklyRecap': weekKey}, SetOptions(merge: true));
+    debugPrint('📊 Weekly recap posted for week $weekKey');
   }
 
   double _paceStringToMinutes(String pace) {

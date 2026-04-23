@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -120,15 +121,37 @@ class LocationTracker extends ChangeNotifier {
   // Internal
   // ─────────────────────────────────────────────────────────────────────────
 
+  LocationSettings _buildLocationSettings() {
+    if (Platform.isIOS) {
+      // AppleSettings prevents iOS Core Location from auto-pausing updates
+      // when the screen locks or the user appears stationary — critical for run tracking.
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: RunConstants.distanceFilterMeters,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true, // blue status bar — shows user location is active
+      );
+    }
+    return const AndroidSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: RunConstants.distanceFilterMeters,
+      forceLocationManager: false,
+      intervalDuration: Duration(seconds: 1),
+      foregroundNotificationConfig: ForegroundNotificationConfig(
+        notificationTitle: 'MajuRun',
+        notificationText: 'Tracking your run...',
+        enableWakeLock: true,
+      ),
+    );
+  }
+
   void _startLocationStream() {
     debugPrint("📍 Starting location updates");
     _positionStream?.cancel();
 
     _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: RunConstants.distanceFilterMeters,
-      ),
+      locationSettings: _buildLocationSettings(),
     ).listen(
       _onPositionUpdate,
       onError: (error) {

@@ -59,9 +59,13 @@ class AppPost extends Equatable {
   final int? runDurationSeconds;
   final int? runCalories;
   final List<Map<String, dynamic>>? kmSplits;
-  // Badge achievement posts
-  final String? postType;   // 'run_activity' | 'badge_earned' | etc.
-  final String? badgeName;  // e.g. '5K', '10K', 'Half Marathon', 'Marathon'
+  // Post type + extra metadata for special post rendering
+  final String? postType;    // 'run_activity'|'badge_earned'|'streak_milestone'|'weekly_recap'|'motivational'|'education'
+  final String? badgeName;   // badge_earned: e.g. '5K', '10K'
+  final int? streakDays;     // streak_milestone: days count
+  final int? weeklyRuns;     // weekly_recap: runs in past 7 days
+  final double? weeklyKm;    // weekly_recap: km in past 7 days
+  final int? weeklySeconds;  // weekly_recap: total seconds in past 7 days
 
   const AppPost({
     required this.id,
@@ -83,6 +87,10 @@ class AppPost extends Equatable {
     this.kmSplits,
     this.postType,
     this.badgeName,
+    this.streakDays,
+    this.weeklyRuns,
+    this.weeklyKm,
+    this.weeklySeconds,
   });
 
   // NEW HELPER – makes conditional rendering cleaner
@@ -116,6 +124,10 @@ class AppPost extends Equatable {
       kmSplits: _parseKmSplits(map['kmSplits']),
       postType: map['type'] as String?,
       badgeName: map['badgeName'] as String?,
+      streakDays: (map['streakDays'] as num?)?.toInt(),
+      weeklyRuns: (map['weeklyRuns'] as num?)?.toInt(),
+      weeklyKm: (map['weeklyKm'] as num?)?.toDouble(),
+      weeklySeconds: (map['weeklySeconds'] as num?)?.toInt(),
     );
   }
 

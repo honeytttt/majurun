@@ -213,6 +213,23 @@ class StatsController extends ChangeNotifier {
     };
   }
 
+  /// Returns total runs, km, and seconds for the past 7 days (used for weekly recap post).
+  Future<({int totalRuns, double totalKm, int totalSeconds})> getLastWeekStats() async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final runs = await _repository.getRunsPage(pageSize: 100);
+    int totalRuns = 0;
+    double totalKm = 0.0;
+    int totalSeconds = 0;
+    for (final run in runs) {
+      if (run.completedAt.isAfter(cutoff)) {
+        totalRuns++;
+        totalKm += run.distanceKm;
+        totalSeconds += run.durationSeconds;
+      }
+    }
+    return (totalRuns: totalRuns, totalKm: totalKm, totalSeconds: totalSeconds);
+  }
+
   /// Get a page of runs for paginated history display.
   Future<List<Map<String, dynamic>>> getRunHistoryPage({
     required int pageSize,

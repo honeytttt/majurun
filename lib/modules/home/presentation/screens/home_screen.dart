@@ -8,6 +8,7 @@ import 'package:majurun/core/widgets/connectivity_banner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:majurun/core/services/daily_content_service.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 
@@ -61,6 +62,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _fetchFirebaseUserData();
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
+    // Post today's motivational + education cards (first user of the day triggers it).
+    DailyContentService.maybePostDailyContent().catchError(
+      (e) => debugPrint('⚠️ DailyContentService: $e'),
+    );
   }
 
   void _onTabNotifier() {
