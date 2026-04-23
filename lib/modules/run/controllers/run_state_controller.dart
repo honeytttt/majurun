@@ -101,8 +101,20 @@ class RunStateController extends ChangeNotifier {
   final List<ChartDataSpot> hrHistorySpots = [];
   final List<ChartDataSpot> paceHistorySpots = [];
 
+import 'package:majurun/core/services/weather_service.dart';
+
+// ... (other imports)
+
   // Stats
   String? lastVideoUrl;
+  WeatherData? _startWeather;
+  WeatherData? get startWeather => _startWeather;
+
+  void setStartWeather(WeatherData weather) {
+    _startWeather = weather;
+    notifyListeners();
+  }
+
   int currentBpm = 0; // Will be updated from health service
   int totalCalories = 0;
   double _lastCaloriesDistance = 0.0; // tracks distance at last calorie update

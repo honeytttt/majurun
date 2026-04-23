@@ -514,8 +514,33 @@ class RunController extends ChangeNotifier {
       await WakeLockService.enable();
       debugPrint("🔒 Screen wake lock enabled");
 
+import 'package:majurun/core/services/weather_service.dart';
+import 'package:majurun/core/services/remote_config_service.dart';
+
+// ... (other imports)
+
       // Start tracking
       await stateController.startRun();
+
+      // Fetch weather for the start location
+      try {
+        final pos = stateController.lastPosition;
+        if (pos != null) {
+          final weatherService = WeatherService();
+          // Ensure API key is set from RemoteConfig or Secret
+          final apiKey = serviceLocator.remoteConfigService.getString('openweather_api_key');
+          if (apiKey.isNotEmpty) {
+            weatherService.setApiKey(apiKey);
+            final weather = await weatherService.fetchWeather(pos.latitude, pos.longitude);
+            if (weather != null) {
+              stateController.setStartWeather(weather);
+              unawaited(voiceController.speak(weatherService.getWeatherAnnouncement()));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Weather fetch failed: $e');
+      }
 
       // Log analytics
       _analytics.logRunStarted();
@@ -633,6 +658,15 @@ class RunController extends ChangeNotifier {
             'elevationLoss': routeStats['elevationLoss'] ?? 0.0,
             'movingTimeSeconds': finalMovingTime,
             'kmSplits': finalKmSplits,
+            if (stateController.startWeather != null)
+              'weather': {
+                'temp': stateController.startWeather!.temperatureCelsius,
+                'condition': stateController.startWeather!.condition.name,
+                'description': stateController.startWeather!.description,
+                'humidity': stateController.startWeather!.humidity,
+                'windSpeed': stateController.startWeather!.windSpeedKmh,
+                'location': stateController.startWeather!.locationName,
+              },
           },
         );
       } catch (saveError) {

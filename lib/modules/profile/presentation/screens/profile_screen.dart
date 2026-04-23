@@ -693,6 +693,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 20),
 
+          // Run Streak & Weekly Activity
+          _buildStreakAndActivity(userId),
+          const SizedBox(height: 20),
+
           // Stats Grid
           Row(
             children: [

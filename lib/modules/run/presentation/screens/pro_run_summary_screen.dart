@@ -249,6 +249,55 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
     );
   }
 
+  Widget _buildWeatherSection() {
+    // Check if weather data exists in the summary object or its extra data
+    final temp = widget.runData.temperature;
+    final condition = widget.runData.weather;
+    
+    if (temp == null && condition == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wb_cloudy_outlined, color: Color(0xFF7ED957), size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'WEATHER',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${temp ?? '--'} • ${condition ?? 'Unknown'}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMainStats() {
     return Container(
       padding: const EdgeInsets.all(20),
