@@ -114,7 +114,7 @@ class AppPost extends Equatable {
       likes: _parseStringList(map['likes']),
       comments: _parseComments(map['comments']),
       quotedPostId: map['quotedPostId'] as String?,
-      routePoints: _parseRoutePoints(map['routePoints']),
+      routePoints: _parseRoutePoints(map['routePoints'] ?? map['route'] ?? map['path'] ?? map['points']),
       runPlanTitle: map['planTitle'] as String?,
       runDistance: (map['distance'] as num?)?.toDouble(),
       runPace: map['pace'] as String?,
@@ -222,8 +222,8 @@ class AppPost extends Equatable {
       } else if (p is GeoPoint) {
         points.add(LatLng(p.latitude, p.longitude));
       } else if (p is Map) {
-        final lat = (p['lat'] ?? p['latitude'] ?? p['latitude']) as num?;
-        final lng = (p['lng'] ?? p['longitude'] ?? p['longitude']) as num?;
+        final lat = (p['lat'] ?? p['latitude'] ?? p['_lat'] ?? p['Latitude']) as num?;
+        final lng = (p['lng'] ?? p['longitude'] ?? p['_lng'] ?? p['Longitude']) as num?;
         if (lat != null && lng != null) {
           points.add(LatLng(lat.toDouble(), lng.toDouble()));
         }

@@ -781,114 +781,151 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
   }
 
   Widget _buildPaceTab() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatRow('Average Pace', _formatPace(widget.runData.avgPaceSecondsPerKm)),
-          _buildStatRow('Best Pace', _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm)),
-          _buildStatRow('Cadence', '${widget.runData.avgCadence ?? '--'} spm'),
-          _buildStatRow('Stride Length', '${widget.runData.avgStrideLength?.toStringAsFixed(2) ?? '--'} m'),
-          const SizedBox(height: 20),
-          const Text(
-            'PACE ZONES',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildPaceZoneBar('Easy', 0.3, const Color(0xFF4CAF50)),
-          _buildPaceZoneBar('Moderate', 0.45, const Color(0xFFFF9800)),
-          _buildPaceZoneBar('Hard', 0.2, const Color(0xFFF44336)),
-          _buildPaceZoneBar('Sprint', 0.05, const Color(0xFF9C27B0)),
-        ],
-      ),
-    );
-  }
+    final spots = _getPaceSpots();
+    if (spots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatRow('Average Pace', _formatPace(widget.runData.avgPaceSecondsPerKm)),
+            _buildStatRow('Best Pace', _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm)),
+            _buildStatRow('Cadence', '${widget.runData.avgCadence ?? '--'} spm'),
+            _buildStatRow('Stride Length', '${widget.runData.avgStrideLength?.toStringAsFixed(2) ?? '--'} m'),
+            const SizedBox(height: 40),
+            const Center(child: Text('Detailed pace chart requires split data', style: TextStyle(color: Colors.white30))),
+          ],
+        ),
+      );
+    }
 
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaceZoneBar(String label, double percentage, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 70,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 12,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              height: 20,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: percentage,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(4),
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 24, 8),
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    strokeWidth: 1,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: (spots.length / 5).clamp(1, 100).toDouble(),
+                      getTitlesWidget: (value, meta) {
+                        return Padding(
+                          padding: const EdgeInsets.top(8.0),
+                          child: Text(
+                            '${value.toInt()} km',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 10,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 45,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          _formatPaceForAxis(value),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 10,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00E676), Color(0xFF00B0FF)],
+                    ),
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF00E676).withValues(alpha: 0.2),
+                          const Color(0xFF00B0FF).withValues(alpha: 0.01),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) => Colors.black.withValues(alpha: 0.8),
+                    getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                      return touchedBarSpots.map((barSpot) {
+                        return LineTooltipItem(
+                          '${_formatPaceForAxis(barSpot.y)}\n${barSpot.x.toInt()} km',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        );
+                      }).toList();
+                    },
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 40,
-            child: Text(
-              '${(percentage * 100).round()}%',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
-            ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildCompactStat('AVG PACE', _formatPace(widget.runData.avgPaceSecondsPerKm)),
+              _buildCompactStat('BEST PACE', _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm)),
+              _buildCompactStat('CADENCE', '${widget.runData.avgCadence ?? '--'}'),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactStat(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
   Widget _buildHeartRateTab() {
+    final spots = _getHRSpots();
     final avgHR = widget.runData.avgHeartRate;
-    final maxHR = widget.runData.maxHeartRate;
 
     if (avgHR == null) {
       return const Center(
@@ -911,37 +948,174 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildHRStatCard('Average', avgHR, Colors.red),
-              const SizedBox(width: 16),
-              _buildHRStatCard('Max', maxHR ?? avgHR + 20, Colors.red.shade700),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'HEART RATE ZONES',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
+    if (spots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _buildHRStatCard('Average', avgHR, Colors.red),
+                const SizedBox(width: 16),
+                _buildHRStatCard('Max', widget.runData.maxHeartRate ?? avgHR + 20, Colors.red.shade700),
+              ],
+            ),
+            const SizedBox(height: 40),
+            const Center(child: Text('Detailed HR chart requires point data', style: TextStyle(color: Colors.white30))),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 24, 8),
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    strokeWidth: 1,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: (spots.length / 5).clamp(1, 100).toDouble(),
+                      getTitlesWidget: (value, meta) {
+                        return Padding(
+                          padding: const EdgeInsets.top(8.0),
+                          child: Text(
+                            '${value.toInt()} km',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 10,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          '${value.toInt()}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 10,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF5252), Color(0xFFFF8A80)],
+                    ),
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFFF5252).withValues(alpha: 0.2),
+                          const Color(0xFFFF8A80).withValues(alpha: 0.01),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) => Colors.black.withValues(alpha: 0.8),
+                    getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                      return touchedBarSpots.map((barSpot) {
+                        return LineTooltipItem(
+                          '${barSpot.y.toInt()} BPM\n${barSpot.x.toInt()} km',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          _buildHRZoneBar('Zone 1 (Recovery)', 0.1, Colors.grey),
-          _buildHRZoneBar('Zone 2 (Aerobic)', 0.35, Colors.blue),
-          _buildHRZoneBar('Zone 3 (Tempo)', 0.30, Colors.green),
-          _buildHRZoneBar('Zone 4 (Threshold)', 0.20, Colors.orange),
-          _buildHRZoneBar('Zone 5 (Max)', 0.05, Colors.red),
-        ],
-      ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildCompactStat('AVG HR', '${avgHR}'),
+              _buildCompactStat('MAX HR', '${widget.runData.maxHeartRate ?? '--'}'),
+              _buildCompactStat('CALORIES', '${widget.runData.calories ?? '--'}'),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  List<FlSpot> _getPaceSpots() {
+    if (_runData == null || _runData!['splits'] == null) return [];
+    final List<dynamic> splits = _runData!['splits'];
+    List<FlSpot> spots = [];
+    
+    for (int i = 0; i < splits.length; i++) {
+      final double pace = (splits[i]['pace_seconds'] ?? 0).toDouble();
+      if (pace > 0) {
+        // We cap pace at 12:00/km for chart stability
+        final chartPace = pace.clamp(0, 720).toDouble();
+        spots.add(FlSpot(i + 1.0, chartPace));
+      }
+    }
+    return spots;
+  }
+
+  List<FlSpot> _getHRSpots() {
+    if (_runData == null || _runData!['splits'] == null) return [];
+    final List<dynamic> splits = _runData!['splits'];
+    List<FlSpot> spots = [];
+    
+    for (int i = 0; i < splits.length; i++) {
+      final double hr = (splits[i]['avg_hr'] ?? 0).toDouble();
+      if (hr > 0) {
+        spots.add(FlSpot(i + 1.0, hr));
+      }
+    }
+    return spots;
+  }
+
+  String _formatPaceForAxis(double seconds) {
+    if (seconds <= 0) return '0:00';
+    final minutes = (seconds / 60).floor();
+    final remainingSeconds = (seconds % 60).round();
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   Widget _buildHRStatCard(String label, int value, Color color) {

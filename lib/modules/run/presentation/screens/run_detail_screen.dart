@@ -264,9 +264,26 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildMainStat("DISTANCE", "$distance km"),
-                    _buildMainStat("DURATION", timeString),
-                    _buildMainStat("PACE", "$pace /km"),
+                    UnifiedMetricTile(
+                      icon: Icons.directions_run_rounded,
+                      label: "Distance",
+                      value: distance,
+                      unit: "KM",
+                      accentColor: const Color(0xFF00FF87),
+                    ),
+                    UnifiedMetricTile(
+                      icon: Icons.timer_outlined,
+                      label: "Duration",
+                      value: timeString,
+                      accentColor: Colors.blue,
+                    ),
+                    UnifiedMetricTile(
+                      icon: Icons.speed,
+                      label: "Pace",
+                      value: pace,
+                      unit: "/km",
+                      accentColor: Colors.orange,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -275,10 +292,22 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildSecondaryStat(Icons.favorite, "AVG HR", avgBpm > 0 ? "$avgBpm ${_hrZoneNames[hrZone]}" : "--", valueColor: hrZone > 0 ? [Colors.blue, Colors.green, Colors.orange, const Color(0xFFFC4C02), Colors.red][hrZone - 1] : null),
-                    _buildSecondaryStat(Icons.local_fire_department, "CALORIES", "$calories"),
+                    UnifiedMetricTile(
+                      icon: Icons.favorite,
+                      label: "AVG HR",
+                      value: avgBpm > 0 ? "$avgBpm ${_hrZoneNames[hrZone]}" : "--",
+                      accentColor: hrZone > 0 ? [Colors.blue, Colors.green, Colors.orange, const Color(0xFFFC4C02), Colors.red][hrZone - 1] : Colors.grey,
+                    ),
+                    UnifiedMetricTile(
+                      icon: Icons.local_fire_department,
+                      label: "CALORIES",
+                      value: "$calories",
+                      accentColor: Colors.redAccent,
+                    ),
                     if (hasElevation)
-                      _buildSecondaryStat(Icons.trending_up, "ELEV +", "${elevGain.toStringAsFixed(0)}m"),
+                      UnifiedMetricTile(
+                        icon: Icons.trending_up,
+                        label: "ELEV +", "${elevGain.toStringAsFixed(0)}m"),
                   ],
                 ),
                 if (hasMovingTime) ...[
@@ -288,17 +317,33 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildSecondaryStat(Icons.timer_outlined, "TOTAL TIME", timeString),
-                      _buildSecondaryStat(Icons.directions_run, "MOVING TIME", movingTimeString),
-                      _buildSecondaryStat(Icons.pause_circle_outline, "PAUSED", _formatSeconds(durationSeconds - movingTimeSecs)),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
+                      UnifiedMetricTile(
+                        icon: Icons.timer_outlined,
+                        label: "TOTAL TIME",
+                        value: timeString,
+                        accentColor: Colors.blue,
+                      ),
+                      UnifiedMetricTile(
+                        icon: Icons.directions_run,
+                        label: "MOVING TIME",
+                        value: movingTimeString,
+                        accentColor: const Color(0xFF00FF87),
+                      ),
+                      UnifiedMetricTile(
+                        icon: Icons.pause_circle_outline,
+                        label: "PAUSED",
+                        value: _formatSeconds(durationSeconds - movingTimeSecs),
+                        accentColor: Colors.redAccent,
+                      ),
+                      ],
+                      ),
+                      ],
+                      ),
+                      ),
+                      ),
 
-          const SizedBox(height: 30),
+                      const SizedBox(height: 30),
+
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
