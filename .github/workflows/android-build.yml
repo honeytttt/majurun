@@ -1,6 +1,10 @@
 name: Android Build
 
 on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
   workflow_dispatch:
     inputs:
       build_type:

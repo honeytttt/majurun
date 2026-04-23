@@ -1,7 +1,11 @@
 name: iOS Build
 
-# Manual trigger only - saves minutes
+# Automatic trigger on push + Manual dispatch
 on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
   workflow_dispatch:
     inputs:
       build_mode:
