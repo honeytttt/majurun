@@ -161,31 +161,23 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         child: Container(
           width: double.infinity,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A2E),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF2A2A3E),
-              width: 1,
+              color: const Color(0xFF2D2D44),
+              width: 1.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ],
+            boxShadow: AppEffects.softShadow(),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  crossAxisAlignment: CrossAxisAlignment.center,
                     GestureDetector(
                       onTap: () {
                         if (isOwnPost) {
@@ -852,6 +844,13 @@ class _ActionButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: isEnabled ? (color ?? Colors.white70) : Colors.grey[600],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+},
             ),
           ],
         ),

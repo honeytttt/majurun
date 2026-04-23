@@ -244,7 +244,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   Widget build(BuildContext context) {
     final runs = _runs;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFF0D0D0D), // Pure black background
       body: RefreshIndicator(
         onRefresh: _refreshHistory,
         child: CustomScrollView(
@@ -254,38 +254,42 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               pinned: true,
               floating: false,
               expandedHeight: 60,
-              backgroundColor: Colors.white,
-              elevation: 2,
+              backgroundColor: const Color(0xFF1A1A2E),
+              elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: widget.onBack,
               ),
               title: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("MY ", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 16)),
-                  Icon(Icons.directions_run, color: Colors.black, size: 18),
-                  Text(" HISTORY", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 16)),
+                  Text("RUN ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
+                  Text("LOG", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
                 ],
               ),
               centerTitle: true,
               actions: [
                 IconButton(
                   icon: _isSyncing
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                      : const Icon(Icons.sync, color: Colors.black),
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E676)))
+                      : const Icon(Icons.sync, color: Colors.white),
                   tooltip: 'Import from apps',
                   onPressed: _isSyncing ? null : () => _showSyncOptions(context),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.share, color: Colors.black),
+                  icon: const Icon(Icons.share, color: Colors.white),
                   onPressed: () => _shareHistory(context, runs),
                 ),
               ],
             ),
 
             SliverToBoxAdapter(
-              child: Container(color: Colors.white, child: _buildSummaryHeader(runs)),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: AppEffects.premiumDarkGradient(),
+                ),
+                child: _buildSummaryHeader(runs),
+              ),
             ),
 
             // Sync progress banner — visible during manual sync
@@ -1430,6 +1434,14 @@ Built with MajuRun 💪
                 Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
                 Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
                 if (date.isNotEmpty) Text(date, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+} const TextStyle(fontSize: 8, color: Colors.grey)),
               ],
             ),
           ),
