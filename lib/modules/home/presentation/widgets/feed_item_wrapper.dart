@@ -794,8 +794,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
       final dx = _tapPos.dx * (1 - scale);
       final dy = _tapPos.dy * (1 - scale);
       target = Matrix4.identity()
-        ..translate(dx, dy)
-        ..scale(scale);
+        ..translateByDouble(dx, dy, 0.0, 1.0)
+        ..scaleByDouble(scale, scale, scale, 1.0);
     }
     _animation = Matrix4Tween(begin: _ctrl.value, end: target).animate(
       CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),

@@ -338,6 +338,8 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     // freezes — the run never starts.
     await runController.prewarmGps();
 
+    if (!context.mounted) return;
+
     // Show 5-second warmup countdown.
     await showDialog<void>(
       context: context,

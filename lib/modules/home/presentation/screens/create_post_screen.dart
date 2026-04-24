@@ -39,8 +39,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
-  Map<String, int> _remainingPosts = {};
-
   // Hashtag suggestion state
   List<String> _tagSuggestions = [];
   String _currentTagQuery = '';
@@ -49,7 +47,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
-    _loadRemainingPosts();
   }
 
   void _onTextChanged() {
@@ -112,33 +109,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  /// Load how many posts user can still make today
-  Future<void> _loadRemainingPosts() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      final remaining = await _limitService.getRemainingPostsToday(userId);
-      if (mounted) {
-        setState(() {
-          _remainingPosts = remaining;
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ Error loading post limits: $e');
-      if (mounted) {
-        setState(() {
-          _remainingPosts = {
-            'total': PostLimitService.maxTotalPostsPerDay,
-            'image': PostLimitService.maxImagePostsPerDay,
-            'video': PostLimitService.maxVideoPostsPerDay,
-            'text': PostLimitService.maxTextPostsPerDay,
-          };
-        });
-      }
-    }
   }
 
   /// Show a bottom sheet to pick photo source (Camera or Gallery), then pick.

@@ -359,10 +359,10 @@ class VoiceController extends ChangeNotifier {
 
     if (_settings.majorMilestones) {
       final name = _userName.isNotEmpty ? ' $_userName' : '';
-      if (km == 5) announcement.write("Congratulations$name! ");
-      else if (km == 10) announcement.write("Incredible$name! ");
-      else if (km == 21) announcement.write("Half marathon complete$name! You're amazing! ");
-      else if (km == 42) announcement.write("Full marathon$name! This is legendary! ");
+      if (km == 5) { announcement.write("Congratulations$name! "); }
+      else if (km == 10) { announcement.write("Incredible$name! "); }
+      else if (km == 21) { announcement.write("Half marathon complete$name! You're amazing! "); }
+      else if (km == 42) { announcement.write("Full marathon$name! This is legendary! "); }
     }
 
     announcement.write("You've completed $km ");
@@ -460,12 +460,12 @@ class VoiceController extends ChangeNotifier {
 
   Future<void> speakRunPaused() async {
     if (!_settings.pauseResume) return;
-    await _speak("Run paused. Take a breath${_nameSuffix}!");
+    await _speak("Run paused. Take a breath$_nameSuffix!");
   }
 
   Future<void> speakRunResumed() async {
     if (!_settings.pauseResume) return;
-    await _speak("Run resumed. Let's keep going${_nameSuffix}!");
+    await _speak("Run resumed. Let's keep going$_nameSuffix!");
   }
 
   Future<void> speakRunStopped() async {

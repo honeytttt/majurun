@@ -199,13 +199,17 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
             ),
           ),
           const Divider(height: 1),
-          ..._reasons.map((reason) => RadioListTile<String>(
+          RadioGroup<String>(
+            groupValue: _selectedReason,
+            onChanged: (v) => setState(() => _selectedReason = v),
+            child: Column(
+              children: _reasons.map((reason) => RadioListTile<String>(
                 value: reason,
-                groupValue: _selectedReason,
                 title: Text(reason),
                 activeColor: const Color(0xFF00E676),
-                onChanged: (v) => setState(() => _selectedReason = v),
-              )),
+              )).toList(),
+            ),
+          ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),

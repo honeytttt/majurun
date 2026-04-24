@@ -359,6 +359,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     Text('Voice (iOS)', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.grey[800])),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
+                      // ignore: deprecated_member_use
                       value: _settings.voiceName,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

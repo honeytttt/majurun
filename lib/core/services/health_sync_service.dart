@@ -251,7 +251,7 @@ class HealthSyncService {
     if (lowerSource.contains('google')) return 'Google Fit Run';
     if (lowerSource.contains('apple') || lowerSource.contains('health')) return 'Apple Health Run';
     if (lowerSource.contains('runtrainer') || lowerSource.contains('run trainer') ||
-        lowerSource.contains('asics') || lowerSource.contains('runkeeper')) return 'Run Trainer';
+        lowerSource.contains('asics') || lowerSource.contains('runkeeper')) { return 'Run Trainer'; }
     if (lowerSource.contains('polar')) return 'Polar Run';
     if (lowerSource.contains('suunto')) return 'Suunto Run';
     if (lowerSource.contains('wahoo')) return 'Wahoo Run';

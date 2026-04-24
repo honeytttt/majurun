@@ -466,7 +466,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                           ? "Start your streak — run today!"
                           : _currentStreak < 7
                               ? "Keep it going! ${7 - _currentStreak} more day${7 - _currentStreak == 1 ? '' : 's'} for 7-day badge"
-                              : "Amazing! You're on a ${_currentStreak}-day streak 🔥",
+                              : "Amazing! You're on a $_currentStreak-day streak 🔥",
                       style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6)),
                     ),
                   ],

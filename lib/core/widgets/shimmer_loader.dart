@@ -53,16 +53,16 @@ class ShimmerLoader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const ShimmerLoader.circular(width: 48, height: 48),
-              const SizedBox(width: 12),
+              ShimmerLoader.circular(width: 48, height: 48),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ShimmerLoader.rectangular(height: 16, width: 120),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     ShimmerLoader.rectangular(height: 12, width: 80),
                   ],
                 ),
@@ -73,10 +73,10 @@ class ShimmerLoader extends StatelessWidget {
           ShimmerLoader.rounded(
 height: 200),
           const SizedBox(height: 16),
-          Row(
+          const Row(
             children: [
               ShimmerLoader.rectangular(height: 24, width: 60),
-              const SizedBox(width: 24),
+              SizedBox(width: 24),
               ShimmerLoader.rectangular(height: 24, width: 60),
             ],
           ),
@@ -94,12 +94,12 @@ height: 200),
           ShimmerLoader.rounded(
 width: 60, height: 60, borderRadius: 8),
           const SizedBox(width: 16),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ShimmerLoader.rectangular(height: 16, width: 150),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 ShimmerLoader.rectangular(height: 12, width: 100),
               ],
             ),

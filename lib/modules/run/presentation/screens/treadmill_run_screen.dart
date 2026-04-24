@@ -192,12 +192,12 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Row(
+        title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.fitness_center, size: 18, color: Color(0xFF7ED957)),
-            const SizedBox(width: 8),
-            const Text('Treadmill Run', style: TextStyle(fontWeight: FontWeight.bold)),
+            Icon(Icons.fitness_center, size: 18, color: Color(0xFF7ED957)),
+            SizedBox(width: 8),
+            Text('Treadmill Run', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
       ),

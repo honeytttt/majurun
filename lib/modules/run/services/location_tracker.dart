@@ -137,8 +137,8 @@ class LocationTracker extends ChangeNotifier {
       accuracy: LocationAccuracy.high,
       distanceFilter: RunConstants.distanceFilterMeters,
       forceLocationManager: false,
-      intervalDuration: Duration(seconds: 1),
-      foregroundNotificationConfig: ForegroundNotificationConfig(
+      intervalDuration: const Duration(seconds: 1),
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'MajuRun',
         notificationText: 'Tracking your run...',
         enableWakeLock: true,

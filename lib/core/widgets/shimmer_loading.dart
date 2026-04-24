@@ -107,7 +107,7 @@ class PostCardSkeleton extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           // Content lines
-          ShimmerBox(width: double.infinity, height: 12),
+          const ShimmerBox(width: double.infinity, height: 12),
           const SizedBox(height: 8),
           ShimmerBox(width: MediaQuery.of(context).size.width * 0.75, height: 12),
           const SizedBox(height: 14),
@@ -119,7 +119,7 @@ class PostCardSkeleton extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           // Action row
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               ShimmerBox(width: 60, height: 10),

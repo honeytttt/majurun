@@ -105,7 +105,7 @@ class BackgroundLocationService {
   bool _isTracking = false;
   bool _isPaused = false;
   bool _autoPaused = false;
-  bool _isAutoPauseEnabled = true;
+  bool isAutoPauseEnabled = true;
 
   // Route data with memory management
   final List<FilteredPosition> _routePoints = [];
@@ -129,8 +129,6 @@ class BackgroundLocationService {
   bool get isTracking => _isTracking;
   bool get isPaused => _isPaused;
   bool get isAutoPaused => _autoPaused;
-  bool get isAutoPauseEnabled => _isAutoPauseEnabled;
-  set isAutoPauseEnabled(bool value) => _isAutoPauseEnabled = value;
 
   double get totalDistance => _totalDistance;
   List<FilteredPosition> get routePoints => List.unmodifiable(_routePoints);
@@ -343,7 +341,7 @@ class BackgroundLocationService {
       }
 
       // Check for stationary state (auto-pause) using raw distance
-      if (_isAutoPauseEnabled) {
+      if (isAutoPauseEnabled) {
         if (position.speed < RunConstants.stationarySpeedThreshold && rawDistance < 2) {
           _stationarySeconds++;
           if (_stationarySeconds >= RunConstants.autoPauseDelaySeconds && !_autoPaused) {

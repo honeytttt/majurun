@@ -150,8 +150,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       final connected = await strava.isConnected();
       if (!connected) {
         if (!mounted) { setState(() => _isSyncing = false); return; }
-        final ctx = context;
-        final authorized = await strava.authorize(ctx);
+        final authorized = await strava.authorize(context);
         if (!authorized || !mounted) {
           setState(() => _isSyncing = false);
           return;

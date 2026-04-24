@@ -526,32 +526,6 @@ Keep moving 💪
     );
   }
 
-  Widget _buildMainStat(String label, String value) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10, letterSpacing: 1)),
-      ],
-    );
-  }
-
-  Widget _buildSecondaryStat(IconData icon, String label, String value, {Color? valueColor}) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF00FF87), size: 16),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value, style: TextStyle(color: valueColor ?? Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildMapToggle(String label, String value) {
     final isSelected = _mapVisualization == value;
     return GestureDetector(

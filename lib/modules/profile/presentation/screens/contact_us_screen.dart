@@ -226,6 +226,7 @@ ${_messageController.text.trim()}
 
               // Category dropdown
               DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
                 value: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Category',
