@@ -20,7 +20,7 @@ class ShimmerLoader extends StatelessWidget {
     this.shapeBorder = const CircleBorder(),
   });
 
-  const ShimmerLoader.rounded({
+  ShimmerLoader.rounded({
     super.key,
     this.width = double.infinity,
     required this.height,
@@ -70,7 +70,8 @@ class ShimmerLoader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const ShimmerLoader.rounded(height: 200),
+          ShimmerLoader.rounded(
+height: 200),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -90,7 +91,8 @@ class ShimmerLoader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: Row(
         children: [
-          const ShimmerLoader.rounded(width: 60, height: 60, borderRadius: 8),
+          ShimmerLoader.rounded(
+width: 60, height: 60, borderRadius: 8),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

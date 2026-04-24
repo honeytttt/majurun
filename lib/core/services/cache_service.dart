@@ -40,7 +40,7 @@ class CacheService {
     return cachedData.map((data) {
       final map = Map<String, dynamic>.from(data as Map);
       // Ensure IDs are strings and dates are handled
-      return AppPost.fromMap(map, map['id'] ?? '');
+      return AppPost.fromMap(map, id: map['id'] ?? '');
     }).toList();
   }
 

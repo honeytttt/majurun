@@ -12,6 +12,7 @@ import 'package:majurun/core/services/daily_content_service.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 
+import 'package:majurun/core/services/cache_service.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
 
 import 'package:majurun/modules/home/presentation/widgets/app_bar_leading.dart';
@@ -406,6 +407,33 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   Set<String> _blockedUserIds = {};
   bool _showNewPostsBanner = false;
   int _newPostCount = 0;
+
+  bool get _showVerifyBanner {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null && !user.emailVerified && !_bannerDismissed;
+  }
+
+  Future<void> _sendVerification() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() => _sendingVerification = true);
+    try {
+      await user.sendEmailVerification();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification email sent!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingVerification = false);
+    }
+  }
 
   @override
   void initState() {

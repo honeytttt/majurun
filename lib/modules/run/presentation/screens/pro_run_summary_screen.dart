@@ -4,6 +4,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:majurun/core/services/personal_records_service.dart';
 import 'package:majurun/core/services/training_load_service.dart';
 import 'package:majurun/core/services/segments_service.dart';
+import 'package:majurun/core/services/celebration_service.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:majurun/core/theme/app_effects.dart' as effects;
+import 'package:majurun/core/widgets/unified_metric_tile.dart' as metrics;
 
 /// Pro Run Summary Screen - Like Strava/Nike post-run analysis
 /// Shows PRs, training load, segments, splits, and sharing options
@@ -78,13 +82,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
         _segmentResults!.add(result);
       }
     }
-
-import 'package:majurun/core/services/celebration_service.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:majurun/core/theme/app_effects.dart';
-import 'package:majurun/core/widgets/unified_metric_tile.dart';
-
-// ... (other imports)
 
     setState(() {
       _isLoading = false;
@@ -825,7 +822,7 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
                       interval: (spots.length / 5).clamp(1, 100).toDouble(),
                       getTitlesWidget: (value, meta) {
                         return Padding(
-                          padding: const EdgeInsets.top(8.0),
+                          padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             '${value.toInt()} km',
                             style: TextStyle(
@@ -993,7 +990,7 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
                       interval: (spots.length / 5).clamp(1, 100).toDouble(),
                       getTitlesWidget: (value, meta) {
                         return Padding(
-                          padding: const EdgeInsets.top(8.0),
+                          padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             '${value.toInt()} km',
                             style: TextStyle(
@@ -1082,12 +1079,12 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
   }
 
   List<FlSpot> _getPaceSpots() {
-    if (_runData == null || _runData!['splits'] == null) return [];
-    final List<dynamic> splits = _runData!['splits'];
+    if (widget.runData.splits.isEmpty) return [];
     List<FlSpot> spots = [];
     
-    for (int i = 0; i < splits.length; i++) {
-      final double pace = (splits[i]['pace_seconds'] ?? 0).toDouble();
+    for (int i = 0; i < widget.runData.splits.length; i++) {
+      final split = widget.runData.splits[i];
+      final double pace = split.durationSeconds / (split.distanceMeters / 1000);
       if (pace > 0) {
         // We cap pace at 12:00/km for chart stability
         final chartPace = pace.clamp(0, 720).toDouble();
@@ -1098,17 +1095,35 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
   }
 
   List<FlSpot> _getHRSpots() {
-    if (_runData == null || _runData!['splits'] == null) return [];
-    final List<dynamic> splits = _runData!['splits'];
-    List<FlSpot> spots = [];
-    
-    for (int i = 0; i < splits.length; i++) {
-      final double hr = (splits[i]['avg_hr'] ?? 0).toDouble();
-      if (hr > 0) {
-        spots.add(FlSpot(i + 1.0, hr));
-      }
-    }
-    return spots;
+    // Note: Currently RunSplit doesn't have HR data. 
+    // If we want this we need to add it to RunSplit.
+    return [];
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatPaceForAxis(double seconds) {

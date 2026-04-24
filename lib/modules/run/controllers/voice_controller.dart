@@ -270,6 +270,10 @@ class VoiceController extends ChangeNotifier {
     }
   }
 
+  Future<void> speak(String text) async {
+    await _speak(text);
+  }
+
   Future<void> speakTraining(String text) async {
     await _speak(text);
   }

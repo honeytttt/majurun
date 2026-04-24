@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
+import 'package:majurun/core/widgets/unified_metric_tile.dart';
 
 
 class RunDetailScreen extends StatefulWidget {

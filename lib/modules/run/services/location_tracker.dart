@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -133,7 +133,7 @@ class LocationTracker extends ChangeNotifier {
         showBackgroundLocationIndicator: true, // blue status bar — shows user location is active
       );
     }
-    return const AndroidSettings(
+    return AndroidSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: RunConstants.distanceFilterMeters,
       forceLocationManager: false,

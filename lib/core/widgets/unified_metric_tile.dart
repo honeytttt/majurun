@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:majurun/core/theme/app_effects.dart';
 
 /// A premium, unified metric component used across Run History, Posts, and Tracker.
 class UnifiedMetricTile extends StatelessWidget {

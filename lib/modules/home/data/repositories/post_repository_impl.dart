@@ -6,6 +6,7 @@ import 'package:majurun/core/constants/firestore_paths.dart';
 import 'package:majurun/core/services/logging_service.dart';
 import 'package:majurun/core/services/user_stats_service.dart';
 import 'package:majurun/core/services/notification_service.dart';
+import 'package:majurun/core/services/cache_service.dart';
 import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
 import '../../domain/entities/post.dart';
 

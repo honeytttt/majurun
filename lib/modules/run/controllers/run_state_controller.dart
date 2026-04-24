@@ -50,9 +50,10 @@ class RunStateController extends ChangeNotifier {
   double _totalDistance = 0.0;
   FilteredPosition? _currentPosition;
 
+  double get totalDistance => _totalDistance;
+  FilteredPosition? get lastPosition => _currentPosition;
   LatLng? get currentLatLng => _currentPosition?.latLng;
   String get distanceString => (_totalDistance / 1000).toStringAsFixed(2);
-  double get totalDistance => _totalDistance;
   int get secondsElapsed => _secondsElapsed;
   int get activeRunSeconds => _activeRunSeconds; // moving time only (excludes paused time)
 

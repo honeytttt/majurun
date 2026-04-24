@@ -40,7 +40,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
   Map<String, int> _remainingPosts = {};
-  bool _isLoadingLimits = false;
 
   // Hashtag suggestion state
   List<String> _tagSuggestions = [];
@@ -146,8 +145,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   /// Get remaining posts for current post type
   int get _totalRemaining => _remainingPosts['total'] ?? PostLimitService.maxTotalPostsPerDay;
-
-  bool get _shouldShowWarning => _totalRemaining <= 5;
 
   /// Show a bottom sheet to pick photo source (Camera or Gallery), then pick.
   Future<void> _showPhotoSourceSheet() async {

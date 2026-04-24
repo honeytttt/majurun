@@ -15,6 +15,7 @@ import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
+
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
@@ -513,11 +514,6 @@ class RunController extends ChangeNotifier {
       // Enable wake lock to keep screen on
       await WakeLockService.enable();
       debugPrint("🔒 Screen wake lock enabled");
-
-import 'package:majurun/core/services/weather_service.dart';
-import 'package:majurun/core/services/remote_config_service.dart';
-
-// ... (other imports)
 
       // Start tracking
       await stateController.startRun();

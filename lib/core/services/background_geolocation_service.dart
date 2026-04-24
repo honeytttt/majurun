@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:latlong2/latlong.dart';
 
 /// Background Geolocation Service - STUB VERSION
 /// The Transistorsoft plugin requires a paid license for release builds.

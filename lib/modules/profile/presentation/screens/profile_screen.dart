@@ -20,6 +20,9 @@ import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.d
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/about_screen.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
+import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:majurun/core/services/weekly_summary_service.dart';
+import 'package:majurun/core/services/streak_service.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -668,6 +671,160 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
       ],
+    );
+  }
+
+  Widget _buildStreakAndActivity(String userId) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: Future.wait([
+        StreakService().updateStreak(userId),
+        WeeklySummaryService().getCurrentWeekSummary(),
+      ]).then((results) => {
+        'streak': results[0] as Map<String, dynamic>,
+        'summary': results[1] as WeeklySummary,
+      }),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
+
+        final streakData = snapshot.data!['streak'] as Map<String, dynamic>;
+        final summary = snapshot.data!['summary'] as WeeklySummary;
+        final currentStreak = streakData['currentStreak'] as int? ?? 0;
+
+        return Column(
+          children: [
+            // Streak Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange.shade400, Colors.orange.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.local_fire_department, color: Colors.white, size: 32),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Current Streak',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '$currentStreak Days',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (currentStreak >= 3)
+                    const Icon(Icons.stars, color: Colors.amberAccent, size: 24),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Weekly Activity Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Weekly Activity',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${summary.totalDistanceKm.toStringAsFixed(1)} km',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF00E676),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(7, (index) {
+                      final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                      final dayRuns = summary.runsByDay[index + 1];
+                      final hasRun = dayRuns != null && dayRuns.runs.isNotEmpty;
+                      
+                      return Column(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: hasRun ? const Color(0xFF00E676) : Colors.grey[100],
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: hasRun ? const Color(0xFF00E676) : Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.check,
+                                size: 16,
+                                color: hasRun ? Colors.white : Colors.transparent,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            days[index],
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

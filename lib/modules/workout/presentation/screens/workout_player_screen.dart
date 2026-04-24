@@ -45,8 +45,6 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   // Video controllers
   final Map<int, VideoPlayerController> _videoControllers = {};
   final Map<int, ChewieController> _chewieControllers = {};
-  bool _videoInitialized = false;
-  final Set<int> _failedVideoIndices = {};
 
   // Animation
   late AnimationController _pulseController;
@@ -347,7 +345,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   void _updateStreakForWorkout() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      StreakService().updateStreak(uid).catchError((_) {});
+      StreakService().updateStreak(uid).catchError((_) => <String, dynamic>{});
     }
   }
 

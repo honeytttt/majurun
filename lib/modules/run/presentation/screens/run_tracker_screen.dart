@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:majurun/core/theme/app_effects.dart';
+import 'package:majurun/core/widgets/bounce_click.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -758,28 +760,6 @@ class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog>
       builder: (_, __) {
         return Stack(
           alignment: Alignment.center,
-          children: [
-            for (int i = 1; i <= 3; i++)
-              Opacity(
-                opacity: (0.03 + 0.02 * i) * (1 - _ringController.value * 0.3),
-                child: Container(
-                  width: 280.0 + i * 80,
-                  height: 280.0 + i * 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF7ED957),
-                      width: 1,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}lignment: Alignment.center,
           children: [
             for (int i = 1; i <= 3; i++)
               Opacity(
