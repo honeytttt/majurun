@@ -1028,31 +1028,4 @@ class RunHistoryScreenWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return RunHistoryScreen(onBack: onBack);
   }
-}     child: Text(
-                      unreadCount > 99 ? '99+' : unreadCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class RunHistoryScreenWrapper extends StatelessWidget {
-  final VoidCallback onBack;
-  const RunHistoryScreenWrapper({super.key, required this.onBack});
-  
-  @override
-  Widget build(BuildContext context) {
-    return RunHistoryScreen(onBack: onBack);
-  }
 }

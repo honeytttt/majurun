@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/services/background_location_service.dart';
+import 'package:majurun/core/services/weather_service.dart';
 
 enum RunState { idle, running, paused, autoPaused }
 
@@ -100,10 +101,6 @@ class RunStateController extends ChangeNotifier {
   // Performance charts
   final List<ChartDataSpot> hrHistorySpots = [];
   final List<ChartDataSpot> paceHistorySpots = [];
-
-import 'package:majurun/core/services/weather_service.dart';
-
-// ... (other imports)
 
   // Stats
   String? lastVideoUrl;
