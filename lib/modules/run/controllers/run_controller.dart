@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
+import 'package:majurun/core/services/live_running_counter_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/services/weather_service.dart';
@@ -515,6 +516,9 @@ class RunController extends ChangeNotifier {
       await WakeLockService.enable();
       debugPrint("🔒 Screen wake lock enabled");
 
+      // Mark user as actively running (for Live Now counter)
+      LiveRunningCounterService.instance.markRunStart().catchError((_) {});
+
       // Start tracking
       await stateController.startRun();
 
@@ -621,6 +625,7 @@ class RunController extends ChangeNotifier {
 
       // Stop tracking
       await stateController.stopRun();
+      LiveRunningCounterService.instance.markRunEnd().catchError((_) {});
       await voiceController.speakRunStopped();
 
       debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");

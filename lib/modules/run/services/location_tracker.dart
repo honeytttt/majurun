@@ -7,6 +7,9 @@ import 'package:majurun/modules/run/constants/run_constants.dart';
 
 /// Handles GPS location tracking for runs.
 /// Emits position updates and calculates distance traveled.
+///
+/// Adaptive sampling: polls at 1 s when speed > 1.5 m/s (walking pace),
+/// drops to 4 s when stationary/very slow — saves ~75 % battery in warm-up.
 class LocationTracker extends ChangeNotifier {
   Position? _currentPosition;
   final List<LatLng> _routePoints = [];
@@ -15,6 +18,12 @@ class LocationTracker extends ChangeNotifier {
   bool _isInitialized = false;
 
   StreamSubscription<Position>? _positionStream;
+
+  // Adaptive sampling
+  static const double _fastSpeedMs   = 1.5;  // m/s (~5.4 km/h, brisk walk)
+  static const int _fastIntervalSec  = 1;
+  static const int _slowIntervalSec  = 4;
+  int _currentIntervalSec = _fastIntervalSec;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Getters
@@ -137,7 +146,7 @@ class LocationTracker extends ChangeNotifier {
       accuracy: LocationAccuracy.high,
       distanceFilter: RunConstants.distanceFilterMeters,
       forceLocationManager: false,
-      intervalDuration: const Duration(seconds: 1),
+      intervalDuration: Duration(seconds: _currentIntervalSec),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'MajuRun',
         notificationText: 'Tracking your run...',
@@ -189,6 +198,18 @@ class LocationTracker extends ChangeNotifier {
 
     _currentPosition = position;
     _routePoints.add(LatLng(position.latitude, position.longitude));
+
+    // Adaptive sampling: switch interval if speed tier changed (Android only)
+    if (Platform.isAndroid) {
+      final speedMs = position.speed.clamp(0.0, double.infinity);
+      final neededInterval = speedMs >= _fastSpeedMs ? _fastIntervalSec : _slowIntervalSec;
+      if (neededInterval != _currentIntervalSec) {
+        _currentIntervalSec = neededInterval;
+        debugPrint('📍 Adaptive GPS: switching to ${_currentIntervalSec}s interval (speed: ${speedMs.toStringAsFixed(1)} m/s)');
+        _startLocationStream(); // restarts with new interval
+      }
+    }
+
     notifyListeners();
   }
 

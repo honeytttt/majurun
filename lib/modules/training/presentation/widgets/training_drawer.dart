@@ -160,12 +160,18 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
     final isLocked = isPro && !_isPro;
 
     return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-            color: isLocked ? Colors.grey.withValues(alpha: 0.1) : color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: isLocked ? Colors.grey : color),
+      leading: Hero(
+        tag: 'plan_$title',
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: isLocked ? Colors.grey.withValues(alpha: 0.1) : color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: isLocked ? Colors.grey : color),
+          ),
+        ),
       ),
       title: Row(
         children: [

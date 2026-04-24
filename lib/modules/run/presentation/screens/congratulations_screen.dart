@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:confetti/confetti.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:majurun/core/theme/app_typography.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
@@ -38,6 +40,9 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
 
   VideoPlayerController? _videoController;
 
+  late ConfettiController _confettiLeft;
+  late ConfettiController _confettiRight;
+
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
     if (km >= 42.195) return AssetUrls.celebrations_videos_celebrate_marathon;
@@ -60,6 +65,18 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     _fadeAnim  = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
     _animController.forward();
     _initVideo();
+
+    _confettiLeft = ConfettiController(duration: const Duration(seconds: 4));
+    _confettiRight = ConfettiController(duration: const Duration(seconds: 4));
+    // Trigger confetti for any meaningful achievement
+    if (widget.pbs.isNotEmpty || widget.badges.isNotEmpty || widget.distanceKm >= 5.0) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) {
+          _confettiLeft.play();
+          _confettiRight.play();
+        }
+      });
+    }
   }
 
   Future<void> _initVideo() async {
@@ -85,6 +102,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   void dispose() {
     _videoController?.dispose();
     _animController.dispose();
+    _confettiLeft.dispose();
+    _confettiRight.dispose();
     super.dispose();
   }
 
@@ -161,26 +180,64 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              children: [
-                _buildTrophyHeader(),
-                const SizedBox(height: 32),
-                _buildRunStats(),
-                if (_hasAchievements) ...[
-                  const SizedBox(height: 32),
-                  _buildAchievements(),
-                ],
-                const SizedBox(height: 40),
-                _buildActions(),
+      body: Stack(
+        children: [
+          // Main content
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Column(
+                  children: [
+                    _buildTrophyHeader(),
+                    const SizedBox(height: 32),
+                    _buildRunStats(),
+                    if (_hasAchievements) ...[
+                      const SizedBox(height: 32),
+                      _buildAchievements(),
+                    ],
+                    const SizedBox(height: 40),
+                    _buildActions(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Confetti cannons — top-left and top-right
+          Align(
+            alignment: Alignment.topLeft,
+            child: ConfettiWidget(
+              confettiController: _confettiLeft,
+              blastDirection: 0.6, // ~35 degrees right-down
+              emissionFrequency: 0.08,
+              numberOfParticles: 18,
+              maxBlastForce: 30,
+              minBlastForce: 10,
+              gravity: 0.4,
+              colors: const [
+                Color(0xFF00E676), Color(0xFFFFD700), Color(0xFFFF6B6B),
+                Color(0xFF4ECDC4), Color(0xFF45B7D1), Colors.white,
               ],
             ),
           ),
-        ),
+          Align(
+            alignment: Alignment.topRight,
+            child: ConfettiWidget(
+              confettiController: _confettiRight,
+              blastDirection: 2.5, // ~35 degrees left-down
+              emissionFrequency: 0.08,
+              numberOfParticles: 18,
+              maxBlastForce: 30,
+              minBlastForce: 10,
+              gravity: 0.4,
+              colors: const [
+                Color(0xFF00E676), Color(0xFFFFD700), Color(0xFFFF6B6B),
+                Color(0xFF4ECDC4), Color(0xFF45B7D1), Colors.white,
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -225,12 +282,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF00E676),
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-            ),
+            style: AppTypography.celebrationTitle(fontSize: 32),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),

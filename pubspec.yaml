@@ -78,6 +78,8 @@ dependencies:
 
   # Performance & Look ────────────────────────────────────────
   shimmer: ^3.0.0
+  confetti: ^0.7.0              # particle celebration on PB/run complete
+  lottie: ^3.1.3                # Lottie animations for celebrations
 
   # WebView for workout videos ─────────────────────────────────
   webview_flutter: ^4.8.0

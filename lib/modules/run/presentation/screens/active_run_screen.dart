@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:majurun/core/theme/app_typography.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -516,88 +518,95 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   }
 
   Widget _buildStatsSection(RunController runController) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        children: [
-          // Main stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0), // subtle — map is above, not behind
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF0D2818).withValues(alpha: 0.97),
+                const Color(0xFF0A0A0A),
+              ],
+            ),
+            border: const Border(
+              top: BorderSide(color: Color(0xFF2D7A3E), width: 1.5),
+            ),
+          ),
+          child: Column(
             children: [
-              _buildMainStat(
-                'DISTANCE',
-                runController.distanceString,
-                'KM',
-                runController.state == RunState.running,
+              // Main stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildMainStat(
+                    'DISTANCE',
+                    runController.distanceString,
+                    'KM',
+                    runController.state == RunState.running,
+                  ),
+                  Container(width: 1, height: 60, color: const Color(0xFF2D7A3E).withValues(alpha: 0.4)),
+                  _buildMainStat(
+                    'TIME',
+                    runController.durationString,
+                    '',
+                    runController.state == RunState.running,
+                  ),
+                ],
               ),
-              _buildMainStat(
-                'TIME',
-                runController.durationString,
-                '',
-                runController.state == RunState.running,
+
+              const SizedBox(height: 14),
+
+              // Secondary stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSecondaryStat('AVG PACE', '${runController.paceString}/km'),
+                  _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km'),
+                  _buildSecondaryStat('CAL', '${runController.totalCalories}'),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // BPM + HR Zone row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildHrZoneStat(runController.currentBpm),
+                ],
               ),
             ],
           ),
-
-          const SizedBox(height: 20),
-
-          // Secondary stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSecondaryStat('AVG PACE', '${runController.paceString}/km'),
-              _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km'),
-              _buildSecondaryStat('CAL', '${runController.totalCalories}'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // BPM + HR Zone row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildHrZoneStat(runController.currentBpm),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildMainStat(String label, String value, String unit, bool isActive) {
+    final activeColor = isActive ? const Color(0xFF7ED957) : Colors.white54;
     return Column(
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[500],
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.5,
-          ),
+          style: AppTypography.statLabel(color: Colors.white38, fontSize: 10),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               value,
-              style: TextStyle(
-                fontSize: 44,
-                fontWeight: FontWeight.bold,
-                color: isActive ? const Color(0xFF7ED957) : Colors.grey,
-                height: 1,
-              ),
+              style: AppTypography.statHero(color: activeColor, fontSize: 52),
             ),
             if (unit.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 6),
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
                   unit,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: AppTypography.statLabel(color: activeColor.withValues(alpha: 0.7), fontSize: 13),
                 ),
               ),
           ],
@@ -654,42 +663,20 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
   Widget _buildSecondaryStat(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF2D7A3E).withValues(alpha: 0.2),
-            Colors.black.withValues(alpha: 0.5),
-          ],
-        ),
+        color: const Color(0xFF1B4D2C).withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF2D7A3E).withValues(alpha: 0.3),
+          color: const Color(0xFF2D7A3E).withValues(alpha: 0.4),
           width: 1,
         ),
       ),
       child: Column(
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              color: Colors.grey[400],
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-            ),
-          ),
+          Text(label, style: AppTypography.statLabel(color: Colors.white38, fontSize: 9)),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF7ED957),
-            ),
-          ),
+          Text(value, style: AppTypography.cardValue(color: const Color(0xFF7ED957), fontSize: 15)),
         ],
       ),
     );

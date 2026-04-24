@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:majurun/core/services/daily_content_service.dart';
+import 'package:majurun/core/services/live_running_counter_service.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 
@@ -758,6 +759,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   ),
                 ),
 
+              // Live Now bar — shows how many runners are active right now
+              SliverToBoxAdapter(
+                child: _buildLiveNowBar(),
+              ),
+
               displayPosts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
@@ -909,6 +915,74 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               ),
           ], // Stack children
         ); // Stack
+      },
+    );
+  }
+
+  Widget _buildLiveNowBar() {
+    return StreamBuilder<int>(
+      stream: LiveRunningCounterService.instance.liveCount,
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0D2818), Color(0xFF1B4D2C)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E676).withValues(alpha: 0.15),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // Pulsing green dot
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.6, end: 1.0),
+                duration: const Duration(milliseconds: 900),
+                builder: (_, v, child) => Transform.scale(scale: v, child: child),
+                onEnd: () => setState(() {}),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00E676),
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: Color(0xFF00E676), blurRadius: 6)],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'LIVE NOW',
+                style: TextStyle(
+                  color: Color(0xFF00E676),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$count ${count == 1 ? 'runner' : 'runners'} active right now',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Icon(Icons.directions_run, color: Color(0xFF00E676), size: 16),
+            ],
+          ),
+        );
       },
     );
   }

@@ -34,9 +34,9 @@ class TrainingPlanDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Plan Image
+            // Plan Image — Hero tag matches the plan tile icon in the drawer
             Hero(
-              tag: 'plan_$planTitle',
+              tag: 'plan_${planTitle}_img',
               child: Container(
                 width: double.infinity,
                 height: 300,

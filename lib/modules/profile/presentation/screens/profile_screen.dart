@@ -23,6 +23,7 @@ import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
+import 'package:majurun/core/services/shoe_tracking_service.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -900,6 +901,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
 
+          // Shoe Health Bar
+          const SizedBox(height: 24),
+          _buildShoeHealthSection(userId),
+
           // Badges Section
           const SizedBox(height: 24),
           Text(
@@ -929,6 +934,129 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final badges = snapshot.data ?? [];
               return BadgesDisplay(badges: badges);
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShoeHealthSection(String userId) {
+    // Initialize the singleton with this user's ID, then use its cached shoes list
+    final service = ShoeTrackingService();
+    service.setUserId(userId);
+
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final shoes = service.shoes;
+        if (shoes.isEmpty) return const SizedBox.shrink();
+
+        final activeShoes = shoes.where((s) => !s.isRetired).toList();
+        if (activeShoes.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('👟', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Text(
+                  'Shoe Health',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...activeShoes.take(3).map((shoe) => _buildShoeHealthBar(shoe)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildShoeHealthBar(Shoe shoe) {
+    const retireKm = 800.0;
+    const warnKm = 500.0;
+    final pct = (shoe.totalDistanceKm / retireKm).clamp(0.0, 1.0);
+    final remaining = (retireKm - shoe.totalDistanceKm).clamp(0.0, retireKm);
+
+    Color barColor;
+    String statusText;
+    if (shoe.totalDistanceKm >= retireKm) {
+      barColor = Colors.red;
+      statusText = 'Retire these shoes';
+    } else if (shoe.totalDistanceKm >= warnKm) {
+      barColor = Colors.orange;
+      statusText = '${remaining.toStringAsFixed(0)} km left';
+    } else {
+      barColor = const Color(0xFF00E676);
+      statusText = '${remaining.toStringAsFixed(0)} km left';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${shoe.brand} ${shoe.model}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                statusText,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: barColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                    minHeight: 8,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '${shoe.totalDistanceKm.toStringAsFixed(0)} km',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
