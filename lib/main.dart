@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'env/firebase_options_dev.dart' as dev_options;
-import 'env/firebase_options_prod.dart' as prod_options;
+import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Core services - Use ServiceLocator for singleton access
@@ -104,14 +103,11 @@ Future<void> main() async {
     // Initialize local cache service for offline mode
     await CacheService().initialize();
 
-    // Initialize Firebase — picks project based on ENVIRONMENT dart-define
-    // Dev:  flutter run  (default)
-    // Prod: flutter build appbundle --dart-define=ENVIRONMENT=production
+    // Initialize Firebase
     try {
-      final options = AppConfig.isProduction
-          ? prod_options.DefaultFirebaseOptions.currentPlatform
-          : dev_options.DefaultFirebaseOptions.currentPlatform;
-      await Firebase.initializeApp(options: options);
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     } catch (e) {
       if (!e.toString().contains('duplicate-app')) rethrow;
     }

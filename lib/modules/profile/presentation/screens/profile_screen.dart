@@ -688,8 +688,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         }
 
-        final streakData = snapshot.data!['streak'] as Map<String, dynamic>;
-        final summary = snapshot.data!['summary'] as WeeklySummary;
+        final data = snapshot.data!;
+        final streakData = data['streak'] as Map<String, dynamic>;
+        final summary = data['summary'] as WeeklySummary;
         final currentStreak = streakData['currentStreak'] as int? ?? 0;
 
         return Column(

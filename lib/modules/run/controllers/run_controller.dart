@@ -9,10 +9,10 @@ import 'package:uuid/uuid.dart';
 
 import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
-import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
+import 'package:majurun/core/services/weather_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 
@@ -608,7 +608,6 @@ class RunController extends ChangeNotifier {
       final finalMovingTime = stateController.activeRunSeconds; // excludes paused time
       final finalPace = stateController.paceString;
       final finalCalories = stateController.totalCalories;
-      final finalDistanceString = stateController.distanceString;
       final finalRoutePoints = List<LatLng>.from(stateController.routePoints);
       final finalBpm = stateController.currentBpm;
       final routeStats = stateController.getRouteStats();

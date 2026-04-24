@@ -4,8 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
-import 'package:intl/intl.dart';
-
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -935,7 +933,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     }
 
     // Personal bests: best projected time at 5K, 10K, Half Marathon
-    String _bestTime(double threshold) {
+    String bestTime(double threshold) {
+
       int? bestSecs;
       for (final run in runs) {
         final distVal = run['distance'] ?? 0.0;
@@ -958,7 +957,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           : '$m:${s.toString().padLeft(2, '0')}';
     }
 
-    String _bestDate(double threshold) {
+    String bestDate(double threshold) {
       Map<String, dynamic>? bestRun;
       int? bestSecs;
       for (final run in runs) {
@@ -982,12 +981,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       'bestPaceDate': bestPaceRun != null ? DateFormat('MMM d').format(_parseDate(bestPaceRun['date'])) : '',
       'longestDistance': longestDistance > 0 ? '${longestDistance.toStringAsFixed(1)} km' : '-- km',
       'longestDate': longestRun != null ? DateFormat('MMM d').format(_parseDate(longestRun['date'])) : '',
-      'best5k': _bestTime(5.0),
-      'best5kDate': _bestDate(5.0),
-      'best10k': _bestTime(10.0),
-      'best10kDate': _bestDate(10.0),
-      'bestHalf': _bestTime(21.1),
-      'bestHalfDate': _bestDate(21.1),
+      'best5k': bestTime(5.0),
+      'best5kDate': bestDate(5.0),
+      'best10k': bestTime(10.0),
+      'best10kDate': bestDate(10.0),
+      'bestHalf': bestTime(21.1),
+      'bestHalfDate': bestDate(21.1),
     };
   }
 

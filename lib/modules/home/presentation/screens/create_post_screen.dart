@@ -124,7 +124,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() {
           _remainingPosts = remaining;
-          _isLoadingLimits = false;
         });
       }
     } catch (e) {
@@ -137,14 +136,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             'video': PostLimitService.maxVideoPostsPerDay,
             'text': PostLimitService.maxTextPostsPerDay,
           };
-          _isLoadingLimits = false;
         });
       }
     }
   }
-
-  /// Get remaining posts for current post type
-  int get _totalRemaining => _remainingPosts['total'] ?? PostLimitService.maxTotalPostsPerDay;
 
   /// Show a bottom sheet to pick photo source (Camera or Gallery), then pick.
   Future<void> _showPhotoSourceSheet() async {

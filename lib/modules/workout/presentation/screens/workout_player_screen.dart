@@ -45,6 +45,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
   // Video controllers
   final Map<int, VideoPlayerController> _videoControllers = {};
   final Map<int, ChewieController> _chewieControllers = {};
+  final Set<int> _failedVideoIndices = {};
 
   // Animation
   late AnimationController _pulseController;
@@ -175,7 +176,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen>
       _chewieControllers[index] = chewieController;
 
       if (mounted) {
-        setState(() => _videoInitialized = true);
+        setState(() {});
       }
 
       // Pre-fetch only the NEXT exercise video (not all of them).
