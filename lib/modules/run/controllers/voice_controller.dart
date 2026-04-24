@@ -230,8 +230,20 @@ class VoiceController extends ChangeNotifier {
 
       if (!kIsWeb) {
         final session = await AudioSession.instance;
-        // This ensures music ducks when the coach speaks
-        await session.configure(const AudioSessionConfiguration.speech());
+        // Duck (lower) music while coach speaks — do NOT pause it.
+        // gainTransientMayDuck tells Spotify/music to lower volume only.
+        // gain (used by .speech()) requests full focus and pauses music.
+        await session.configure(const AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playback,
+          avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+          avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+          androidAudioAttributes: AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.speech,
+            usage: AndroidAudioUsage.assistanceNavigationGuidance,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+          androidWillPauseWhenDucked: false,
+        ));
         await session.setActive(true);
       }
 
