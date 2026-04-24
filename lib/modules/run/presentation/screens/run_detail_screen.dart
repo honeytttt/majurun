@@ -307,7 +307,10 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                     if (hasElevation)
                       UnifiedMetricTile(
                         icon: Icons.trending_up,
-                        label: "ELEV +", "${elevGain.toStringAsFixed(0)}m"),
+                        label: "ELEV +",
+                        value: "${elevGain.toStringAsFixed(0)}m",
+                        accentColor: Colors.purple,
+                      ),
                   ],
                 ),
                 if (hasMovingTime) ...[
@@ -338,7 +341,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                       ],
                       ),
                       ],
-                      ),
+                      ],
                       ),
                       ),
 
