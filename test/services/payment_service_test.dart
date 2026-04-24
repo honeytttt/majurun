@@ -141,8 +141,9 @@ void main() {
     });
 
     test('should handle subscription renewal', () {
+      final now = DateTime.now();
+
       DateTime calculateNewExpiry(DateTime currentExpiry, String type) {
-        final now = DateTime.now();
         final baseDate = currentExpiry.isAfter(now) ? currentExpiry : now;
 
         return type == 'yearly'
@@ -150,9 +151,9 @@ void main() {
             : baseDate.add(const Duration(days: 30));
       }
 
-      final currentExpiry = DateTime.now().add(const Duration(days: 5));
+      final currentExpiry = now.add(const Duration(days: 5));
       final newExpiry = calculateNewExpiry(currentExpiry, 'monthly');
-      final daysUntilNewExpiry = newExpiry.difference(DateTime.now()).inDays;
+      final daysUntilNewExpiry = newExpiry.difference(now).inDays;
 
       // Should be 5 days remaining + 30 days = 35 days
       expect(daysUntilNewExpiry, 35);
