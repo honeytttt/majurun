@@ -129,7 +129,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Column(
       children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.black54)),
       ],
     );
   }
@@ -167,7 +167,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
         child: Center(
           child: Text(
             'Complete at least 1 km to see splits',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(color: Colors.black54, fontSize: 13),
           ),
         ),
       );
@@ -181,10 +181,10 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
             padding: EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                Expanded(child: Text('KM', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold))),
-                SizedBox(width: 60, child: Text('PACE', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 60, child: Text('TIME', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 50, child: Text('ELEV', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                Expanded(child: Text('KM', style: TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.bold))),
+                SizedBox(width: 60, child: Text('PACE', style: TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                SizedBox(width: 60, child: Text('TIME', style: TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                SizedBox(width: 50, child: Text('ELEV', style: TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
               ],
             ),
           ),
@@ -218,7 +218,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
                   ),
                   SizedBox(width: 60, child: Text(split.pace, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), textAlign: TextAlign.center)),
                   SizedBox(width: 60, child: Text(timeStr, style: TextStyle(fontSize: 13, color: Colors.grey.shade700), textAlign: TextAlign.center)),
-                  SizedBox(width: 50, child: Text('$elevSign${split.elevationChange.toStringAsFixed(0)}m', style: TextStyle(fontSize: 12, color: Colors.grey.shade500), textAlign: TextAlign.center)),
+                  SizedBox(width: 50, child: Text('$elevSign${split.elevationChange.toStringAsFixed(0)}m', style: TextStyle(fontSize: 12, color: Colors.grey.shade700), textAlign: TextAlign.center)),
                 ],
               ),
             );

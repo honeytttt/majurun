@@ -216,12 +216,12 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
                 DateFormat('EEEE, MMM d, yyyy').format(date),
-                style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Text(DateFormat('h:mm a').format(date), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(DateFormat('h:mm a').format(date), style: const TextStyle(fontSize: 12, color: Colors.black54)),
                   const Spacer(),
                   if (isSession) _badge(label: "SESSION", icon: Icons.fitness_center),
                   if (wkDay.isNotEmpty) ...[
@@ -376,17 +376,17 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                 Container(
                   height: 300,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Colors.grey.shade400),
                   ),
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.map_outlined, color: Colors.grey.shade400, size: 48),
+                        Icon(Icons.map_outlined, color: Colors.grey.shade600, size: 48),
                         const SizedBox(height: 12),
-                        Text('No map preview available', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                        Text('No map preview available', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
                       ],
                     ),
                   ),
@@ -502,9 +502,9 @@ Keep moving 💪
     return Container(
       height: 300,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Colors.grey.shade400),
       ),
       clipBehavior: Clip.antiAlias,
       child: Image.network(
@@ -515,9 +515,9 @@ Keep moving 💪
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.broken_image, color: Colors.grey.shade400, size: 48),
+                Icon(Icons.broken_image, color: Colors.grey.shade600, size: 48),
                 const SizedBox(height: 12),
-                Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
               ],
             ),
           );
@@ -726,7 +726,7 @@ Keep moving 💪
       children: [
         Container(width: 20, height: 4, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
       ],
     );
   }
@@ -771,8 +771,8 @@ Keep moving 💪
     if (!hasSplits) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
-        child: const Center(child: Text('Split data available for runs after v1.0.0+108', style: TextStyle(color: Colors.grey, fontSize: 13))),
+        decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+        child: const Center(child: Text('Split data available for runs after v1.0.0+108', style: TextStyle(color: Colors.black54, fontSize: 13))),
       );
     }
 

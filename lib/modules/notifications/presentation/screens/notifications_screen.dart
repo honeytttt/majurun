@@ -134,7 +134,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+              color: Colors.grey[700],
             ),
           ),
           const SizedBox(height: 8),
@@ -142,7 +142,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             'When you get notifications, they\'ll show up here',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[400],
+              color: Colors.grey[600],
             ),
             textAlign: TextAlign.center,
           ),

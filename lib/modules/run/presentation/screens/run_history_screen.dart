@@ -320,13 +320,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
             SliverToBoxAdapter(
               child: Container(
-                color: Colors.white,
+                color: const Color(0xFF1A1A1A),
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: const Row(
                   children: [
-                    Icon(Icons.history, size: 16, color: Colors.grey),
+                    Icon(Icons.history, size: 16, color: Colors.white70),
                     SizedBox(width: 8),
-                    Text("RECENT SESSIONS", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
+                    Text("RECENT SESSIONS", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
                   ],
                 ),
               ),
@@ -347,9 +347,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     children: [
                       Icon(Icons.directions_run, size: 48, color: Colors.grey),
                       SizedBox(height: 16),
-                      Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
                       SizedBox(height: 8),
-                      Text("Start your first session.", style: TextStyle(color: Colors.grey)),
+                      Text("Start your first session.", style: TextStyle(color: Colors.white70)),
                     ],
                   ),
                 ),
@@ -450,9 +450,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: const Color(0xFF1C1C1C),
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
         ),
       ),
       child: Row(
@@ -477,15 +477,15 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: Colors.white,
                       letterSpacing: 1.2,
                     ),
                   ),
                   Text(
                     year.toString(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.grey.shade600,
+                      color: Colors.white54,
                     ),
                   ),
                 ],
@@ -712,27 +712,23 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade50, Colors.indigo.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFF1E1E2E),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+        border: Border.all(color: Colors.indigo.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade600),
+              Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade300),
               const SizedBox(width: 6),
               Text(
                 'PERSONAL BESTS',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Colors.indigo.shade600,
+                  color: Colors.indigo.shade300,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -742,9 +738,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           Row(
             children: [
               Expanded(child: _buildPBCell('5K', records['best5k'] ?? '--:--', records['best5kDate'] ?? '', Colors.green)),
-              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.4)),
               Expanded(child: _buildPBCell('10K', records['best10k'] ?? '--:--', records['best10kDate'] ?? '', Colors.blue)),
-              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.4)),
               Expanded(child: _buildPBCell('Half', records['bestHalf'] ?? '--:--', records['bestHalfDate'] ?? '', Colors.orange)),
             ],
           ),
@@ -763,10 +759,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         const SizedBox(height: 4),
         Text(
           time,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         if (date.isNotEmpty)
-          Text(date, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+          Text(date, style: const TextStyle(fontSize: 8, color: Colors.white54)),
       ],
     );
   }
@@ -792,7 +788,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 Text(
                   "BADGES",
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: Colors.white70,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                     letterSpacing: 0.5,
@@ -1084,7 +1080,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                           children: [
                             Text(
                               "${DateFormat('EEE').format(date)} • $startTime–$endTime",
-                              style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                             const Spacer(),
                             if (isExternal)
@@ -1136,7 +1132,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             const SizedBox(width: 4),
                             Text(
                               "Avg HR: $avgBpm",
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -1144,7 +1140,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                  Icon(Icons.chevron_right, color: Colors.grey.shade600),
                 ],
               ),
             ),
@@ -1187,7 +1183,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           const SizedBox(width: 6),
           Text(
             'Synced from $label · Route not available',
-            style: TextStyle(fontSize: 11, color: Colors.purple.shade600),
+            style: TextStyle(fontSize: 11, color: Colors.purple.shade800),
           ),
         ],
       ),
@@ -1199,17 +1195,17 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       height: 120,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.white12),
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.map_outlined, color: Colors.grey.shade300, size: 32),
+            Icon(Icons.map_outlined, color: Colors.grey.shade600, size: 32),
             const SizedBox(height: 8),
-            Text('No map preview', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+            Text('No map preview', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
           ],
         ),
       ),
@@ -1275,7 +1271,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
+            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade800)),
           ],
         ),
       ],
@@ -1402,7 +1398,7 @@ Built with MajuRun 💪
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 6),
           Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
-          Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+          Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade700)),
         ],
       ),
     );
@@ -1432,9 +1428,9 @@ Built with MajuRun 💪
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
+                Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.9), fontWeight: FontWeight.w600)),
                 Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
-                if (date.isNotEmpty) Text(date, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+                if (date.isNotEmpty) Text(date, style: TextStyle(fontSize: 8, color: Colors.grey.shade700)),
               ],
             ),
           ),

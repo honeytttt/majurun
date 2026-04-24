@@ -98,7 +98,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                 children: [
                   Text(
                     headerDateTime,
-                    style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: const TextStyle(color: Colors.black54, fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                   ElevatedButton.icon(
                     onPressed: () {},
@@ -194,7 +194,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
           ),
@@ -348,12 +348,12 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       margin: const EdgeInsets.all(20),
       height: 250,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Colors.grey.shade400),
       ),
       child: const Center(
-        child: Text("No map preview", style: TextStyle(color: Colors.grey)),
+        child: Text("No map preview", style: TextStyle(color: Colors.black54)),
       ),
     );
   }

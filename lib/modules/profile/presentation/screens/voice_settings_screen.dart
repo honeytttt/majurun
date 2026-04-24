@@ -382,7 +382,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Not all voices may be installed on your device. If a voice sounds wrong, try Samantha.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
                     ),
                   ],
                 ),
@@ -421,8 +421,8 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Slower', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                        Text('Faster', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                        Text('Slower', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                        Text('Faster', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
                       ],
                     ),
                   ],
@@ -569,7 +569,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
       ),
       value: value,
       onChanged: onChanged,

@@ -444,7 +444,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey[700],
                 ),
               ),
             ),
@@ -618,7 +618,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: Colors.grey[600],
+            color: Colors.grey[700],
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -644,13 +644,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[700]),
               const SizedBox(width: 4),
               Text(
                 location,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey[700],
                 ),
               ),
             ],
@@ -659,13 +659,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[600]),
+              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[700]),
               const SizedBox(width: 4),
               Text(
                 'Joined ${DateFormat('MMMM yyyy').format(createdAt)}',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey[700],
                 ),
               ),
             ],
@@ -1046,7 +1046,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: Colors.grey[700],
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1107,7 +1107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'No posts yet',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey[600],
+                        color: Colors.grey[700],
                         fontWeight: FontWeight.w500,
                       ),
                     ),

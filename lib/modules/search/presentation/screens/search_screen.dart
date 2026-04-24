@@ -383,7 +383,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             message,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[500],
+              color: Colors.grey[700],
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -392,7 +392,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             'Try a different search term',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[400],
+              color: Colors.grey[600],
             ),
           ),
         ],
