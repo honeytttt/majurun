@@ -245,7 +245,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   Widget build(BuildContext context) {
     final runs = _runs;
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D), // Pure black background
+      backgroundColor: const Color(0xFFF8F9FA),
       body: RefreshIndicator(
         onRefresh: _refreshHistory,
         child: CustomScrollView(
@@ -255,16 +255,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               pinned: true,
               floating: false,
               expandedHeight: 60,
-              backgroundColor: const Color(0xFF1A1A2E),
+              backgroundColor: Colors.white,
               elevation: 0,
+              shadowColor: Colors.black12,
+              surfaceTintColor: Colors.transparent,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF212529)),
                 onPressed: widget.onBack,
               ),
               title: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("RUN ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
+                  Text("RUN ", style: TextStyle(color: Color(0xFF212529), fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
                   Text("LOG", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
                 ],
               ),
@@ -273,12 +275,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 IconButton(
                   icon: _isSyncing
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E676)))
-                      : const Icon(Icons.sync, color: Colors.white),
+                      : const Icon(Icons.sync, color: Color(0xFF212529)),
                   tooltip: 'Import from apps',
                   onPressed: _isSyncing ? null : () => _showSyncOptions(context),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.share, color: Colors.white),
+                  icon: const Icon(Icons.share, color: Color(0xFF212529)),
                   onPressed: () => _shareHistory(context, runs),
                 ),
               ],
@@ -1011,6 +1013,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final avgBpmRaw = run['avgBpm'] ?? run['bpm'] ?? 0;
     final avgBpm = (avgBpmRaw is num) ? avgBpmRaw.toInt() : 0;
 
+    final isPendingSync = run['isPendingSync'] == true;
     final isTraining = _isTrainingRun(run);
     final isProRun = !isTraining && (run['planTitle'] != "Free Run");
     final isExternal = run['isExternal'] == true;
@@ -1033,7 +1036,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
 
     return GestureDetector(
-      onTap: () {
+      onTap: isPendingSync ? null : () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(runData: run)));
       },
       child: Container(
@@ -1088,7 +1091,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                             const Spacer(),
-                            if (isExternal)
+                            if (isPendingSync)
+                              _badge(label: "SAVING", icon: Icons.cloud_upload_outlined, colors: [Colors.orange.shade400, Colors.orange.shade600])
+                            else if (isExternal)
                               _badge(label: _getSourceLabel(externalSource), icon: Icons.cloud_download, colors: [Colors.purple.shade400, Colors.purple.shade600])
                             else if (isTraining)
                               _badge(label: "SESSION", icon: Icons.fitness_center, colors: [Colors.green.shade400, Colors.green.shade700])

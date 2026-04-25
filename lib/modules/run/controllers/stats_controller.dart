@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/modules/run/domain/repositories/run_history_repository.dart';
 import 'package:majurun/modules/run/data/repositories/firestore_run_history_impl.dart';
 import 'package:majurun/modules/run/domain/entities/run_post.dart';
@@ -225,12 +227,13 @@ class StatsController extends ChangeNotifier {
   }
 
   /// Get a page of runs for paginated history display.
+  /// First page also includes any unsynced local runs (insurance against Firestore failures).
   Future<List<Map<String, dynamic>>> getRunHistoryPage({
     required int pageSize,
     DateTime? before,
   }) async {
     final runs = await _repository.getRunsPage(pageSize: pageSize, before: before);
-    return runs.map((run) => <String, dynamic>{
+    final firestoreMaps = runs.map((run) => <String, dynamic>{
       'id': run.id,
       'date': run.completedAt,
       'distance': run.distanceKm,
@@ -246,10 +249,60 @@ class StatsController extends ChangeNotifier {
       'completed': run.completed,
       'mapImageUrl': run.mapImageUrl,
       'extra': run.extra,
-      if (run.extra != null) ...run.extra!,  // spread so RunDetailScreen can read kmSplits etc. at top level
+      if (run.extra != null) ...run.extra!,
       'isExternal': run.isExternal,
       'source': run.source,
     }).toList();
+
+    // On first page, prepend any unsynced local runs so they're always visible.
+    if (before == null && !kIsWeb) {
+      final localPending = await OfflineDatabaseService().getUnsyncedRunsAsHistory();
+      if (localPending.isNotEmpty) {
+        // Avoid duplicates: exclude local runs whose date already appears in Firestore page
+        final firestoreDates = firestoreMaps.map((r) => (r['date'] as DateTime?)?.toIso8601String()).toSet();
+        final newLocal = localPending.where((r) {
+          final d = (r['date'] as DateTime?)?.toIso8601String();
+          return d == null || !firestoreDates.contains(d);
+        }).toList();
+        // Sort combined list newest-first
+        final combined = [...newLocal, ...firestoreMaps];
+        combined.sort((a, b) {
+          final da = a['date'] as DateTime?;
+          final db = b['date'] as DateTime?;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        });
+        // Also try background sync so pending runs upload when online
+        _syncLocalRunsInBackground();
+        return combined;
+      }
+    }
+    return firestoreMaps;
+  }
+
+  /// Tries to push unsynced local runs to Firestore in the background.
+  void _syncLocalRunsInBackground() {
+    OfflineDatabaseService().syncPendingRunsToFirestore(
+      saveRunFn: ({
+        required String planTitle,
+        required double distanceKm,
+        required int durationSeconds,
+        required String pace,
+        int? avgBpm,
+        int? calories,
+        Map<String, dynamic>? extra,
+      }) =>
+          _repository.saveRun(
+            planTitle: planTitle,
+            distanceKm: distanceKm,
+            durationSeconds: durationSeconds,
+            pace: pace,
+            avgBpm: avgBpm,
+            calories: calories,
+            extra: extra,
+          ),
+    ).catchError((e) => debugPrint('⚠️ Background sync error: $e'));
   }
 
   /// Get all runs from RUN HISTORY (private workout records)

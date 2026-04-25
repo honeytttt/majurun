@@ -637,7 +637,37 @@ class RunController extends ChangeNotifier {
         gpsAcceptanceRate: stateController.gpsAcceptanceRate,
       );
 
-      // Save to history and capture achievements
+      // ── STEP 1: Save locally FIRST (always) so the run is never lost ──────
+      // Even if Firestore fails or the app crashes, the run is preserved.
+      final localRunId = const Uuid().v4();
+      final runStartTime = DateTime.now().subtract(Duration(seconds: finalDuration));
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null && !kIsWeb) {
+        try {
+          await OfflineDatabaseService().savePendingRun(PendingRun(
+            id: localRunId,
+            userId: uid,
+            distanceMeters: finalDistance * 1000,
+            durationSeconds: finalDuration,
+            startTime: runStartTime,
+            endTime: DateTime.now(),
+            routePoints: finalRoutePoints
+                .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+                .toList(),
+            avgHeartRate: finalBpm > 0 ? finalBpm : null,
+            calories: finalCalories,
+            elevationGain: (routeStats['elevationGain'] as num?)?.toDouble(),
+            createdAt: DateTime.now(),
+            planTitle: planTitle,
+            pace: finalPace,
+          ));
+          debugPrint('💾 Run saved locally (id: $localRunId) — will sync to Firestore');
+        } catch (localSaveError) {
+          debugPrint('⚠️ Local save failed (device storage full?): $localSaveError');
+        }
+      }
+
+      // ── STEP 2: Save to Firestore and capture achievements ─────────────────
       ({List<String> pbs, List<String> badges}) runResult;
       try {
         runResult = await statsController.saveRunHistory(
@@ -664,33 +694,15 @@ class RunController extends ChangeNotifier {
               },
           },
         );
-      } catch (saveError) {
-        // Firestore unavailable — save locally for later sync
-        debugPrint('⚠️ Firestore save failed, saving offline: $saveError');
-        runResult = (pbs: [], badges: []);
-        try {
-          final uid = FirebaseAuth.instance.currentUser?.uid;
-          if (uid != null && !kIsWeb) {
-            await OfflineDatabaseService().savePendingRun(PendingRun(
-              id: const Uuid().v4(),
-              userId: uid,
-              distanceMeters: finalDistance * 1000,
-              durationSeconds: finalDuration,
-              startTime: DateTime.now().subtract(Duration(seconds: finalDuration)),
-              endTime: DateTime.now(),
-              routePoints: finalRoutePoints
-                  .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-                  .toList(),
-              avgHeartRate: finalBpm > 0 ? finalBpm : null,
-              calories: finalCalories,
-              elevationGain: (routeStats['elevationGain'] as num?)?.toDouble(),
-              createdAt: DateTime.now(),
-            ));
-            debugPrint('📥 Run saved offline for later sync');
-          }
-        } catch (offlineError) {
-          debugPrint('❌ Offline save also failed: $offlineError');
+        // Mark local copy as synced — no longer needs to be shown as pending
+        if (uid != null && !kIsWeb) {
+          await OfflineDatabaseService().markRunSynced(localRunId);
+          debugPrint('✅ Firestore sync confirmed — local run $localRunId marked synced');
         }
+      } catch (saveError) {
+        // Firestore unavailable — local copy is already saved above, will sync later
+        debugPrint('⚠️ Firestore save failed — run is safe locally, will sync when online: $saveError');
+        runResult = (pbs: [], badges: []);
       }
       lastRunPbs = runResult.pbs;
       lastRunBadges = runResult.badges;
@@ -709,7 +721,6 @@ class RunController extends ChangeNotifier {
       }
 
       // Update run streak and post milestone cards (3/7/14/30/60/90/180/365 days).
-      final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
         _updateStreakAndPost(uid).catchError((e) => debugPrint('⚠️ Streak update failed: $e'));
 

@@ -36,7 +36,7 @@ class OfflineDatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -59,7 +59,9 @@ class OfflineDatabaseService {
         elevation_gain REAL,
         weather_data TEXT,
         created_at TEXT NOT NULL,
-        synced INTEGER DEFAULT 0
+        synced INTEGER DEFAULT 0,
+        plan_title TEXT,
+        pace TEXT
       )
     ''');
 
@@ -91,7 +93,11 @@ class OfflineDatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle migrations here
+    if (oldVersion < 2) {
+      // v1 → v2: add plan_title and pace columns
+      await db.execute('ALTER TABLE pending_runs ADD COLUMN plan_title TEXT');
+      await db.execute('ALTER TABLE pending_runs ADD COLUMN pace TEXT');
+    }
   }
 
   // ============ Pending Runs ============
@@ -134,6 +140,71 @@ class OfflineDatabaseService {
       where: 'id = ?',
       whereArgs: [runId],
     );
+  }
+
+  /// Returns unsynced pending runs formatted as history map (for merging into UI).
+  Future<List<Map<String, dynamic>>> getUnsyncedRunsAsHistory() async {
+    if (kIsWeb) return [];
+    final runs = await getPendingRuns();
+    return runs.where((r) => !r.synced).map((r) {
+      final distKm = r.distanceMeters / 1000;
+      final pace = r.pace ?? (distKm > 0
+          ? '${(r.durationSeconds / distKm / 60).floor()}:${((r.durationSeconds / distKm) % 60).toInt().toString().padLeft(2, '0')}'
+          : '--:--');
+      return <String, dynamic>{
+        'id': '_local_${r.id}',
+        'localId': r.id,
+        'date': r.startTime,
+        'distance': distKm,
+        'durationSeconds': r.durationSeconds,
+        'pace': pace,
+        'calories': r.calories ?? 0,
+        'planTitle': r.planTitle ?? 'Free Run',
+        'avgBpm': r.avgHeartRate ?? 0,
+        'routePoints': null,
+        'isPendingSync': true,
+        if (r.elevationGain != null) 'elevationGain': r.elevationGain,
+      };
+    }).toList();
+  }
+
+  /// Try to push all unsynced runs to Firestore.
+  /// Call this in the background when connectivity is available.
+  Future<void> syncPendingRunsToFirestore({
+    required Future<void> Function({
+      required String planTitle,
+      required double distanceKm,
+      required int durationSeconds,
+      required String pace,
+      int? avgBpm,
+      int? calories,
+      Map<String, dynamic>? extra,
+    }) saveRunFn,
+  }) async {
+    if (kIsWeb) return;
+    final runs = await getPendingRuns();
+    final unsynced = runs.where((r) => !r.synced).toList();
+    for (final run in unsynced) {
+      try {
+        final distKm = run.distanceMeters / 1000;
+        final pace = run.pace ?? (distKm > 0
+            ? '${(run.durationSeconds / distKm / 60).floor()}:${((run.durationSeconds / distKm) % 60).toInt().toString().padLeft(2, '0')}'
+            : '--:--');
+        await saveRunFn(
+          planTitle: run.planTitle ?? 'Free Run',
+          distanceKm: distKm,
+          durationSeconds: run.durationSeconds,
+          pace: pace,
+          avgBpm: run.avgHeartRate,
+          calories: run.calories,
+          extra: run.elevationGain != null ? {'elevationGain': run.elevationGain} : null,
+        );
+        await markRunSynced(run.id);
+        debugPrint('✅ Synced offline run ${run.id} to Firestore');
+      } catch (e) {
+        debugPrint('⚠️ Could not sync run ${run.id}: $e');
+      }
+    }
   }
 
   /// Delete synced runs older than 7 days
@@ -256,6 +327,8 @@ class PendingRun {
   final Map<String, dynamic>? weatherData;
   final DateTime createdAt;
   final bool synced;
+  final String? planTitle;
+  final String? pace;
 
   PendingRun({
     required this.id,
@@ -272,6 +345,8 @@ class PendingRun {
     this.weatherData,
     required this.createdAt,
     this.synced = false,
+    this.planTitle,
+    this.pace,
   });
 
   Map<String, dynamic> toMap() {
@@ -290,6 +365,8 @@ class PendingRun {
       'weather_data': weatherData != null ? jsonEncode(weatherData) : null,
       'created_at': createdAt.toIso8601String(),
       'synced': synced ? 1 : 0,
+      'plan_title': planTitle,
+      'pace': pace,
     };
   }
 
@@ -315,6 +392,8 @@ class PendingRun {
           : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       synced: map['synced'] == 1,
+      planTitle: map['plan_title'] as String?,
+      pace: map['pace'] as String?,
     );
   }
 }
