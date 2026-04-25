@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
+import 'package:majurun/core/services/post_upload_status.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 class CongratulationsScreen extends StatefulWidget {
@@ -162,25 +163,90 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              children: [
-                _buildTrophyHeader(),
-                const SizedBox(height: 32),
-                _buildRunStats(),
-                if (_hasAchievements) ...[
-                  const SizedBox(height: 32),
-                  _buildAchievements(),
-                ],
-                const SizedBox(height: 40),
-                _buildActions(),
-              ],
+        child: Column(
+          children: [
+            // Strava-style upload status banner
+            ListenableBuilder(
+              listenable: PostUploadStatus.instance,
+              builder: (context, _) => _buildUploadBanner(),
+            ),
+            Expanded(
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                  child: Column(
+                    children: [
+                      _buildTrophyHeader(),
+                      const SizedBox(height: 32),
+                      _buildRunStats(),
+                      if (_hasAchievements) ...[
+                        const SizedBox(height: 32),
+                        _buildAchievements(),
+                      ],
+                      const SizedBox(height: 40),
+                      _buildActions(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadBanner() {
+    final status = PostUploadStatus.instance;
+    if (status.isIdle) return const SizedBox.shrink();
+
+    Color bg;
+    IconData icon;
+    String text;
+
+    if (status.isUploading) {
+      bg   = const Color(0xFF1A3A2A);
+      icon = Icons.cloud_upload_outlined;
+      text = 'Uploading your run to the feed…';
+    } else if (status.isSuccess) {
+      bg   = const Color(0xFF1A3A2A);
+      icon = Icons.check_circle_outline;
+      text = 'Your run has been posted ✓';
+    } else {
+      bg   = const Color(0xFF3A1A1A);
+      icon = Icons.error_outline;
+      text = 'Post failed — will retry automatically';
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      color: bg,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          if (status.isUploading)
+            const SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E676)),
+              ),
+            )
+          else
+            Icon(icon, size: 16, color: const Color(0xFF00E676)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

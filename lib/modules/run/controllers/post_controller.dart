@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/core/services/cloudinary_service.dart';
 import 'package:majurun/core/services/pending_post_queue.dart';
+import 'package:majurun/core/services/post_upload_status.dart';
 import 'package:majurun/core/utils/route_utils.dart';
 
 class PostController extends ChangeNotifier {
@@ -215,10 +216,17 @@ class PostController extends ChangeNotifier {
   Future<void> processQueue() async {
     if (_processing) return;
     _processing = true;
+    final status = PostUploadStatus.instance;
     try {
       final queue = PendingPostQueue();
       await queue.pruneStale();
-      for (final entry in queue.all()) {
+      final entries = queue.all();
+      if (entries.isEmpty) return;
+
+      status.markUploading();
+
+      bool anyFailed = false;
+      for (final entry in entries) {
         final id = entry['id'] as String;
         try {
           await queue.incrementAttempts(id);
@@ -250,9 +258,18 @@ class PostController extends ChangeNotifier {
           await queue.remove(id);
           debugPrint('📬 Queue: post $id uploaded successfully');
         } catch (e) {
+          anyFailed = true;
           debugPrint('📬 Queue: post $id upload failed (will retry): $e');
         }
       }
+
+      if (anyFailed) {
+        status.markFailed('Some posts failed — will retry automatically');
+      } else {
+        status.markSuccess();
+      }
+    } catch (e) {
+      status.markFailed(e.toString());
     } finally {
       _processing = false;
     }

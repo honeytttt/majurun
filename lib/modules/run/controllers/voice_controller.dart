@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart';
@@ -143,6 +144,9 @@ class VoiceController extends ChangeNotifier {
   // User's preferred call name (nickname > first name > empty)
   String _userName = '';
 
+  // Audio session interruption listener (Apple Watch, phone calls, Siri, etc.)
+  StreamSubscription<AudioInterruptionEvent>? _interruptionSub;
+
   /// Call once at run start to personalize voice announcements.
   void setUserName(String name) {
     _userName = name.trim();
@@ -151,6 +155,45 @@ class VoiceController extends ChangeNotifier {
   VoiceController() {
     _initTts();
     _settingsService.loadSettings();
+    _setupInterruptionHandling();
+  }
+
+  /// Listens for audio session interruptions (Apple Watch, calls, Siri, etc.)
+  /// and automatically reactivates the session + re-inits TTS when they end.
+  ///
+  /// Without this, the TTS engine silences itself on interruption and never
+  /// recovers — causing missed km announcements for the rest of the run.
+  void _setupInterruptionHandling() {
+    if (kIsWeb) return;
+    AudioSession.instance.then((session) {
+      _interruptionSub?.cancel();
+      _interruptionSub = session.interruptionEventStream.listen((event) {
+        if (event.begin) {
+          // Interruption started (Watch audio, phone call, Siri…)
+          debugPrint('🔇 VoiceController: audio interrupted — muting TTS');
+          _tts.stop();
+        } else {
+          // Interruption ended — restore the audio session and TTS pipeline
+          debugPrint('🔊 VoiceController: interruption ended — restoring audio');
+          _restoreAfterInterruption();
+        }
+      });
+    });
+  }
+
+  Future<void> _restoreAfterInterruption() async {
+    try {
+      // Small delay so the other audio source fully releases the session
+      await Future.delayed(const Duration(milliseconds: 500));
+      final session = await AudioSession.instance;
+      await session.setActive(true);
+      // Re-init TTS so the engine reconnects to the reactivated session
+      _isInitialized = false;
+      await _initTts();
+      debugPrint('✅ VoiceController: audio session restored after interruption');
+    } catch (e) {
+      debugPrint('⚠️ VoiceController: failed to restore after interruption: $e');
+    }
   }
 
   VoiceSettings get _settings => _settingsService.settings;
@@ -483,6 +526,7 @@ class VoiceController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _interruptionSub?.cancel();
     _tts.stop();
     super.dispose();
   }

@@ -100,11 +100,11 @@ class AppTextStyles {
 
   // ── Dark context ───────────────────────────────────────────────────────────
 
-  static const _Dark dark = _Dark._();
+  static const AppTextStylesDark dark = AppTextStylesDark._();
 }
 
-class _Dark {
-  const _Dark._();
+class AppTextStylesDark {
+  const AppTextStylesDark._();
 
   static const String _font = 'Roboto';
 
