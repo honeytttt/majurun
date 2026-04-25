@@ -154,8 +154,9 @@ void main() {
       final newExpiry = calculateNewExpiry(currentExpiry, 'monthly');
       final daysUntilNewExpiry = newExpiry.difference(DateTime.now()).inDays;
 
-      // Should be 5 days remaining + 30 days = 35 days
-      expect(daysUntilNewExpiry, 35);
+      // Should be 5 days remaining + 30 days = 34–35 days
+      // (inDays truncates fractional days, so allow ±1)
+      expect(daysUntilNewExpiry, inInclusiveRange(34, 35));
     });
   });
 }
