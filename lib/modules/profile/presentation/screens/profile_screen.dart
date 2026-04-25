@@ -784,7 +784,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: List.generate(7, (index) {
                       final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
                       final dayRuns = summary.runsByDay[index + 1];
-                      final hasRun = dayRuns != null && dayRuns.runs.isNotEmpty;
+                      final hasRun = dayRuns != null && dayRuns.runs > 0;
                       
                       return Column(
                         children: [
