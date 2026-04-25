@@ -574,6 +574,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return DateTime.now();
   }
 
+  String _weatherEmoji(String condition) {
+    switch (condition.toLowerCase()) {
+      case 'clear':        return '☀️';
+      case 'clouds':       return '☁️';
+      case 'rain':         return '🌧️';
+      case 'drizzle':      return '🌦️';
+      case 'thunderstorm': return '⛈️';
+      case 'snow':         return '❄️';
+      case 'fog':          return '🌫️';
+      default:             return '🌡️';
+    }
+  }
+
   // Robust parsing for points: LatLng, GeoPoint, Map(lat/lng), Map(latitude/longitude)
   List<LatLng> _extractLatLngList(dynamic raw) {
     if (raw == null) return <LatLng>[];
@@ -1139,6 +1152,34 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               "Avg HR: $avgBpm",
                               style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                             ),
+                            // Weather chip — shown when weather was recorded
+                            if (run['temp'] != null && run['condition'] != null) ...[
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE3F2FD),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _weatherEmoji(run['condition'].toString()),
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${(run['temp'] as num).round()}°C',
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1565C0)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],

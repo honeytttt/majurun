@@ -169,6 +169,14 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final double elevLoss = (widget.runData['elevationLoss'] as num?)?.toDouble() ?? 0.0;
     final bool hasElevation = elevGain > 0 || elevLoss > 0;
 
+    // Weather — stored in extra map, spread to top-level in stats_controller
+    final double? weatherTemp = (widget.runData['temp'] as num?)?.toDouble();
+    final String? weatherCondition = widget.runData['condition']?.toString();
+    final double? weatherWind = (widget.runData['windSpeed'] as num?)?.toDouble();
+    final int? weatherHumidity = (widget.runData['humidity'] as num?)?.toInt();
+    final String? weatherLocation = widget.runData['location']?.toString();
+    final bool hasWeather = weatherTemp != null && weatherCondition != null;
+
     final String? mapImageUrlRaw = widget.runData['mapImageUrl']?.toString();
     final bool hasMapImage = mapImageUrlRaw != null && mapImageUrlRaw.isNotEmpty;
 
@@ -348,6 +356,15 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
 
                       const SizedBox(height: 30),
 
+          // ── Weather at time of run ───────────────────────────────────────
+          if (hasWeather)
+            _buildWeatherCard(
+              temp: weatherTemp ?? 0,
+              condition: weatherCondition ?? '',
+              windKmh: weatherWind,
+              humidity: weatherHumidity,
+              location: weatherLocation,
+            ),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -495,6 +512,121 @@ Keep moving 💪
           Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
         ],
       ),
+    );
+  }
+
+  // ── Weather helpers ────────────────────────────────────────────────────────
+
+  String _weatherEmoji(String condition) {
+    switch (condition.toLowerCase()) {
+      case 'clear':   return '☀️';
+      case 'clouds':  return '☁️';
+      case 'rain':    return '🌧️';
+      case 'drizzle': return '🌦️';
+      case 'thunderstorm': return '⛈️';
+      case 'snow':    return '❄️';
+      case 'fog':     return '🌫️';
+      default:        return '🌡️';
+    }
+  }
+
+  Widget _buildWeatherCard({
+    required double temp,
+    required String condition,
+    double? windKmh,
+    int? humidity,
+    String? location,
+  }) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F8FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBBDEFB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.wb_sunny_outlined,
+                  size: 14, color: Color(0xFF1976D2)),
+              const SizedBox(width: 6),
+              const Text(
+                'WEATHER AT START',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: Color(0xFF1976D2),
+                ),
+              ),
+              if (location != null && location.isNotEmpty) ...[
+                const Spacer(),
+                Text(
+                  location,
+                  style: const TextStyle(
+                      fontSize: 11, color: Colors.black45),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                _weatherEmoji(condition),
+                style: const TextStyle(fontSize: 32),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${temp.round()}°C',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    condition[0].toUpperCase() + condition.substring(1),
+                    style: const TextStyle(
+                        fontSize: 13, color: Colors.black54),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              if (windKmh != null)
+                _weatherStat(
+                    Icons.air, '${windKmh.round()} km/h', 'Wind'),
+              if (humidity != null) ...[
+                const SizedBox(width: 16),
+                _weatherStat(
+                    Icons.water_drop_outlined, '$humidity%', 'Humidity'),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weatherStat(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF1976D2)),
+        const SizedBox(height: 2),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87)),
+        Text(label,
+            style: const TextStyle(fontSize: 10, color: Colors.black45)),
+      ],
     );
   }
 
