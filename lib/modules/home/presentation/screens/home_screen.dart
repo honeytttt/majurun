@@ -31,6 +31,7 @@ import 'package:majurun/modules/search/presentation/screens/search_screen.dart';
 import 'package:majurun/modules/notifications/presentation/screens/notifications_screen.dart';
 import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/core/routing/app_page_route.dart';
 import 'package:majurun/core/theme/app_theme.dart';
 import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.dart';
 
@@ -226,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final pace = runController.stateController.paceString;
           return GestureDetector(
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ActiveRunScreen()),
+              AppFadeRoute(builder: (_) => const ActiveRunScreen()),
             ),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -304,38 +305,53 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
     final isSelected = _selectedIndex == index;
     const textSecondary = AppTheme.textSecondary;
-    
+
     return Semantics(
       button: true,
       selected: isSelected,
       label: '$label tab${isSelected ? ", selected" : ""}',
       child: GestureDetector(
         onTap: () => _onItemTapped(index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? brandGreen.withValues(alpha: 0.1) : Colors.transparent,
-            borderRadius: const BorderRadius.all(Radius.circular(12)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                isSelected ? selectedIcon : unselectedIcon,
-                color: isSelected ? brandGreen : textSecondary,
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 1.0, end: isSelected ? 1.12 : 1.0),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.elasticOut,
+          builder: (context, scale, child) =>
+              Transform.scale(scale: scale, child: child),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  isSelected ? selectedIcon : unselectedIcon,
                   color: isSelected ? brandGreen : textSecondary,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  size: 24,
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                // Animated green dot indicator under selected tab
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  width: isSelected ? 18 : 0,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: brandGreen,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    color: isSelected ? brandGreen : textSecondary,
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  child: Text(label),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -353,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+            AppFadeRoute(builder: (_) => const CreatePostScreen()),
           );
         },
         child: Container(
@@ -661,7 +677,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            AppPageRoute(
                                 builder: (_) => const AdminPanelScreen()),
                           );
                         },
@@ -685,7 +701,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const SearchScreen()),
+                          AppPageRoute(builder: (_) => const SearchScreen()),
                         );
                       },
                     ),
@@ -757,6 +773,59 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                     ),
                   ),
                 ),
+
+              // ── "This Week" stats strip ─────────────────────────────
+              SliverToBoxAdapter(
+                child: Consumer<RunController>(
+                  builder: (context, rc, _) {
+                    if (rc.historyDistance == 0 && rc.totalRuns == 0) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF00E676).withValues(alpha: 0.12),
+                              const Color(0xFF00C853).withValues(alpha: 0.04),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF00E676).withValues(alpha: 0.25),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            _weekStatChip(
+                              '${rc.historyDistance.toStringAsFixed(1)} km',
+                              'Total km',
+                              Icons.straighten_rounded,
+                            ),
+                            _weekDivider(),
+                            _weekStatChip(
+                              '${rc.totalRuns}',
+                              'Total runs',
+                              Icons.directions_run_rounded,
+                            ),
+                            _weekDivider(),
+                            _weekStatChip(
+                              '${rc.runStreak}',
+                              '🔥 Streak',
+                              Icons.local_fire_department_rounded,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
 
               displayPosts.isEmpty
                   ? SliverFillRemaining(
@@ -910,6 +979,42 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           ], // Stack children
         ); // Stack
       },
+    );
+  }
+
+  Widget _weekStatChip(String value, String label, IconData icon) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF00C853)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF212529),
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF6C757D),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weekDivider() {
+    return Container(
+      width: 1,
+      height: 32,
+      color: const Color(0xFF00E676).withValues(alpha: 0.3),
     );
   }
 

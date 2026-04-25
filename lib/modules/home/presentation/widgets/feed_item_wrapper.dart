@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/core/routing/app_page_route.dart';
 import 'package:majurun/core/services/image_cache_manager.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
@@ -30,7 +31,7 @@ class FeedItemWrapper extends StatefulWidget {
 }
 
 class _FeedItemWrapperState extends State<FeedItemWrapper>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   // Keep this widget alive while it's within the SliverList — prevents disposal
   // when scrolled off screen, which was causing all images and avatars to reload.
   @override
@@ -38,10 +39,12 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   late bool _isLiked;
   late int _localLikesCount;
   // Cache futures/streams so parent setState() rebuilds don't recreate them.
-  // Without this, every Firestore like-update triggers a parent setState which
-  // rebuilds visible FeedItemWrapper widgets and spawns new stream subscriptions.
   late Future<String> _userPhotoFuture;
   late Stream<List<Map<String, dynamic>>> _commentsStream;
+
+  // Like button bounce animation
+  late AnimationController _likeAnimController;
+  late Animation<double> _likeScale;
 
   @override
   void initState() {
@@ -51,6 +54,27 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     _localLikesCount = widget.post.likes.length;
     _userPhotoFuture = _getUserPhotoUrl(widget.post.userId);
     _commentsStream = PostRepositoryImpl().getCommentsStream(widget.post.id);
+
+    _likeAnimController = AnimationController(
+      duration: const Duration(milliseconds: 350),
+      vsync: this,
+    );
+    _likeScale = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 1.45)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 40),
+      TweenSequenceItem(
+          tween: Tween(begin: 1.45, end: 1.0)
+              .chain(CurveTween(curve: Curves.elasticOut)),
+          weight: 60),
+    ]).animate(_likeAnimController);
+  }
+
+  @override
+  void dispose() {
+    _likeAnimController.dispose();
+    super.dispose();
   }
 
   @override
@@ -65,6 +89,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   }
 
   void _toggleLike(BuildContext context, String currentUserId) {
+    HapticFeedback.lightImpact();
     setState(() {
       if (_isLiked) {
         _isLiked = false;
@@ -72,6 +97,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       } else {
         _isLiked = true;
         _localLikesCount++;
+        _likeAnimController.forward(from: 0); // bounce only on like, not unlike
       }
     });
     PostRepositoryImpl().toggleLike(widget.post.id, currentUserId);
@@ -81,8 +107,8 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     if (!isOwnPost) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => UserProfileScreen(
+        AppPageRoute(
+          builder: (_) => UserProfileScreen(
             userId: widget.post.userId,
             username: widget.post.username,
           ),
@@ -102,6 +128,73 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     final isStreakPost = widget.post.postType == 'streak_milestone';
     final isWeeklyRecap = widget.post.postType == 'weekly_recap';
 
+    // Determine card decoration based on post type
+    final Decoration cardDecoration;
+    if (isBadgePost) {
+      cardDecoration = BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFDE7), Color(0xFFFFF8E1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      );
+    } else if (isStreakPost) {
+      cardDecoration = BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF3E0), Color(0xFFFFE0B2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFF6B35), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF6B35).withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      );
+    } else if (isWeeklyRecap) {
+      cardDecoration = BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEDE7F6), Color(0xFFE8EAF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF7C4DFF), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C4DFF).withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      );
+    } else {
+      cardDecoration = BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      );
+    }
+
     // ✅ Wrap entire card in GestureDetector to make it tappable
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -109,26 +202,17 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
         debugPrint('🃏 FeedItem TAPPED! ID: ${widget.post.id}');
         Navigator.push(
           context,
-          MaterialPageRoute(
+          AppPageRoute(
             builder: (context) => PostDetailScreen(post: widget.post),
           ),
         );
       },
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        shape: RoundedRectangleBorder(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        decoration: cardDecoration,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          side: isBadgePost
-              ? const BorderSide(color: Color(0xFFFFD700), width: 1.5)
-              : isStreakPost
-                  ? const BorderSide(color: Color(0xFFFF6B35), width: 1.5)
-                  : isWeeklyRecap
-                      ? const BorderSide(color: Color(0xFF7C4DFF), width: 1.5)
-                      : BorderSide.none,
-        ),
-        elevation: (isBadgePost || isStreakPost || isWeeklyRecap) ? 2 : 0.5,
-        color: Colors.white,
-        child: Column(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- Special banners ---
@@ -271,13 +355,13 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       };
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => RunDetailScreen(runData: runData)),
+                        AppPageRoute(builder: (_) => RunDetailScreen(runData: runData)),
                       );
                     } else {
                       // Fallback: open full run history list
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context))),
+                        AppPageRoute(builder: (_) => RunHistoryScreen(onBack: () => Navigator.pop(context))),
                       );
                     }
                   },
@@ -312,16 +396,26 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                   children: [
                     Row(
                       children: [
-                        // Like Button — optimistic state
-                        IconButton(
-                          icon: Icon(
-                            _isLiked ? Icons.favorite : Icons.favorite_border,
-                            size: 22,
-                            color: _isLiked ? Colors.red : Colors.grey[700],
-                          ),
-                          onPressed: currentUserId != null
+                        // Like Button — optimistic state + bounce animation
+                        GestureDetector(
+                          onTap: currentUserId != null
                               ? () => _toggleLike(context, currentUserId)
                               : () => _showLoginSnack(context),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: ScaleTransition(
+                              scale: _likeScale,
+                              child: Icon(
+                                _isLiked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 22,
+                                color: _isLiked
+                                    ? Colors.red
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                          ),
                         ),
                         Text(
                           "$_localLikesCount",
@@ -389,7 +483,8 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
             ),
           ],
         ),
-      ),
+      ), // ClipRRect
+    ), // Container
     );
   }
 

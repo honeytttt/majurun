@@ -47,11 +47,11 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
     // Pulse animation for GPS indicator
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+    _pulseAnimation = Tween<double>(begin: 0.6, end: 1.4).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
@@ -231,16 +231,17 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
               Transform.scale(
                 scale: _pulseAnimation.value,
                 child: Container(
-                  width: 8,
-                  height: 8,
+                  width: 10,
+                  height: 10,
                   decoration: BoxDecoration(
                     color: runController.gpsQualityColor,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: runController.gpsQualityColor.withValues(alpha: 0.5),
-                        blurRadius: 4,
-                        spreadRadius: 1,
+                        color: runController.gpsQualityColor
+                            .withValues(alpha: 0.8 * _pulseAnimation.value),
+                        blurRadius: 16 * _pulseAnimation.value,
+                        spreadRadius: 4 * _pulseAnimation.value,
                       ),
                     ],
                   ),
@@ -564,15 +565,16 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   }
 
   Widget _buildMainStat(String label, String value, String unit, bool isActive) {
+    const activeColor = Color(0xFF00E676);
     return Column(
       children: [
         Text(
           label,
           style: TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade700,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.5,
+            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2.0,
           ),
         ),
         const SizedBox(height: 6),
@@ -580,23 +582,46 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 44,
-                fontWeight: FontWeight.bold,
-                color: isActive ? const Color(0xFF7ED957) : Colors.grey,
-                height: 1,
+            // AnimatedSwitcher makes the number "roll" whenever it changes
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutBack,
+                ),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: Text(
+                value,
+                key: ValueKey(value),
+                style: TextStyle(
+                  fontSize: 52,
+                  fontWeight: FontWeight.w900,
+                  color: isActive ? activeColor : Colors.grey.shade600,
+                  height: 1,
+                  shadows: isActive
+                      ? [
+                          Shadow(
+                            color: activeColor.withValues(alpha: 0.45),
+                            blurRadius: 20,
+                          ),
+                        ]
+                      : null,
+                ),
               ),
             ),
             if (unit.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 6),
+                padding: const EdgeInsets.only(left: 5, bottom: 8),
                 child: Text(
                   unit,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isActive
+                        ? activeColor.withValues(alpha: 0.8)
+                        : Colors.grey.shade600,
                   ),
                 ),
               ),
