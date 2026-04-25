@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
@@ -37,6 +39,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   late Animation<double> _fadeAnim;
 
   VideoPlayerController? _videoController;
+  final ScreenshotController _screenshotController = ScreenshotController();
+  bool _isGeneratingCard = false;
 
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
@@ -112,7 +116,151 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   }
 
   Future<void> _shareToSocial() async {
-    await SharePlus.instance.share(ShareParams(text: _buildShareText()));
+    setState(() => _isGeneratingCard = true);
+    try {
+      // Capture the share card as a PNG
+      final Uint8List imageBytes = await _screenshotController.captureFromLongWidget(
+        _buildShareCard(),
+        pixelRatio: 3.0,
+        delay: const Duration(milliseconds: 100),
+      );
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile.fromData(imageBytes, mimeType: 'image/png', name: 'majurun_run.png')],
+          text: _buildShareText(),
+        ),
+      );
+    } catch (_) {
+      await SharePlus.instance.share(ShareParams(text: _buildShareText()));
+    } finally {
+      if (mounted) setState(() => _isGeneratingCard = false);
+    }
+  }
+
+  /// Builds the off-screen share card widget captured by ScreenshotController.
+  Widget _buildShareCard() {
+    final dist = widget.distanceKm.toStringAsFixed(2);
+    final hasPbs = widget.pbs.isNotEmpty;
+    final hasBadges = widget.badges.isNotEmpty;
+
+    return SizedBox(
+      width: 400,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0D0D0D), Color(0xFF1A2A1A)],
+          ),
+        ),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Brand header
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF7ED957),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.directions_run, color: Colors.black, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Text('MAJURUN',
+                    style: TextStyle(
+                      color: Color(0xFF7ED957),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    )),
+              ],
+            ),
+            const SizedBox(height: 28),
+
+            // Big distance
+            Text(dist,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 72,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                )),
+            const Text('KM',
+                style: TextStyle(
+                  color: Color(0xFF7ED957),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                )),
+            const SizedBox(height: 24),
+
+            // Stats row
+            Row(
+              children: [
+                _cardStat(Icons.timer_outlined, widget.duration, 'TIME'),
+                const SizedBox(width: 24),
+                _cardStat(Icons.speed_outlined, '${widget.pace}/km', 'PACE'),
+                const SizedBox(width: 24),
+                _cardStat(Icons.local_fire_department_outlined,
+                    '${widget.calories}', 'KCAL'),
+              ],
+            ),
+
+            // PBs / badges strip
+            if (hasPbs || hasBadges) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  hasPbs
+                      ? '⚡ New PB: ${widget.pbs.first}'
+                      : '🏅 ${widget.badges.first} badge earned!',
+                  style: const TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            const Text('#MajuRun #Running',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cardStat(IconData icon, String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Icon(icon, color: const Color(0xFF7ED957), size: 14),
+          const SizedBox(width: 4),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white38, fontSize: 10, letterSpacing: 1)),
+        ]),
+        const SizedBox(height: 2),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+      ],
+    );
   }
 
   Future<void> _postAchievementToFeed() async {
@@ -414,17 +562,26 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    // Share to external apps (X, Instagram, Facebook, WhatsApp…)
+                    // Share as image card (X, Instagram, WhatsApp…)
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _shareToSocial,
-                        icon: const Icon(Icons.share_rounded, size: 18),
-                        label: const Text('Share', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: _isGeneratingCard ? null : _shareToSocial,
+                        icon: _isGeneratingCard
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.share_rounded, size: 18),
+                        label: Text(_isGeneratingCard ? 'Creating…' : 'Share',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1DA1F2),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),

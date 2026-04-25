@@ -36,7 +36,7 @@ class OfflineDatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -59,7 +59,9 @@ class OfflineDatabaseService {
         elevation_gain REAL,
         weather_data TEXT,
         created_at TEXT NOT NULL,
-        synced INTEGER DEFAULT 0
+        synced INTEGER DEFAULT 0,
+        plan_title TEXT,
+        pace TEXT
       )
     ''');
 
@@ -87,11 +89,43 @@ class OfflineDatabaseService {
       )
     ''');
 
-    debugPrint('OfflineDatabase: Tables created');
+    // Point-by-point GPS track for crash recovery
+    // Written on every GPS update so a crash never loses more than one point
+    await db.execute('''
+      CREATE TABLE active_run_points (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        accuracy REAL,
+        speed REAL,
+        altitude REAL,
+        recorded_at TEXT NOT NULL
+      )
+    ''');
+
+    debugPrint('OfflineDatabase: Tables created (v2)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle migrations here
+    if (oldVersion < 2) {
+      // Add plan_title / pace columns to pending_runs
+      await db.execute('ALTER TABLE pending_runs ADD COLUMN plan_title TEXT');
+      await db.execute('ALTER TABLE pending_runs ADD COLUMN pace TEXT');
+
+      // Create active_run_points table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS active_run_points (
+          seq INTEGER PRIMARY KEY AUTOINCREMENT,
+          lat REAL NOT NULL,
+          lng REAL NOT NULL,
+          accuracy REAL,
+          speed REAL,
+          altitude REAL,
+          recorded_at TEXT NOT NULL
+        )
+      ''');
+      debugPrint('OfflineDatabase: Upgraded v1→v2');
+    }
   }
 
   // ============ Pending Runs ============
@@ -230,11 +264,108 @@ class OfflineDatabaseService {
     );
   }
 
+  // ============ Active Run Point-by-Point GPS Persistence ============
+
+  /// Append a single GPS point to the active run track.
+  /// Called on every location update — crash-safe by design.
+  Future<void> appendRunPoint(ActiveRunPoint point) async {
+    if (kIsWeb) return;
+    final db = await database;
+    await db.insert('active_run_points', point.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  /// Returns all saved GPS points ordered by sequence (ascending).
+  Future<List<ActiveRunPoint>> getRunPoints() async {
+    if (kIsWeb) return [];
+    final db = await database;
+    final rows = await db.query('active_run_points', orderBy: 'seq ASC');
+    return rows.map(ActiveRunPoint.fromMap).toList();
+  }
+
+  /// How many GPS points are stored (quick crash-recovery check).
+  Future<int> getRunPointCount() async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as c FROM active_run_points');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Wipe the active run track — call this after the run has been saved.
+  Future<void> clearRunPoints() async {
+    if (kIsWeb) return;
+    final db = await database;
+    await db.delete('active_run_points');
+    debugPrint('OfflineDatabase: Active run points cleared');
+  }
+
   /// Close database
   Future<void> close() async {
     if (_database != null) {
       await _database!.close();
       _database = null;
+    }
+  }
+
+  // ============ Unsynced run helpers ============
+
+  /// Returns unsynced pending runs formatted as history map entries.
+  Future<List<Map<String, dynamic>>> getUnsyncedRunsAsHistory() async {
+    if (kIsWeb) return [];
+    final pendingRuns = await getPendingRuns();
+    return pendingRuns.map((run) {
+      return <String, dynamic>{
+        'id': run.id,
+        'date': run.startTime,
+        'distance': run.distanceMeters / 1000,
+        'durationSeconds': run.durationSeconds,
+        'pace': run.pace ?? '',
+        'calories': run.calories ?? 0,
+        'planTitle': run.planTitle ?? 'Free Run',
+        'avgBpm': run.avgHeartRate ?? 0,
+        'routePoints': <dynamic>[],
+        'type': null,
+        'week': null,
+        'day': null,
+        'completed': true,
+        'mapImageUrl': null,
+        'extra': null,
+        'isExternal': false,
+        'source': 'local',
+        'isPendingSync': true,
+      };
+    }).toList();
+  }
+
+  /// Sync pending local runs to Firestore via the supplied callback.
+  Future<void> syncPendingRunsToFirestore({
+    required Future<void> Function({
+      required String planTitle,
+      required double distanceKm,
+      required int durationSeconds,
+      required String pace,
+      List<dynamic>? routePoints,
+      int? avgBpm,
+      int? calories,
+    }) saveRunFn,
+  }) async {
+    if (kIsWeb) return;
+    final pending = await getPendingRuns();
+    for (final run in pending) {
+      try {
+        await saveRunFn(
+          planTitle: run.planTitle ?? 'Free Run',
+          distanceKm: run.distanceMeters / 1000,
+          durationSeconds: run.durationSeconds,
+          pace: run.pace ?? '',
+          avgBpm: run.avgHeartRate,
+          calories: run.calories,
+        );
+        await markRunSynced(run.id);
+        debugPrint('✅ Synced pending run ${run.id}');
+      } catch (e) {
+        debugPrint('⚠️ Sync failed for ${run.id}: $e');
+      }
     }
   }
 }
@@ -256,6 +387,8 @@ class PendingRun {
   final Map<String, dynamic>? weatherData;
   final DateTime createdAt;
   final bool synced;
+  final String? planTitle;
+  final String? pace;
 
   PendingRun({
     required this.id,
@@ -272,6 +405,8 @@ class PendingRun {
     this.weatherData,
     required this.createdAt,
     this.synced = false,
+    this.planTitle,
+    this.pace,
   });
 
   Map<String, dynamic> toMap() {
@@ -290,6 +425,8 @@ class PendingRun {
       'weather_data': weatherData != null ? jsonEncode(weatherData) : null,
       'created_at': createdAt.toIso8601String(),
       'synced': synced ? 1 : 0,
+      'plan_title': planTitle,
+      'pace': pace,
     };
   }
 
@@ -315,8 +452,49 @@ class PendingRun {
           : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       synced: map['synced'] == 1,
+      planTitle: map['plan_title'] as String?,
+      pace: map['pace'] as String?,
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Run Point — one GPS fix during a live run
+// ─────────────────────────────────────────────────────────────────────────────
+class ActiveRunPoint {
+  final double lat;
+  final double lng;
+  final double? accuracy;
+  final double? speed;
+  final double? altitude;
+  final DateTime recordedAt;
+
+  const ActiveRunPoint({
+    required this.lat,
+    required this.lng,
+    this.accuracy,
+    this.speed,
+    this.altitude,
+    required this.recordedAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'lat': lat,
+        'lng': lng,
+        'accuracy': accuracy,
+        'speed': speed,
+        'altitude': altitude,
+        'recorded_at': recordedAt.toIso8601String(),
+      };
+
+  factory ActiveRunPoint.fromMap(Map<String, dynamic> m) => ActiveRunPoint(
+        lat: (m['lat'] as num).toDouble(),
+        lng: (m['lng'] as num).toDouble(),
+        accuracy: m['accuracy'] != null ? (m['accuracy'] as num).toDouble() : null,
+        speed: m['speed'] != null ? (m['speed'] as num).toDouble() : null,
+        altitude: m['altitude'] != null ? (m['altitude'] as num).toDouble() : null,
+        recordedAt: DateTime.parse(m['recorded_at'] as String),
+      );
 }
 
 class CachedUser {

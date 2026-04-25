@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -143,6 +144,13 @@ Future<void> main() async {
     // Setup global error handling
     crashReporting.setupGlobalErrorHandling();
 
+    // Replace the default red debug banner with a minimal fallback widget.
+    // In production users never see a crash dump — they see a friendly message.
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      if (kDebugMode) return ErrorWidget(details.exception);
+      return _AppErrorFallback(error: details.exception.toString());
+    };
+
     runApp(
       MultiProvider(
         providers: [
@@ -234,6 +242,49 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
       home: const AuthWrapper(),
+    );
+  }
+}
+
+/// Minimal production error fallback shown instead of the red debug banner.
+class _AppErrorFallback extends StatelessWidget {
+  const _AppErrorFallback({required this.error});
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return const Material(
+      color: Color(0xFF0D0D0D),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 56, color: Color(0xFF7ED957)),
+                SizedBox(height: 20),
+                Text(
+                  'Something went wrong',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Your run data is safe. Please restart the app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
