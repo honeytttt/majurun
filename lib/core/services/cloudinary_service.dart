@@ -10,7 +10,7 @@ class CloudinaryService {
   // Inserts Cloudinary transformations into the URL after /upload/
   // Images: auto format (WebP/AVIF), auto quality, max 1080px wide
   // Prevents serving 4K photos to a 400px widget
-  static String _optimizeImageUrl(String url, {int width = 1080}) {
+  static String _optimizeImageUrl(String url) {
     const transforms = 'f_auto,q_auto,w_1080,c_limit';
     return url.replaceFirst('/upload/', '/upload/$transforms/');
   }
