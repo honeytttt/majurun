@@ -44,7 +44,7 @@ class _NotificationBellButtonState extends State<NotificationBellButton> {
                       ? Icons.notifications_active
                       : Icons.notifications_none_outlined,
                   size: widget.size,
-                  color: isSubscribed ? const Color(0xFF00E676) : Colors.grey[600],
+                  color: isSubscribed ? const Color(0xFF00E676) : Colors.grey.shade700,
                 ),
           tooltip: isSubscribed ? 'Turn off notifications' : 'Get notified',
         );

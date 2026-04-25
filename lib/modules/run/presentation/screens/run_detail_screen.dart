@@ -384,9 +384,9 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.map_outlined, color: Colors.grey.shade400, size: 48),
+                        Icon(Icons.map_outlined, color: Colors.grey.shade700, size: 48),
                         const SizedBox(height: 12),
-                        Text('No map preview available', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                        Text('No map preview available', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
                       ],
                     ),
                   ),
@@ -515,9 +515,9 @@ Keep moving 💪
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.broken_image, color: Colors.grey.shade400, size: 48),
+                Icon(Icons.broken_image, color: Colors.grey.shade700, size: 48),
                 const SizedBox(height: 12),
-                Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
               ],
             ),
           );

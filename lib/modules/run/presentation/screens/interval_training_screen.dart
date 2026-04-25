@@ -178,7 +178,7 @@ class _WorkoutCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 _InfoPill(Icons.repeat_rounded, '${workout.workIntervals} work intervals'),
                 const Spacer(),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(Icons.chevron_right, color: Colors.grey.shade700),
               ],
             ),
           ],
@@ -198,7 +198,7 @@ class _InfoPill extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey.shade500),
+        Icon(icon, size: 14, color: Colors.grey.shade700),
         const SizedBox(width: 4),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       ],

@@ -170,7 +170,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         Text(
                           timeago.format(widget.post.createdAt),
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: Colors.grey.shade700,
                             fontSize: 13,
                           ),
                         ),
@@ -232,7 +232,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   Text(
                     _likesCount == 1 ? 'Like' : 'Likes',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: Colors.grey.shade700,
                       fontSize: 16,
                     ),
                   ),
@@ -256,7 +256,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           Text(
                             commentCount == 1 ? 'Comment' : 'Comments',
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: Colors.grey.shade700,
                               fontSize: 16,
                             ),
                           ),
@@ -331,7 +331,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           Text(
                             'No comments yet',
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: Colors.grey.shade700,
                               fontSize: 16,
                             ),
                           ),
@@ -339,7 +339,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           Text(
                             'Be the first to comment!',
                             style: TextStyle(
-                              color: Colors.grey[400],
+                              color: Colors.grey.shade700,
                               fontSize: 14,
                             ),
                           ),
@@ -530,7 +530,7 @@ class _CommentTile extends StatelessWidget {
                               '${likes.length}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: Colors.grey.shade700,
                               ),
                             ),
                           ],

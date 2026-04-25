@@ -100,7 +100,7 @@ class _AboutScreenState extends State<AboutScreen> {
                     versionText,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: Colors.grey.shade700,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -188,7 +188,7 @@ class _AboutScreenState extends State<AboutScreen> {
               '\u00a9 ${DateTime.now().year} ${AppConstants.appName}. All rights reserved.',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[500],
+                color: Colors.grey.shade700,
               ),
               textAlign: TextAlign.center,
             ),
@@ -197,7 +197,7 @@ class _AboutScreenState extends State<AboutScreen> {
               'Made with \u2764 for runners',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[400],
+                color: Colors.grey.shade700,
               ),
             ),
           ],
@@ -252,13 +252,13 @@ class _AboutScreenState extends State<AboutScreen> {
                       subtitle,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[600],
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade700),
             ],
           ),
         ),

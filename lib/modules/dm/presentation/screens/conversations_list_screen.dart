@@ -118,7 +118,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+              color: Colors.grey.shade700,
             ),
           ),
           const SizedBox(height: 8),
@@ -126,7 +126,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             'Start a conversation from a user\'s profile',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[400],
+              color: Colors.grey.shade700,
             ),
             textAlign: TextAlign.center,
           ),

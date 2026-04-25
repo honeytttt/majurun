@@ -29,7 +29,7 @@ class PasswordStrengthIndicator extends StatelessWidget {
               'Strength: ',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[400],
+                color: Colors.grey.shade700,
               ),
             ),
             Text(
@@ -114,14 +114,14 @@ class PasswordStrengthIndicator extends StatelessWidget {
           Icon(
             met ? Icons.check_circle : Icons.circle_outlined,
             size: 16,
-            color: met ? Colors.green : Colors.grey[600],
+            color: met ? Colors.green : Colors.grey.shade700,
           ),
           const SizedBox(width: 8),
           Text(
             text,
             style: TextStyle(
               fontSize: 12,
-              color: met ? Colors.green : Colors.grey[500],
+              color: met ? Colors.green : Colors.grey.shade700,
             ),
           ),
         ],
@@ -226,8 +226,8 @@ class _PasswordFieldWithStrengthState extends State<PasswordFieldWithStrength> {
           decoration: InputDecoration(
             labelText: widget.labelText,
             hintText: widget.hintText,
-            labelStyle: TextStyle(color: Colors.grey[400]),
-            hintStyle: TextStyle(color: Colors.grey[600]),
+            labelStyle: TextStyle(color: Colors.grey.shade700),
+            hintStyle: TextStyle(color: Colors.grey.shade700),
             filled: true,
             fillColor: Colors.grey[900],
             border: OutlineInputBorder(
@@ -241,7 +241,7 @@ class _PasswordFieldWithStrengthState extends State<PasswordFieldWithStrength> {
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureText ? Icons.visibility_off : Icons.visibility,
-                color: Colors.grey[500],
+                color: Colors.grey.shade700,
               ),
               onPressed: () {
                 setState(() {

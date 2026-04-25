@@ -191,7 +191,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 8),
             Text(
               'Permanently deletes your account and all data.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -324,7 +324,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-            prefixIcon: icon != null ? Icon(icon, color: Colors.grey[600], size: 20) : null,
+            prefixIcon: icon != null ? Icon(icon, color: Colors.grey.shade700, size: 20) : null,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
               borderSide: BorderSide(color: Colors.grey[200]!),

@@ -31,7 +31,7 @@ class RecentSearchesList extends StatelessWidget {
               'Search for users or posts',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey[500],
+                color: Colors.grey.shade700,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -78,7 +78,7 @@ class RecentSearchesList extends StatelessWidget {
                 onTap: () => onSearchTap(search),
                 leading: Icon(
                   Icons.history,
-                  color: Colors.grey[400],
+                  color: Colors.grey.shade700,
                 ),
                 title: Text(
                   search,
@@ -87,7 +87,7 @@ class RecentSearchesList extends StatelessWidget {
                 trailing: IconButton(
                   icon: Icon(
                     Icons.close,
-                    color: Colors.grey[400],
+                    color: Colors.grey.shade700,
                     size: 20,
                   ),
                   onPressed: () => onRemove(search),

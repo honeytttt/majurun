@@ -350,7 +350,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                         ? CachedNetworkImageProvider(data['blockedUserPhoto'])
                         : null,
                     child: data['blockedUserPhoto'] == null
-                        ? Icon(Icons.person, color: Colors.grey[400])
+                        ? Icon(Icons.person, color: Colors.grey.shade700)
                         : null,
                   ),
                   title: Text(
@@ -359,7 +359,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                   ),
                   subtitle: Text(
                     'Blocked ${_formatDate((data['blockedAt'] as Timestamp?)?.toDate())}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
                   ),
                   trailing: TextButton(
                     onPressed: () => _unblockUser(doc.id, data['blockedUserName'] ?? 'user'),

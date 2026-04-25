@@ -97,7 +97,7 @@ class BadgeChip extends StatelessWidget {
               badge.description,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: Colors.grey.shade700,
               ),
             ),
             if (badge.count > 1) ...[
@@ -174,7 +174,7 @@ class BadgesDisplay extends StatelessWidget {
               'No badges yet',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[500],
+                color: Colors.grey.shade700,
               ),
             ),
             const SizedBox(height: 4),
@@ -182,7 +182,7 @@ class BadgesDisplay extends StatelessWidget {
               'Complete runs to earn badges!',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[400],
+                color: Colors.grey.shade700,
               ),
             ),
           ],

@@ -36,6 +36,10 @@ abstract class RunHistoryRepository {
   /// previous page (used as cursor). Pass null for the first page.
   Future<List<RunHistory>> getRunsPage({required int pageSize, DateTime? before});
 
+  /// Server-side date filter — only fetches runs after [since].
+  /// Much cheaper than getRunsPage+filter when you only need recent data.
+  Future<List<RunHistory>> getRunsSince(DateTime since);
+
   /// Get total statistics across all runs.
   Future<RunHistoryStats> getStats();
 

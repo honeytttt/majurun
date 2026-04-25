@@ -47,7 +47,7 @@ class NotificationTile extends StatelessWidget {
                       timeago.format(notification.createdAt),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[500],
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],
@@ -103,7 +103,7 @@ class NotificationTile extends StatelessWidget {
           : null,
       child: notification.fromUserPhotoUrl == null ||
               notification.fromUserPhotoUrl!.isEmpty
-          ? Icon(Icons.person, color: Colors.grey[400])
+          ? Icon(Icons.person, color: Colors.grey.shade700)
           : null,
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:majurun/core/services/image_cache_manager.dart';
 
 Widget buildUserAvatar({required String photoUrl, required double radius}) {
   final url = photoUrl.trim();
@@ -8,7 +9,7 @@ Widget buildUserAvatar({required String photoUrl, required double radius}) {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey.shade200,
-      child: Icon(Icons.person, size: radius, color: Colors.grey),
+      child: Icon(Icons.person, size: radius, color: Colors.grey.shade700),
     );
   }
 
@@ -24,18 +25,19 @@ Widget buildUserAvatar({required String photoUrl, required double radius}) {
       height: radius * 2,
       child: CachedNetworkImage(
         imageUrl: url,
+        cacheManager: AppImageCacheManager.instance,
         fit: BoxFit.cover,
         memCacheWidth: cacheSize,
         memCacheHeight: cacheSize,
         placeholder: (context, url) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey.shade200,
-          child: Icon(Icons.person, size: radius, color: Colors.grey.shade400),
+          child: Icon(Icons.person, size: radius, color: Colors.grey.shade700),
         ),
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey.shade200,
-          child: Icon(Icons.person, size: radius, color: Colors.grey),
+          child: Icon(Icons.person, size: radius, color: Colors.grey.shade700),
         ),
       ),
     ),

@@ -570,7 +570,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           label,
           style: TextStyle(
             fontSize: 11,
-            color: Colors.grey[500],
+            color: Colors.grey.shade700,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.5,
           ),
@@ -676,7 +676,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             label,
             style: TextStyle(
               fontSize: 9,
-              color: Colors.grey[400],
+              color: Colors.grey.shade700,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.8,
             ),

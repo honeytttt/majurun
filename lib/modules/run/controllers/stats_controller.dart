@@ -215,18 +215,12 @@ class StatsController extends ChangeNotifier {
 
   /// Returns total runs, km, and seconds for the past 7 days (used for weekly recap post).
   Future<({int totalRuns, double totalKm, int totalSeconds})> getLastWeekStats() async {
+    // Server-side date filter — only fetches the last 7 days instead of 100+ runs
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    final runs = await _repository.getRunsPage(pageSize: 100);
-    int totalRuns = 0;
-    double totalKm = 0.0;
-    int totalSeconds = 0;
-    for (final run in runs) {
-      if (run.completedAt.isAfter(cutoff)) {
-        totalRuns++;
-        totalKm += run.distanceKm;
-        totalSeconds += run.durationSeconds;
-      }
-    }
+    final runs = await _repository.getRunsSince(cutoff);
+    int totalRuns = runs.length;
+    double totalKm = runs.fold(0.0, (sum, r) => sum + r.distanceKm);
+    int totalSeconds = runs.fold(0, (sum, r) => sum + r.durationSeconds);
     return (totalRuns: totalRuns, totalKm: totalKm, totalSeconds: totalSeconds);
   }
 

@@ -444,7 +444,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey.shade700,
                 ),
               ),
             ),
@@ -462,7 +462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.phone_outlined, size: 13, color: Colors.grey[600]),
+                  Icon(Icons.phone_outlined, size: 13, color: Colors.grey.shade700),
                   const SizedBox(width: 5),
                   Text(
                     phoneNumber,
@@ -471,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 5),
                   Tooltip(
                     message: 'Only you can see this',
-                    child: Icon(Icons.lock_outline, size: 12, color: Colors.grey[400]),
+                    child: Icon(Icons.lock_outline, size: 12, color: Colors.grey.shade700),
                   ),
                 ],
               ),
@@ -618,7 +618,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: Colors.grey[600],
+            color: Colors.grey.shade700,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -644,13 +644,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade700),
               const SizedBox(width: 4),
               Text(
                 location,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey.shade700,
                 ),
               ),
             ],
@@ -659,13 +659,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[600]),
+              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade700),
               const SizedBox(width: 4),
               Text(
                 'Joined ${DateFormat('MMMM yyyy').format(createdAt)}',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey.shade700,
                 ),
               ),
             ],
@@ -812,7 +812,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             days[index],
                             style: TextStyle(
                               fontSize: 10,
-                              color: Colors.grey[600],
+                              color: Colors.grey.shade700,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1046,7 +1046,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: Colors.grey.shade700,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1101,13 +1101,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Icon(Icons.post_add, size: 60, color: Colors.grey[400]),
+                    Icon(Icons.post_add, size: 60, color: Colors.grey.shade700),
                     const SizedBox(height: 16),
                     Text(
                       'No posts yet',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey[600],
+                        color: Colors.grey.shade700,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1212,7 +1212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text(
                 'Cancel',
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: Colors.grey.shade700,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/core/services/cloudinary_service.dart';
+import 'package:majurun/core/services/pending_post_queue.dart';
 import 'package:majurun/core/utils/route_utils.dart';
 
 class PostController extends ChangeNotifier {
@@ -163,6 +164,97 @@ class PostController extends ChangeNotifier {
     } catch (e) {
       debugPrint("❌ Error creating auto post: $e");
       rethrow;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Fire-and-forget queue helpers
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Enqueues post data to Hive and returns immediately.
+  /// The caller can navigate to the next screen straight away.
+  /// Call [processQueue] afterwards (or on app start) to drain the queue.
+  Future<void> enqueuePost({
+    required String aiContent,
+    required List<LatLng> routePoints,
+    required double distance,
+    required String pace,
+    required int bpm,
+    required String planTitle,
+    required int durationSeconds,
+    required int calories,
+    required List<Map<String, dynamic>> kmSplits,
+    Uint8List? mapImageBytes,
+    Uint8List? selfieBytes,
+    String? mapImageUrlOverride,
+  }) async {
+    final queue = PendingPostQueue();
+    await queue.enqueue(
+      aiContent: aiContent,
+      routePoints: routePoints
+          .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+          .toList(),
+      distance: distance,
+      pace: pace,
+      bpm: bpm,
+      planTitle: planTitle,
+      durationSeconds: durationSeconds,
+      calories: calories,
+      kmSplits: kmSplits,
+      mapImageBytes: mapImageBytes,
+      selfieBytes: selfieBytes,
+      mapImageUrlOverride: mapImageUrlOverride,
+    );
+    // Process immediately in background — don't await
+    processQueue().catchError((e) => debugPrint('⚠️ Queue process error: $e'));
+  }
+
+  /// Drains all pending posts from the Hive queue.
+  /// Safe to call concurrently — duplicate calls are ignored via [_processing].
+  bool _processing = false;
+  Future<void> processQueue() async {
+    if (_processing) return;
+    _processing = true;
+    try {
+      final queue = PendingPostQueue();
+      await queue.pruneStale();
+      for (final entry in queue.all()) {
+        final id = entry['id'] as String;
+        try {
+          await queue.incrementAttempts(id);
+          final points = (entry['routePoints'] as List<dynamic>? ?? [])
+              .map((p) {
+                final m = Map<String, dynamic>.from(p as Map);
+                return LatLng(
+                  (m['lat'] as num).toDouble(),
+                  (m['lng'] as num).toDouble(),
+                );
+              })
+              .toList();
+          await createAutoPost(
+            aiContent: entry['aiContent'] as String,
+            routePoints: points,
+            distance: (entry['distance'] as num).toDouble(),
+            pace: entry['pace'] as String,
+            bpm: (entry['bpm'] as num?)?.toInt() ?? 0,
+            planTitle: entry['planTitle'] as String? ?? 'Free Run',
+            durationSeconds: (entry['durationSeconds'] as num?)?.toInt() ?? 0,
+            calories: (entry['calories'] as num?)?.toInt() ?? 0,
+            mapImageBytes: entry['mapImageBytes'] as Uint8List?,
+            selfieBytes: entry['selfieBytes'] as Uint8List?,
+            mapImageUrlOverride: entry['mapImageUrlOverride'] as String?,
+            kmSplits: (entry['kmSplits'] as List<dynamic>? ?? [])
+                .map((s) => Map<String, dynamic>.from(s as Map))
+                .toList(),
+          );
+          await queue.remove(id);
+          debugPrint('📬 Queue: post $id uploaded successfully');
+        } catch (e) {
+          debugPrint('📬 Queue: post $id upload failed (will retry): $e');
+        }
+      }
+    } finally {
+      _processing = false;
     }
   }
 

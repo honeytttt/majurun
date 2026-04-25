@@ -286,7 +286,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                 Text(
                   'WEATHER',
                   style: TextStyle(
-                    color: Colors.grey[400],
+                    color: Colors.grey.shade700,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1,
@@ -341,7 +341,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
         Text(
           label.toUpperCase(),
           style: TextStyle(
-            color: Colors.grey[400],
+            color: Colors.grey.shade700,
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
@@ -365,7 +365,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                 child: Text(
                   unit,
                   style: TextStyle(
-                    color: Colors.grey[400],
+                    color: Colors.grey.shade700,
                     fontSize: 14,
                   ),
                 ),
@@ -519,7 +519,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                     Text(
                       load.description,
                       style: TextStyle(
-                        color: Colors.grey[400],
+                        color: Colors.grey.shade700,
                         fontSize: 12,
                       ),
                     ),
@@ -636,7 +636,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             Text(
               '#${result.rank}',
               style: TextStyle(
-                color: Colors.grey[400],
+                color: Colors.grey.shade700,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
@@ -743,7 +743,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                     Text(
                       _formatDuration(split.durationSeconds),
                       style: TextStyle(
-                        color: Colors.grey[400],
+                        color: Colors.grey.shade700,
                         fontSize: 12,
                       ),
                     ),
@@ -1109,7 +1109,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
           Text(
             label,
             style: TextStyle(
-              color: Colors.grey[400],
+              color: Colors.grey.shade700,
               fontSize: 14,
             ),
           ),
@@ -1147,7 +1147,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             Text(
               label,
               style: TextStyle(
-                color: Colors.grey[400],
+                color: Colors.grey.shade700,
                 fontSize: 12,
               ),
             ),
@@ -1190,7 +1190,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.grey[400],
+                color: Colors.grey.shade700,
                 fontSize: 11,
               ),
             ),
@@ -1261,7 +1261,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
           Text(
             label,
             style: TextStyle(
-              color: Colors.grey[400],
+              color: Colors.grey.shade700,
               fontSize: 14,
             ),
           ),

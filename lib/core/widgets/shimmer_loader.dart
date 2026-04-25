@@ -39,7 +39,7 @@ class ShimmerLoader extends StatelessWidget {
         width: width,
         height: height,
         decoration: ShapeDecoration(
-          color: Colors.grey[400]!,
+          color: Colors.grey.shade700!,
           shape: shapeBorder,
         ),
       ),

@@ -118,7 +118,7 @@ class UserAvatar extends StatelessWidget {
       child: Icon(
         Icons.person,
         size: radius * 0.8,
-        color: Colors.grey.shade600,
+        color: Colors.grey.shade700,
       ),
     );
   }
@@ -194,7 +194,7 @@ class DirectUrlAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey.shade200,
-      child: Icon(Icons.person, size: radius * 0.8, color: Colors.grey.shade600),
+      child: Icon(Icons.person, size: radius * 0.8, color: Colors.grey.shade700),
     );
   }
 }

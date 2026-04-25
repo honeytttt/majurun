@@ -229,9 +229,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                             onTap: currentUserId.isNotEmpty ? () => _toggleLike(currentUserId) : null,
                             child: Row(
                               children: [
-                                Icon(_isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 20, color: _isLiked ? Colors.redAccent : Colors.grey[400]),
+                                Icon(_isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 20, color: _isLiked ? Colors.redAccent : Colors.grey.shade700),
                                 const SizedBox(width: 6),
-                                Text('$_localLikesCount', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _isLiked ? Colors.redAccent : Colors.grey[400])),
+                                Text('$_localLikesCount', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _isLiked ? Colors.redAccent : Colors.grey.shade700)),
                               ],
                             ),
                           ),
@@ -240,9 +240,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                             onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => CommentSheet(postId: widget.post.id)),
                             child: Row(
                               children: [
-                                Icon(Icons.chat_bubble_outline_rounded, size: 20, color: Colors.grey[400]),
+                                Icon(Icons.chat_bubble_outline_rounded, size: 20, color: Colors.grey.shade700),
                                 const SizedBox(width: 6),
-                                Text('${widget.post.comments.length}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey[400])),
+                                Text('${widget.post.comments.length}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                               ],
                             ),
                           ),
@@ -253,7 +253,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                               final username = currentUser?.displayName ?? "Runner";
                               _repo.repost(widget.post, currentUserId, username);
                             } : null,
-                            child: Icon(Icons.repeat_rounded, size: 20, color: Colors.grey[400]),
+                            child: Icon(Icons.repeat_rounded, size: 20, color: Colors.grey.shade700),
                           ),
                         ],
                       ),

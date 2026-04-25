@@ -218,7 +218,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
                   ),
                   SizedBox(width: 60, child: Text(split.pace, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), textAlign: TextAlign.center)),
                   SizedBox(width: 60, child: Text(timeStr, style: TextStyle(fontSize: 13, color: Colors.grey.shade700), textAlign: TextAlign.center)),
-                  SizedBox(width: 50, child: Text('$elevSign${split.elevationChange.toStringAsFixed(0)}m', style: TextStyle(fontSize: 12, color: Colors.grey.shade500), textAlign: TextAlign.center)),
+                  SizedBox(width: 50, child: Text('$elevSign${split.elevationChange.toStringAsFixed(0)}m', style: TextStyle(fontSize: 12, color: Colors.grey.shade700), textAlign: TextAlign.center)),
                 ],
               ),
             );

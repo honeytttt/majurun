@@ -195,7 +195,7 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Text(
               'Why are you reporting this?',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
             ),
           ),
           const Divider(height: 1),

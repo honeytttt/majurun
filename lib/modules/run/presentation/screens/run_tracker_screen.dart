@@ -138,7 +138,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                 child: IconButton(
                   icon: Icon(
                     runController.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                    color: runController.isVoiceEnabled ? const Color(0xFF2D7A3E) : Colors.grey.shade600,
+                    color: runController.isVoiceEnabled ? const Color(0xFF2D7A3E) : Colors.grey.shade700,
                   ),
                   tooltip: runController.isVoiceEnabled ? 'Voice ON' : 'Voice OFF',
                   onPressed: runController.toggleVoice,

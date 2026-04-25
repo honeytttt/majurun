@@ -51,7 +51,7 @@ class MessageBubble extends StatelessWidget {
                           DateFormat('HH:mm').format(message.createdAt),
                           style: TextStyle(
                             fontSize: 10,
-                            color: isMe ? Colors.white70 : Colors.grey[500],
+                            color: isMe ? Colors.white70 : Colors.grey.shade700,
                           ),
                         ),
                         if (isMe) ...[

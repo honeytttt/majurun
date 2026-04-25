@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/core/services/image_cache_manager.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
@@ -168,6 +169,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                     return ClipOval(
                       child: CachedNetworkImage(
                         imageUrl: photoUrl,
+                        cacheManager: AppImageCacheManager.instance,
                         width: 40,
                         height: 40,
                         fit: BoxFit.cover,
@@ -205,7 +207,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       const SizedBox(width: 4),
                       Text(
                         "reposted",
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                       ),
                     ],
                   ],

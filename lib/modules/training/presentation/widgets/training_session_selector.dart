@@ -105,7 +105,7 @@ class TrainingSessionSelector extends StatelessWidget {
                     subtitle: Text(
                       '${workouts.length} Workouts',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: Colors.grey.shade700,
                         fontSize: 12,
                       ),
                     ),
@@ -195,7 +195,7 @@ class TrainingSessionSelector extends StatelessWidget {
         subtitle: Text(
           '$sets Sets • ${(runDuration / 60).toStringAsFixed(0)} min run / $walkDuration sec walk',
           style: TextStyle(
-            color: isCurrent ? Colors.white.withValues(alpha: 0.8) : Colors.grey.shade600,
+            color: isCurrent ? Colors.white.withValues(alpha: 0.8) : Colors.grey.shade700,
             fontSize: 12,
           ),
         ),

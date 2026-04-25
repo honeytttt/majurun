@@ -82,25 +82,23 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
   Future<void> _publish() async {
     setState(() => _isPosting = true);
     final runController = Provider.of<RunController>(context, listen: false);
-    try {
-      await runController.postController.createAutoPost(
-        aiContent: _textController.text.trim().isEmpty
-            ? widget.initialText
-            : _textController.text.trim(),
-        routePoints: widget.routePoints,
-        distance: widget.distanceKm,
-        pace: widget.pace,
-        bpm: widget.avgBpm,
-        durationSeconds: widget.durationSeconds,
-        calories: widget.calories,
-        planTitle: widget.planTitle,
-        mapImageBytes: _includeMap ? widget.mapImageBytes : null,
-        selfieBytes: _includeSelfie ? widget.selfieBytes : null,
-        kmSplits: widget.kmSplits,
-      );
-    } catch (e) {
-      debugPrint('❌ RunPostEditorScreen: post error $e');
-    }
+    // Enqueue immediately — returns in < 1 ms so the UI never freezes.
+    // Cloudinary upload + Firestore write happen in the background.
+    runController.postController.enqueuePost(
+      aiContent: _textController.text.trim().isEmpty
+          ? widget.initialText
+          : _textController.text.trim(),
+      routePoints: widget.routePoints,
+      distance: widget.distanceKm,
+      pace: widget.pace,
+      bpm: widget.avgBpm,
+      durationSeconds: widget.durationSeconds,
+      calories: widget.calories,
+      planTitle: widget.planTitle,
+      mapImageBytes: _includeMap ? widget.mapImageBytes : null,
+      selfieBytes: _includeSelfie ? widget.selfieBytes : null,
+      kmSplits: widget.kmSplits,
+    ).catchError((e) => debugPrint('❌ RunPostEditorScreen: enqueue error $e'));
     if (!mounted) return;
     _goToCongrats();
   }

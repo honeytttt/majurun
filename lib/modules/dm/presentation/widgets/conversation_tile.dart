@@ -40,7 +40,7 @@ class ConversationTile extends StatelessWidget {
                   ? CachedNetworkImageProvider(otherPhoto)
                   : null,
               child: otherPhoto == null || otherPhoto.isEmpty
-                  ? Icon(Icons.person, color: Colors.grey[400])
+                  ? Icon(Icons.person, color: Colors.grey.shade700)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -69,7 +69,7 @@ class ConversationTile extends StatelessWidget {
                         timeago.format(conversation.lastMessageTime, locale: 'en_short'),
                         style: TextStyle(
                           fontSize: 12,
-                          color: hasUnread ? const Color(0xFF00E676) : Colors.grey[500],
+                          color: hasUnread ? const Color(0xFF00E676) : Colors.grey.shade700,
                           fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -85,7 +85,7 @@ class ConversationTile extends StatelessWidget {
                               : conversation.lastMessage,
                           style: TextStyle(
                             fontSize: 14,
-                            color: hasUnread ? Colors.black87 : Colors.grey[600],
+                            color: hasUnread ? Colors.black87 : Colors.grey.shade700,
                             fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
                           ),
                           maxLines: 1,

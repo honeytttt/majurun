@@ -465,7 +465,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: Colors.grey.shade700,
                 ),
               ),
             ),
@@ -588,7 +588,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500),
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -611,20 +611,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+              Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade700),
               const SizedBox(width: 4),
-              Text(location, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+              Text(location, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
             ],
           ),
         if (hasJoinedDate)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[600]),
+              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade700),
               const SizedBox(width: 4),
               Text(
                 'Joined ${DateFormat('MMMM yyyy').format(createdAt)}',
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
               ),
             ],
           ),
@@ -746,7 +746,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
@@ -795,7 +795,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     const SizedBox(height: 20),
                     Text(
                       'No posts yet',
-                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 18, color: Colors.grey.shade700),
                     ),
                   ],
                 ),

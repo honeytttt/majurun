@@ -62,7 +62,7 @@ class _MessageInputState extends State<MessageInput> {
           children: [
             // Attachment button (optional - for future image support)
             // IconButton(
-            //   icon: Icon(Icons.attach_file, color: Colors.grey[600]),
+            //   icon: Icon(Icons.attach_file, color: Colors.grey.shade700),
             //   onPressed: widget.enabled ? _handleAttachment : null,
             // ),
 
@@ -81,7 +81,7 @@ class _MessageInputState extends State<MessageInput> {
                   minLines: 1,
                   decoration: InputDecoration(
                     hintText: 'Type a message...',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    hintStyle: TextStyle(color: Colors.grey.shade700),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20,

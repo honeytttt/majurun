@@ -29,7 +29,7 @@ class SearchResultTile extends StatelessWidget {
       subtitle: Text(
         result.subtitle,
         style: TextStyle(
-          color: Colors.grey[600],
+          color: Colors.grey.shade700,
           fontSize: 13,
         ),
         maxLines: 2,
@@ -48,7 +48,7 @@ class SearchResultTile extends StatelessWidget {
             ? CachedNetworkImageProvider(result.imageUrl!)
             : null,
         child: result.imageUrl == null || result.imageUrl!.isEmpty
-            ? Icon(Icons.person, color: Colors.grey[400])
+            ? Icon(Icons.person, color: Colors.grey.shade700)
             : null,
       );
     } else {
@@ -83,7 +83,7 @@ class SearchResultTile extends StatelessWidget {
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(Icons.article, color: Colors.grey[400]),
+        child: Icon(Icons.article, color: Colors.grey.shade700),
       );
     }
   }
@@ -91,7 +91,7 @@ class SearchResultTile extends StatelessWidget {
   Widget _buildTrailingIcon() {
     return Icon(
       result.type == 'user' ? Icons.person_outline : Icons.article_outlined,
-      color: Colors.grey[400],
+      color: Colors.grey.shade700,
       size: 20,
     );
   }

@@ -486,7 +486,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     year.toString(),
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey.shade600,
+                      color: Colors.grey.shade700,
                     ),
                   ),
                 ],
@@ -1137,7 +1137,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             const SizedBox(width: 4),
                             Text(
                               "Avg HR: $avgBpm",
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -1145,7 +1145,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                  Icon(Icons.chevron_right, color: Colors.grey.shade700),
                 ],
               ),
             ),
@@ -1210,7 +1210,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           children: [
             Icon(Icons.map_outlined, color: Colors.grey.shade300, size: 32),
             const SizedBox(height: 8),
-            Text('No map preview', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+            Text('No map preview', style: TextStyle(color: Colors.grey.shade700, fontSize: 11)),
           ],
         ),
       ),
@@ -1276,7 +1276,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
+            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade700)),
           ],
         ),
       ],

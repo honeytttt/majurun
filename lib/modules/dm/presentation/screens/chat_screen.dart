@@ -114,7 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     : null,
                 child: widget.otherUserPhoto == null ||
                         widget.otherUserPhoto!.isEmpty
-                    ? Icon(Icons.person, color: Colors.grey[400], size: 20)
+                    ? Icon(Icons.person, color: Colors.grey.shade700, size: 20)
                     : null,
               ),
               const SizedBox(width: 12),
@@ -240,7 +240,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 : null,
             child: widget.otherUserPhoto == null ||
                     widget.otherUserPhoto!.isEmpty
-                ? Icon(Icons.person, color: Colors.grey[400], size: 40)
+                ? Icon(Icons.person, color: Colors.grey.shade700, size: 40)
                 : null,
           ),
           const SizedBox(height: 16),
@@ -256,7 +256,7 @@ class _ChatScreenState extends State<ChatScreen> {
             'Start the conversation!',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[500],
+              color: Colors.grey.shade700,
             ),
           ),
         ],
@@ -291,7 +291,7 @@ class _ChatScreenState extends State<ChatScreen> {
             dateText,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: Colors.grey.shade700,
               fontWeight: FontWeight.w500,
             ),
           ),

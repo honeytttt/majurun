@@ -280,7 +280,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     icon: const Icon(Icons.refresh),
                     label: const Text('Reset to Defaults'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey[600],
+                      foregroundColor: Colors.grey.shade700,
                       side: BorderSide(color: Colors.grey[300]!),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -381,7 +381,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Not all voices may be installed on your device. If a voice sounds wrong, try Samantha.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                     ),
                   ],
                 ),
@@ -420,8 +420,8 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Slower', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                        Text('Faster', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                        Text('Slower', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                        Text('Faster', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                       ],
                     ),
                   ],
@@ -443,7 +443,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
         gradient: LinearGradient(
           colors: _settings.masterEnabled
               ? [Colors.blue.shade400, Colors.blue.shade600]
-              : [Colors.grey.shade400, Colors.grey.shade600],
+              : [Colors.grey.shade700, Colors.grey.shade700],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -494,7 +494,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey[300],
-          disabledForegroundColor: Colors.grey[500],
+          disabledForegroundColor: Colors.grey.shade700,
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -568,7 +568,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
       ),
       value: value,
       onChanged: onChanged,

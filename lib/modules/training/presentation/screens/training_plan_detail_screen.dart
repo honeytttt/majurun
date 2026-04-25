@@ -70,11 +70,11 @@ class TrainingPlanDetailScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.image_not_supported,
-                              size: 64, color: Colors.grey.shade400),
+                              size: 64, color: Colors.grey.shade700),
                           const SizedBox(height: 8),
                           Text(
                             'Plan Overview',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: Colors.grey.shade700),
                           ),
                         ],
                       ),
@@ -230,7 +230,7 @@ class TrainingPlanDetailScreen extends StatelessWidget {
           firstWorkout['description'],
           style: TextStyle(
             fontSize: 13,
-            color: Colors.grey.shade600,
+            color: Colors.grey.shade700,
           ),
         ),
         leading: Container(
@@ -266,13 +266,13 @@ class TrainingPlanDetailScreen extends StatelessWidget {
                 Row(
                   children: [
                     Icon(Icons.fitness_center,
-                        size: 16, color: Colors.grey.shade600),
+                        size: 16, color: Colors.grey.shade700),
                     const SizedBox(width: 8),
                     Text(
                       '${workouts.length} workouts this week',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade600,
+                        color: Colors.grey.shade700,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -281,13 +281,13 @@ class TrainingPlanDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.timer, size: 16, color: Colors.grey.shade600),
+                    Icon(Icons.timer, size: 16, color: Colors.grey.shade700),
                     const SizedBox(width: 8),
                     Text(
                       'Run: ${firstWorkout['runDuration'] ~/ 60} min • Walk: ${firstWorkout['walkDuration']} sec',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade600,
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],
@@ -295,13 +295,13 @@ class TrainingPlanDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.repeat, size: 16, color: Colors.grey.shade600),
+                    Icon(Icons.repeat, size: 16, color: Colors.grey.shade700),
                     const SizedBox(width: 8),
                     Text(
                       '${firstWorkout['sets']} sets per workout',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade600,
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],

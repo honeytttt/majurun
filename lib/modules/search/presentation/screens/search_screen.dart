@@ -281,7 +281,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       onSubmitted: _performSearch,
       decoration: InputDecoration(
         hintText: 'Search users or posts...',
-        hintStyle: TextStyle(color: Colors.grey[400]),
+        hintStyle: TextStyle(color: Colors.grey.shade700),
         border: InputBorder.none,
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
@@ -383,7 +383,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             message,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[500],
+              color: Colors.grey.shade700,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -392,7 +392,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             'Try a different search term',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[400],
+              color: Colors.grey.shade700,
             ),
           ),
         ],
