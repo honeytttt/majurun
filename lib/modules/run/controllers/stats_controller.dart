@@ -219,8 +219,8 @@ class StatsController extends ChangeNotifier {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     final runs = await _repository.getRunsSince(cutoff);
     int totalRuns = runs.length;
-    double totalKm = runs.fold(0.0, (sum, r) => sum + r.distanceKm);
-    int totalSeconds = runs.fold(0, (sum, r) => sum + r.durationSeconds);
+    double totalKm = runs.fold(0.0, (acc, r) => acc + r.distanceKm);
+    int totalSeconds = runs.fold(0, (acc, r) => acc + r.durationSeconds);
     return (totalRuns: totalRuns, totalKm: totalKm, totalSeconds: totalSeconds);
   }
 

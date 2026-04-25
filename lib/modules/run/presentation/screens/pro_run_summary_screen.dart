@@ -6,8 +6,6 @@ import 'package:majurun/core/services/training_load_service.dart';
 import 'package:majurun/core/services/segments_service.dart';
 import 'package:majurun/core/services/celebration_service.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:majurun/core/theme/app_effects.dart' as effects;
-import 'package:majurun/core/widgets/unified_metric_tile.dart' as metrics;
 
 /// Pro Run Summary Screen - Like Strava/Nike post-run analysis
 /// Shows PRs, training load, segments, splits, and sharing options
@@ -260,6 +258,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildWeatherSection() {
     // Check if weather data exists in the summary object or its extra data
     final temp = widget.runData.temperature;
@@ -1070,7 +1069,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             children: [
               _buildCompactStat('AVG HR', '${avgHR}'),
               _buildCompactStat('MAX HR', '${widget.runData.maxHeartRate ?? '--'}'),
-              _buildCompactStat('CALORIES', '${widget.runData.calories ?? '--'}'),
+              _buildCompactStat('CALORIES', '${widget.runData.calories}'),
             ],
           ),
         ),
@@ -1180,6 +1179,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildHRZoneBar(String label, double percentage, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

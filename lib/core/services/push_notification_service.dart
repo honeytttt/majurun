@@ -327,6 +327,7 @@ class PushNotificationService {
   static const String _badgeCountKey = 'pns_badge_count';
   static const int _clearBadgeNotifId = 999;
 
+  // ignore: unused_element
   Future<int> _loadBadgeCount() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_badgeCountKey) ?? 0;

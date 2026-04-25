@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/core/theme/app_effects.dart';
@@ -7,11 +6,9 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/core/widgets/premium_map_card.dart';
 import 'package:majurun/core/widgets/bounce_click.dart';
 import 'package:majurun/core/services/haptic_service.dart';
-import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/core/services/subscription_service.dart';
-import 'package:majurun/core/services/dm_service.dart';
 import 'package:majurun/core/widgets/report_bottom_sheet.dart';
 import 'quoted_post_preview.dart';
 import 'comment_sheet.dart';
@@ -32,6 +29,7 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin {
   late String _safeContent;
+  // ignore: prefer_final_fields
   bool _hasError = false;
   late bool _isLiked;
   late int _localLikesCount;

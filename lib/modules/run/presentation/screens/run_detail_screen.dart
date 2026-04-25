@@ -526,6 +526,7 @@ Keep moving 💪
     );
   }
 
+  // ignore: unused_element
   Widget _buildMainStat(String label, String value) {
     return Column(
       children: [
@@ -536,6 +537,7 @@ Keep moving 💪
     );
   }
 
+  // ignore: unused_element
   Widget _buildSecondaryStat(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(
       children: [

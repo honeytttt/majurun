@@ -39,6 +39,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
+  // ignore: unused_field
   Map<String, int> _remainingPosts = {};
 
   // Hashtag suggestion state
