@@ -23,6 +23,7 @@ import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -152,6 +153,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _navigateToShoeTracker() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ShoeTrackerScreen()),
+    );
+  }
+
   void _navigateToPrivacySettings() {
     Navigator.push(
       context,
@@ -251,6 +259,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   text: 'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
                 ));
               },
+            ),
+          ),
+          // Shoe Tracker Button
+          Semantics(
+            button: true,
+            label: 'Shoe tracker',
+            child: IconButton(
+              icon: const Icon(Icons.directions_run, color: Color(0xFF7ED957)),
+              tooltip: 'My Shoes',
+              onPressed: _navigateToShoeTracker,
             ),
           ),
           // Voice Coach Settings Button
@@ -784,7 +802,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: List.generate(7, (index) {
                       final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
                       final dayRuns = summary.runsByDay[index + 1];
-                      final hasRun = dayRuns != null && dayRuns.runs.isNotEmpty;
+                      final hasRun = dayRuns != null && dayRuns.runs > 0;
                       
                       return Column(
                         children: [
