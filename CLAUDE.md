@@ -36,7 +36,7 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 134** (version 1.0.0+134)
+- Last known upload: **build 135** (version 1.0.0+135)
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
 
@@ -99,6 +99,27 @@ If the log shows: `The bundle version must be higher than the previously uploade
 - Weekly notifications (Sunday 20:00) are written to Firestore via `_catchUpWeeklyInAppNotification()`
 - Both are called from `scheduleDefaultNotifications()` which runs on every login
 - Weekly uses ISO week number as dedup key so it only writes once per week
+
+### Notifications Status (as of build 134+)
+- Daily notifications (07:30 morning, 19:00 evening) — **working correctly** on both iOS and Android
+- Weekly notifications (Sunday 20:00) — **working correctly**, appear in both device notifications and in-app inbox
+- Do not change the notification scheduling or catchup logic — it is confirmed working
+
+### Map "No Route Data" Handling — Professional Rule
+**Never show "No map preview available" or any placeholder text/icon when route data is absent.**
+- If no route points → show **nothing** (`SizedBox.shrink()`)
+- This applies to: `RunMapPreview._placeholder()`, `run_detail_screen.dart` map section, any future map widget
+- Users interpret error placeholders as the app being broken — silence is correct UX
+- `RunMapPreview` already handles this: `_placeholder()` returns `SizedBox.shrink()`
+- `run_detail_screen.dart` map section: `else const SizedBox.shrink()`
+
+### Feed Map — Use RunMapPreview (post_card.dart)
+- **Always use `RunMapPreview`** (not `PremiumMapCard`) for route maps in the post feed
+- `RunMapPreview` uses `liteModeEnabled: true` — renders a static bitmap, no native GL context
+- `PremiumMapCard` uses a full `GoogleMap` with parallax — creates a GL context per card → OOM crash on Android when scrolling fast
+- `PremiumMapCard` is only for single-map detail screens, never for lists/feeds
+
+---
 
 ### Android Build & Manual Update Process
 

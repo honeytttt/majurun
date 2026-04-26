@@ -164,20 +164,7 @@ class RunMapPreview extends StatelessWidget {
     return null;
   }
 
-  Widget _placeholder(String msg) => Container(
-    height: 200,
-    decoration: BoxDecoration(
-      color: Colors.grey[200],
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
-        const SizedBox(height: 8),
-        Text(msg, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-      ]),
-    ),
-  );
+  Widget _placeholder(String msg) => const SizedBox.shrink();
 }
 
 /// Full-screen interactive map opened when user taps a feed map preview.

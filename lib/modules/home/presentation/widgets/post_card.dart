@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
-import 'package:majurun/core/widgets/premium_map_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
 import 'package:majurun/core/widgets/bounce_click.dart';
 import 'package:majurun/core/services/haptic_service.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
@@ -273,7 +273,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                   ),
                   const SizedBox(width: 4),
                   _actionBtn(
-                    icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                    icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border,
                     color: _isSaved ? const Color(0xFFFFD700) : const Color(0xFF8888AA),
                     active: _isSaved,
                     onTap: currentUserId.isNotEmpty ? () => _toggleSave(currentUserId) : null,
@@ -306,7 +306,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     final hasRoute = widget.post.routePoints != null && widget.post.routePoints!.isNotEmpty;
 
     if (hasRoute) {
-      return PremiumMapCard(points: widget.post.routePoints!, label: widget.post.runPlanTitle);
+      return RunMapPreview(points: widget.post.routePoints!);
     }
 
     if (media.isNotEmpty) {

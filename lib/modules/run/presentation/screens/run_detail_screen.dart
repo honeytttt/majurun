@@ -406,24 +406,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               else if (hasMapImage)
                 _buildNetworkPreview(mapImageUrl) // fallback to cached screenshot if no GPS data
               else
-                Container(
-                  height: 300,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.map_outlined, color: Colors.grey.shade400, size: 48),
-                        const SizedBox(height: 12),
-                        Text('No map preview available', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
-                      ],
-                    ),
-                  ),
-                ),
+                const SizedBox.shrink(),
 
               if (!hasMapImage && hasRoute) ...[
                 const SizedBox(height: 10),
