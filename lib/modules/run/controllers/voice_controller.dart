@@ -171,26 +171,46 @@ class VoiceController extends ChangeNotifier {
         await _tts.stop();
         debugPrint("✅ Voice initialized for WEB (warmed up)");
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-        // Do NOT call setIosAudioCategory here — it internally calls
-        // AVAudioSession.setActive(true), which immediately ducks/stops
-        // Spotify, Apple Music, Udemy at app launch before any run starts.
-        // AppDelegate.swift already set the correct category (.playback +
-        // mixWithOthers + duckOthers) WITHOUT activating the session.
-        // flutter_tts will activate the session lazily only when speak() is
-        // called, which is the correct Strava/Nike behavior.
         final name = voiceName.isNotEmpty ? voiceName : 'Samantha';
         await _tts.setVoice({"name": name, "locale": "en-US"});
         await _tts.setLanguage("en-US");
         await _tts.setSpeechRate(_settings.speechRate);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
-        debugPrint("✅ Voice initialized for iOS ($name) with mixWithOthers");
+        debugPrint("✅ Voice initialized for iOS ($name)");
       } else {
         await _tts.setLanguage("en-US");
         await _tts.setSpeechRate(_settings.speechRate);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
         debugPrint("✅ Voice initialized (default)");
+      }
+
+      // Configure audio session ONCE with duck-only settings so background
+      // music (Spotify, Apple Music) lowers volume during announcements and
+      // resumes at full volume when TTS finishes — NOT paused/stopped.
+      // .speech() uses exclusive focus (AndroidAudioFocusGainType.gain) which
+      // pauses Spotify. We use gainTransientMayDuck + duckOthers instead.
+      if (!kIsWeb) {
+        final session = await AudioSession.instance;
+        await session.configure(const AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playback,
+          avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+          avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+          androidAudioAttributes: AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.speech,
+            usage: AndroidAudioUsage.assistanceNavigationGuidance,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+          androidWillPauseWhenDucked: false,
+        ));
+        // Deactivate session after each TTS phrase so music restores immediately
+        _tts.setCompletionHandler(() async {
+          try {
+            final s = await AudioSession.instance;
+            await s.setActive(false);
+          } catch (_) {}
+        });
       }
 
       _isInitialized = true;
@@ -229,9 +249,9 @@ class VoiceController extends ChangeNotifier {
       if (!_isInitialized) await _initTts();
 
       if (!kIsWeb) {
+        // Session already configured with duckOthers in _initTts().
+        // Just activate — music ducks. Completion handler deactivates.
         final session = await AudioSession.instance;
-        // This ensures music ducks when the coach speaks
-        await session.configure(const AudioSessionConfiguration.speech());
         await session.setActive(true);
       }
 

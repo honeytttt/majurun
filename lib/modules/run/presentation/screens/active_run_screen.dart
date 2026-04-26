@@ -42,10 +42,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Hold-to-End Run
-  late AnimationController _holdController;
-  Timer? _hapticTimer;
-  static const Duration _holdDuration = Duration(milliseconds: 1500);
 
   @override
   void initState() {
@@ -61,20 +57,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Hold-to-End animation (linear fill over _holdDuration)
-    _holdController = AnimationController(
-      duration: _holdDuration,
-      vsync: this,
-    );
-    _holdController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _hapticTimer?.cancel();
-        HapticFeedback.heavyImpact();
-        final rc = context.read<RunController>();
-        _handleStopRun(rc);
-      }
-    });
-
     _loadAvatarMarker();
     // Re-assert wakelock — iOS may drop it during TTS/audio session changes
     WakeLockService.enable();
@@ -83,26 +65,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   @override
   void dispose() {
     _pulseController.dispose();
-    _holdController.dispose();
-    _hapticTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
-  }
-
-  void _onHoldStart() {
-    HapticFeedback.mediumImpact();
-    _holdController.forward(from: 0.0);
-    // Haptic tick every 300 ms during hold
-    _hapticTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
-      HapticFeedback.selectionClick();
-    });
-  }
-
-  void _onHoldEnd() {
-    if (_holdController.status != AnimationStatus.completed) {
-      _holdController.reverse();
-    }
-    _hapticTimer?.cancel();
   }
 
   @override
@@ -786,12 +750,44 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
           const SizedBox(width: 12),
 
-          // Hold-to-End Run button
+          // End Run button — single tap with confirmation dialog
           Expanded(
-            child: _HoldToEndButton(
-              holdController: _holdController,
-              onHoldStart: _onHoldStart,
-              onHoldEnd: _onHoldEnd,
+            child: GestureDetector(
+              onTap: () {
+                final rc = context.read<RunController>();
+                _handleStopRun(rc);
+              },
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB71C1C),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.stop_circle_outlined, size: 22, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'END RUN',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -1178,93 +1174,5 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       debugPrint("❌ Selfie pick error: $e");
       return null;
     }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Hold-to-End Run Button
-// NRC-style: user must hold for 1.5 s — accidental taps do nothing.
-// ─────────────────────────────────────────────────────────────────────────────
-class _HoldToEndButton extends StatelessWidget {
-  const _HoldToEndButton({
-    required this.holdController,
-    required this.onHoldStart,
-    required this.onHoldEnd,
-  });
-
-  final AnimationController holdController;
-  final VoidCallback onHoldStart;
-  final VoidCallback onHoldEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPressStart: (_) => onHoldStart(),
-      onLongPressEnd: (_) => onHoldEnd(),
-      onLongPressCancel: onHoldEnd,
-      child: AnimatedBuilder(
-        animation: holdController,
-        builder: (context, _) {
-          final progress = holdController.value;
-          return Container(
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              // Background shifts from red[700] → red[900] as user holds
-              color: Color.lerp(
-                const Color(0xFFB71C1C),
-                const Color(0xFF7F0000),
-                progress,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.red.withValues(alpha: 0.35 + 0.25 * progress),
-                  blurRadius: 8 + 12 * progress,
-                  spreadRadius: progress * 4,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                children: [
-                  // Fill overlay
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: progress,
-                      child: Container(
-                        color: const Color(0xFFEF5350).withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ),
-                  // Label
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.stop_circle_outlined,
-                            size: 22, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Text(
-                          progress > 0.05 ? 'ENDING…' : 'HOLD TO END',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                            color: Colors.white.withValues(
-                                alpha: progress > 0.05 ? 1.0 : 0.85),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
   }
 }
