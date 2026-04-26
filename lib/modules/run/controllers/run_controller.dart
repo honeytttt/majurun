@@ -458,13 +458,26 @@ class RunController extends ChangeNotifier {
 
   /// Poll HealthKit/Health Connect for the most recent heart rate reading.
   /// Runs every 15 seconds while a run is active.
+  ///
+  /// iOS note: Apple Watch writes HR to HealthKit every ~5-10 min when the
+  /// app is not a registered Workout session. We use a 15-min lookback to
+  /// catch the most recent sample. Authorization is requested each time
+  /// (no-op if already granted — required for HealthKit to return data).
   void _startHrPolling() {
     _hrPollTimer?.cancel();
     _hrPollTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
       try {
         final health = Health();
+        // Request/confirm authorization — HealthKit silently returns empty if
+        // the app hasn't been granted read permission for HEART_RATE.
+        await health.requestAuthorization(
+          [HealthDataType.HEART_RATE],
+          permissions: [HealthDataAccess.READ],
+        );
         final now = DateTime.now();
-        final from = now.subtract(const Duration(minutes: 3));
+        // 15-min window: Apple Watch may not write HR more frequently when
+        // MajuRun is not an official workout session provider.
+        final from = now.subtract(const Duration(minutes: 15));
         final points = await health.getHealthDataFromTypes(
           startTime: from,
           endTime: now,
@@ -476,6 +489,7 @@ class RunController extends ChangeNotifier {
         final bpm = value is NumericHealthValue ? value.numericValue.toInt() : 0;
         if (bpm > 0 && bpm != stateController.currentBpm) {
           stateController.currentBpm = bpm;
+          debugPrint('💓 HR updated: $bpm BPM');
           notifyListeners();
         }
       } catch (_) {

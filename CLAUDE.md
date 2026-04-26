@@ -36,7 +36,7 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 132** (version 1.0.0+132)
+- Last known upload: **build 133** (version 1.0.0+133)
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
 
@@ -89,14 +89,42 @@ If the log shows: `The bundle version must be higher than the previously uploade
 ### Heart Rate During Runs (run_controller.dart)
 - `stateController.currentBpm` is polled from HealthKit/Health Connect every 15 seconds via `_startHrPolling()`
 - Polling starts in `startAutoSave()` and stops in `stopAutoSave()`
-- BPM reads from `HealthDataType.HEART_RATE` over the last 3 minutes, takes the most recent value
-- Stays at 0 if no wearable is connected or health permissions not granted — this is correct/expected
+- **Must call `health.requestAuthorization([HealthDataType.HEART_RATE])` before querying** — HealthKit silently returns empty if not authorized
+- Uses 15-minute lookback window — Apple Watch writes HR every ~5-10 min when app is not an official workout session provider
+- Stays at 0 if no wearable connected or health permissions denied — this is correct/expected
+- If HR still shows 0: check Health app → MajuRun → has read permission for Heart Rate
 
 ### Weekly Notification In-App Inbox (push_notification_service.dart)
 - Daily notifications (07:30 morning, 19:00 evening) are written to Firestore via `_catchUpDailyInAppNotifications()`
 - Weekly notifications (Sunday 20:00) are written to Firestore via `_catchUpWeeklyInAppNotification()`
 - Both are called from `scheduleDefaultNotifications()` which runs on every login
 - Weekly uses ISO week number as dedup key so it only writes once per week
+
+### Android Build & Manual Update Process
+
+**CI builds an AAB (App Bundle) — this goes to Play Store internal track automatically.**
+`continue-on-error: true` is set on the Play Store upload step — check CI logs to confirm upload succeeded.
+
+#### Option A — Play Store Internal Track (recommended for testing)
+1. Go to [Play Console](https://play.google.com/console) → MajuRun → Internal Testing
+2. Check that the new build appears (AAB uploaded by CI)
+3. On the Android test device: open Play Store → search MajuRun → update
+4. If no update appears: tap profile icon → Manage apps → MajuRun → Update
+
+#### Option B — Manual APK sideload (for immediate testing without Play Store)
+1. Go to GitHub → Actions → Android Build
+2. Click **Run workflow** (manual dispatch) → set `build_type: apk`, `environment: prod` → Run
+3. Wait for build to complete (~15 min)
+4. Download artifact: `MajuRun-prod-APK-<run_number>.zip`
+5. Unzip → `app-release.apk`
+6. Transfer to device (USB or cloud) and install
+   - If "Install unknown apps" blocked: Settings → Security → Install unknown apps → enable for Files/browser
+   - Or via USB: `adb install app-release.apk`
+
+#### Why CI AAB doesn't auto-update the device
+- AAB → Play Store internal track → device needs to CHECK for update in Play Store
+- Play Store does not push updates instantly — device must open Play Store and tap Update
+- APK sideload bypasses Play Store entirely — install is immediate
 
 ---
 
