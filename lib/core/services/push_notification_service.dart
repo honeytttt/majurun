@@ -442,13 +442,10 @@ class PushNotificationService {
   Future<void> requestBatteryOptimizationExemption() async {
     if (!Platform.isAndroid) return;
     try {
-      final status = await Permission.ignoreBatteryOptimizations.status;
-      if (!status.isGranted) {
-        await Permission.ignoreBatteryOptimizations.request();
-        debugPrint('🔋 Battery optimization exemption requested');
-      } else {
-        debugPrint('🔋 Battery optimization already exempt');
-      }
+      // Always request — if already granted Android still opens the settings page
+      // so the user can confirm it's configured correctly.
+      await Permission.ignoreBatteryOptimizations.request();
+      debugPrint('🔋 Battery optimization exemption requested');
     } catch (e) {
       debugPrint('⚠️ Could not request battery optimization exemption: $e');
     }
@@ -883,6 +880,15 @@ class PushNotificationService {
       await androidPlugin?.requestExactAlarmsPermission();
     } catch (e) {
       debugPrint('⚠️ Could not open exact alarm settings: $e');
+    }
+  }
+
+  /// Opens the system app notification settings page (iOS & Android).
+  Future<void> openNotificationSettings() async {
+    try {
+      await openAppSettings();
+    } catch (e) {
+      debugPrint('⚠️ Could not open app settings: $e');
     }
   }
 

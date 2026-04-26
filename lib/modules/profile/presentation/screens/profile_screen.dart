@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -998,35 +999,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(fontSize: 13, color: Colors.grey[700]),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => PushNotificationService().requestBatteryOptimizationExemption(),
-                    icon: const Icon(Icons.battery_saver, size: 16),
-                    label: const Text('Ignore Optimization'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+            if (!kIsWeb && Platform.isIOS) ...[
+              // iOS: open system notification settings
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await PushNotificationService().openNotificationSettings();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Opening notification settings...')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.settings, size: 16),
+                  label: const Text('Open Notification Settings'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => PushNotificationService().requestExactAlarmPermission(),
-                    icon: const Icon(Icons.alarm, size: 16),
-                    label: const Text('Allow Exact Alarms'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await PushNotificationService().requestBatteryOptimizationExemption();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('System settings opened — find MajuRun and tap "Don\'t optimize"'),
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.battery_saver, size: 16),
+                      label: const Text('Ignore Optimization'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await PushNotificationService().requestExactAlarmPermission();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Exact alarm permission requested — tap Allow if prompted'),
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.alarm, size: 16),
+                      label: const Text('Allow Exact Alarms'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,

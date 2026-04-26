@@ -20,6 +20,7 @@ import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 import 'package:majurun/core/services/dm_service.dart';
 import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class PostCard extends StatefulWidget {
   final AppPost post;
@@ -35,6 +36,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   bool _hasError = false;
   late bool _isLiked;
   late int _localLikesCount;
+  bool _isSaved = false;
 
   late final PostRepositoryImpl _repo;
   late final SubscriptionService _subscriptionService;
@@ -222,45 +224,62 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                     const Divider(height: 1, color: Color(0xFF2D2D44)),
 
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
                       child: Row(
                         children: [
-                          BounceClick(
+                          // Like
+                          _actionBtn(
+                            icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: _isLiked ? const Color(0xFFFF4D6D) : const Color(0xFF8888AA),
+                            label: _localLikesCount > 0 ? '$_localLikesCount' : null,
+                            active: _isLiked,
                             onTap: currentUserId.isNotEmpty ? () => _toggleLike(currentUserId) : null,
-                            child: Row(
-                              children: [
-                                Icon(_isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 20, color: _isLiked ? Colors.redAccent : Colors.grey[400]),
-                                const SizedBox(width: 6),
-                                Text('$_localLikesCount', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _isLiked ? Colors.redAccent : Colors.grey[400])),
-                              ],
-                            ),
                           ),
-                          const SizedBox(width: 24),
-                          BounceClick(
+                          const SizedBox(width: 4),
+                          // Comment
+                          _actionBtn(
+                            icon: Icons.mode_comment_rounded,
+                            color: const Color(0xFF8888AA),
+                            label: widget.post.comments.isNotEmpty ? '${widget.post.comments.length}' : null,
                             onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => CommentSheet(postId: widget.post.id)),
-                            child: Row(
-                              children: [
-                                Icon(Icons.chat_bubble_outline_rounded, size: 20, color: Colors.grey[400]),
-                                const SizedBox(width: 6),
-                                Text('${widget.post.comments.length}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey[400])),
-                              ],
-                            ),
                           ),
-                          if (!isOwnPost && currentUserId.isNotEmpty) ...[
-                            const SizedBox(width: 24),
-                            BounceClick(
-                              onTap: () => _openDm(context),
-                              child: Icon(Icons.send_rounded, size: 20, color: Colors.grey[400]),
-                            ),
-                          ],
-                          const Spacer(),
-                          BounceClick(
+                          // Repost
+                          const SizedBox(width: 4),
+                          _actionBtn(
+                            icon: Icons.repeat_rounded,
+                            color: const Color(0xFF8888AA),
                             onTap: currentUserId.isNotEmpty ? () {
                               HapticService().medium();
                               final username = currentUser?.displayName ?? "Runner";
                               _repo.repost(widget.post, currentUserId, username);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Reposted!'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF00E676)),
+                              );
                             } : null,
-                            child: Icon(Icons.repeat_rounded, size: 20, color: Colors.grey[400]),
+                          ),
+                          // DM — only for other's posts
+                          if (!isOwnPost && currentUserId.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            _actionBtn(
+                              icon: Icons.near_me_rounded,
+                              color: const Color(0xFF8888AA),
+                              onTap: () => _openDm(context),
+                            ),
+                          ],
+                          const Spacer(),
+                          // Share
+                          _actionBtn(
+                            icon: Icons.ios_share_rounded,
+                            color: const Color(0xFF8888AA),
+                            onTap: () => _sharePost(context),
+                          ),
+                          const SizedBox(width: 4),
+                          // Bookmark/Save
+                          _actionBtn(
+                            icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            color: _isSaved ? const Color(0xFFFFD700) : const Color(0xFF8888AA),
+                            active: _isSaved,
+                            onTap: currentUserId.isNotEmpty ? () => _toggleSave(currentUserId) : null,
                           ),
                         ],
                       ),
@@ -378,6 +397,57 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           otherUserName: widget.post.username,
         ),
       ));
+    }
+  }
+
+  Widget _actionBtn({
+    required IconData icon,
+    required Color color,
+    String? label,
+    bool active = false,
+    VoidCallback? onTap,
+  }) {
+    return BounceClick(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: label != null ? 10 : 8, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 19, color: color),
+            if (label != null) ...[
+              const SizedBox(width: 5),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sharePost(BuildContext context) {
+    final text = widget.post.content.trim().isNotEmpty
+        ? '${widget.post.username}: ${widget.post.content.trim()}\n\nPosted on MajuRun'
+        : '${widget.post.username} posted a run on MajuRun';
+    SharePlus.instance.share(ShareParams(text: text));
+  }
+
+  void _toggleSave(String currentUserId) {
+    HapticService().light();
+    setState(() => _isSaved = !_isSaved);
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .collection('savedPosts')
+        .doc(widget.post.id);
+    if (_isSaved) {
+      ref.set({'savedAt': FieldValue.serverTimestamp(), 'postId': widget.post.id});
+    } else {
+      ref.delete();
     }
   }
 
