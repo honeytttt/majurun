@@ -33,6 +33,8 @@ import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/storage_service.dart';
 import 'package:majurun/core/theme/app_theme.dart';
 import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.dart';
+import 'package:majurun/modules/challenges/presentation/screens/challenges_screen.dart';
+import 'package:majurun/core/services/daily_challenge_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -408,6 +410,10 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _showNewPostsBanner = false;
   int _newPostCount = 0;
 
+  // Daily challenge summary for the feed banner
+  int _challengesDone = 0;
+  int _challengesTotal = 0;
+
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && !user.emailVerified && !_bannerDismissed;
@@ -441,6 +447,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     _feedScrollController.addListener(_onScroll);
     HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
     _loadBlockedUsers();
+    _loadChallengeSummary();
     
     // Load cached posts for instant startup
     final cached = CacheService().getCachedPosts();
@@ -459,6 +466,20 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           .collection('blockedUsers')
           .get();
       if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
+    } catch (_) {}
+  }
+
+  Future<void> _loadChallengeSummary() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final challenges = await DailyChallengeService().getDailyChallenges(uid);
+      if (mounted) {
+        setState(() {
+          _challengesTotal = challenges.length;
+          _challengesDone = challenges.where((c) => c['completed'] == true).length;
+        });
+      }
     } catch (_) {}
   }
 
@@ -758,6 +779,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   ),
                 ),
 
+              // Daily Challenges banner
+              SliverToBoxAdapter(
+                child: _buildChallengesBanner(context),
+              ),
+
               displayPosts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
@@ -1044,6 +1070,103 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildChallengesBanner(BuildContext context) {
+    final allDone = _challengesTotal > 0 && _challengesDone == _challengesTotal;
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ChallengesScreen()),
+        );
+        // Refresh summary when returning
+        _loadChallengeSummary();
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: allDone
+                ? [const Color(0xFF1A2A1A), const Color(0xFF0D1A10)]
+                : [const Color(0xFF1A1A2E), const Color(0xFF0F0F1F)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: allDone
+                ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                : const Color(0xFF2D2D44),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: allDone
+                    ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                    : const Color(0xFF2D2D44),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                allDone ? Icons.emoji_events : Icons.flag_outlined,
+                color: allDone ? const Color(0xFF00E676) : Colors.white70,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    allDone ? 'All challenges done! 🎉' : 'Daily Challenges',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (_challengesTotal > 0)
+                    Text(
+                      '$_challengesDone / $_challengesTotal completed',
+                      style: TextStyle(
+                        color: allDone
+                            ? const Color(0xFF00E676)
+                            : Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (_challengesTotal > 0)
+              SizedBox(
+                width: 60,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _challengesTotal > 0
+                        ? _challengesDone / _challengesTotal
+                        : 0,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      allDone ? const Color(0xFF00E676) : const Color(0xFF4FC3F7),
+                    ),
+                    minHeight: 6,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }

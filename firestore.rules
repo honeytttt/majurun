@@ -68,6 +68,20 @@ service cloud.firestore {
         allow write: if isOwner(userId) || isAdmin();
       }
 
+      // User's daily/weekly/monthly challenges
+      match /dailyChallenges/{docId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      match /weeklyChallenges/{docId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+      match /monthlyChallenges/{docId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
       // User's run history subcollection
       match /runHistory/{runId} {
         allow read: if isAuthenticated();
