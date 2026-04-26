@@ -151,6 +151,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       if (!connected) {
         if (!mounted) { setState(() => _isSyncing = false); return; }
         final ctx = context;
+        // ignore: use_build_context_synchronously — ctx captured before async gap; strava.authorize requires a BuildContext for OAuth webview
         final authorized = await strava.authorize(ctx);
         if (!authorized || !mounted) {
           setState(() => _isSyncing = false);

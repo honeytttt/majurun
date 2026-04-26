@@ -947,7 +947,7 @@ class PushNotificationService {
         "Good morning, runner! 🌅",
         message,
         scheduled,
-        NotificationDetails(
+        const NotificationDetails(
           android: AndroidNotificationDetails(
             _runReminderChannelId,
             'Run Reminders',
@@ -955,7 +955,7 @@ class PushNotificationService {
             priority: Priority.defaultPriority,
             icon: '@mipmap/ic_launcher',
           ),
-          iOS: const DarwinNotificationDetails(
+          iOS: DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
@@ -1004,7 +1004,7 @@ class PushNotificationService {
         "Time for a run? 🏃",
         message,
         scheduled,
-        NotificationDetails(
+        const NotificationDetails(
           android: AndroidNotificationDetails(
             _runReminderChannelId,
             'Run Reminders',
@@ -1012,7 +1012,7 @@ class PushNotificationService {
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
           ),
-          iOS: const DarwinNotificationDetails(
+          iOS: DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
@@ -1058,7 +1058,7 @@ class PushNotificationService {
       "Unlock MajuRun Pro 🚀",
       message,
       scheduled,
-      NotificationDetails(
+      const NotificationDetails(
         android: AndroidNotificationDetails(
           _runReminderChannelId,
           'Run Reminders',
@@ -1066,7 +1066,7 @@ class PushNotificationService {
           priority: Priority.defaultPriority,
           icon: '@mipmap/ic_launcher',
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
@@ -1180,7 +1180,7 @@ class PushNotificationService {
     if (!Platform.isAndroid) return;
     if (imported == 0) return; // nothing to report
 
-    final androidDetails = AndroidNotificationDetails(
+    const androidDetails = AndroidNotificationDetails(
       _runReminderChannelId,
       'Run Reminders',
       importance: Importance.defaultImportance,
@@ -1192,7 +1192,7 @@ class PushNotificationService {
       _syncProgressNotifId,
       'Health sync complete',
       'Imported $imported run${imported == 1 ? '' : 's'} from your health apps.',
-      NotificationDetails(android: androidDetails),
+      const NotificationDetails(android: androidDetails),
     );
   }
 
