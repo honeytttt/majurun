@@ -6,8 +6,6 @@ import 'package:majurun/core/services/training_load_service.dart';
 import 'package:majurun/core/services/segments_service.dart';
 import 'package:majurun/core/services/celebration_service.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:majurun/core/theme/app_effects.dart' as effects;
-import 'package:majurun/core/widgets/unified_metric_tile.dart' as metrics;
 
 /// Pro Run Summary Screen - Like Strava/Nike post-run analysis
 /// Shows PRs, training load, segments, splits, and sharing options
@@ -256,55 +254,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildWeatherSection() {
-    // Check if weather data exists in the summary object or its extra data
-    final temp = widget.runData.temperature;
-    final condition = widget.runData.weather;
-    
-    if (temp == null && condition == null) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.wb_cloudy_outlined, color: Color(0xFF7ED957), size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'WEATHER',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${temp ?? '--'} • ${condition ?? 'Unknown'}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1070,7 +1019,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             children: [
               _buildCompactStat('AVG HR', '${avgHR}'),
               _buildCompactStat('MAX HR', '${widget.runData.maxHeartRate ?? '--'}'),
-              _buildCompactStat('CALORIES', '${widget.runData.calories ?? '--'}'),
+              _buildCompactStat('CALORIES', '${widget.runData.calories}'),
             ],
           ),
         ),
@@ -1176,56 +1125,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHRZoneBar(String label, double percentage, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 11,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              height: 16,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: percentage,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 40,
-            child: Text(
-              '${(percentage * 100).round()}%',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

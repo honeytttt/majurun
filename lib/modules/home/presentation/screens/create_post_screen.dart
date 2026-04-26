@@ -39,8 +39,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   final List<PostMedia> _mediaList = [];
   bool _isUploading = false;
-  Map<String, int> _remainingPosts = {};
-
   // Hashtag suggestion state
   List<String> _tagSuggestions = [];
   String _currentTagQuery = '';
@@ -120,24 +118,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (userId == null) return;
 
     try {
-      final remaining = await _limitService.getRemainingPostsToday(userId);
-      if (mounted) {
-        setState(() {
-          _remainingPosts = remaining;
-        });
-      }
+      await _limitService.getRemainingPostsToday(userId);
     } catch (e) {
       debugPrint('❌ Error loading post limits: $e');
-      if (mounted) {
-        setState(() {
-          _remainingPosts = {
-            'total': PostLimitService.maxTotalPostsPerDay,
-            'image': PostLimitService.maxImagePostsPerDay,
-            'video': PostLimitService.maxVideoPostsPerDay,
-            'text': PostLimitService.maxTextPostsPerDay,
-          };
-        });
-      }
     }
   }
 

@@ -364,7 +364,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.black),
               onSelected: (value) async {
-                final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
                 if (value == 'block') {
                   await _toggleBlock();
                 } else if (value == 'report') {
