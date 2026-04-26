@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
+import 'package:majurun/modules/run/presentation/screens/pro_run_summary_screen.dart';
 
 
 class RunDetailScreen extends StatefulWidget {
@@ -212,6 +213,21 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
+            icon: const Icon(Icons.analytics_outlined, color: Colors.black),
+            tooltip: 'Deep Analysis',
+            onPressed: () => _openProSummary(
+              distanceDouble: distanceDouble,
+              durationSeconds: durationSeconds,
+              pace: pace,
+              calories: calories,
+              date: date,
+              routePoints: routePoints,
+              avgBpm: avgBpm,
+              elevGain: elevGain,
+              elevLoss: elevLoss,
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.share, color: Colors.black),
             onPressed: () => _shareRun(),
           ),
@@ -359,8 +375,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
           // ── Weather at time of run ───────────────────────────────────────
           if (hasWeather)
             _buildWeatherCard(
-              temp: weatherTemp ?? 0,
-              condition: weatherCondition ?? '',
+              temp: weatherTemp!,
+              condition: weatherCondition!,
               windKmh: weatherWind,
               humidity: weatherHumidity,
               location: weatherLocation,
@@ -437,6 +453,49 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         ]),
       ),
     );
+  }
+
+  void _openProSummary({
+    required double distanceDouble,
+    required int durationSeconds,
+    required dynamic pace,
+    required dynamic calories,
+    required DateTime date,
+    required List<LatLng> routePoints,
+    required int avgBpm,
+    required double elevGain,
+    required double elevLoss,
+  }) {
+    // Parse pace string "M:SS" → seconds per km
+    double paceSecondsPerKm = 0;
+    try {
+      final parts = pace.toString().split(':');
+      if (parts.length == 2) {
+        paceSecondsPerKm = int.parse(parts[0]) * 60.0 + int.parse(parts[1]);
+      }
+    } catch (_) {}
+
+    final caloriesInt = calories is int ? calories : (calories is num ? calories.toInt() : 0);
+
+    final runData = RunSummaryData(
+      runId: widget.runData['id']?.toString() ?? widget.runData['docId']?.toString() ?? '',
+      activityName: widget.runData['planTitle']?.toString() ?? widget.runData['title']?.toString() ?? 'Run',
+      completedAt: date,
+      distanceMeters: distanceDouble * 1000,
+      durationSeconds: durationSeconds,
+      avgPaceSecondsPerKm: paceSecondsPerKm > 0 ? paceSecondsPerKm : (durationSeconds / (distanceDouble > 0 ? distanceDouble : 1)),
+      calories: caloriesInt,
+      routePoints: routePoints,
+      splits: const [],
+      avgHeartRate: avgBpm > 0 ? avgBpm : null,
+      elevationGain: elevGain > 0 ? elevGain : null,
+      elevationLoss: elevLoss > 0 ? elevLoss : null,
+      weather: widget.runData['condition']?.toString(),
+      temperature: widget.runData['temp'] != null ? '${widget.runData['temp']}°C' : null,
+      humidity: widget.runData['humidity'] != null ? '${widget.runData['humidity']}%' : null,
+    );
+
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ProRunSummaryScreen(runData: runData)));
   }
 
   // Share text includes session info

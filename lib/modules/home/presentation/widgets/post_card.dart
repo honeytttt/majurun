@@ -18,6 +18,8 @@ import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+import 'package:majurun/core/services/dm_service.dart';
+import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
 
 class PostCard extends StatefulWidget {
   final AppPost post;
@@ -244,6 +246,13 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                               ],
                             ),
                           ),
+                          if (!isOwnPost && currentUserId.isNotEmpty) ...[
+                            const SizedBox(width: 24),
+                            BounceClick(
+                              onTap: () => _openDm(context),
+                              child: Icon(Icons.send_rounded, size: 20, color: Colors.grey[400]),
+                            ),
+                          ],
                           const Spacer(),
                           BounceClick(
                             onTap: currentUserId.isNotEmpty ? () {
@@ -319,11 +328,23 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           if (await _showDeleteDialog(context, isAdmin: isAdmin && !isOwn) == true) await _repo.deletePost(widget.post.id);
         } else if (val == 'report') {
           await ReportBottomSheet.showForPost(context, postId: widget.post.id, postOwnerId: widget.post.userId);
+        } else if (val == 'dm') {
+          await _openDm(context);
         }
       },
       itemBuilder: (ctx) => [
         if (canModify) const PopupMenuItem(value: 'delete', child: Text('Delete Post', style: TextStyle(color: Colors.red))),
         if (!isOwn) const PopupMenuItem(value: 'report', child: Text('Report Post')),
+        if (!isOwn) const PopupMenuItem(
+          value: 'dm',
+          child: Row(
+            children: [
+              Icon(Icons.send_rounded, size: 18, color: Color(0xFF00E676)),
+              SizedBox(width: 10),
+              Text('Message Runner'),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -338,6 +359,26 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
 
   Future<bool?> _showDeleteDialog(BuildContext context, {bool isAdmin = false}) {
     return showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text(isAdmin ? "Admin Delete?" : "Delete?"), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: Colors.red)))]));
+  }
+
+  Future<void> _openDm(BuildContext context) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final conversationId = await DmService().getOrCreateConversation(
+      currentUserId: currentUser.uid,
+      otherUserId: widget.post.userId,
+      currentUserName: currentUser.displayName ?? 'Runner',
+      otherUserName: widget.post.username,
+    );
+    if (conversationId != null && context.mounted) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversationId: conversationId,
+          otherUserId: widget.post.userId,
+          otherUserName: widget.post.username,
+        ),
+      ));
+    }
   }
 
   Future<String> _getUserPhotoUrl(String userId) async {
