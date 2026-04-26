@@ -424,12 +424,16 @@ class PushNotificationService {
   /// Fire an immediate test notification to verify the entire pipeline works.
   Future<void> sendTestNotification() async {
     await _ensureInitialized();
+    const title = 'MajuRun Notifications ✅';
+    const body = 'Notifications are working! Your daily reminders will appear here.';
     await _showLocalNotification(
-      title: 'MajuRun Notifications ✅',
-      body: 'Notifications are working! Your daily reminders will appear here.',
+      title: title,
+      body: body,
       channelId: _runReminderChannelId,
       payload: jsonEncode({'type': 'reminder'}),
     );
+    // Also write to the in-app notification centre so it appears in the bell screen.
+    await _writeInAppNotification(title: title, body: body, type: 'reminder');
   }
 
   /// Request Android battery optimization exemption so scheduled alarms

@@ -116,7 +116,7 @@ service cloud.firestore {
         allow create: if isAuthenticated() &&
           request.resource.data.keys().hasAll(['type', 'senderId', 'createdAt']) &&
           request.resource.data.senderId == request.auth.uid &&
-          request.resource.data.type in ['follow', 'like', 'comment', 'mention', 'badge', 'dm', 'post'];
+          request.resource.data.type in ['follow', 'like', 'comment', 'mention', 'badge', 'dm', 'post', 'reminder'];
         allow update, delete: if isOwner(userId); // Only owner can modify/delete
       }
     }

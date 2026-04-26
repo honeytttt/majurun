@@ -51,12 +51,25 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _showPosts = true;  // Show Posts by default
+  // Cache the streak+activity future so it is created once, not on every rebuild.
+  late final Future<Map<String, dynamic>> _streakFuture;
 
   @override
   void initState() {
     super.initState();
     // Sync badges from run history when profile loads
     _syncBadges();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final streakFallback = <String, dynamic>{'streak': <String, dynamic>{}, 'summary': null};
+    _streakFuture = uid.isEmpty
+        ? Future.value(streakFallback)
+        : Future.wait([
+            StreakService().updateStreak(uid),
+            WeeklySummaryService().getCurrentWeekSummary(),
+          ]).then((results) => <String, dynamic>{
+            'streak': results[0] as Map<String, dynamic>,
+            'summary': results[1] as WeeklySummary,
+          }).catchError((Object _) => streakFallback);
   }
 
   Future<void> _syncBadges() async {
@@ -694,22 +707,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStreakAndActivity(String userId) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: Future.wait([
-        StreakService().updateStreak(userId),
-        WeeklySummaryService().getCurrentWeekSummary(),
-      ]).then((results) => {
-        'streak': results[0] as Map<String, dynamic>,
-        'summary': results[1] as WeeklySummary,
-      }),
+      future: _streakFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
+        // On error or missing data, fall through with empty defaults — never spin forever.
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
         }
 
         final data = snapshot.data!;
-        final streakData = data['streak'] as Map<String, dynamic>;
-        final summary = data['summary'] as WeeklySummary;
+        final streakData = (data['streak'] as Map<String, dynamic>?) ?? {};
+        final summary = data['summary'] as WeeklySummary?;
         final currentStreak = streakData['currentStreak'] as int? ?? 0;
+        if (summary == null) return const SizedBox.shrink();
 
         return Column(
           children: [

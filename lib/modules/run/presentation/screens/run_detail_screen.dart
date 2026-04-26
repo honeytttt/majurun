@@ -375,8 +375,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
           // ── Weather at time of run ───────────────────────────────────────
           if (hasWeather)
             _buildWeatherCard(
-              temp: weatherTemp!,
-              condition: weatherCondition!,
+              temp: weatherTemp,
+              condition: weatherCondition,
               windKmh: weatherWind,
               humidity: weatherHumidity,
               location: weatherLocation,
