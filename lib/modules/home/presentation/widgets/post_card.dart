@@ -54,6 +54,21 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     _repo = PostRepositoryImpl();
     _subscriptionService = SubscriptionService();
     _photoUrlFuture = _getUserPhotoUrl(widget.post.userId);
+    if (uid.isNotEmpty) _loadSavedState(uid);
+  }
+
+  Future<void> _loadSavedState(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('savedPosts')
+          .doc(widget.post.id)
+          .get();
+      if (mounted && doc.exists) {
+        setState(() => _isSaved = true);
+      }
+    } catch (_) {}
   }
 
   @override

@@ -946,7 +946,7 @@ Keep moving 💪
       final distance = (widget.runData['distance'] as num?)?.toDouble() ?? 0.0;
       final msg = distance < 1.0
           ? 'Run at least 1km to see split data'
-          : 'Split data available for runs recorded after v1.0.0+108';
+          : 'Split data not available for this run';
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
