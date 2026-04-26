@@ -150,9 +150,10 @@ void main() {
             : baseDate.add(const Duration(days: 30));
       }
 
-      final currentExpiry = DateTime.now().add(const Duration(days: 5));
+      final now = DateTime.now();
+      final currentExpiry = now.add(const Duration(days: 5));
       final newExpiry = calculateNewExpiry(currentExpiry, 'monthly');
-      final daysUntilNewExpiry = newExpiry.difference(DateTime.now()).inDays;
+      final daysUntilNewExpiry = newExpiry.difference(now).inDays;
 
       // Should be 5 days remaining + 30 days = 35 days
       expect(daysUntilNewExpiry, 35);
