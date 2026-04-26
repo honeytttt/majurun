@@ -36,9 +36,24 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: build 130 (version 1.0.0+130)
+- Last known upload: **build 131** (version 1.0.0+131)
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
+
+### Pre-push Checklist (run every time before pushing)
+Before every push that should produce a TestFlight build:
+1. **Bump build number**: increment `pubspec.yaml` version build number (the part after `+`) above the last uploaded build
+2. **flutter analyze**: run `flutter analyze` — must show zero errors and zero warnings (infos in pre-existing unchanged files are acceptable, but files you touched must be clean)
+3. **Never remove unused imports**: if analyze flags an unused import in code you wrote, find the missing implementation and add it instead
+4. **Commit CLAUDE.md** if the "Last known upload" build number changed
+
+### How to check if upload succeeded
+```
+gh run list --branch <branch> --limit 5
+gh run view <run-id> --log | grep -E "(Upload|Error|success|bundle version)"
+```
+If the log shows: `The bundle version must be higher than the previously uploaded version: 'NNN'`
+→ bump `pubspec.yaml` to `1.0.0+(NNN+1)` and push again.
 
 ---
 
@@ -56,6 +71,43 @@ await session.setActive(true);
 - **Notifications**: `permission_handler` + `flutter_local_notifications`. iOS uses `openAppSettings()`, Android uses two-button flow (battery optimization + exact alarms)
 - **Firestore rules**: changes require `firebase deploy --only firestore:rules` — pushing code does NOT deploy rules
 - **Leaderboard**: `LeaderboardService` returns real Firestore data only — no sample/fake padding data
+
+---
+
+## Build Rules (Claude must follow every time)
+
+### 1. Pre-build: flutter analyze must be clean
+Before triggering any build or pushing any branch, run:
+```
+flutter analyze
+```
+Fix every error AND every warning before proceeding. **Zero errors, zero warnings** — no exceptions.
+Do not suppress warnings with `// ignore:` unless there is a documented reason in a comment.
+
+### 2. Never remove unused imports — implement what's missing
+If `flutter analyze` reports an unused import, **do not delete the import**.
+An unused import means the feature that requires it was not fully implemented.
+Find what was supposed to use that import and implement it properly.
+Deleting the import hides the gap — the feature stays half-built silently.
+
+### 3. Post-build: always provide smoke test steps
+After every build push, provide a checklist of what to manually test on device.
+Format:
+```
+## Smoke Test — build [number]
+### What changed
+- [feature/fix 1]
+- [feature/fix 2]
+
+### How to test
+1. [Step-by-step for feature 1]
+2. [Step-by-step for feature 2]
+
+### Regression checks
+- [ ] Voice ducking: play Spotify, start a run — music should duck not pause
+- [ ] Run stop: single tap shows confirmation dialog
+- [ ] [any other area touched in this build]
+```
 
 ---
 
