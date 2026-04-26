@@ -45,7 +45,7 @@ class BadgeChip extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1B5E20),
+                color: Colors.white,
               ),
             ),
             if (showCount && badge.count > 1) ...[

@@ -16,6 +16,7 @@ import 'package:majurun/core/services/weather_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 
+import 'package:health/health.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/stats_controller.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
@@ -37,6 +38,7 @@ class RunController extends ChangeNotifier {
 
   // Recovery properties
   Timer? _autoSaveTimer;
+  Timer? _hrPollTimer;
   bool _hasShownRecoveryDialog = false;
 
   // UI notification callbacks - avoids storing BuildContext
@@ -442,13 +444,44 @@ class RunController extends ChangeNotifier {
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _saveCurrentRunState(planTitle);
     });
-    debugPrint('🔄 Auto-save started (every 10 seconds)');
+    _startHrPolling();
+    debugPrint('🔄 Auto-save started (every 10 seconds), HR polling every 15s');
   }
 
   void stopAutoSave() {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = null;
+    _hrPollTimer?.cancel();
+    _hrPollTimer = null;
     debugPrint('⏹️ Auto-save stopped');
+  }
+
+  /// Poll HealthKit/Health Connect for the most recent heart rate reading.
+  /// Runs every 15 seconds while a run is active.
+  void _startHrPolling() {
+    _hrPollTimer?.cancel();
+    _hrPollTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      try {
+        final health = Health();
+        final now = DateTime.now();
+        final from = now.subtract(const Duration(minutes: 3));
+        final points = await health.getHealthDataFromTypes(
+          startTime: from,
+          endTime: now,
+          types: [HealthDataType.HEART_RATE],
+        );
+        if (points.isEmpty) return;
+        points.sort((a, b) => b.dateFrom.compareTo(a.dateFrom));
+        final value = points.first.value;
+        final bpm = value is NumericHealthValue ? value.numericValue.toInt() : 0;
+        if (bpm > 0 && bpm != stateController.currentBpm) {
+          stateController.currentBpm = bpm;
+          notifyListeners();
+        }
+      } catch (_) {
+        // Health data unavailable (no wearable / no permission) — stay at 0
+      }
+    });
   }
 
   Future<void> _saveCurrentRunState(String planTitle) async {

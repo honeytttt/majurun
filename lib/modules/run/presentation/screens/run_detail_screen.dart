@@ -960,10 +960,14 @@ Keep moving 💪
     final hasSplits = rawSplits is List && rawSplits.isNotEmpty;
 
     if (!hasSplits) {
+      final distance = (widget.runData['distance'] as num?)?.toDouble() ?? 0.0;
+      final msg = distance < 1.0
+          ? 'Run at least 1km to see split data'
+          : 'Split data available for runs recorded after v1.0.0+108';
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
-        child: const Center(child: Text('Split data available for runs after v1.0.0+108', style: TextStyle(color: Colors.grey, fontSize: 13))),
+        child: Center(child: Text(msg, style: const TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center)),
       );
     }
 

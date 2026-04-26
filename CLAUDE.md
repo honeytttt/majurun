@@ -36,7 +36,7 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 131** (version 1.0.0+131)
+- Last known upload: **build 132** (version 1.0.0+132)
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
 
@@ -61,6 +61,42 @@ If the log shows: `The bundle version must be higher than the previously uploade
 - Stop run is a **simple tap** — no hold-to-stop, no long press, no animation
 - `_handleStopRun()` already shows a confirmation dialog; just call it from `onTap`
 - Do not re-introduce `_HoldToEndButton` or any `AnimationController`-based stop mechanism
+
+---
+
+## Known Patterns — Do Not Regress
+
+### Post Card Action Bar (post_card.dart)
+- The action bar (like, comment, repost, DM, share, bookmark) must be **outside** the navigation `GestureDetector`
+- Structure: `Container → Column → [GestureDetector(navigate) wraps header+content, Divider, action bar Padding]`
+- If the action bar is inside the GestureDetector, all button taps ALSO fire navigation — buttons appear broken
+- `BounceClick` buttons work correctly when the action bar is a sibling of the GestureDetector, not a descendant
+
+### Post Share (share_plus)
+- Use `SharePlus.instance.share(ShareParams(text: text, subject: subject))` — shows native share sheet
+- `share_plus: ^12.0.0` — the native share sheet shows Twitter/WhatsApp/etc as options
+- Do NOT copy text to clipboard manually — the share sheet handles that
+
+### Badge Text Color (badge_chip.dart)
+- Badge name text must use `Colors.white` — dark green `Color(0xFF1B5E20)` is invisible on the dark app background
+- Badge background is semi-transparent green gradient `Color(0xFF00E676).withValues(alpha: 0.2)`
+
+### Splits — Sub-1km Runs (run_detail_screen.dart)
+- Runs under 1km have no `kmSplits` because no full kilometer was completed — this is correct behavior
+- Show "Run at least 1km to see split data" for runs with `distance < 1.0`
+- Show "Split data available for runs recorded after v1.0.0+108" only for runs >= 1km with no split data
+
+### Heart Rate During Runs (run_controller.dart)
+- `stateController.currentBpm` is polled from HealthKit/Health Connect every 15 seconds via `_startHrPolling()`
+- Polling starts in `startAutoSave()` and stops in `stopAutoSave()`
+- BPM reads from `HealthDataType.HEART_RATE` over the last 3 minutes, takes the most recent value
+- Stays at 0 if no wearable is connected or health permissions not granted — this is correct/expected
+
+### Weekly Notification In-App Inbox (push_notification_service.dart)
+- Daily notifications (07:30 morning, 19:00 evening) are written to Firestore via `_catchUpDailyInAppNotifications()`
+- Weekly notifications (Sunday 20:00) are written to Firestore via `_catchUpWeeklyInAppNotification()`
+- Both are called from `scheduleDefaultNotifications()` which runs on every login
+- Weekly uses ISO week number as dedup key so it only writes once per week
 
 ---
 

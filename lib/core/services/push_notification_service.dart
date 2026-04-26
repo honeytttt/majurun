@@ -1131,6 +1131,48 @@ class PushNotificationService {
 
     await prefs.setBool(key, true);
     debugPrint('✅ Weekly summary notification scheduled for Sundays at 8:00 PM');
+
+    // Also write to in-app inbox if Sunday 20:00 has already passed this week
+    await _catchUpWeeklyInAppNotification();
+  }
+
+  /// Writes the weekly summary notification to the in-app inbox if Sunday 20:00
+  /// has already passed in the current week and hasn't been written yet.
+  Future<void> _catchUpWeeklyInAppNotification() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      // ISO week number as key so it resets each Monday
+      final isoWeek = _isoWeekNumber(now);
+      final weekKey = 'inapp_weekly_${now.year}_$isoWeek';
+      final sundayPassed = now.weekday == DateTime.sunday && now.hour >= 20 ||
+          now.weekday != DateTime.sunday;
+      if (sundayPassed && prefs.getBool(weekKey) != true) {
+        final messages = [
+          'How was your week? Check your stats and plan for next week! 📊',
+          'Another week done! View your run history and set goals for the week ahead. 🎯',
+          'Week wrap-up time! See how far you have come and what is next. 🏃',
+        ];
+        final msg = messages[DateTime.now().millisecond % messages.length];
+        await _writeInAppNotification(
+          title: 'Weekly Summary',
+          body: msg,
+          type: 'reminder',
+        );
+        await prefs.setBool(weekKey, true);
+        debugPrint('📬 Weekly summary written to in-app inbox');
+      }
+    } catch (e) {
+      debugPrint('⚠️ _catchUpWeeklyInAppNotification error: $e');
+    }
+  }
+
+  int _isoWeekNumber(DateTime date) {
+    final dayOfYear = date.difference(DateTime(date.year, 1, 1)).inDays + 1;
+    final weekday = date.weekday;
+    return ((dayOfYear - weekday + 10) ~/ 7);
   }
 
   // ==================== SYNC PROGRESS NOTIFICATION ====================

@@ -126,168 +126,162 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     final isSession = _isSessionPost(widget.post);
 
     return RepaintBoundary(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post)));
-        },
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF2D2D44), width: 1.5),
-            boxShadow: AppEffects.softShadow(),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        if (isOwnPost) return;
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => UserProfileScreen(userId: widget.post.userId, username: widget.post.username)));
-                      },
-                      child: FutureBuilder<String>(
-                        future: _photoUrlFuture,
-                        builder: (context, snapshot) {
-                          final photoUrl = snapshot.data ?? '';
-                          return CircleAvatar(
-                            radius: 18,
-                            backgroundColor: const Color(0xFF2D2D44),
-                            child: ClipOval(
-                              child: photoUrl.isNotEmpty 
-                                ? Image.network(photoUrl, width: 36, height: 36, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey, size: 20))
-                                : const Icon(Icons.person, color: Colors.grey, size: 20),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF2D2D44), width: 1.5),
+          boxShadow: AppEffects.softShadow(),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Tappable area: header + content → navigates to PostDetailScreen ──
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header row
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            if (isOwnPost) return;
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => UserProfileScreen(userId: widget.post.userId, username: widget.post.username)));
+                          },
+                          child: FutureBuilder<String>(
+                            future: _photoUrlFuture,
+                            builder: (context, snapshot) {
+                              final photoUrl = snapshot.data ?? '';
+                              return CircleAvatar(
+                                radius: 18,
+                                backgroundColor: const Color(0xFF2D2D44),
+                                child: ClipOval(
+                                  child: photoUrl.isNotEmpty
+                                    ? Image.network(photoUrl, width: 36, height: 36, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey, size: 20))
+                                    : const Icon(Icons.person, color: Colors.grey, size: 20),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                widget.post.username,
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
-                                overflow: TextOverflow.ellipsis,
+                              Row(
+                                children: [
+                                  Text(
+                                    widget.post.username,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (isRepost) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.repeat_rounded, size: 14, color: Color(0xFF00E676)),
+                                  ],
+                                  if (isSession) ...[
+                                    const SizedBox(width: 8),
+                                    _pill("SESSION", Icons.fitness_center, const Color(0xFF00E676)),
+                                  ],
+                                ],
                               ),
-                              if (isRepost) ...[
-                                const SizedBox(width: 6),
-                                const Icon(Icons.repeat_rounded, size: 14, color: Color(0xFF00E676)),
-                              ],
-                              if (isSession) ...[
-                                const SizedBox(width: 8),
-                                _pill("SESSION", Icons.fitness_center, const Color(0xFF00E676)),
-                              ],
+                              Text(timeago.format(widget.post.createdAt), style: const TextStyle(color: Colors.white54, fontSize: 11)),
                             ],
                           ),
-                          Text(timeago.format(widget.post.createdAt), style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                        ],
-                      ),
+                        ),
+                        if (canModifyPost || currentUserId.isNotEmpty)
+                          _buildMenuButton(context, canModifyPost, isOwnPost, isAdmin, currentUserId),
+                      ],
                     ),
-                    if (canModifyPost || currentUserId.isNotEmpty)
-                      _buildMenuButton(context, canModifyPost, isOwnPost, isAdmin, currentUserId),
-                  ],
-                ),
+                  ),
+                  // Content body
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_safeContent.trim().isNotEmpty)
+                          Padding(padding: const EdgeInsets.symmetric(vertical: 12.0), child: _buildSafeExpandableText()),
+                        if (widget.post.runDistance != null)
+                          Padding(padding: const EdgeInsets.only(bottom: 16), child: _buildMetricsRow()),
+                        if (widget.post.hasVisualContent && !_hasError)
+                          Padding(padding: const EdgeInsets.only(bottom: 12), child: _buildVisualContent()),
+                        if (widget.post.quotedPostId != null && widget.post.quotedPostId!.isNotEmpty)
+                          Padding(padding: const EdgeInsets.only(bottom: 12), child: QuotedPostPreview(postId: widget.post.quotedPostId!)),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_safeContent.trim().isNotEmpty)
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 12.0), child: _buildSafeExpandableText()),
-
-                    // Metrics Row (Unified Look)
-                    if (widget.post.runDistance != null)
-                      Padding(padding: const EdgeInsets.only(bottom: 16), child: _buildMetricsRow()),
-
-                    if (widget.post.hasVisualContent && !_hasError)
-                      Padding(padding: const EdgeInsets.only(bottom: 12), child: _buildVisualContent()),
-
-                    if (widget.post.quotedPostId != null && widget.post.quotedPostId!.isNotEmpty)
-                      Padding(padding: const EdgeInsets.only(bottom: 12), child: QuotedPostPreview(postId: widget.post.quotedPostId!)),
-
-                    const Divider(height: 1, color: Color(0xFF2D2D44)),
-
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
-                      child: Row(
-                        children: [
-                          // Like
-                          _actionBtn(
-                            icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            color: _isLiked ? const Color(0xFFFF4D6D) : const Color(0xFF8888AA),
-                            label: _localLikesCount > 0 ? '$_localLikesCount' : null,
-                            active: _isLiked,
-                            onTap: currentUserId.isNotEmpty ? () => _toggleLike(currentUserId) : null,
-                          ),
-                          const SizedBox(width: 4),
-                          // Comment
-                          _actionBtn(
-                            icon: Icons.mode_comment_rounded,
-                            color: const Color(0xFF8888AA),
-                            label: widget.post.comments.isNotEmpty ? '${widget.post.comments.length}' : null,
-                            onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => CommentSheet(postId: widget.post.id)),
-                          ),
-                          // Repost
-                          const SizedBox(width: 4),
-                          _actionBtn(
-                            icon: Icons.repeat_rounded,
-                            color: const Color(0xFF8888AA),
-                            onTap: currentUserId.isNotEmpty ? () {
-                              HapticService().medium();
-                              final username = currentUser?.displayName ?? "Runner";
-                              _repo.repost(widget.post, currentUserId, username);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Reposted!'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF00E676)),
-                              );
-                            } : null,
-                          ),
-                          // DM — only for other's posts
-                          if (!isOwnPost && currentUserId.isNotEmpty) ...[
-                            const SizedBox(width: 4),
-                            _actionBtn(
-                              icon: Icons.near_me_rounded,
-                              color: const Color(0xFF8888AA),
-                              onTap: () => _openDm(context),
-                            ),
-                          ],
-                          const Spacer(),
-                          // Share
-                          _actionBtn(
-                            icon: Icons.ios_share_rounded,
-                            color: const Color(0xFF8888AA),
-                            onTap: () => _sharePost(context),
-                          ),
-                          const SizedBox(width: 4),
-                          // Bookmark/Save
-                          _actionBtn(
-                            icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                            color: _isSaved ? const Color(0xFFFFD700) : const Color(0xFF8888AA),
-                            active: _isSaved,
-                            onTap: currentUserId.isNotEmpty ? () => _toggleSave(currentUserId) : null,
-                          ),
-                        ],
-                      ),
+            ),
+            // ── Action bar — intentionally OUTSIDE the navigation GestureDetector ──
+            const Divider(height: 1, color: Color(0xFF2D2D44)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
+              child: Row(
+                children: [
+                  _actionBtn(
+                    icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: _isLiked ? const Color(0xFFFF4D6D) : const Color(0xFF8888AA),
+                    label: _localLikesCount > 0 ? '$_localLikesCount' : null,
+                    active: _isLiked,
+                    onTap: currentUserId.isNotEmpty ? () => _toggleLike(currentUserId) : null,
+                  ),
+                  const SizedBox(width: 4),
+                  _actionBtn(
+                    icon: Icons.mode_comment_rounded,
+                    color: const Color(0xFF8888AA),
+                    label: widget.post.comments.isNotEmpty ? '${widget.post.comments.length}' : null,
+                    onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => CommentSheet(postId: widget.post.id)),
+                  ),
+                  const SizedBox(width: 4),
+                  _actionBtn(
+                    icon: Icons.repeat_rounded,
+                    color: const Color(0xFF8888AA),
+                    onTap: currentUserId.isNotEmpty ? () {
+                      HapticService().medium();
+                      final username = currentUser?.displayName ?? "Runner";
+                      _repo.repost(widget.post, currentUserId, username);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Reposted!'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF00E676)),
+                      );
+                    } : null,
+                  ),
+                  if (!isOwnPost && currentUserId.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    _actionBtn(
+                      icon: Icons.near_me_rounded,
+                      color: const Color(0xFF8888AA),
+                      onTap: () => _openDm(context),
                     ),
                   ],
-                ),
+                  const Spacer(),
+                  _actionBtn(
+                    icon: Icons.ios_share_rounded,
+                    color: const Color(0xFF8888AA),
+                    onTap: () => _sharePost(context),
+                  ),
+                  const SizedBox(width: 4),
+                  _actionBtn(
+                    icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                    color: _isSaved ? const Color(0xFFFFD700) : const Color(0xFF8888AA),
+                    active: _isSaved,
+                    onTap: currentUserId.isNotEmpty ? () => _toggleSave(currentUserId) : null,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
