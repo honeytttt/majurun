@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+133
+version: 1.0.0+134
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -48,7 +48,7 @@ dependencies:
   table_calendar: ^3.1.2
 
   # Maps & Location ─────────────────────────────────────────
-  geolocator: ^13.0.1
+  geolocator: ^14.0.0
   google_maps_flutter: ^2.9.0
   latlong2: ^0.9.1
 

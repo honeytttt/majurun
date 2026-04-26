@@ -375,24 +375,30 @@ class PushNotificationService {
 
   /// Clear badge count — call when user opens the notifications screen
   Future<void> clearBadge() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_badgeCountKey, 0);
-    // iOS only: reset the app-icon badge to 0 via a silent notification.
-    // Skipped on Android — badge counts work differently there and
-    // showing a notification with no Android details causes a crash.
-    if (!kIsWeb && Platform.isIOS) {
-      try {
-        const iosDetails = DarwinNotificationDetails(badgeNumber: 0);
-        await _localNotifications.show(
-          _clearBadgeNotifId,
-          null,
-          null,
-          const NotificationDetails(iOS: iosDetails),
-        );
-        await _localNotifications.cancel(_clearBadgeNotifId);
-      } catch (e) {
-        debugPrint('⚠️ clearBadge iOS error: $e');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_badgeCountKey, 0);
+      // iOS only: reset the app-icon badge to 0 via a silent notification.
+      // Skipped on Android — badge counts work differently there and
+      // showing a notification with no Android details causes a crash.
+      if (!kIsWeb && Platform.isIOS) {
+        try {
+          const iosDetails = DarwinNotificationDetails(badgeNumber: 0);
+          await _localNotifications.show(
+            _clearBadgeNotifId,
+            null,
+            null,
+            const NotificationDetails(iOS: iosDetails),
+          );
+          await _localNotifications.cancel(_clearBadgeNotifId);
+        } catch (e) {
+          debugPrint('⚠️ clearBadge iOS error: $e');
+        }
       }
+    } catch (e) {
+      // Crashlytics reported NPE from Integer.intValue() in the platform channel.
+      // Outer catch ensures this never crashes the app.
+      debugPrint('⚠️ clearBadge error: $e');
     }
   }
 
