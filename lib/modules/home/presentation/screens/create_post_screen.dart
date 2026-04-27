@@ -326,6 +326,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     try {
       const uuid = Uuid();
+      // Extract hashtags from content to enable #tag search
+      final tags = RegExp(r'#(\w+)')
+          .allMatches(text)
+          .map((m) => m.group(1)!.toLowerCase())
+          .toSet()
+          .toList();
       final post = AppPost(
         id: uuid.v4(),
         userId: user.uid,
@@ -336,6 +342,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         likes: const [],
         comments: const [],
         quotedPostId: null,
+        tags: tags,
       );
 
       await _postRepo.createPost(post);

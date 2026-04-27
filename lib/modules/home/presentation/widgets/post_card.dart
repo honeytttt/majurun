@@ -15,7 +15,8 @@ import 'comment_sheet.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
-import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
+import 'package:majurun/core/widgets/hashtag_text.dart';
+import 'package:majurun/modules/home/presentation/screens/hashtag_posts_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 import 'package:majurun/core/services/dm_service.dart';
 import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
@@ -339,11 +340,12 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   }
 
   Widget _buildSafeExpandableText() {
-    return ExpandableText(
+    return HashtagText(
       text: _safeContent,
       maxLines: 5,
       style: const TextStyle(fontSize: 15, height: 1.4, color: Colors.white),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post))),
+      onBodyTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post))),
+      onHashtagTap: (tag) => Navigator.push(context, MaterialPageRoute(builder: (_) => HashtagPostsScreen(tag: tag))),
     );
   }
 

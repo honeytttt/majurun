@@ -66,6 +66,7 @@ class AppPost extends Equatable {
   final int? weeklyRuns;     // weekly_recap: runs in past 7 days
   final double? weeklyKm;    // weekly_recap: km in past 7 days
   final int? weeklySeconds;  // weekly_recap: total seconds in past 7 days
+  final List<String> tags;   // hashtags extracted from content (stored in Firestore for querying)
 
   const AppPost({
     required this.id,
@@ -91,6 +92,7 @@ class AppPost extends Equatable {
     this.weeklyRuns,
     this.weeklyKm,
     this.weeklySeconds,
+    this.tags = const [],
   });
 
   // NEW HELPER – makes conditional rendering cleaner
@@ -128,6 +130,7 @@ class AppPost extends Equatable {
       weeklyRuns: (map['weeklyRuns'] as num?)?.toInt(),
       weeklyKm: (map['weeklyKm'] as num?)?.toDouble(),
       weeklySeconds: (map['weeklySeconds'] as num?)?.toInt(),
+      tags: _parseStringList(map['tags']),
     );
   }
 
@@ -155,6 +158,7 @@ class AppPost extends Equatable {
       'weeklyRuns': weeklyRuns,
       'weeklyKm': weeklyKm,
       'weeklySeconds': weeklySeconds,
+      if (tags.isNotEmpty) 'tags': tags,
     };
   }
 
@@ -233,5 +237,5 @@ class AppPost extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints, runPlanTitle, runDistance, runPace, postType, badgeName];
+  List<Object?> get props => [id, content, likes, comments, quotedPostId, routePoints, runPlanTitle, runDistance, runPace, postType, badgeName, tags];
 }

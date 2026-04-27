@@ -135,6 +135,13 @@ class PostController extends ChangeNotifier {
           : RouteUtils.sampleRoutePoints(routePoints);
       debugPrint("📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)");
 
+      // Extract hashtags from post text for tag-based search
+      final extractedTags = RegExp(r'#(\w+)')
+          .allMatches(aiContent)
+          .map((m) => m.group(1)!.toLowerCase())
+          .toSet()
+          .toList();
+
       // Create post document in Firestore
       final postData = {
         'userId': user.uid,
@@ -151,6 +158,7 @@ class PostController extends ChangeNotifier {
         'mapImageUrl': mapImageUrl,
         if (selfieUrl != null) 'selfieUrl': selfieUrl,
         if (kmSplits.isNotEmpty) 'kmSplits': kmSplits,
+        if (extractedTags.isNotEmpty) 'tags': extractedTags,
         'likes': [],
         'type': 'run_activity',
       };

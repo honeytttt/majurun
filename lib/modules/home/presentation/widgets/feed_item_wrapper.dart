@@ -16,8 +16,9 @@ import 'package:majurun/modules/profile/presentation/screens/user_profile_screen
 import 'package:timeago/timeago.dart' as timeago;
 
 // ✅ Import expandable text and post detail screen
-import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
+import 'package:majurun/core/widgets/hashtag_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/hashtag_posts_screen.dart';
 
 class FeedItemWrapper extends StatefulWidget {
   final AppPost post;
@@ -255,19 +256,18 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
             if (widget.post.content.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ExpandableText(
+                child: HashtagText(
                   text: widget.post.content,
                   maxLines: 5,
                   style: const TextStyle(fontSize: 16, height: 1.35, color: Colors.black87),
-                  onTap: () {
-                    debugPrint('📱 ExpandableText tapped from FeedItem');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PostDetailScreen(post: widget.post),
-                      ),
-                    );
-                  },
+                  onBodyTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post)),
+                  ),
+                  onHashtagTap: (tag) => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => HashtagPostsScreen(tag: tag)),
+                  ),
                 ),
               ),
 

@@ -95,6 +95,7 @@ abstract class PostFields {
   static const String splits = 'splits';
   static const String type = 'type';
   static const String mapImageUrl = 'mapImageUrl';
+  static const String tags = 'tags';
 }
 
 /// Run history document fields
