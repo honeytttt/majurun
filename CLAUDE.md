@@ -167,6 +167,31 @@ If the log shows: `The bundle version must be higher than the previously uploade
 
 ---
 
+## Security Rules — Public Repo (Claude must follow every time)
+
+This is a **public GitHub repository**. Never commit secrets or credentials.
+
+### Pre-push Security Checklist
+Before every `git push`, verify none of the staged files contain:
+- API keys, tokens, passwords, or private keys (hardcoded strings)
+- `.env` files or any file matching `*.env`
+- `google-services.json`, `GoogleService-Info.plist` (already gitignored — confirm they stay that way)
+- `*.jks`, `*.keystore`, `*.p12` signing files
+- Any `secrets.properties` or credentials files
+
+**How to check:**
+```
+git diff --staged | grep -iE "api_key|apikey|secret|password|token|private_key"
+```
+If that returns anything suspicious — stop and investigate before pushing.
+
+**What is safe to commit:**
+- `lib/firebase_options.dart` — Firebase client identifiers, NOT admin secrets. Protected by App Check + Security Rules.
+- `AndroidManifest.xml` with `${MAPS_API_KEY}` placeholder — key is injected at build time via CI secrets, not stored in code.
+- All Dart source files that contain only logic, UI, and Firestore collection names.
+
+---
+
 ## Build Rules (Claude must follow every time)
 
 ### 1. Pre-build: flutter analyze must be clean

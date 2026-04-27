@@ -141,7 +141,9 @@ class LocationTracker extends ChangeNotifier {
       foregroundNotificationConfig: ForegroundNotificationConfig(
         notificationTitle: 'MajuRun',
         notificationText: 'Tracking your run...',
+        notificationChannelName: 'Run Tracking',
         enableWakeLock: true,
+        setOngoing: true, // prevents user or OS from swiping away the notification
       ),
     );
   }
