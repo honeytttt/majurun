@@ -174,7 +174,7 @@ class FirebaseAuthImpl implements AuthRepository {
           'email': userCredential.user!.email ?? '',
           'photoUrl': userCredential.user!.photoURL ?? '',
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        }, SetOptions(merge: true));
       }
     }
     return _mapUser(userCredential.user);

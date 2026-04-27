@@ -41,6 +41,10 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   }
 
   Future<void> _initializeVideo() async {
+    // Dispose previous controller so its listener doesn't accumulate on retry
+    final prev = _controller;
+    _controller = null;
+    await prev?.dispose();
     try {
       final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
       _controller = controller;

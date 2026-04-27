@@ -666,6 +666,10 @@ class RunController extends ChangeNotifier {
         'elevationChange': s.elevationChange,
       }).toList();
 
+      // Cancel auto-save timer before stopping run state to prevent a timer
+      // firing between stopRun() and the later stopAutoSave() call with zeroed data.
+      stopAutoSave();
+
       // Stop tracking
       await stateController.stopRun();
       await voiceController.speakRunStopped();
