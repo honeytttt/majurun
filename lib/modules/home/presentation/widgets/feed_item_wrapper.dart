@@ -38,6 +38,9 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   late bool _isLiked;
   late int _localLikesCount;
   bool _isSaved = false;
+  // Static in-memory cache so saved state persists across widget recreations
+  // (scroll-off/back, stream-triggered parent rebuilds, etc.)
+  static final Map<String, bool> _savedCache = {};
   // Cache futures/streams so parent setState() rebuilds don't recreate them.
   // Without this, every Firestore like-update triggers a parent setState which
   // rebuilds visible FeedItemWrapper widgets and spawns new stream subscriptions.
@@ -52,7 +55,14 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     _localLikesCount = widget.post.likes.length;
     _userPhotoFuture = _getUserPhotoUrl(widget.post.userId);
     _commentsStream = PostRepositoryImpl().getCommentsStream(widget.post.id);
-    if (currentUserId != null) _loadSavedState(currentUserId);
+    if (currentUserId != null) {
+      // Use cache for instant render; only hit Firestore if we haven't checked yet
+      if (_savedCache.containsKey(widget.post.id)) {
+        _isSaved = _savedCache[widget.post.id]!;
+      } else {
+        _loadSavedState(currentUserId);
+      }
+    }
   }
 
   Future<void> _loadSavedState(String uid) async {
@@ -63,18 +73,21 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
           .collection('savedPosts')
           .doc(widget.post.id)
           .get();
-      if (mounted && doc.exists) setState(() => _isSaved = true);
+      _savedCache[widget.post.id] = doc.exists;
+      if (mounted) setState(() => _isSaved = doc.exists);
     } catch (_) {}
   }
 
   void _toggleSave(String currentUserId) {
-    setState(() => _isSaved = !_isSaved);
+    final newValue = !_isSaved;
+    _savedCache[widget.post.id] = newValue; // update cache immediately
+    setState(() => _isSaved = newValue);
     final ref = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUserId)
         .collection('savedPosts')
         .doc(widget.post.id);
-    if (_isSaved) {
+    if (newValue) {
       ref.set({'savedAt': FieldValue.serverTimestamp(), 'postId': widget.post.id});
     } else {
       ref.delete();

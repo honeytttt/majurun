@@ -37,6 +37,8 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   late bool _isLiked;
   late int _localLikesCount;
   bool _isSaved = false;
+  // Share cache with FeedItemWrapper so saved state is consistent across both views
+  static final Map<String, bool> _savedCache = {};
 
   late final PostRepositoryImpl _repo;
   late final SubscriptionService _subscriptionService;
@@ -55,7 +57,13 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     _repo = PostRepositoryImpl();
     _subscriptionService = SubscriptionService();
     _photoUrlFuture = _getUserPhotoUrl(widget.post.userId);
-    if (uid.isNotEmpty) _loadSavedState(uid);
+    if (uid.isNotEmpty) {
+      if (_savedCache.containsKey(widget.post.id)) {
+        _isSaved = _savedCache[widget.post.id]!;
+      } else {
+        _loadSavedState(uid);
+      }
+    }
   }
 
   Future<void> _loadSavedState(String uid) async {
@@ -66,9 +74,8 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           .collection('savedPosts')
           .doc(widget.post.id)
           .get();
-      if (mounted && doc.exists) {
-        setState(() => _isSaved = true);
-      }
+      _savedCache[widget.post.id] = doc.exists;
+      if (mounted) setState(() => _isSaved = doc.exists);
     } catch (_) {}
   }
 
@@ -448,13 +455,15 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
 
   void _toggleSave(String currentUserId) {
     HapticService().light();
-    setState(() => _isSaved = !_isSaved);
+    final newValue = !_isSaved;
+    _savedCache[widget.post.id] = newValue;
+    setState(() => _isSaved = newValue);
     final ref = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUserId)
         .collection('savedPosts')
         .doc(widget.post.id);
-    if (_isSaved) {
+    if (newValue) {
       ref.set({'savedAt': FieldValue.serverTimestamp(), 'postId': widget.post.id});
     } else {
       ref.delete();

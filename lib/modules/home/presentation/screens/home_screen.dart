@@ -35,6 +35,7 @@ import 'package:majurun/core/theme/app_theme.dart';
 import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.dart';
 import 'package:majurun/modules/challenges/presentation/screens/challenges_screen.dart';
 import 'package:majurun/core/services/daily_challenge_service.dart';
+import 'package:majurun/modules/home/presentation/screens/saved_posts_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -707,6 +708,27 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const SearchScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: silverLight,
+                      borderRadius: const BorderRadius.all(Radius.circular(14)),
+                      border: Border.all(color: silverMedium, width: 1),
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.bookmark_border_rounded, color: AppTheme.textSecondary, size: 24),
+                      tooltip: 'Saved Posts',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
                         );
                       },
                     ),
