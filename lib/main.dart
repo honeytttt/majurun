@@ -30,6 +30,7 @@ import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/health_sync_service.dart';
+import 'modules/engagement/engagement_service.dart';
 import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -193,6 +194,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         PushNotificationService().scheduleDefaultNotifications();
+        EngagementService.maybeRun(user.uid); // engagement addons — isolated
       }
     }
   }
@@ -209,6 +211,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Initialize notifications + schedule default daily notifications
         PushNotificationService().initialize().then((_) {
           PushNotificationService().scheduleDefaultNotifications();
+          EngagementService.maybeRun(user.uid); // engagement addons — isolated
         });
         // Auto-sync run history from health apps on first install (silent)
         HealthSyncService().autoSyncOnFirstInstall();

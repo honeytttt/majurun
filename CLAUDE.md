@@ -36,7 +36,7 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 141** (version 1.0.0+141)
+- Last known upload: **build 142** (version 1.0.0+142)
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
 
