@@ -66,6 +66,14 @@ If the log shows: `The bundle version must be higher than the previously uploade
 
 ## Known Patterns — Do Not Regress
 
+### Feed Widget — FeedItemWrapper, NOT PostCard
+- **The main feed uses `FeedItemWrapper`** (`lib/modules/home/presentation/widgets/feed_item_wrapper.dart`)
+- `PostCard` (`lib/modules/home/presentation/widgets/post_card.dart`) is used ONLY in **user profile screens**
+- Any action bar changes (like, comment, bookmark, DM, share) must be made in **both files** or they will only affect one view
+- `FeedItemWrapper`: white card (`Colors.white`), black icons (`Colors.black45`) — Material Card style
+- `PostCard`: dark card (`Color(0xFF1A1A2E)`), grey-purple icons (`Color(0xFF8888AA)`) — app dark theme
+- Home screen (`home_screen.dart`) wraps each post in `FeedItemWrapper` with `Container(color: Colors.white)`
+
 ### Post Card Action Bar (post_card.dart)
 - The action bar (like, comment, repost, DM, share, bookmark) must be **outside** the navigation `GestureDetector`
 - Structure: `Container → Column → [GestureDetector(navigate) wraps header+content, Divider, action bar Padding]`
