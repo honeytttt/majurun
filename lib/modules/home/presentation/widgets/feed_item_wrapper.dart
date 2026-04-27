@@ -312,6 +312,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       children: [
                         // Like Button — optimistic state
                         IconButton(
+                          tooltip: _isLiked ? 'Unlike' : 'Like',
                           icon: Icon(
                             _isLiked ? Icons.favorite : Icons.favorite_border,
                             size: 22,
@@ -329,6 +330,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
 
                         // Comment Button
                         IconButton(
+                          tooltip: 'Comment',
                           icon: const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black45),
                           onPressed: () {
                             showModalBottomSheet(
@@ -355,6 +357,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       children: [
                         // Repost Button
                         IconButton(
+                          tooltip: 'Repost',
                           icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
                           onPressed: currentUserId != null
                               ? () {
@@ -376,6 +379,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
 
                         // Share Button
                         IconButton(
+                          tooltip: 'Share',
                           icon: const Icon(Icons.share, size: 20, color: Colors.black45),
                           onPressed: () => _handleShare(context),
                         ),

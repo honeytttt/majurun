@@ -138,19 +138,22 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  HomeScreen.tabNotifier.value = 0; // switch to feed so pill is visible
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+              Tooltip(
+                message: 'Minimise run screen',
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    HomeScreen.tabNotifier.value = 0; // switch to feed so pill is visible
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white, size: 22),
                   ),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: Colors.white, size: 22),
                 ),
               ),
               const SizedBox(width: 8),
@@ -169,38 +172,44 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: _toggleLiveShare,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: _isLiveSharing
-                        ? Colors.red.withValues(alpha: 0.8)
-                        : Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isLiveSharing ? Icons.share_location : Icons.location_on_outlined,
-                    color: Colors.white,
-                    size: 18,
+              Tooltip(
+                message: _isLiveSharing ? 'Stop live sharing' : 'Share live location',
+                child: GestureDetector(
+                  onTap: _toggleLiveShare,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _isLiveSharing
+                          ? Colors.red.withValues(alpha: 0.8)
+                          : Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isLiveSharing ? Icons.share_location : Icons.location_on_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: runController.toggleVoice,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: runController.isVoiceEnabled
-                        ? const Color(0xFF2D7A3E)
-                        : Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
-                    color: Colors.white,
-                    size: 18,
+              Tooltip(
+                message: runController.isVoiceEnabled ? 'Mute voice coach' : 'Unmute voice coach',
+                child: GestureDetector(
+                  onTap: runController.toggleVoice,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: runController.isVoiceEnabled
+                          ? const Color(0xFF2D7A3E)
+                          : Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),

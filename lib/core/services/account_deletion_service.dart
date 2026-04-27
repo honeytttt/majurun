@@ -46,6 +46,10 @@ class AccountDeletionService {
 
       debugPrint('AccountDeletion: Account deleted successfully');
       return true;
+    } on FirebaseAuthException {
+      // Let FirebaseAuthException (e.g. requires-recent-login) bubble up
+      // so the UI layer can handle re-authentication.
+      rethrow;
     } catch (e) {
       debugPrint('AccountDeletion: Error deleting account: $e');
       return false;
@@ -121,7 +125,12 @@ class AccountDeletionService {
           .collection('users').doc(userId).collection('dailyChallenges').get();
       refs.addAll(challengesSnap.docs.map((d) => d.reference));
 
-      // 7. User document itself
+      // 7. Saved posts
+      final savedPostsSnap = await _firestore
+          .collection('users').doc(userId).collection('savedPosts').get();
+      refs.addAll(savedPostsSnap.docs.map((d) => d.reference));
+
+      // 8. User document itself
       refs.add(_firestore.collection('users').doc(userId));
 
       // Commit in safe chunks (Firestore batch limit = 500)

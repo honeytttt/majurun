@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:majurun/core/services/account_deletion_service.dart';
 
@@ -224,28 +225,123 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
+    await _deleteAccountWithReauth(user);
+  }
+
+  /// Handles the full deletion flow including re-authentication when required.
+  Future<void> _deleteAccountWithReauth(User user, {bool isRetry = false}) async {
+    if (!mounted) return;
+
+    // Show spinner
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final success = await AccountDeletionService().deleteAccount(userId: userId);
+    try {
+      final success = await AccountDeletionService().deleteAccount(userId: user.uid);
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss spinner
 
-    if (!mounted) return;
-    Navigator.pop(context); // dismiss spinner
+      if (success) {
+        await GoogleSignIn().signOut();
+        await FirebaseAuth.instance.signOut();
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        _showDeleteError();
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss spinner
 
-    if (success) {
-      // Navigate to login root — account is gone
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete account. Please try again.')),
-      );
+      if (e.code == 'requires-recent-login' && !isRetry) {
+        await _reauthAndRetry(user);
+      } else {
+        _showDeleteError();
+      }
     }
+  }
+
+  /// Prompts for re-authentication then retries deletion.
+  Future<void> _reauthAndRetry(User user) async {
+    final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+
+    if (isGoogle) {
+      await _reauthGoogle(user);
+    } else {
+      await _reauthPassword(user);
+    }
+  }
+
+  Future<void> _reauthGoogle(User user) async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null || !mounted) return;
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await user.reauthenticateWithCredential(credential);
+      if (mounted) await _deleteAccountWithReauth(user, isRetry: true);
+    } catch (_) {
+      if (mounted) _showDeleteError();
+    }
+  }
+
+  Future<void> _reauthPassword(User user) async {
+    final passwordCtrl = TextEditingController();
+    final reauthed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm your password'),
+        content: TextField(
+          controller: passwordCtrl,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Password'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    passwordCtrl.dispose();
+    if (reauthed != true || !mounted) return;
+
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: passwordCtrl.text,
+      );
+      await user.reauthenticateWithCredential(credential);
+      if (mounted) await _deleteAccountWithReauth(user, isRetry: true);
+    } on FirebaseAuthException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Incorrect password. Account not deleted.')),
+        );
+      }
+    }
+  }
+
+  void _showDeleteError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to delete account. Please try again.')),
+    );
   }
 
   Widget _buildAvatarImage() {

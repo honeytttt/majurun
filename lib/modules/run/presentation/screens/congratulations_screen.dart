@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
@@ -37,6 +40,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   late Animation<double> _fadeAnim;
 
   VideoPlayerController? _videoController;
+  final _screenshotCtrl = ScreenshotController();
 
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
@@ -112,7 +116,139 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   }
 
   Future<void> _shareToSocial() async {
-    await SharePlus.instance.share(ShareParams(text: _buildShareText()));
+    try {
+      // Capture branded card as PNG
+      final imageBytes = await _screenshotCtrl.captureFromLongWidget(
+        _buildShareCard(),
+        pixelRatio: 3.0,
+        context: context,
+        constraints: const BoxConstraints(maxWidth: 400),
+      );
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/majurun_run_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(imageBytes);
+
+      await SharePlus.instance.share(ShareParams(
+        text: _buildShareText(),
+        files: [XFile(file.path, mimeType: 'image/png')],
+      ));
+    } catch (_) {
+      // Any failure falls back to text-only share
+      await SharePlus.instance.share(ShareParams(text: _buildShareText()));
+    }
+  }
+
+  /// Branded card rendered off-screen for image sharing.
+  Widget _buildShareCard() {
+    final dist = widget.distanceKm.toStringAsFixed(2);
+    return Container(
+      width: 400,
+      padding: const EdgeInsets.all(28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0A0A0A), Color(0xFF1A1A1A)],
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Brand header
+          Row(
+            children: const [
+              Text('🏃', style: TextStyle(fontSize: 22)),
+              SizedBox(width: 8),
+              Text(
+                'MAJURUN',
+                style: TextStyle(
+                  color: Color(0xFF00E676),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Main stat
+          Text(
+            '${dist}km',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 56,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.planTitle,
+            style: const TextStyle(color: Color(0xFF00E676), fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          // Secondary stats row
+          Row(
+            children: [
+              _shareStatBox('⏱', widget.duration, 'Duration'),
+              const SizedBox(width: 10),
+              _shareStatBox('⚡', widget.pace, 'Avg Pace'),
+              const SizedBox(width: 10),
+              _shareStatBox('🔥', '${widget.calories}', 'kcal'),
+            ],
+          ),
+          if (widget.pbs.isNotEmpty || widget.badges.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                [
+                  if (widget.pbs.isNotEmpty) '⚡ PB: ${widget.pbs.join(', ')}',
+                  if (widget.badges.isNotEmpty) '🏅 ${widget.badges.join(' & ')}',
+                ].join('  •  '),
+                style: const TextStyle(color: Color(0xFFFFD700), fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          // Hashtag footer
+          const Text(
+            '#MajuRun  #Running  #RunningCommunity',
+            style: TextStyle(color: Color(0xFF555555), fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _shareStatBox(String emoji, String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF252525),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 4),
+            Text(value,
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(label,
+                style: const TextStyle(color: Color(0xFF888888), fontSize: 10)),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _postAchievementToFeed() async {

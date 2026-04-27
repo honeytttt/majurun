@@ -31,6 +31,7 @@ import 'core/services/push_notification_service.dart';
 import 'core/services/health_sync_service.dart';
 import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
+import 'core/services/offline_sync_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -204,6 +205,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         });
         // Auto-sync run history from health apps on first install (silent)
         HealthSyncService().autoSyncOnFirstInstall();
+        // Upload any runs saved offline while the device had no connectivity
+        OfflineSyncService.start();
         // Set user ID for analytics, crash reporting, and Sentry
         analytics.setUserId(user.uid);
         crashReporting.setUserId(user.uid);
@@ -213,6 +216,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         analytics.setUserId(null);
         crashReporting.clearUserId();
         sentry.clearUser();
+        OfflineSyncService.stop();
       }
     });
   }
