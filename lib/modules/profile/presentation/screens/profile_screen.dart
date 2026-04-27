@@ -25,6 +25,7 @@ import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -280,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             button: true,
             label: 'Shoe tracker',
             child: IconButton(
-              icon: const Icon(Icons.directions_run, color: Color(0xFF7ED957)),
+              icon: const FaIcon(FontAwesomeIcons.shoePrints, size: 20, color: Color(0xFF7ED957)),
               tooltip: 'My Shoes',
               onPressed: _navigateToShoeTracker,
             ),

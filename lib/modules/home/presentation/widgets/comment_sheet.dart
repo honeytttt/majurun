@@ -98,7 +98,7 @@ class _CommentSheetState extends State<CommentSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
-        color: Colors.orange,
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -108,7 +108,7 @@ class _CommentSheetState extends State<CommentSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white54,
+              color: Colors.grey.shade300,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -116,10 +116,10 @@ class _CommentSheetState extends State<CommentSheet> {
             padding: EdgeInsets.all(16.0),
             child: Text(
               "Comments",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
             ),
           ),
-          const Divider(height: 1, color: Colors.white24),
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _postRepo.getCommentsStream(widget.postId),
@@ -128,7 +128,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No comments yet.", style: TextStyle(color: Colors.white)));
+                  return const Center(child: Text("No comments yet.", style: TextStyle(color: Colors.black45)));
                 }
 
                 final all = snapshot.data!;
@@ -210,7 +210,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   children: [
                     Text(
                       timeago.format((comment['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now()),
-                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                      style: const TextStyle(fontSize: 11, color: Colors.black45),
                     ),
                     const SizedBox(width: 12),
                     GestureDetector(
@@ -246,7 +246,7 @@ class _CommentSheetState extends State<CommentSheet> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text("${likes.length}", style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                    Text("${likes.length}", style: const TextStyle(fontSize: 12, color: Colors.black45)),
                   ],
                 )
               ],
@@ -315,7 +315,7 @@ class _CommentSheetState extends State<CommentSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.orange)),
+        border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

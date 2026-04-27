@@ -62,6 +62,11 @@ service cloud.firestore {
         allow write: if isOwner(userId) || isAdmin();
       }
 
+      // User's saved posts subcollection (bookmarks)
+      match /savedPosts/{postId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // User's goals subcollection
       match /goals/{goalId} {
         allow read: if isAuthenticated();
