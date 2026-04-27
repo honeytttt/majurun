@@ -1,4 +1,5 @@
 import 'features/streak_risk/streak_risk_notifier.dart';
+import 'features/trivia/trivia_notifier.dart';
 
 /// ──────────────────────────────────────────────────────────────────────────
 /// EngagementService — addon engagement features for MajuRun.
@@ -27,8 +28,8 @@ class EngagementService {
   /// Safe to call multiple times — each feature deduplicates by day internally.
   static Future<void> maybeRun(String userId) async {
     await StreakRiskNotifier.maybeSchedule(userId);
+    await TriviaNotifier.maybeSchedule();
     // Future features slot in here — one line per feature:
-    // await TriviaNotifier.maybeSchedule(userId);
     // await BingoService.maybeNotify(userId);
   }
 }

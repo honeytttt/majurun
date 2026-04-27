@@ -36,6 +36,7 @@ import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.da
 import 'package:majurun/modules/challenges/presentation/screens/challenges_screen.dart';
 import 'package:majurun/core/services/daily_challenge_service.dart';
 import 'package:majurun/modules/home/presentation/screens/saved_posts_screen.dart';
+import 'package:majurun/modules/engagement/engagement_feed_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -804,6 +805,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               // Daily Challenges banner
               SliverToBoxAdapter(
                 child: _buildChallengesBanner(context),
+              ),
+
+              // Engagement addon cards (trivia, bingo, etc.)
+              const SliverToBoxAdapter(
+                child: EngagementFeedCard(),
               ),
 
               displayPosts.isEmpty
