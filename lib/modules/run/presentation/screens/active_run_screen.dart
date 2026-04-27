@@ -140,8 +140,17 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             children: [
               GestureDetector(
                 onTap: () {
+                  final messenger = ScaffoldMessenger.of(context);
                   Navigator.of(context).pop();
                   HomeScreen.tabNotifier.value = 0; // switch to feed so pill is visible
+                  // Notify user that tracking continues in background
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Run still tracking in background'),
+                      duration: Duration(seconds: 3),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 },
                 child: Container(
                   padding: const EdgeInsets.all(10),
