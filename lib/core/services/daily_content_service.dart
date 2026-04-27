@@ -61,23 +61,25 @@ class DailyContentService {
       } catch (_) {}
 
       if (wonMotivational) {
-        final imageUrl = PostController.motivationalImageForDay(dayOfYear);
+        final media = PostController.motivationalMediaForDay(dayOfYear);
         await _post.createMotivationalPost(
-          imageUrl: imageUrl,
+          mediaUrl: media[0],
+          mediaType: media[1],
           userId: user.uid,
           username: username,
         );
-        debugPrint('💪 Daily motivational post published for $today');
+        debugPrint('💪 Daily motivational post published for $today (${media[1]})');
       }
 
       if (wonEducation) {
-        final imageUrl = PostController.educationImageForDay(dayOfYear);
+        final media = PostController.educationMediaForDay(dayOfYear);
         await _post.createEducationPost(
-          imageUrl: imageUrl,
+          mediaUrl: media[0],
+          mediaType: media[1],
           userId: user.uid,
           username: username,
         );
-        debugPrint('📚 Daily education post published for $today');
+        debugPrint('📚 Daily education post published for $today (${media[1]})');
       }
     } catch (e) {
       debugPrint('⚠️ DailyContentService: $e');

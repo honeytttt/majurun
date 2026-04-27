@@ -43,6 +43,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   late final PostRepositoryImpl _repo;
   late final SubscriptionService _subscriptionService;
   late final Future<String> _photoUrlFuture;
+  late final Stream<List<Map<String, dynamic>>> _commentsStream;
 
   @override
   bool get wantKeepAlive => true;
@@ -57,6 +58,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     _repo = PostRepositoryImpl();
     _subscriptionService = SubscriptionService();
     _photoUrlFuture = _getUserPhotoUrl(widget.post.userId);
+    _commentsStream = _repo.getCommentsStream(widget.post.id);
     if (uid.isNotEmpty) {
       if (_savedCache.containsKey(widget.post.id)) {
         _isSaved = _savedCache[widget.post.id]!;
@@ -261,11 +263,24 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                     onTap: currentUserId.isNotEmpty ? () => _toggleLike(currentUserId) : null,
                   ),
                   const SizedBox(width: 4),
-                  _actionBtn(
-                    icon: Icons.mode_comment_rounded,
-                    color: const Color(0xFF8888AA),
-                    label: widget.post.comments.isNotEmpty ? '${widget.post.comments.length}' : null,
-                    onTap: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => CommentSheet(postId: widget.post.id)),
+                  StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _commentsStream,
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.length ?? 0;
+                      final activeColor = const Color(0xFF00B96B);
+                      return _actionBtn(
+                        icon: count > 0 ? Icons.mode_comment_rounded : Icons.mode_comment_outlined,
+                        color: count > 0 ? activeColor : const Color(0xFF8888AA),
+                        label: count > 0 ? '$count' : null,
+                        active: count > 0,
+                        onTap: () => showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => CommentSheet(postId: widget.post.id),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(width: 4),
                   _actionBtn(

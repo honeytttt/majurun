@@ -8,7 +8,9 @@ import 'package:video_player/video_player.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/services/cloudinary_service.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 import '../../data/repositories/post_repository_impl.dart';
+import '../screens/hashtag_posts_screen.dart';
 
 class CommentSheet extends StatefulWidget {
   final String postId;
@@ -30,6 +32,51 @@ class _CommentSheetState extends State<CommentSheet> {
   String? selectedMediaName;
   bool isVideo = false;
   bool isUploading = false;
+  List<String> _tagSuggestions = [];
+
+  static const _runningTags = [
+    'running', 'majurun', 'runner', 'fitness', 'motivation',
+    'morningrun', 'eveningrun', '5k', '10k', 'halfmarathon',
+    'marathon', 'pb', 'runnerscommunity', 'runninglife',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    if (cursor <= 0) { if (_tagSuggestions.isNotEmpty) setState(() => _tagSuggestions = []); return; }
+    final before = text.substring(0, cursor);
+    final match = RegExp(r'#(\w*)$').firstMatch(before);
+    if (match == null) {
+      if (_tagSuggestions.isNotEmpty) setState(() => _tagSuggestions = []);
+      return;
+    }
+    final query = match.group(1)!.toLowerCase();
+    final already = RegExp(r'#(\w+)').allMatches(text).map((m) => m.group(1)!.toLowerCase()).toSet();
+    final filtered = _runningTags.where((t) => t.startsWith(query) && !already.contains(t)).take(6).toList();
+    setState(() => _tagSuggestions = filtered);
+  }
+
+  void _insertTag(String tag) {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    if (cursor <= 0) return;
+    final before = text.substring(0, cursor);
+    final match = RegExp(r'#\w*$').firstMatch(before);
+    final start = match?.start ?? cursor;
+    final newText = text.replaceRange(start, cursor, '#$tag ');
+    final newCursor = start + tag.length + 2;
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
+    setState(() => _tagSuggestions = []);
+  }
 
   @override
   void dispose() {
@@ -148,6 +195,7 @@ class _CommentSheetState extends State<CommentSheet> {
           ),
           if (isUploading) const LinearProgressIndicator(),
           if (selectedMediaBytes != null) _buildMediaPreview(),
+          if (_tagSuggestions.isNotEmpty) _buildTagSuggestions(),
           _buildInputArea(),
         ],
       ),
@@ -201,7 +249,14 @@ class _CommentSheetState extends State<CommentSheet> {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       if (comment['content'] != null && comment['content'].toString().isNotEmpty)
-                        Text(comment['content']),
+                        HashtagText(
+                          text: comment['content'].toString(),
+                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          onHashtagTap: (tag) => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => HashtagPostsScreen(tag: tag)),
+                          ),
+                        ),
                       if (mediaList.isNotEmpty) _buildCommentMedia(mediaList.first),
                     ],
                   ),
@@ -306,6 +361,41 @@ class _CommentSheetState extends State<CommentSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTagSuggestions() {
+    return Container(
+      height: 38,
+      color: const Color(0xFFF8F8F8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        itemCount: _tagSuggestions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final tag = _tagSuggestions[i];
+          return GestureDetector(
+            onTap: () => _insertTag(tag),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                '#$tag',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF00B96B),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

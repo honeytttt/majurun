@@ -347,48 +347,92 @@ class PostController extends ChangeNotifier {
 
   // ─── Motivational cards ────────────────────────────────────────────────────
 
-  static const List<String> _motivationalImages = [
-    AssetUrls.motivational_cards_card_01, AssetUrls.motivational_cards_card_02,
-    AssetUrls.motivational_cards_card_03, AssetUrls.motivational_cards_card_04,
-    AssetUrls.motivational_cards_card_05, AssetUrls.motivational_cards_card_06,
-    AssetUrls.motivational_cards_card_07, AssetUrls.motivational_cards_card_08,
-    AssetUrls.motivational_cards_card_09, AssetUrls.motivational_cards_card_10,
-    AssetUrls.motivational_cards_card_11, AssetUrls.motivational_cards_card_12,
-    AssetUrls.motivational_cards_card_13, AssetUrls.motivational_cards_card_14,
-    AssetUrls.motivational_cards_card_15, AssetUrls.motivational_cards_card_16,
-    AssetUrls.motivational_cards_card_17, AssetUrls.motivational_cards_card_18,
-    AssetUrls.motivational_cards_card_19, AssetUrls.motivational_cards_card_20,
-    AssetUrls.motivational_cards_card_21, AssetUrls.motivational_cards_card_22,
-    AssetUrls.motivational_cards_card_23, AssetUrls.motivational_cards_card_24,
-    AssetUrls.motivational_cards_card_25, AssetUrls.motivational_cards_card_26,
-    AssetUrls.motivational_cards_card_27, AssetUrls.motivational_cards_card_28,
-    AssetUrls.motivational_cards_card_29, AssetUrls.motivational_cards_card_30,
+  // Combined pools: images + videos interleaved so every 4th-5th daily post is a video.
+  // Format: [url, type] pairs in the rotation list — type is 'image' or 'video'.
+  static const List<List<String>> _motivationalPool = [
+    [AssetUrls.motivational_cards_card_01, 'image'],
+    [AssetUrls.motivational_cards_card_02, 'image'],
+    [AssetUrls.motivational_cards_card_03, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_01, 'video'],
+    [AssetUrls.motivational_cards_card_04, 'image'],
+    [AssetUrls.motivational_cards_card_05, 'image'],
+    [AssetUrls.motivational_cards_card_06, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_02, 'video'],
+    [AssetUrls.motivational_cards_card_07, 'image'],
+    [AssetUrls.motivational_cards_card_08, 'image'],
+    [AssetUrls.motivational_cards_card_09, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_03, 'video'],
+    [AssetUrls.motivational_cards_card_10, 'image'],
+    [AssetUrls.motivational_cards_card_11, 'image'],
+    [AssetUrls.motivational_cards_card_12, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_04, 'video'],
+    [AssetUrls.motivational_cards_card_13, 'image'],
+    [AssetUrls.motivational_cards_card_14, 'image'],
+    [AssetUrls.motivational_cards_card_15, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_05, 'video'],
+    [AssetUrls.motivational_cards_card_16, 'image'],
+    [AssetUrls.motivational_cards_card_17, 'image'],
+    [AssetUrls.motivational_cards_card_18, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_06, 'video'],
+    [AssetUrls.motivational_cards_card_19, 'image'],
+    [AssetUrls.motivational_cards_card_20, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_07, 'video'],
+    [AssetUrls.motivational_cards_card_21, 'image'],
+    [AssetUrls.motivational_cards_card_22, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_08, 'video'],
+    [AssetUrls.motivational_cards_card_23, 'image'],
+    [AssetUrls.motivational_cards_card_24, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_09, 'video'],
+    [AssetUrls.motivational_cards_card_25, 'image'],
+    [AssetUrls.motivational_cards_card_26, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_10, 'video'],
+    [AssetUrls.motivational_cards_card_27, 'image'],
+    [AssetUrls.motivational_cards_card_28, 'image'],
+    [AssetUrls.motivational_cards_card_29, 'image'],
+    [AssetUrls.motivational_cards_card_30, 'image'],
   ];
 
-  static const List<String> _educationImages = [
-    AssetUrls.education_cards_edu_breathing_01, AssetUrls.education_cards_edu_cadence_01,
-    AssetUrls.education_cards_edu_gear_01,     AssetUrls.education_cards_edu_heat_01,
-    AssetUrls.education_cards_edu_hills_01,    AssetUrls.education_cards_edu_injury_01,
-    AssetUrls.education_cards_edu_injury_02,   AssetUrls.education_cards_edu_mental_01,
-    AssetUrls.education_cards_edu_mental_02,   AssetUrls.education_cards_edu_nutrition_01,
-    AssetUrls.education_cards_edu_nutrition_02, AssetUrls.education_cards_edu_pacing_01,
-    AssetUrls.education_cards_edu_race_day_01, AssetUrls.education_cards_edu_recovery_01,
-    AssetUrls.education_cards_edu_recovery_02, AssetUrls.education_cards_edu_running_form_01,
-    AssetUrls.education_cards_edu_running_form_02, AssetUrls.education_cards_edu_training_01,
-    AssetUrls.education_cards_edu_training_02, AssetUrls.education_cards_edu_warmup_01,
+  static const List<List<String>> _educationPool = [
+    [AssetUrls.education_cards_edu_breathing_01, 'image'],
+    [AssetUrls.education_cards_edu_cadence_01, 'image'],
+    [AssetUrls.education_videos_edu_video_breathing, 'video'],
+    [AssetUrls.education_cards_edu_gear_01, 'image'],
+    [AssetUrls.education_cards_edu_heat_01, 'image'],
+    [AssetUrls.education_videos_edu_video_warmup, 'video'],
+    [AssetUrls.education_cards_edu_hills_01, 'image'],
+    [AssetUrls.education_cards_edu_injury_01, 'image'],
+    [AssetUrls.education_videos_edu_video_form, 'video'],
+    [AssetUrls.education_cards_edu_injury_02, 'image'],
+    [AssetUrls.education_cards_edu_mental_01, 'image'],
+    [AssetUrls.education_videos_edu_video_recovery, 'video'],
+    [AssetUrls.education_cards_edu_mental_02, 'image'],
+    [AssetUrls.education_cards_edu_nutrition_01, 'image'],
+    [AssetUrls.education_videos_edu_video_nutrition, 'video'],
+    [AssetUrls.education_cards_edu_nutrition_02, 'image'],
+    [AssetUrls.education_cards_edu_pacing_01, 'image'],
+    [AssetUrls.education_videos_edu_video_cooldown, 'video'],
+    [AssetUrls.education_cards_edu_race_day_01, 'image'],
+    [AssetUrls.education_cards_edu_recovery_01, 'image'],
+    [AssetUrls.education_cards_edu_recovery_02, 'image'],
+    [AssetUrls.education_cards_edu_running_form_01, 'image'],
+    [AssetUrls.education_cards_edu_running_form_02, 'image'],
+    [AssetUrls.education_cards_edu_training_01, 'image'],
+    [AssetUrls.education_cards_edu_training_02, 'image'],
+    [AssetUrls.education_cards_edu_warmup_01, 'image'],
   ];
 
-  /// Returns the motivational image URL for a given calendar day (rotates through all 30).
-  static String motivationalImageForDay(int dayOfYear) =>
-      _motivationalImages[dayOfYear % _motivationalImages.length];
+  /// Returns [url, mediaType] for the motivational post for a given calendar day.
+  static List<String> motivationalMediaForDay(int dayOfYear) =>
+      _motivationalPool[dayOfYear % _motivationalPool.length];
 
-  /// Returns the education image URL for a given calendar day (rotates through all 20).
-  static String educationImageForDay(int dayOfYear) =>
-      _educationImages[dayOfYear % _educationImages.length];
+  /// Returns [url, mediaType] for the education post for a given calendar day.
+  static List<String> educationMediaForDay(int dayOfYear) =>
+      _educationPool[dayOfYear % _educationPool.length];
 
-  /// Posts today's motivational card to the global feed (called by DailyContentService).
+  /// Posts today's motivational card (image or video) to the global feed.
   Future<void> createMotivationalPost({
-    required String imageUrl,
+    required String mediaUrl,
+    required String mediaType,
     required String userId,
     required String username,
   }) async {
@@ -399,18 +443,19 @@ class PostController extends ChangeNotifier {
         'content': '💪 Stay motivated — every run counts. Keep going, MajuRun community! #MajuRun #Motivation',
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'motivational',
-        'media': [{'url': imageUrl, 'type': 'image'}],
+        'media': [{'url': mediaUrl, 'type': mediaType}],
         'likes': [],
       });
-      debugPrint('💪 Motivational post created');
+      debugPrint('💪 Motivational post created (type: $mediaType)');
     } catch (e) {
       debugPrint('❌ Error creating motivational post: $e');
     }
   }
 
-  /// Posts today's education card to the global feed (called by DailyContentService).
+  /// Posts today's education card (image or video) to the global feed.
   Future<void> createEducationPost({
-    required String imageUrl,
+    required String mediaUrl,
+    required String mediaType,
     required String userId,
     required String username,
   }) async {
@@ -421,10 +466,10 @@ class PostController extends ChangeNotifier {
         'content': '📚 Running tip of the day — learn something new every day to run smarter. #MajuRun #RunningTips',
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'education',
-        'media': [{'url': imageUrl, 'type': 'image'}],
+        'media': [{'url': mediaUrl, 'type': mediaType}],
         'likes': [],
       });
-      debugPrint('📚 Education post created');
+      debugPrint('📚 Education post created (type: $mediaType)');
     } catch (e) {
       debugPrint('❌ Error creating education post: $e');
     }

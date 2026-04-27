@@ -364,29 +364,45 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                         ),
                         Text(
                           "$_localLikesCount",
-                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: _isLiked ? Colors.red : Colors.black54,
+                          ),
                         ),
                         const SizedBox(width: 16),
 
                         // Comment Button
-                        IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black45),
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => CommentSheet(postId: widget.post.id),
-                            );
-                          },
-                        ),
                         StreamBuilder<List<Map<String, dynamic>>>(
                           stream: _commentsStream,
                           builder: (context, snapshot) {
                             final count = snapshot.data?.length ?? 0;
-                            return Text(
-                              "$count",
-                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
+                            final hasComments = count > 0;
+                            final activeColor = const Color(0xFF00B96B);
+                            return Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    hasComments ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                                    size: 20,
+                                    color: hasComments ? activeColor : Colors.black45,
+                                  ),
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => CommentSheet(postId: widget.post.id),
+                                    );
+                                  },
+                                ),
+                                Text(
+                                  "$count",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: hasComments ? activeColor : Colors.black54,
+                                  ),
+                                ),
+                              ],
                             );
                           },
                         ),
