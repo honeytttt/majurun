@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:audio_session/audio_session.dart';
 import 'package:majurun/core/services/voice_settings_service.dart';
 
 // ... (rest of the constants remain the same)
@@ -227,14 +226,6 @@ class VoiceController extends ChangeNotifier {
     if (!_isVoiceEnabled || !_settings.masterEnabled) return;
     try {
       if (!_isInitialized) await _initTts();
-
-      if (!kIsWeb) {
-        final session = await AudioSession.instance;
-        // This ensures music ducks when the coach speaks
-        await session.configure(const AudioSessionConfiguration.speech());
-        await session.setActive(true);
-      }
-
       await _tts.speak(text);
       debugPrint("🔊 Speaking: $text");
     } catch (e) {
