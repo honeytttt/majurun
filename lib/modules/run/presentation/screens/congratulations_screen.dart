@@ -560,74 +560,82 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   Widget _buildActions() {
     return Column(
       children: [
-        // ── Share section (only shown when there are achievements) ────────────
-        if (_hasAchievements) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3)),
+        // ── Share section (always visible for all runs) ───────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _hasAchievements
+                  ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                  : const Color(0xFF1DA1F2).withValues(alpha: 0.3),
             ),
-            child: Column(
-              children: [
-                const Text(
-                  'SHARE YOUR ACHIEVEMENT',
-                  style: TextStyle(
-                    color: Color(0xFFFFD700),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                _hasAchievements ? 'SHARE YOUR ACHIEVEMENT' : 'SHARE YOUR RUN',
+                style: TextStyle(
+                  color: _hasAchievements
+                      ? const Color(0xFFFFD700)
+                      : const Color(0xFF1DA1F2),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    // Share as image card (X, Instagram, WhatsApp…)
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  // Share as image card (X, Instagram, WhatsApp…)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isGeneratingCard ? null : _shareToSocial,
+                      icon: _isGeneratingCard
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.share_rounded, size: 18),
+                      label: Text(_isGeneratingCard ? 'Creating…' : 'Share',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1DA1F2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  // Post to Feed — only for achievement runs
+                  if (_hasAchievements) ...[
+                    const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _isGeneratingCard ? null : _shareToSocial,
-                        icon: _isGeneratingCard
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.share_rounded, size: 18),
-                        label: Text(_isGeneratingCard ? 'Creating…' : 'Share',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: _postAchievementToFeed,
+                        icon: const Icon(Icons.bolt_rounded, size: 18),
+                        label: const Text('Post to Feed',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1DA1F2),
-                          foregroundColor: Colors.white,
+                          backgroundColor: const Color(0xFFFFD700),
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    // Post achievement to MajuRun feed
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _postAchievementToFeed,
-                        icon: const Icon(Icons.bolt_rounded, size: 18),
-                        label: const Text('Post to Feed', style: TextStyle(fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFD700),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
                   ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-        ],
+        ),
+        const SizedBox(height: 16),
 
         // ── View post ─────────────────────────────────────────────────────────
         SizedBox(

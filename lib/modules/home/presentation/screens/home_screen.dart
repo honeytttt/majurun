@@ -411,6 +411,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _sendingVerification = false;
   Set<String> _blockedUserIds = {};
   bool _showNewPostsBanner = false;
+  double _lastScrollPixels = 0;
   int _newPostCount = 0;
 
   // Daily challenge summary for the feed banner
@@ -467,6 +468,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           .collection('users')
           .doc(uid)
           .collection('blockedUsers')
+          .limit(500)
           .get();
       if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
     } catch (_) {}
@@ -506,6 +508,12 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   }
 
   void _onScroll() {
+    // Pause any playing videos when the user scrolls fast — prevents audio
+    // from multiple videos overlapping during quick flick gestures.
+    final pixels = _feedScrollController.position.pixels;
+    if ((pixels - _lastScrollPixels).abs() > 200) VideoSessionManager.pauseAll();
+    _lastScrollPixels = pixels;
+
     if (_feedScrollController.position.pixels >=
             _feedScrollController.position.maxScrollExtent - 200 &&
         !_isLoadingMore &&
