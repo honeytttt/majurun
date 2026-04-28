@@ -13,13 +13,14 @@ import 'features/trivia/trivia_notifier.dart';
 ///
 /// NOTIFICATION ID RESERVATION (do not overlap with core app):
 ///   500 — Streak at Risk
-///   501 — Daily Trivia (coming)
-///   502 — Run Bingo reminder (coming)
+///   501 — Daily Trivia
+///   502 — Daily Games reminder
 ///
 /// FEATURE STATUS:
 ///   ✅ Feature 1: Streak at Risk Notification (build 142)
-///   🔜 Feature 2: Daily Trivia Card + Notification
-///   🔜 Feature 3: Monthly Run Bingo
+///   ✅ Feature 2: Daily Trivia Card + Notification (build 143)
+///   ✅ Feature 3: Daily Micro-Games (Route Riddle / Pace Pulse / Gear Matcher)
+///   ✅ Feature 4: Milestone Ceremony (100/250/500/1000km)
 /// ──────────────────────────────────────────────────────────────────────────
 class EngagementService {
   EngagementService._();

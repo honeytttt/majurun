@@ -7,6 +7,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
+import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
+import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 
 class CongratulationsScreen extends StatefulWidget {
   final double distanceKm;
@@ -64,6 +66,25 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     _fadeAnim  = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
     _animController.forward();
     _initVideo();
+    _checkMilestone();
+  }
+
+  Future<void> _checkMilestone() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      // Fetch cumulative total from Firestore
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final totalKm = (doc.data()?['totalKm'] as num?)?.toDouble() ?? 0.0;
+      final hit = await MilestoneService.checkAfterRun(userId: uid, newTotalKm: totalKm);
+      if (hit != null && mounted) {
+        // Brief delay so the congratulations screen finishes its entrance animation
+        await Future.delayed(const Duration(milliseconds: 1200));
+        if (mounted) await MilestoneCeremony.show(context, hit);
+      }
+    } catch (_) {
+      // Non-critical — milestone ceremony is purely additive
+    }
   }
 
   Future<void> _initVideo() async {

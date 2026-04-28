@@ -37,6 +37,7 @@ import 'package:majurun/modules/challenges/presentation/screens/challenges_scree
 import 'package:majurun/core/services/daily_challenge_service.dart';
 import 'package:majurun/modules/home/presentation/screens/saved_posts_screen.dart';
 import 'package:majurun/modules/engagement/engagement_feed_card.dart';
+import 'package:majurun/modules/engagement/features/games/games_feed_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -807,10 +808,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                 child: _buildChallengesBanner(context),
               ),
 
-              // Engagement addon cards (trivia, bingo, etc.)
-              const SliverToBoxAdapter(
-                child: EngagementFeedCard(),
-              ),
+              // Engagement addon cards (trivia, streak risk, etc.)
+              const SliverToBoxAdapter(child: EngagementFeedCard()),
+
+              // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
+              const SliverToBoxAdapter(child: GamesFeedCard()),
 
               displayPosts.isEmpty
                   ? SliverFillRemaining(
