@@ -1,5 +1,24 @@
 # MajuRun — Claude Code Instructions
 
+## Branching Rule — ALWAYS read this before creating any new branch
+
+**`main` may be stale.** Features are developed on separate branches and are not always merged back.
+
+Before creating any new branch, Claude must:
+1. Run `git log --oneline -5 main` and `git log --oneline -5 <latest-feature-branch>`
+2. Identify which branch has the highest build number — that is the correct base
+3. Branch from there, NOT from `main` unless main IS the highest build
+
+**Current base branch:** `release/v147` (build 147) — merge this into `main` after a successful upload, then `main` becomes correct again.
+
+**Rule:** After every successful App Store / Play Store upload, merge the release branch into `main` immediately:
+```
+git checkout main && git merge <release-branch> && git push
+```
+This keeps `main` current so future branches never miss features.
+
+---
+
 ## Critical Behaviors — Do Not Regress
 
 ### Audio Session / Voice Coaching (voice_controller.dart)
