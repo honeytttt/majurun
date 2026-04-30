@@ -432,6 +432,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         behavior: HitTestBehavior.opaque,
         child: Column(
         children: [
+          // Upload progress indicator — visible when uploading media or submitting post
+          if (_isUploading)
+            const LinearProgressIndicator(
+              backgroundColor: Color(0xFFE8F5E9),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E676)),
+              minHeight: 3,
+            ),
           // TEXT INPUT
           Expanded(
             child: TextField(
