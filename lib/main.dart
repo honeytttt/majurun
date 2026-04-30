@@ -35,6 +35,7 @@ import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
 import 'core/services/offline_sync_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 

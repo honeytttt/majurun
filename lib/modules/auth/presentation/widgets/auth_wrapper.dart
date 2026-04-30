@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/modules/auth/domain/repositories/auth_repository.dart';
@@ -39,37 +40,25 @@ class AuthWrapper extends StatelessWidget {
             
             if (isAdmin) return const HomeScreen();
 
+            // Regular User Flow
             // Use snapshots() NOT get() — avoids the FutureBuilder reset problem.
-        //
-        // With get(), every authStateChanges emission (Firebase fires several
-        // during Google sign-in: signOut→null, credential success, token refresh)
-        // caused the outer StreamBuilder to rebuild, which created a brand-new
-        // FutureBuilder with a brand-new get() call → ConnectionState.waiting
-        // → perpetual loading spinner.  snapshots() is a persistent stream:
-        // the inner StreamBuilder holds state between parent rebuilds and does
-        // not restart when the outer stream re-emits the same uid.
-        //
-        // Bonus: when OnboardingScreen writes 'dob' to Firestore, the snapshot
-        // stream fires automatically and AuthWrapper transitions to HomeScreen
-        // without any manual Navigator.push from OnboardingScreen.
-        return StreamBuilder<DocumentSnapshot>(
-          // Key by uid so Flutter resets the inner stream when a different
-          // user logs in after the previous one logged out.
-          key: ValueKey(user.uid),
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .snapshots(),
-          builder: (context, profileSnap) {
-            if (profileSnap.connectionState == ConnectionState.waiting) {
-              return const _LoadingScreen();
-            }
+            return StreamBuilder<DocumentSnapshot>(
+              key: ValueKey(user.uid),
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+              builder: (context, profileSnap) {
+                if (profileSnap.connectionState == ConnectionState.waiting) {
+                  return const _LoadingScreen();
+                }
 
-            final data =
-                profileSnap.data?.data() as Map<String, dynamic>?;
-            final hasProfile = data != null && data['dob'] != null;
+                final data = profileSnap.data?.data() as Map<String, dynamic>?;
+                final hasProfile = data != null && data['dob'] != null;
 
-            return hasProfile ? const HomeScreen() : const OnboardingScreen();
+                return hasProfile ? const HomeScreen() : const OnboardingScreen();
+              },
+            );
           },
         );
       },
