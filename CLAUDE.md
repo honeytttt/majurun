@@ -9,7 +9,7 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `release/v147` (build 147) — merge this into `main` after a successful upload, then `main` becomes correct again.
+**Current base branch:** `feature/deep-review-improvements` (build 150+) — this branch contains the deep-review improvements. Branch from here for new work until it is merged.
 
 **Rule:** After every successful App Store / Play Store upload, merge the release branch into `main` immediately:
 ```
@@ -245,6 +245,51 @@ Format:
 - [ ] Run stop: single tap shows confirmation dialog
 - [ ] [any other area touched in this build]
 ```
+
+---
+
+## UI & UX Patterns — Established in Deep Review (build 151+)
+
+### Empty States — Always use EmptyStateWidget
+- **Never** show a blank screen or a raw `Center(child: Text(...))` when async data returns 0 items
+- Use `lib/core/widgets/empty_state_widget.dart` — `EmptyStateWidget(icon, title, subtitle, action?)`
+- Applied to: conversations, run history, followers/following, challenges, training history, search results
+- **Rule**: any new screen that loads a list must include an empty state using `EmptyStateWidget`
+
+### Skeleton Loaders — Always use ShimmerLoader
+- **Never** use `CircularProgressIndicator` as the primary loading state for data-driven lists/pages
+- Use `ShimmerLoader` static methods from `lib/core/widgets/shimmer_loader.dart`:
+  - `ShimmerLoader.postSkeleton()` — feed post cards
+  - `ShimmerLoader.runTileSkeleton()` — run history tiles
+  - `ShimmerLoader.leaderboardRowSkeleton()` — user rows (search, followers, leaderboard)
+  - `ShimmerLoader.challengeCardSkeleton()` — challenge cards
+  - `ShimmerLoader.profileHeaderSkeleton()` — user profile header
+- `CircularProgressIndicator` is still acceptable for **button/action loading states** (e.g. login button, purchase button)
+
+### Crashlytics — ErrorHandlerService
+- `ErrorHandlerService.handleError()` now automatically calls `CrashReportingService.recordError()` in production
+- Do NOT add separate Crashlytics calls in feature code — use `ErrorHandlerService.handleError()` throughout
+- Crashlytics is disabled in debug mode (by `CrashReportingService.initialize()`) — this is correct
+
+### Debug Screens — kDebugMode Guard
+- `DebugFixScreen` and `LiveDiagnosticScreen` are gated behind `kDebugMode` — they show "Not available" in release builds
+- Any future debug/diagnostic screen MUST include the same guard at the top of `build()`
+
+### Subscription Analytics Funnel
+- `SubscriptionScreen` now tracks: `paywall_viewed`, `purchase_initiated`, `purchase_completed`, `purchase_failed`
+- Any new monetization touchpoint must log these events via `AnalyticsService().logEvent()`
+
+### Firestore Admin Check
+- Admin is now checked via Firebase Custom Claim: `request.auth.token.get('admin', false) == true`
+- Email fallback (`majurun.app@gmail.com`) is retained as safety net
+- To grant admin to a new account: use Firebase Admin SDK `auth.setCustomUserClaims(uid, {admin: true})`
+- After Custom Claim is set, the email fallback can be removed from `firestore.rules`
+
+### Lint Rules (analysis_options.yaml)
+- `prefer_const_constructors: true` — add `const` to all immutable constructors
+- `prefer_single_quotes: true` — use single quotes throughout new code
+- `avoid_print: true` — use `LoggingService` in production code, not `debugPrint`/`print`
+- All new code must be clean (zero errors, zero warnings, zero infos) before push
 
 ---
 
