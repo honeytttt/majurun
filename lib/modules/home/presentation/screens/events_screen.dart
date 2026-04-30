@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/badge_service.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
 
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
@@ -98,7 +99,10 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       backgroundColor: darkBg,
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: brandGreen))
+            ? ListView.builder(
+                itemCount: 3,
+                itemBuilder: (_, __) => ShimmerLoader.challengeCardSkeleton(),
+              )
             : CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
@@ -944,20 +948,18 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: CircularProgressIndicator(color: brandGreen),
-            ),
+          return ListView.builder(
+            itemCount: 5,
+            itemBuilder: (_, __) => ShimmerLoader.leaderboardRowSkeleton(),
           );
         }
         if (snap.hasError || !snap.hasData || snap.data!.docs.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Text('No leaderboard data yet.\nComplete a run to appear here!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54)),
+          return const Padding(
+            padding: EdgeInsets.all(40),
+            child: Text(
+              'No leaderboard data yet.\nComplete a run to appear here!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54),
             ),
           );
         }

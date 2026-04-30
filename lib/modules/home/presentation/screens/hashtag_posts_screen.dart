@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/widgets/feed_item_wrapper.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 
 /// Shows all posts tagged with a specific hashtag.
 /// Navigated to when user taps a #tag in any post content.
@@ -37,8 +39,9 @@ class HashtagPostsScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00E676)),
+            return ListView.builder(
+              itemCount: 4,
+              itemBuilder: (_, __) => ShimmerLoader.postSkeleton(),
             );
           }
 
@@ -51,28 +54,10 @@ class HashtagPostsScreen extends StatelessWidget {
           final docs = snapshot.data?.docs ?? [];
 
           if (docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.tag_rounded, size: 72, color: Colors.black12),
-                  const SizedBox(height: 16),
-                  Text(
-                    '#$tag',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black45,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'No posts with this hashtag yet.\nBe the first to use it!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black38, fontSize: 14, height: 1.5),
-                  ),
-                ],
-              ),
+            return EmptyStateWidget(
+              icon: Icons.tag_rounded,
+              title: '#$tag',
+              subtitle: 'No posts with this hashtag yet.\nBe the first to use it!',
             );
           }
 
