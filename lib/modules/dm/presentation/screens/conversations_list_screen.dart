@@ -7,6 +7,7 @@ import 'package:majurun/core/services/search_service.dart';
 import 'package:majurun/modules/dm/domain/entities/conversation.dart';
 import 'package:majurun/modules/dm/presentation/widgets/conversation_tile.dart';
 import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 
 class ConversationsListScreen extends StatefulWidget {
   const ConversationsListScreen({super.key});
@@ -100,35 +101,10 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No messages yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap the compose button above to message a runner',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[400],
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return const EmptyStateWidget(
+      icon: Icons.chat_bubble_outline_rounded,
+      title: 'No messages yet',
+      subtitle: 'Tap the compose button to start a conversation with a fellow runner.',
     );
   }
 

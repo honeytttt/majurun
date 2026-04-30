@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 
 class HistoryScreen extends StatefulWidget {
   final VoidCallback onBack; // callback to return to main menu
@@ -98,7 +100,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
         Expanded(
           child: (userId == null || userId.isEmpty)
-              ? const Center(child: CircularProgressIndicator())
+              ? ListView.builder(
+                  itemCount: 5,
+                  itemBuilder: (_, __) => ShimmerLoader.runTileSkeleton(),
+                )
               : StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('users')
@@ -107,8 +112,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       .orderBy('completedAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasError) return const Center(child: Text("Failed to load sessions."));
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    if (snapshot.hasError) return const Center(child: Text('Failed to load sessions.'));
+                    if (!snapshot.hasData) {
+                      return ListView.builder(
+                        itemCount: 5,
+                        itemBuilder: (_, __) => ShimmerLoader.runTileSkeleton(),
+                      );
+                    }
 
                     final docs = snapshot.data!.docs;
 
@@ -122,7 +132,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           }).toList();
 
                     if (filteredDocs.isEmpty) {
-                      return const Center(child: Text("No sessions recorded for this period."));
+                      return const EmptyStateWidget(
+                        icon: Icons.fitness_center_outlined,
+                        title: 'No sessions yet',
+                        subtitle: 'Complete a training session to see your history here.',
+                      );
                     }
 
                     return ListView.builder(

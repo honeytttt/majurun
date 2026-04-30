@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/daily_challenge_service.dart';
 import 'package:majurun/core/theme/app_effects.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 
 class ChallengesScreen extends StatefulWidget {
   const ChallengesScreen({super.key});
@@ -148,7 +150,10 @@ class _ChallengesScreenState extends State<ChallengesScreen>
 
   Widget _buildDailyTab() {
     if (_loadingDaily) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF00E676)));
+      return ListView.builder(
+        itemCount: 4,
+        itemBuilder: (_, __) => ShimmerLoader.challengeCardSkeleton(),
+      );
     }
 
     final completed = _dailyChallenges.where((c) => c['completed'] == true).length;
@@ -439,11 +444,17 @@ class _ChallengesScreenState extends State<ChallengesScreen>
 
   Widget _buildChallengeList(List<Map<String, dynamic>> challenges, bool loading) {
     if (loading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF00E676)));
+      return ListView.builder(
+        itemCount: 4,
+        itemBuilder: (_, __) => ShimmerLoader.challengeCardSkeleton(),
+      );
     }
     if (challenges.isEmpty) {
-      return const Center(
-        child: Text('No challenges available', style: TextStyle(color: Colors.white54)),
+      return const EmptyStateWidget(
+        icon: Icons.emoji_events_outlined,
+        title: 'No challenges yet',
+        subtitle: 'Check back soon — new challenges drop regularly.',
+        iconColor: Color(0xFF00E676),
       );
     }
     return ListView.builder(

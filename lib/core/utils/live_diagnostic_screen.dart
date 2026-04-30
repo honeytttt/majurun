@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,8 +10,15 @@ class LiveDiagnosticScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Guard: never expose live Firestore data in production builds
+    if (!kDebugMode) {
+      return const Scaffold(
+        body: Center(child: Text('Not available')),
+      );
+    }
+
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     if (currentUser == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Diagnostic')),

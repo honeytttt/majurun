@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -343,17 +344,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               )
             else if (runs.isEmpty)
               const SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.directions_run, size: 48, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                      SizedBox(height: 8),
-                      Text("Start your first session.", style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
+                child: EmptyStateWidget(
+                  icon: Icons.directions_run_rounded,
+                  title: 'No sessions yet',
+                  subtitle: 'Lace up and complete your first run — it will appear here.',
                 ),
               )
             else

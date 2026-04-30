@@ -32,14 +32,13 @@ class ShimmerLoader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      period: const Duration(milliseconds: 1500),
+      baseColor: Colors.grey[300] ?? const Color(0xFFE0E0E0),
+      highlightColor: Colors.grey[100] ?? const Color(0xFFF5F5F5),
       child: Container(
         width: width,
         height: height,
         decoration: ShapeDecoration(
-          color: Colors.grey[400]!,
+          color: Colors.grey[400] ?? const Color(0xFFBDBDBD),
           shape: shapeBorder,
         ),
       ),
@@ -70,8 +69,7 @@ class ShimmerLoader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ShimmerLoader.rounded(
-height: 200),
+          ShimmerLoader.rounded(height: 200),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -91,8 +89,7 @@ height: 200),
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: Row(
         children: [
-          ShimmerLoader.rounded(
-width: 60, height: 60, borderRadius: 8),
+          ShimmerLoader.rounded(width: 60, height: 60, borderRadius: 8),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -105,6 +102,75 @@ width: 60, height: 60, borderRadius: 8),
             ),
           ),
           const ShimmerLoader.rectangular(width: 40, height: 20),
+        ],
+      ),
+    );
+  }
+
+  /// Leaderboard row skeleton — avatar + name + score
+  static Widget leaderboardRowSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        children: [
+          const ShimmerLoader.circular(width: 36, height: 36),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerLoader.rectangular(height: 14, width: 120),
+                const SizedBox(height: 6),
+                ShimmerLoader.rectangular(height: 10, width: 80),
+              ],
+            ),
+          ),
+          ShimmerLoader.rounded(width: 52, height: 24, borderRadius: 6),
+        ],
+      ),
+    );
+  }
+
+  /// Challenge card skeleton
+  static Widget challengeCardSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ShimmerLoader.rounded(height: 110),
+          const SizedBox(height: 12),
+          ShimmerLoader.rectangular(height: 16, width: 180),
+          const SizedBox(height: 8),
+          ShimmerLoader.rectangular(height: 12, width: 120),
+          const SizedBox(height: 10),
+          ShimmerLoader.rounded(height: 8, borderRadius: 4),
+        ],
+      ),
+    );
+  }
+
+  /// User profile header skeleton
+  static Widget profileHeaderSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const ShimmerLoader.circular(width: 88, height: 88),
+          const SizedBox(height: 16),
+          ShimmerLoader.rectangular(height: 18, width: 140),
+          const SizedBox(height: 8),
+          ShimmerLoader.rectangular(height: 12, width: 100),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ShimmerLoader.rounded(width: 80, height: 44, borderRadius: 8),
+              ShimmerLoader.rounded(width: 80, height: 44, borderRadius: 8),
+              ShimmerLoader.rounded(width: 80, height: 44, borderRadius: 8),
+            ],
+          ),
         ],
       ),
     );

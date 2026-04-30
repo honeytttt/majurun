@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:majurun/core/services/crash_reporting_service.dart';
 
 /// Centralized error handling service
 class ErrorHandlerService {
@@ -42,10 +43,14 @@ class ErrorHandlerService {
     // Broadcast to listeners
     _errorController.add(appError);
 
-    // TODO: Report to Crashlytics in production
-    // if (reportToCrashlytics && !kDebugMode) {
-    //   FirebaseCrashlytics.instance.recordError(error, stackTrace, reason: context);
-    // }
+    if (reportToCrashlytics && !kDebugMode) {
+      CrashReportingService().recordError(
+        error,
+        stackTrace,
+        reason: context,
+        fatal: severity == ErrorSeverity.critical,
+      );
+    }
   }
 
   /// Show user-friendly error message
