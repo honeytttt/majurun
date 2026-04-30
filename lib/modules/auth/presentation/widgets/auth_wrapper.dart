@@ -24,10 +24,22 @@ class AuthWrapper extends StatelessWidget {
         final user = snapshot.data;
         if (user == null) return const LoginScreen();
 
-        // Admin bypasses profile check
-        if (user.email == 'majurun.app@gmail.com') return const HomeScreen();
+        // Admin check: supports both modern Custom Claims and legacy email fallback.
+        // This ensures zero downtime for the existing admin while enabling claim-based security.
+        return FutureBuilder<IdTokenResult>(
+          future: FirebaseAuth.instance.currentUser!.getIdTokenResult(),
+          builder: (context, tokenSnap) {
+            // While checking token, show a loader to prevent premature redirection to Onboarding
+            if (tokenSnap.connectionState == ConnectionState.waiting) {
+              return const _LoadingScreen();
+            }
 
-        // Use snapshots() NOT get() — avoids the FutureBuilder reset problem.
+            final isAdmin = (tokenSnap.data?.claims?['admin'] == true) || 
+                            (user.email == 'majurun.app@gmail.com');
+            
+            if (isAdmin) return const HomeScreen();
+
+            // Use snapshots() NOT get() — avoids the FutureBuilder reset problem.
         //
         // With get(), every authStateChanges emission (Firebase fires several
         // during Google sign-in: signOut→null, credential success, token refresh)

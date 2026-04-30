@@ -68,34 +68,22 @@ Future<void> main() async {
 
     // Initialize timezone data so scheduled notifications fire at the correct
     // LOCAL time. Without this, tz.local defaults to UTC which causes reminders
-    // to fire at wrong times (e.g. 7:30 UTC = 3:30 PM in Malaysia UTC+8).
+    // to fire at wrong times.
     tz_data.initializeTimeZones();
-    // Use device's UTC offset to pick the closest named timezone.
-    // This avoids requiring the flutter_timezone package while still handling
-    // the most common case correctly.
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-    final offsetHours = offsetMinutes / 60;
-    String timezoneName = 'UTC';
-    if (offsetHours >= 7.5 && offsetHours < 9) {
-      timezoneName = 'Asia/Kuala_Lumpur'; // UTC+8 (Malaysia, Singapore)
-    } else if (offsetHours >= 5.5 && offsetHours < 6) {
-      timezoneName = 'Asia/Kolkata'; // UTC+5:30
-    } else if (offsetHours >= 7 && offsetHours < 8) {
-      timezoneName = 'Asia/Bangkok'; // UTC+7
-    } else if (offsetHours >= 8 && offsetHours < 9) {
-      timezoneName = 'Asia/Shanghai'; // UTC+8 exact
-    } else if (offsetHours >= 9 && offsetHours < 10) {
-      timezoneName = 'Asia/Tokyo'; // UTC+9
-    } else if (offsetHours > 0) {
-      // Generic positive offset zones
-      timezoneName = 'Etc/GMT-${offsetHours.round()}';
-    } else if (offsetHours < 0) {
-      timezoneName = 'Etc/GMT+${(-offsetHours).round()}';
-    }
     try {
-      tz.setLocalLocation(tz.getLocation(timezoneName));
+      // Use flutter_timezone to get the exact location name (e.g. 'Asia/Kuala_Lumpur')
+      // instead of manual offset guessing. This handles DST and regional nuances correctly.
+      final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(currentTimeZone));
     } catch (_) {
-      // Fallback: keep UTC if location lookup fails
+      // Fallback: Use a basic offset guess if the plugin fails
+      final offset = DateTime.now().timeZoneOffset.inHours;
+      final fallbackName = offset >= 0 ? 'Etc/GMT-$offset' : 'Etc/GMT+${-offset}';
+      try {
+        tz.setLocalLocation(tz.getLocation(fallbackName));
+      } catch (_) {
+        tz.setLocalLocation(tz.getLocation('UTC'));
+      }
     }
 
     // Configure audio session: TTS ducks music while speaking, restores after.
