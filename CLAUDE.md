@@ -9,7 +9,16 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/deep-review-improvements` (build 150+) — this branch contains the deep-review improvements. Branch from here for new work until it is merged.
+**Current base branch:** `feature/final-production-polish` (build 159+) — branch from here for new work.
+
+### Pending CI task (do on next build commit)
+- Bump `actions/checkout@v4` → `actions/checkout@v5` in **both** `.github/workflows/ios-build.yml` and `.github/workflows/android-build.yml`
+- Node.js 20 actions deprecated June 2 2026 — must be done before then or builds will warn/break
+
+### iOS CI — Xcode version rule (enforced from build 159)
+- Runner: **`macos-15`** (fast queue — Xcode 26 is pre-installed on it)
+- **Never hardcode a specific Xcode version** — use dynamic selection: pick highest `Xcode_26.x`, fail loudly if not found
+- Apple enforced iOS 26 SDK requirement starting **May 1, 2026** — any upload built with Xcode 16.x / iOS 18.x SDK is rejected with error 409
 
 **Rule:** After every successful App Store / Play Store upload, merge the release branch into `main` immediately:
 ```
