@@ -19,10 +19,28 @@ service cloud.firestore {
     }
 
     // ─── Users ────────────────────────────────────────────────────────────────
+    // Entitlement fields are written ONLY by the verifySubscription Cloud
+    // Function (which uses the Admin SDK and bypasses these rules). Any client
+    // update that touches one of these keys is rejected.
+    function entitlementFields() {
+      return ['isPro', 'subscriptionType', 'subscriptionExpiry',
+              'entitlementSource', 'lastVerifiedAt'];
+    }
+    function clientUpdateRespectsEntitlement() {
+      // Allowed when the diff between request and existing data does NOT
+      // touch any entitlement field. Admin still bypasses below.
+      return !request.resource.data.diff(resource.data)
+                .affectedKeys()
+                .hasAny(entitlementFields());
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (isOwner(userId) && clientUpdateRespectsEntitlement())
+      );
       allow delete: if isAdmin();
 
       // followers/{followerId} — the follower document represents followerId following userId.
@@ -131,9 +149,14 @@ service cloud.firestore {
     }
 
     // ─── Notifications ────────────────────────────────────────────────────────
+    // Parent doc holds per-user counters (unread, last seen). Only the owner
+    // may read or write the parent — the previous open-write rule let any
+    // signed-in user spoof another user's unread state. Items subcollection
+    // keeps its own per-sender check below so other users can still create
+    // notification rows for the owner (likes, comments, follows, etc.).
     match /notifications/{userId} {
       allow read: if isOwner(userId);
-      allow write: if isAuthenticated();
+      allow write: if isOwner(userId);
 
       match /items/{notificationId} {
         allow read: if isOwner(userId);
@@ -190,6 +213,14 @@ service cloud.firestore {
     match /contactMessages/{messageId} {
       allow create: if isAuthenticated();
       allow read, update, delete: if isAdmin();
+    }
+
+    // ─── IAP transactions ledger ──────────────────────────────────────────────
+    // Written ONLY by the verifySubscription Cloud Function (Admin SDK bypasses
+    // these rules). Clients must never see or write here.
+    match /iapTransactions/{txId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // ─── App logs ─────────────────────────────────────────────────────────────

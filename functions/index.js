@@ -1,9 +1,18 @@
 // functions/index.js
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { defineSecret } = require("firebase-functions/params");
 const { logger } = require("firebase-functions/v2");
 const { RecaptchaEnterpriseServiceClient } = require('@google-cloud/recaptcha-enterprise');
 const admin = require("firebase-admin");
+
+// ── Secrets bound to verifySubscription ────────────────────────────────────
+// Firebase Functions v2 requires secrets to be declared via defineSecret() and
+// passed in the function options' `secrets:` array — without this, the values
+// set via `firebase functions:secrets:set` do NOT appear in process.env at
+// runtime. Reference with .value() inside the handler.
+const APPLE_SHARED_SECRET = defineSecret("APPLE_SHARED_SECRET");
+const GOOGLE_PLAY_PACKAGE = defineSecret("GOOGLE_PLAY_PACKAGE");
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -166,7 +175,11 @@ exports.adminDeletePost = onCall(
 //            then firebase functions:secrets:set GOOGLE_PLAY_PACKAGE
 //
 exports.verifySubscription = onCall(
-  { region: "asia-southeast1" },
+  {
+    region: "asia-southeast1",
+    secrets: [APPLE_SHARED_SECRET, GOOGLE_PLAY_PACKAGE],
+    enforceAppCheck: true,
+  },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be logged in.");
@@ -195,7 +208,12 @@ exports.verifySubscription = onCall(
           scopes: ["https://www.googleapis.com/auth/androidpublisher"],
         });
         const androidPublisher = google.androidpublisher({ version: "v3", auth });
-        const packageName = process.env.GOOGLE_PLAY_PACKAGE;
+        const packageName = GOOGLE_PLAY_PACKAGE.value();
+        if (!packageName) {
+          logger.error("GOOGLE_PLAY_PACKAGE secret is empty.");
+          throw new HttpsError("failed-precondition",
+              "Server is missing GOOGLE_PLAY_PACKAGE secret.");
+        }
 
         const result = await androidPublisher.purchases.subscriptions.get({
           packageName,
@@ -221,7 +239,12 @@ exports.verifySubscription = onCall(
 
       try {
         const https = require("https");
-        const sharedSecret = process.env.APPLE_SHARED_SECRET;
+        const sharedSecret = APPLE_SHARED_SECRET.value();
+        if (!sharedSecret) {
+          logger.error("APPLE_SHARED_SECRET is empty.");
+          throw new HttpsError("failed-precondition",
+              "Server is missing APPLE_SHARED_SECRET secret.");
+        }
 
         const validateWithApple = (url) => new Promise((resolve, reject) => {
           const body = JSON.stringify({ "receipt-data": receiptData, "password": sharedSecret, "exclude-old-transactions": true });
@@ -277,15 +300,36 @@ exports.verifySubscription = onCall(
       return { success: false, reason: "Receipt invalid or expired." };
     }
 
+    // ── Replay guard: each purchaseToken / receipt hash may grant entitlement
+    // to exactly one uid. Reject if another uid already claimed the same token.
+    const txKey = platform === "android"
+        ? `gp_${purchaseToken}`
+        : `as_${require("crypto").createHash("sha256").update(receiptData).digest("hex")}`;
+    const txRef = db.collection("iapTransactions").doc(txKey);
+    const txSnap = await txRef.get();
+    if (txSnap.exists && txSnap.data().uid && txSnap.data().uid !== uid) {
+      logger.warn(`verifySubscription: replay attempt — token already bound to ${txSnap.data().uid}, caller uid=${uid}`);
+      throw new HttpsError("already-exists", "This purchase is bound to another account.");
+    }
+
     // ── Trusted write: only Cloud Function grants entitlement ────────────────
     const isYearly = productId.includes("yearly") || productId.includes("annual");
-    await db.collection("users").doc(uid).update({
+    const batch = db.batch();
+    batch.update(db.collection("users").doc(uid), {
       isPro: true,
       subscriptionType: isYearly ? "yearly" : "monthly",
       subscriptionExpiry: expiryDate ? admin.firestore.Timestamp.fromDate(expiryDate) : null,
       entitlementSource: "server_verified",
       lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    batch.set(txRef, {
+      uid,
+      productId,
+      platform,
+      expiresAt: expiryDate ? admin.firestore.Timestamp.fromDate(expiryDate) : null,
+      lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await batch.commit();
 
     logger.info(`verifySubscription: granted Pro to uid=${uid} product=${productId} expiry=${expiryDate}`);
     return { success: true };

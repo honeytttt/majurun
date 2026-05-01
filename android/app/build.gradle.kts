@@ -53,6 +53,15 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
+    // Detect whether this Gradle invocation is actually building a release.
+    // Used to gate the release-keystore requirement so that `assembleDebug`
+    // works on developer machines that have no key.properties.
+    val isReleaseBuild = gradle.startParameter.taskNames.any {
+        it.contains("Release", ignoreCase = true) ||
+        it.contains("Bundle",  ignoreCase = true)
+    }
+    val keystorePropertiesFile = rootProject.file("key.properties")
+
     signingConfigs {
         // Shared debug keystore — same SHA on every machine, registered once in Firebase.
         // Committed to repo at android/debug.keystore (safe: debug only, not production).
@@ -64,26 +73,32 @@ android {
         }
 
         // Release signing config — loaded from key.properties (not committed).
-        // FAIL CLOSED: if key.properties is missing, throw immediately rather than
-        // silently signing a production build with the debug keystore.
-        create("release") {
-            val keystorePropertiesFile = rootProject.file("key.properties")
-            require(keystorePropertiesFile.exists()) {
-                "key.properties not found. Release builds require a production keystore. " +
-                "Supply key.properties or run a debug build instead."
+        // Only configured when key.properties is present; the buildTypes.release
+        // block below fails the build if a release task is requested without it.
+        // This avoids breaking `assembleDebug` on dev machines without the key.
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                val keystoreProperties = Properties()
+                keystoreProperties.load(keystorePropertiesFile.inputStream())
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
             }
-            val keystoreProperties = Properties()
-            keystoreProperties.load(keystorePropertiesFile.inputStream())
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // FAIL CLOSED: a release task without key.properties stops the build
+            // — no silent fallback to the debug keystore for production artifacts.
+            if (isReleaseBuild) {
+                check(keystorePropertiesFile.exists()) {
+                    "key.properties not found. Release builds require a production keystore. " +
+                    "Supply key.properties or run a debug build instead."
+                }
+                signingConfig = signingConfigs.getByName("release")
+            }
 
             // Enable ProGuard/R8 for release builds
             isMinifyEnabled = true
