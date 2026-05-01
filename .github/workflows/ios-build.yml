@@ -48,7 +48,7 @@ jobs:
   build-ios:
     needs: validate
     name: Build iOS IPA
-    runs-on: macos-15
+    runs-on: macos-16
     timeout-minutes: 90
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -60,11 +60,22 @@ jobs:
           # List available Xcode versions
           ls /Applications | grep Xcode
 
-          # Use Xcode 16.2 on macos-15 (supports Swift 6 for Firebase 11.x)
-          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          # Apple now requires iOS 26 SDK (Xcode 26+) for all App Store uploads.
+          # macos-16 runner ships with Xcode 26.x.
+          # Prefer the highest available Xcode 26.x, fallback to whatever is latest.
+          XCODE_26=$(ls /Applications | grep "^Xcode_26" | sort -V | tail -1)
+          if [ -n "$XCODE_26" ]; then
+            sudo xcode-select -s "/Applications/${XCODE_26}/Contents/Developer"
+            echo "Selected Xcode: $XCODE_26"
+          else
+            # Fallback: use xcode-select to pick whatever is installed
+            XCODE_LATEST=$(ls /Applications | grep "^Xcode_" | sort -V | tail -1)
+            sudo xcode-select -s "/Applications/${XCODE_LATEST}/Contents/Developer"
+            echo "Xcode 26 not found, falling back to: $XCODE_LATEST"
+          fi
+
           xcodebuild -version
-          xcodebuild -showsdks | grep iOS || echo "Checking available platforms..."
-          xcodebuild -showsdks
+          xcodebuild -showsdks | grep -E "iOS|iphoneos" || echo "Checking available platforms..."
 
       - name: Download iOS Platform
         timeout-minutes: 10
@@ -318,12 +329,14 @@ jobs:
           IPA_PATH=$(find $RUNNER_TEMP/export -name "*.ipa" | head -1)
           echo "Uploading IPA: $IPA_PATH"
 
-          # Upload using xcrun altool
+          # Upload using xcrun altool (still supported in Xcode 26)
+          # --output-format xml gives structured error output on failure
           xcrun altool --upload-app \
             --type ios \
             --file "$IPA_PATH" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --output-format xml
 
           echo "✅ Successfully uploaded to App Store Connect!"
 
