@@ -92,7 +92,6 @@ exports.adminDeleteUser = onCall(
   { region: "asia-southeast1" },
   async (request) => {
     requireAdmin(request);
-    }
     const { uid } = request.data;
     if (!uid) throw new HttpsError("invalid-argument", "uid required.");
 

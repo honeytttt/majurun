@@ -104,10 +104,11 @@ Future<void> main() async {
       if (!e.toString().contains('duplicate-app')) rethrow;
     }
 
-    // Offline persistence — feed and profile load instantly on relaunch
+    // Offline persistence — feed and profile load instantly on relaunch.
+    // Capped at 100MB to prevent disk bloat on heavy users.
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      cacheSizeBytes: 100 * 1024 * 1024,
     );
 
     // Firebase App Check — activated before runApp so every subsequent Firestore/Functions
