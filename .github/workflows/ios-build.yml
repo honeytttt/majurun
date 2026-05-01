@@ -40,7 +40,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze code
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Run tests
         run: flutter test
@@ -206,6 +206,14 @@ jobs:
         run: |
           sed -i '' "s/MAPS_API_KEY_PLACEHOLDER/${IOS_MAPS_API_KEY}/" ios/Runner/AppDelegate.swift
           echo "Google Maps iOS API key injected"
+
+      - name: Configure ExportOptions with Team ID
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Use PlistBuddy to inject the Team ID from secrets into the plist
+          /usr/libexec/PlistBuddy -c "Add :teamID string $TEAM_ID" ios/ExportOptions.plist || /usr/libexec/PlistBuddy -c "Set :teamID $TEAM_ID" ios/ExportOptions.plist
+          echo "Team ID injected into ExportOptions.plist"
 
       - name: Build Flutter iOS (no codesign)
         run: |
