@@ -79,14 +79,19 @@ exports.verifyRecaptcha = onCall(
   }
 );
 
-const ADMIN_EMAIL = "majurun.app@gmail.com";
+// Admin check via Firebase Custom Claim only.
+// Grant via: admin.auth().setCustomUserClaims(uid, { admin: true })
+function requireAdmin(request) {
+  if (!request.auth || request.auth.token.admin !== true) {
+    throw new HttpsError("permission-denied", "Admin only.");
+  }
+}
 
 // Delete a user: Firebase Auth + all Firestore data
 exports.adminDeleteUser = onCall(
   { region: "asia-southeast1" },
   async (request) => {
-    if (!request.auth || request.auth.token.email !== ADMIN_EMAIL) {
-      throw new HttpsError("permission-denied", "Admin only.");
+    requireAdmin(request);
     }
     const { uid } = request.data;
     if (!uid) throw new HttpsError("invalid-argument", "uid required.");
@@ -133,9 +138,7 @@ exports.adminDeleteUser = onCall(
 exports.adminDeletePost = onCall(
   { region: "asia-southeast1" },
   async (request) => {
-    if (!request.auth || request.auth.token.email !== ADMIN_EMAIL) {
-      throw new HttpsError("permission-denied", "Admin only.");
-    }
+    requireAdmin(request);
     const { postId } = request.data;
     if (!postId) throw new HttpsError("invalid-argument", "postId required.");
 
@@ -149,6 +152,143 @@ exports.adminDeletePost = onCall(
     await batch.commit();
 
     logger.info(`Admin deleted post ${postId}`);
+    return { success: true };
+  }
+);
+
+// ─── SUBSCRIPTION VERIFICATION ───────────────────────────────────────────────
+// Validates an IAP receipt server-side and writes entitlement to Firestore.
+// The client sends the raw verificationData; this function is the ONLY place
+// that writes isPro=true — the client never writes entitlement directly.
+//
+// Setup required (run once, secrets never go in code):
+//   iOS:   firebase functions:secrets:set APPLE_SHARED_SECRET
+//   Android: grant the service account billing.readonly on Play Console,
+//            then firebase functions:secrets:set GOOGLE_PLAY_PACKAGE
+//
+exports.verifySubscription = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be logged in.");
+    }
+
+    const { productId, purchaseToken, receiptData, platform } = request.data;
+    if (!productId || !platform) {
+      throw new HttpsError("invalid-argument", "productId and platform required.");
+    }
+
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+
+    let isValid = false;
+    let expiryDate = null;
+
+    if (platform === "android") {
+      // ── Android: validate via Google Play Developer API ──────────────────
+      // Requires Google service account with Subscriptions.readonly permission.
+      // purchaseToken comes from PurchaseDetails.verificationData.serverVerificationData
+      if (!purchaseToken) throw new HttpsError("invalid-argument", "purchaseToken required for Android.");
+
+      try {
+        const { google } = require("googleapis");
+        const auth = new google.auth.GoogleAuth({
+          scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+        });
+        const androidPublisher = google.androidpublisher({ version: "v3", auth });
+        const packageName = process.env.GOOGLE_PLAY_PACKAGE;
+
+        const result = await androidPublisher.purchases.subscriptions.get({
+          packageName,
+          subscriptionId: productId,
+          token: purchaseToken,
+        });
+
+        const subscription = result.data;
+        // paymentState 1 = received, 2 = free trial
+        isValid = subscription.paymentState === 1 || subscription.paymentState === 2;
+        if (isValid && subscription.expiryTimeMillis) {
+          expiryDate = new Date(parseInt(subscription.expiryTimeMillis));
+        }
+      } catch (err) {
+        logger.error("Android receipt validation failed", err);
+        throw new HttpsError("internal", "Receipt validation failed.");
+      }
+
+    } else if (platform === "ios") {
+      // ── iOS: validate via App Store receipt validation endpoint ───────────
+      // receiptData = PurchaseDetails.verificationData.serverVerificationData (base64)
+      if (!receiptData) throw new HttpsError("invalid-argument", "receiptData required for iOS.");
+
+      try {
+        const https = require("https");
+        const sharedSecret = process.env.APPLE_SHARED_SECRET;
+
+        const validateWithApple = (url) => new Promise((resolve, reject) => {
+          const body = JSON.stringify({ "receipt-data": receiptData, "password": sharedSecret, "exclude-old-transactions": true });
+          const options = {
+            hostname: url,
+            path: "/verifyReceipt",
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+          };
+          const req = https.request(options, (res) => {
+            let data = "";
+            res.on("data", (chunk) => data += chunk);
+            res.on("end", () => resolve(JSON.parse(data)));
+          });
+          req.on("error", reject);
+          req.write(body);
+          req.end();
+        });
+
+        let appleResponse = await validateWithApple("buy.itunes.apple.com");
+        // Status 21007 = sandbox receipt sent to production endpoint → retry with sandbox
+        if (appleResponse.status === 21007) {
+          appleResponse = await validateWithApple("sandbox.itunes.apple.com");
+        }
+        if (appleResponse.status !== 0) {
+          logger.warn("Apple receipt invalid, status:", appleResponse.status);
+          throw new HttpsError("invalid-argument", "Receipt invalid.");
+        }
+
+        // Find the latest transaction for this product
+        const latestReceipts = appleResponse.latest_receipt_info || [];
+        const matching = latestReceipts
+          .filter((r) => r.product_id === productId)
+          .sort((a, b) => parseInt(b.expires_date_ms) - parseInt(a.expires_date_ms));
+
+        if (matching.length > 0) {
+          const latest = matching[0];
+          expiryDate = new Date(parseInt(latest.expires_date_ms));
+          isValid = expiryDate > new Date();
+        }
+      } catch (err) {
+        if (err instanceof HttpsError) throw err;
+        logger.error("iOS receipt validation failed", err);
+        throw new HttpsError("internal", "Receipt validation failed.");
+      }
+
+    } else {
+      throw new HttpsError("invalid-argument", `Unknown platform: ${platform}`);
+    }
+
+    if (!isValid) {
+      logger.warn(`verifySubscription: invalid receipt for uid=${uid} product=${productId}`);
+      return { success: false, reason: "Receipt invalid or expired." };
+    }
+
+    // ── Trusted write: only Cloud Function grants entitlement ────────────────
+    const isYearly = productId.includes("yearly") || productId.includes("annual");
+    await db.collection("users").doc(uid).update({
+      isPro: true,
+      subscriptionType: isYearly ? "yearly" : "monthly",
+      subscriptionExpiry: expiryDate ? admin.firestore.Timestamp.fromDate(expiryDate) : null,
+      entitlementSource: "server_verified",
+      lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    logger.info(`verifySubscription: granted Pro to uid=${uid} product=${productId} expiry=${expiryDate}`);
     return { success: true };
   }
 );

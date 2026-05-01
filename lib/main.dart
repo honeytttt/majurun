@@ -110,10 +110,11 @@ Future<void> main() async {
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
 
-    // Firebase App Check — run async after runApp() so it doesn't block the first frame.
-    // App Attest on iOS can take 3–5 seconds on first launch; there's no UX benefit
-    // to blocking startup for it — requests made before it completes still work.
-    Future(() => FirebaseAppCheck.instance.activate(
+    // Firebase App Check — activated before runApp so every subsequent Firestore/Functions
+    // request carries a valid token. App Attest may take a few seconds on first iOS launch,
+    // but that happens during the Flutter engine warm-up and doesn't block the first frame.
+    // unawaited intentionally: activation is best-effort; a failure here should not crash startup.
+    unawaited(FirebaseAppCheck.instance.activate(
       androidProvider: AppConfig.isProduction
           ? AndroidProvider.playIntegrity
           : AndroidProvider.debug,

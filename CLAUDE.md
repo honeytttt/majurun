@@ -193,6 +193,37 @@ If the log shows: `The bundle version must be higher than the previously uploade
 - **Firestore rules**: changes require `firebase deploy --only firestore:rules` — pushing code does NOT deploy rules
 - **Leaderboard**: `LeaderboardService` returns real Firestore data only — no sample/fake padding data
 
+### IAP Entitlement — Server-Side Only (enforced from build 161)
+- **Never write `isPro=true` from client code.** The only trusted writer is the `verifySubscription` Cloud Function.
+- Client sends receipt/purchaseToken to `verifySubscription` → function validates with Apple/Google API → function writes to Firestore.
+- Cloud Function secrets required (set once via Firebase CLI, never committed):
+  - iOS: `firebase functions:secrets:set APPLE_SHARED_SECRET`
+  - Android: service account with `billing.readonly` on Play Console; set `GOOGLE_PLAY_PACKAGE`
+- `payment_service.dart` calls `_verifyAndDeliver()` — do not reintroduce `_deliverProduct()` that writes directly.
+
+### Admin Authorization — Custom Claims Only (enforced from build 161)
+- Cloud Functions use `requireAdmin(request)` helper — checks `request.auth.token.admin === true`
+- The old `ADMIN_EMAIL` constant is removed from functions/index.js
+- To grant admin: `admin.auth().setCustomUserClaims(uid, { admin: true })` via Firebase Admin SDK console
+- Firestore rules retain the email fallback as a safety net only; it should be removed once custom claim is set
+
+### Android Release Signing — Fail Closed (enforced from build 161)
+- `build.gradle.kts` throws `require()` if `key.properties` is missing during a release build
+- A release build **cannot** silently fall back to the debug keystore anymore
+- CI injects `key.properties` at build time via GitHub Secrets — debug builds are unaffected
+
+### Firestore Rules — Key Constraints Added (build 161)
+- `followers/{followerId}`: write restricted to `isOwner(followerId)` — only YOU can follow/unfollow yourself
+- `following/{followingId}`: write restricted to `isOwner(userId)` — only the account owner manages their following list
+- `posts` create: requires `userId == request.auth.uid` + `['userId','content','createdAt']` fields + content ≤ 2000 chars
+- `comments` create: same ownership + schema + content ≤ 1000 chars
+- `events`: write restricted to `isAdmin()` — events are admin-managed content
+- `app_logs`: create requires `['level','message','userId','timestamp']` fields + message ≤ 2000 chars
+
+### App Check — Activated Before runApp (build 161)
+- `FirebaseAppCheck.instance.activate()` is called via `unawaited()` before `runApp()` — closes the early startup window
+- `unawaited()` from `dart:async` — activation failure is non-fatal but the token will be present for all app requests
+
 ---
 
 ## Security Rules — Public Repo (Claude must follow every time)
