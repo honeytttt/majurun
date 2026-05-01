@@ -9,6 +9,7 @@ import 'package:majurun/core/constants/asset_urls.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
+import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
 
 class CongratulationsScreen extends StatefulWidget {
   final double distanceKm;
@@ -344,7 +345,13 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                   const SizedBox(height: 32),
                   _buildAchievements(),
                 ],
-                const SizedBox(height: 40),
+                // Live cheers overlay — listens to the freshly-created post for
+                // 60 s and animates incoming likes/comments. Self-renders empty
+                // when disabled via Remote Config or when no post is found, so
+                // it's safe to leave unconditionally in the column.
+                const SizedBox(height: 24),
+                const LiveCheersOverlay(),
+                const SizedBox(height: 16),
                 _buildActions(),
               ],
             ),

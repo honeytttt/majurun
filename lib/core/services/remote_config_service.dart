@@ -45,6 +45,9 @@ class RemoteConfigService {
   static const String experimentNewFeedLayout = 'experiment_new_feed_layout';
   static const String experimentPaceDisplay = 'experiment_pace_display';
 
+  // Engagement features (Tier 1)
+  static const String enableLiveCheers = 'enable_live_cheers';
+
   /// Initialize remote config
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -86,6 +89,9 @@ class RemoteConfigService {
         // A/B tests
         experimentNewFeedLayout: 'control',
         experimentPaceDisplay: 'min_km',
+
+        // Engagement (Tier 1) — kill switch defaults ON; flip in console to disable.
+        enableLiveCheers: true,
       });
 
       // Set fetch settings
@@ -216,6 +222,11 @@ class RemoteConfigService {
 
   /// Get pace display experiment variant
   String get paceDisplayVariant => getString(experimentPaceDisplay);
+
+  // ==================== ENGAGEMENT FLAGS ====================
+
+  /// Whether the live-cheers overlay is enabled on the post-run congrats screen.
+  bool get isLiveCheersEnabled => getBool(enableLiveCheers);
 
   // ==================== VERSION CHECK ====================
 
