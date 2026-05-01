@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
@@ -351,10 +352,12 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                   children: [
                     Row(
                       children: [
-                        // Like Button — optimistic state
+                        // Like Button — optimistic state (Phosphor duotone heart)
                         IconButton(
                           icon: Icon(
-                            _isLiked ? Icons.favorite : Icons.favorite_border,
+                            _isLiked
+                                ? PhosphorIconsFill.heart
+                                : PhosphorIconsDuotone.heart,
                             size: 22,
                             color: _isLiked ? Colors.red : Colors.grey[700],
                           ),
@@ -382,7 +385,9 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                               children: [
                                 IconButton(
                                   icon: Icon(
-                                    hasComments ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                                    hasComments
+                                        ? PhosphorIconsFill.chatCircle
+                                        : PhosphorIconsDuotone.chatCircle,
                                     size: 20,
                                     color: hasComments ? activeColor : Colors.black45,
                                   ),
@@ -410,9 +415,10 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                     ),
                     Row(
                       children: [
-                        // Repost Button
+                        // Repost Button — Phosphor arrows-clockwise reads cleaner than the loop
                         IconButton(
-                          icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
+                          icon: const Icon(PhosphorIconsDuotone.repeat,
+                              size: 22, color: Colors.green),
                           onPressed: currentUserId != null
                               ? () {
                                   PostRepositoryImpl().repost(
@@ -431,16 +437,19 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                               : () => _showLoginSnack(context),
                         ),
 
-                        // Share Button
+                        // Share Button — Phosphor paper-plane reads more "send" than share-square
                         IconButton(
-                          icon: const Icon(Icons.share, size: 20, color: Colors.black45),
+                          icon: const Icon(PhosphorIconsDuotone.paperPlaneTilt,
+                              size: 20, color: Colors.black45),
                           onPressed: () => _handleShare(context),
                         ),
 
-                        // Bookmark Button
+                        // Bookmark Button (duotone fill when saved for the gold pop)
                         IconButton(
                           icon: Icon(
-                            _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border,
+                            _isSaved
+                                ? PhosphorIconsFill.bookmarkSimple
+                                : PhosphorIconsDuotone.bookmarkSimple,
                             size: 22,
                             color: _isSaved ? const Color(0xFFFFD700) : Colors.black45,
                           ),

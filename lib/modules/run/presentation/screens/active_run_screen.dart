@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:majurun/core/config/app_config.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -14,6 +16,7 @@ import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/static_map_url.dart';
+import 'package:majurun/modules/run/presentation/widgets/milestone_badge_sheet.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
@@ -241,7 +244,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: runController.gpsQualityColor.withValues(alpha: 0.5),
-              width: 1,
             ),
           ),
           child: Row(
@@ -421,15 +423,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                             anchor: const Offset(0.5, 0.5),
                           ),
                       },
-                      myLocationEnabled: false,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
                       compassEnabled: false,
                       rotateGesturesEnabled: false,
-                      scrollGesturesEnabled: true,
                       tiltGesturesEnabled: false,
-                      zoomGesturesEnabled: true,
                     ),
                   ),
 
@@ -511,7 +510,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   Future<void> _loadAvatarMarker() async {
     try {
       final current = await MapMarkerBuilder.buildForCurrentUser(
-        borderColor: const Color(0xFF7ED957), // green for current position
+        
       );
       final start = await MapMarkerBuilder.buildForCurrentUser(
         borderColor: const Color(0xFFFC4C02), // Strava orange for start
@@ -650,7 +649,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       decoration: BoxDecoration(
         color: zoneColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: zoneColor.withValues(alpha: 0.4), width: 1),
+        border: Border.all(color: zoneColor.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -686,7 +685,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: const Color(0xFF2D7A3E).withValues(alpha: 0.3),
-          width: 1,
         ),
       ),
       child: Column(
@@ -868,9 +866,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
         final staticUrl = StaticMapUrl.build(
           points: runController.routePoints,
           apiKey: apiKey,
-          width: 640,
-          height: 320,
-          scale: 2,
         );
         if (staticUrl.isNotEmpty) {
           final response = await http.get(Uri.parse(staticUrl))
@@ -900,7 +895,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     const planTitle       = 'Free Run';
 
     // ── Ask for selfie (all runs, no distance gate) ──────────────────────────
-    final selfieBytes = await _showSelfiePrompt();
+    // Share text built ahead of time so the Share button on the prompt sheet
+    // can fire SharePlus without touching controller state mid-stop.
+    final shareText = '🏃 Just finished a ${distanceKm.toStringAsFixed(2)}km '
+        'run in $duration!\nAvg pace: $pace/km • $calories kcal burned 🔥\n\n'
+        'Tracked with MajuRun 🚀 #MajuRun #Running';
+    final selfieBytes = await _showSelfiePrompt(shareText: shareText);
 
     if (!mounted) return;
 
@@ -929,16 +929,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     try {
       await runController.stopRun(
         context,
-        planTitle: planTitle,
         mapImageBytes: mapImageBytes,
       );
     } catch (e) {
-      debugPrint("❌ Error saving run: $e");
+      debugPrint('❌ Error saving run: $e');
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Run saved locally — will sync when back online'),
           backgroundColor: Colors.orange.shade700,
-          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -960,11 +958,41 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final pbs = runController.lastRunPbs;
     final badges = runController.lastRunBadges;
 
+    // ── Milestone celebration sheet (5K / 10K / Half / Full) ─────────────────
+    // Fires AFTER selfie resolve so the selfie (if picked) can still ride along
+    // on the auto-post. 15 s auto-confirm: if the user doesn't react, we
+    // auto-post the combined run-+-badge celebration. CLAUDE.md voice/audio
+    // path is untouched — this is purely a post-finish UI sheet.
+    final milestone = milestoneFor(distanceKm);
+    MilestoneBadgeResult? milestoneResult;
+    if (milestone != null && mounted) {
+      milestoneResult = await MilestoneBadgeSheet.show(
+        context: context,
+        milestone: milestone,
+        distanceKm: distanceKm,
+        duration: duration,
+        pace: pace,
+        calories: calories,
+      );
+    }
+    if (!mounted) return;
+
+    final milestoneAutoPost = milestoneResult?.action == MilestoneBadgeAction.postNow ||
+        milestoneResult?.action == MilestoneBadgeAction.autoPosted;
+    final milestoneEdit = milestoneResult?.action == MilestoneBadgeAction.edit;
+    // Caption override: if a milestone sheet resolved with a non-skip action,
+    // use the milestone-specific celebration caption instead of the AI text.
+    final effectiveCaption = (milestoneAutoPost || milestoneEdit)
+        ? milestoneResult!.suggestedCaption
+        : suggestedText;
+
     if (selfieBytes == null) {
       // User didn't pick a selfie — auto-post in background with map (if available)
       // then go straight to congratulations. No need to show the editor.
+      // If a milestone sheet auto-posted, the celebration caption replaces the
+      // AI text so the post reads as a badge-unlocked celebration.
       runController.postController.createAutoPost(
-        aiContent: suggestedText,
+        aiContent: effectiveCaption,
         routePoints: routePoints,
         distance: distanceKm,
         pace: pace,
@@ -994,13 +1022,52 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       return;
     }
 
-    // Selfie selected — show editor so user can choose between selfie and map
+    // ── Selfie path branches ────────────────────────────────────────────────
+    // If a milestone sheet auto-posted (or the user tapped Post now), we honor
+    // that intent: auto-post the combined run + badge + selfie post and go to
+    // the congratulations screen, skipping the editor entirely.
+    if (milestoneAutoPost) {
+      runController.postController.createAutoPost(
+        aiContent: effectiveCaption,
+        routePoints: routePoints,
+        distance: distanceKm,
+        pace: pace,
+        bpm: avgBpm,
+        durationSeconds: durationSeconds,
+        calories: calories,
+        planTitle: planTitle,
+        mapImageBytes: mapImageBytes,
+        selfieBytes: selfieBytes,
+        kmSplits: runController.lastRunKmSplits,
+      ).catchError((e) {
+        debugPrint('❌ Milestone auto-post failed: $e');
+      });
+
+      nav.pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => CongratulationsScreen(
+            distanceKm: distanceKm,
+            duration: duration,
+            pace: pace,
+            calories: calories,
+            planTitle: planTitle,
+            pbs: pbs,
+            badges: badges,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Selfie selected — show editor so user can choose between selfie and map.
+    // If milestone resolved with Edit, the editor opens with the badge
+    // celebration caption pre-filled instead of the AI-generated one.
     nav.pushReplacement(
       MaterialPageRoute(
         builder: (_) => RunPostEditorScreen(
           mapImageBytes: mapImageBytes,
           selfieBytes: selfieBytes,
-          initialText: suggestedText,
+          initialText: effectiveCaption,
           routePoints: routePoints,
           distanceKm: distanceKm,
           duration: duration,
@@ -1019,7 +1086,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
   /// Shows a bottom sheet giving the user 20 seconds to pick a selfie/video.
   /// Returns selfie bytes if picked, null if skipped/timed out.
-  Future<Uint8List?> _showSelfiePrompt() async {
+  ///
+  /// Layout: [Camera] [Share] [Skip]
+  ///   • Camera   → opens an action sheet to choose Take Photo / Choose from Gallery.
+  ///   • Share    → opens system share sheet with run summary text (no selfie attached).
+  ///                After sharing the user lands back here so they can still add a selfie
+  ///                or skip; nothing is auto-posted by tapping Share.
+  ///   • Skip     → closes with null bytes (no selfie attached to the post).
+  Future<Uint8List?> _showSelfiePrompt({required String shareText}) async {
     final completer = Completer<Uint8List?>();
     Timer? countdown;
     int secondsLeft = 20;
@@ -1035,7 +1109,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
@@ -1072,11 +1145,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.camera_alt, color: Color(0xFF7ED957), size: 22),
+                      const Icon(PhosphorIconsDuotone.cameraPlus,
+                          color: Color(0xFF7ED957), size: 24),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'Add a selfie to your run post?',
+                          'Add a photo to your run post?',
                           style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1101,13 +1175,21 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                   const SizedBox(height: 20),
                   Row(
                     children: [
+                      // Camera → opens an inner action sheet (Take Photo / Choose from Gallery).
+                      // Consolidates the previous separate Camera + Gallery buttons.
                       Expanded(
                         child: _selfieBtn(
-                          icon: Icons.camera_alt_outlined,
+                          icon: PhosphorIconsDuotone.camera,
                           label: 'Camera',
                           onTap: () async {
                             countdown?.cancel();
-                            final bytes = await _pickSelfie(ImageSource.camera);
+                            final source = await _pickPhotoSource(ctx);
+                            if (source == null) {
+                              // User backed out of the inner sheet — stay on the prompt
+                              // and resume countdown so the user can still skip.
+                              return;
+                            }
+                            final bytes = await _pickSelfie(source);
                             // Complete BEFORE popping — popping triggers .then()
                             // which would race and complete the completer with null.
                             if (!completer.isCompleted) completer.complete(bytes);
@@ -1116,15 +1198,25 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                         ),
                       ),
                       const SizedBox(width: 12),
+                      // Share → quick share to system share sheet (Twitter / WhatsApp / etc).
+                      // Replaces the previous Gallery button (camera button now covers gallery).
+                      // Does NOT auto-post to feed — user still picks selfie or skips after.
                       Expanded(
                         child: _selfieBtn(
-                          icon: Icons.photo_library_outlined,
-                          label: 'Gallery',
+                          icon: PhosphorIconsDuotone.shareNetwork,
+                          label: 'Share',
                           onTap: () async {
                             countdown?.cancel();
-                            final bytes = await _pickSelfie(ImageSource.gallery);
-                            // Complete BEFORE popping — same race as camera.
-                            if (!completer.isCompleted) completer.complete(bytes);
+                            try {
+                              await SharePlus.instance.share(
+                                ShareParams(text: shareText),
+                              );
+                            } catch (e) {
+                              debugPrint('❌ Quick share failed: $e');
+                            }
+                            // After share, treat as "no selfie chosen" and continue the
+                            // normal post flow so the user still gets the post editor.
+                            if (!completer.isCompleted) completer.complete(null);
                             if (ctx.mounted) Navigator.of(ctx).pop();
                           },
                         ),
@@ -1132,7 +1224,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                       const SizedBox(width: 12),
                       Expanded(
                         child: _selfieBtn(
-                          icon: Icons.close,
+                          icon: PhosphorIconsDuotone.x,
                           label: 'Skip',
                           color: Colors.white24,
                           onTap: () {
@@ -1188,8 +1280,70 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       if (kIsWeb) return await file.readAsBytes();
       return await File(file.path).readAsBytes();
     } catch (e) {
-      debugPrint("❌ Selfie pick error: $e");
+      debugPrint('❌ Selfie pick error: $e');
       return null;
     }
+  }
+
+  /// Inner action sheet that lets the user choose between camera capture
+  /// and gallery picker. Returns null if dismissed without choosing.
+  Future<ImageSource?> _pickPhotoSource(BuildContext ctx) {
+    return showModalBottomSheet<ImageSource>(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F1F1F),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      Icon(PhosphorIconsDuotone.image,
+                          color: Color(0xFF7ED957), size: 22),
+                      SizedBox(width: 10),
+                      Text(
+                        'Add a photo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(PhosphorIconsDuotone.camera,
+                      color: Color(0xFF7ED957)),
+                  title: const Text('Take photo',
+                      style: TextStyle(color: Colors.white)),
+                  subtitle: const Text('Snap a quick post-run selfie',
+                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  onTap: () => Navigator.of(sheetCtx).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(PhosphorIconsDuotone.imagesSquare,
+                      color: Color(0xFF7ED957)),
+                  title: const Text('Choose from gallery',
+                      style: TextStyle(color: Colors.white)),
+                  subtitle: const Text('Pick an existing photo',
+                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  onTap: () => Navigator.of(sheetCtx).pop(ImageSource.gallery),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

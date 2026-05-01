@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
@@ -141,7 +142,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   Widget build(BuildContext context) {
     super.build(context);
     final currentUser = FirebaseAuth.instance.currentUser;
-    final currentUserId = currentUser?.uid ?? "";
+    final currentUserId = currentUser?.uid ?? '';
     final isOwnPost = currentUserId.isNotEmpty && widget.post.userId == currentUserId;
     final isAdmin = _subscriptionService.isAdmin();
     final canModifyPost = isOwnPost || isAdmin;
@@ -174,7 +175,6 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         GestureDetector(
                           onTap: () {
@@ -215,7 +215,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                                   ],
                                   if (isSession) ...[
                                     const SizedBox(width: 8),
-                                    _pill("SESSION", Icons.fitness_center, const Color(0xFF00E676)),
+                                    _pill('SESSION', Icons.fitness_center, const Color(0xFF00E676)),
                                   ],
                                 ],
                               ),
@@ -256,7 +256,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
               child: Row(
                 children: [
                   _actionBtn(
-                    icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    icon: _isLiked
+                        ? PhosphorIconsFill.heart
+                        : PhosphorIconsDuotone.heart,
                     color: _isLiked ? const Color(0xFFFF4D6D) : const Color(0xFF8888AA),
                     label: _localLikesCount > 0 ? '$_localLikesCount' : null,
                     active: _isLiked,
@@ -267,9 +269,11 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                     stream: _commentsStream,
                     builder: (context, snapshot) {
                       final count = snapshot.data?.length ?? 0;
-                      final activeColor = const Color(0xFF00B96B);
+                      const activeColor = Color(0xFF00B96B);
                       return _actionBtn(
-                        icon: count > 0 ? Icons.mode_comment_rounded : Icons.mode_comment_outlined,
+                        icon: count > 0
+                            ? PhosphorIconsFill.chatCircle
+                            : PhosphorIconsDuotone.chatCircle,
                         color: count > 0 ? activeColor : const Color(0xFF8888AA),
                         label: count > 0 ? '$count' : null,
                         active: count > 0,
@@ -284,11 +288,11 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                   ),
                   const SizedBox(width: 4),
                   _actionBtn(
-                    icon: Icons.repeat_rounded,
+                    icon: PhosphorIconsDuotone.repeat,
                     color: const Color(0xFF8888AA),
                     onTap: currentUserId.isNotEmpty ? () {
                       HapticService().medium();
-                      final username = currentUser?.displayName ?? "Runner";
+                      final username = currentUser?.displayName ?? 'Runner';
                       _repo.repost(widget.post, currentUserId, username);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Reposted!'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF00E676)),
@@ -298,20 +302,22 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                   if (!isOwnPost && currentUserId.isNotEmpty) ...[
                     const SizedBox(width: 4),
                     _actionBtn(
-                      icon: Icons.near_me_rounded,
+                      icon: PhosphorIconsDuotone.paperPlaneTilt,
                       color: const Color(0xFF8888AA),
                       onTap: () => _openDm(context),
                     ),
                   ],
                   const Spacer(),
                   _actionBtn(
-                    icon: Icons.ios_share_rounded,
+                    icon: PhosphorIconsDuotone.shareNetwork,
                     color: const Color(0xFF8888AA),
                     onTap: () => _sharePost(context),
                   ),
                   const SizedBox(width: 4),
                   _actionBtn(
-                    icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border,
+                    icon: _isSaved
+                        ? PhosphorIconsFill.bookmarkSimple
+                        : PhosphorIconsDuotone.bookmarkSimple,
                     color: _isSaved ? const Color(0xFFFFD700) : const Color(0xFF8888AA),
                     active: _isSaved,
                     onTap: currentUserId.isNotEmpty ? () => _toggleSave(currentUserId) : null,
@@ -376,7 +382,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
       icon: Icon(isAdmin && !isOwn ? Icons.admin_panel_settings : Icons.more_vert, color: isAdmin && !isOwn ? Colors.orange : Colors.grey, size: 22),
       onSelected: (val) async {
         if (val == 'delete') {
-          if (await _showDeleteDialog(context, isAdmin: isAdmin && !isOwn) == true) await _repo.deletePost(widget.post.id);
+          if (await _showDeleteDialog(context, isAdmin: isAdmin && !isOwn) ?? false) await _repo.deletePost(widget.post.id);
         } else if (val == 'report') {
           await ReportBottomSheet.showForPost(context, postId: widget.post.id, postOwnerId: widget.post.userId);
         } else if (val == 'dm') {
@@ -409,7 +415,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   }
 
   Future<bool?> _showDeleteDialog(BuildContext context, {bool isAdmin = false}) {
-    return showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text(isAdmin ? "Admin Delete?" : "Delete?"), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: Colors.red)))]));
+    return showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text(isAdmin ? 'Admin Delete?' : 'Delete?'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red)))]));
   }
 
   Future<void> _openDm(BuildContext context) async {
