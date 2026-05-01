@@ -222,13 +222,24 @@ If that returns anything suspicious — stop and investigate before pushing.
 
 ## Build Rules (Claude must follow every time)
 
-### 1. Pre-build: flutter analyze must be clean
+### 1. Pre-build: flutter analyze must be completely clean (0 errors, 0 warnings, 0 infos)
 Before triggering any build or pushing any branch, run:
 ```
-flutter analyze
+flutter analyze lib/
 ```
-Fix every error AND every warning before proceeding. **Zero errors, zero warnings** — no exceptions.
-Do not suppress warnings with `// ignore:` unless there is a documented reason in a comment.
+Fix every **error**, every **warning**, AND every **info** before proceeding. The output must end with:
+```
+No issues found!
+```
+Do not suppress issues with `// ignore:` unless there is a documented reason in a comment.
+
+**How to bulk-fix infos:** Run `dart fix --apply lib/` first — this auto-fixes the majority of const, quote style, and redundant-arg issues. Then fix remaining issues manually.
+
+**Common remaining patterns to fix manually:**
+- `unnecessary_getters_setters`: collapse getter+setter to a plain public field
+- `deprecated_member_use` on `RadioListTile.groupValue`/`onChanged`: wrap with `RadioGroup<T>` and remove those params from `RadioListTile`
+- `deprecated_member_use` on `Matrix4..translate(x,y)` / `..scale(s)`: use `..translateByDouble(x,y,0,1)` / `..scaleByDouble(s,s,1,0)`
+- `use_build_context_synchronously`: add `if (!mounted) return;` **before** any context use after `await`; avoid passing `BuildContext` as a method parameter in async methods — use State's own `context` instead
 
 ### 2. Never remove unused imports — implement what's missing
 If `flutter analyze` reports an unused import, **do not delete the import**.

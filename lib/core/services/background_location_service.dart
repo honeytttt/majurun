@@ -107,7 +107,7 @@ class BackgroundLocationService {
   bool _isTracking = false;
   bool _isPaused = false;
   bool _autoPaused = false;
-  bool _isAutoPauseEnabled = true;
+  bool isAutoPauseEnabled = true;
 
   // Route data with memory management
   final List<FilteredPosition> _routePoints = [];
@@ -137,9 +137,6 @@ class BackgroundLocationService {
   bool get isTracking => _isTracking;
   bool get isPaused => _isPaused;
   bool get isAutoPaused => _autoPaused;
-  bool get isAutoPauseEnabled => _isAutoPauseEnabled;
-  set isAutoPauseEnabled(bool value) => _isAutoPauseEnabled = value;
-
   double get totalDistance => _totalDistance;
   List<FilteredPosition> get routePoints => List.unmodifiable(_routePoints);
   FilteredPosition? get lastPosition => _lastPosition;
@@ -237,7 +234,7 @@ class BackgroundLocationService {
     if (kIsWeb) return;
     _accelSub?.cancel();
     _accelSub = accelerometerEventStream(
-      samplingPeriod: const Duration(milliseconds: 200),
+      
     ).listen((event) {
       // Magnitude of total acceleration vector; gravity alone ≈ 9.8 m/s²
       final mag = math.sqrt(
@@ -262,7 +259,6 @@ class BackgroundLocationService {
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'MajuRun - Tracking Your Run',
           notificationText: 'GPS tracking active in background',
-          notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
           enableWakeLock: true,
         ),
       );
@@ -271,7 +267,6 @@ class BackgroundLocationService {
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: RunConstants.distanceFilterMeters,
         activityType: ActivityType.fitness,
-        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
@@ -370,7 +365,7 @@ class BackgroundLocationService {
       // Check for stationary state (auto-pause) using raw distance + accelerometer fusion.
       // Accelerometer veto: if the phone's motion exceeds _accelMoveThreshold the runner
       // is likely still moving — GPS speed may lag in urban canyons, so don't pause yet.
-      if (_isAutoPauseEnabled) {
+      if (isAutoPauseEnabled) {
         final gpsStationary =
             position.speed < RunConstants.stationarySpeedThreshold && rawDistance < 2;
         final accelStationary = _accelMagnitude < _accelMoveThreshold;

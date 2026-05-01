@@ -229,16 +229,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     try {
       final doc = await FirebaseFirestore.instance.collection('posts').doc(postId).get();
-      if (!doc.exists || !context.mounted) return;
+      if (!doc.exists) return;
+      if (!mounted) return;
       final post = AppPost.fromFirestore(doc);
-      if (context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-        );
-      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      );
     } catch (_) {
-      if (context.mounted) _navigateToUserProfile(notification);
+      if (mounted) _navigateToUserProfile(notification);
     }
   }
 

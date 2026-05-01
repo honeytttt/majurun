@@ -246,7 +246,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       const Icon(Icons.repeat, size: 16, color: Colors.green),
                       const SizedBox(width: 4),
                       Text(
-                        "reposted",
+                        'reposted',
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                     ],
@@ -363,7 +363,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                               : () => _showLoginSnack(context),
                         ),
                         Text(
-                          "$_localLikesCount",
+                          '$_localLikesCount',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             color: _isLiked ? Colors.red : Colors.black54,
@@ -377,7 +377,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                           builder: (context, snapshot) {
                             final count = snapshot.data?.length ?? 0;
                             final hasComments = count > 0;
-                            final activeColor = const Color(0xFF00B96B);
+                            const activeColor = Color(0xFF00B96B);
                             return Row(
                               children: [
                                 IconButton(
@@ -396,7 +396,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                                   },
                                 ),
                                 Text(
-                                  "$count",
+                                  '$count',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w500,
                                     color: hasComments ? activeColor : Colors.black54,
@@ -470,8 +470,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -501,8 +499,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFFFF6B35), Color(0xFFFF8C00)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -538,8 +534,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF7C4DFF), Color(0xFF448AFF)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -715,7 +709,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     Navigator.push(
       context,
       PageRouteBuilder(
-        opaque: true,
         transitionDuration: const Duration(milliseconds: 220),
         pageBuilder: (_, animation, __) => FadeTransition(
           opacity: animation,
@@ -863,8 +856,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
       final dx = _tapPos.dx * (1 - scale);
       final dy = _tapPos.dy * (1 - scale);
       target = Matrix4.identity()
-        ..translate(dx, dy)
-        ..scale(scale);
+        ..translateByDouble(dx, dy, 0, 1)
+        ..scaleByDouble(scale, scale, 1, 0);
     }
     _animation = Matrix4Tween(begin: _ctrl.value, end: target).animate(
       CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
@@ -887,7 +880,6 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
               transformationController: _ctrl,
               minScale: 0.5,
               maxScale: 8.0,
-              boundaryMargin: EdgeInsets.zero,
               child: Image.network(
                 widget.imageUrl,
                 fit: BoxFit.contain,
