@@ -9,7 +9,7 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/final-production-polish` (build 159+) — branch from here for new work.
+**Current base branch:** `feature/engagement-tier-1-live-cheers` (build 163+) — branch from here for new work.
 
 ### Pending CI task (do on next build commit)
 - Bump `actions/checkout@v4` → `actions/checkout@v5` in **both** `.github/workflows/ios-build.yml` and `.github/workflows/android-build.yml`
@@ -237,6 +237,7 @@ Before every `git push`, verify none of the staged files contain:
 - `google-services.json`, `GoogleService-Info.plist` (already gitignored — confirm they stay that way)
 - `*.jks`, `*.keystore`, `*.p12` signing files
 - Any `secrets.properties` or credentials files
+- Service account JSON files (`*-service-account.json`, `*-credentials.json`)
 
 **How to check:**
 ```
@@ -248,6 +249,17 @@ If that returns anything suspicious — stop and investigate before pushing.
 - `lib/firebase_options.dart` — Firebase client identifiers, NOT admin secrets. Protected by App Check + Security Rules.
 - `AndroidManifest.xml` with `${MAPS_API_KEY}` placeholder — key is injected at build time via CI secrets, not stored in code.
 - All Dart source files that contain only logic, UI, and Firestore collection names.
+
+### Known Secrets — NEVER commit these (stored in Firebase Functions only)
+These secrets exist and are managed via `firebase functions:secrets:set`. They must never appear in code or git:
+
+| Secret name | What it is | Where to find it |
+|---|---|---|
+| `APPLE_SHARED_SECRET` | App Store receipt validation key | App Store Connect → Users and Access → Keys → Shared Secret |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Play Store billing API access | Play Console → Setup → API access → service account JSON |
+
+**The value `3ccdf58d...` (Apple Shared Secret) and any service account JSON must never be hardcoded or committed.**
+Set/update via: `firebase functions:secrets:set SECRET_NAME` then `firebase deploy --only functions`
 
 ---
 
