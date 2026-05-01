@@ -40,7 +40,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze code
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: flutter analyze --no-fatal-infos
 
       - name: Run tests
         run: flutter test
@@ -207,14 +207,6 @@ jobs:
           sed -i '' "s/MAPS_API_KEY_PLACEHOLDER/${IOS_MAPS_API_KEY}/" ios/Runner/AppDelegate.swift
           echo "Google Maps iOS API key injected"
 
-      - name: Configure ExportOptions with Team ID
-        env:
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Use PlistBuddy to inject the Team ID from secrets into the plist
-          /usr/libexec/PlistBuddy -c "Add :teamID string $TEAM_ID" ios/ExportOptions.plist || /usr/libexec/PlistBuddy -c "Set :teamID $TEAM_ID" ios/ExportOptions.plist
-          echo "Team ID injected into ExportOptions.plist"
-
       - name: Build Flutter iOS (no codesign)
         run: |
           flutter build ios --release --no-codesign \
@@ -306,6 +298,7 @@ jobs:
 
       - name: Upload to App Store Connect
         if: success()
+        continue-on-error: true   # IPA artifact is uploaded above; version-bump races won't fail the build
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
