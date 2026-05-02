@@ -24,6 +24,8 @@ import 'modules/auth/data/repositories/firebase_auth_impl.dart';
 import 'modules/training/services/training_service.dart';
 // Run module - RunController now manages its own dependencies
 import 'modules/run/controllers/run_controller.dart';
+// Unit preference
+import 'core/services/unit_preference_service.dart';
 // Wrapper
 import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 // Counter initializer
@@ -151,6 +153,7 @@ Future<void> main() async {
           ChangeNotifierProvider<TrainingService>(create: (_) => TrainingService()),
           // RunController now creates and manages all run-related controllers internally
           ChangeNotifierProvider<RunController>(create: (_) => RunController()),
+          ChangeNotifierProvider<UnitPreferenceService>(create: (_) => UnitPreferenceService()),
           Provider<AnalyticsService>.value(value: analytics),
           Provider<CrashReportingService>.value(value: crashReporting),
         ],

@@ -10,6 +10,8 @@ import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
+import 'package:majurun/core/services/unit_preference_service.dart';
+import 'package:provider/provider.dart';
 
 enum _SyncState { idle, syncing, saved, error }
 
@@ -159,10 +161,12 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   // ── Sharing ────────────────────────────────────────────────────────────────
 
   String _buildShareText() {
-    final dist = widget.distanceKm.toStringAsFixed(2);
+    final unitPref = context.read<UnitPreferenceService>();
+    final dist = unitPref.formatDistance(widget.distanceKm);
+    final unit = unitPref.unitLabel;
     final lines = <String>[
-      '🏃 Just finished a ${dist}km run in ${widget.duration}!',
-      'Avg pace: ${widget.pace}/km • ${widget.calories} kcal burned 🔥',
+      '🏃 Just finished a $dist run in ${widget.duration}!',
+      'Avg pace: ${widget.pace}/$unit • ${widget.calories} kcal burned 🔥',
     ];
     if (_resolvedPbs.isNotEmpty) lines.add('⚡ New Personal Best: ${_resolvedPbs.join(', ')}');
     if (_resolvedBadges.isNotEmpty) lines.add('🏅 Badge earned: ${_resolvedBadges.join(' & ')}');
@@ -173,11 +177,13 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   Future<void> _shareToSocial() async {
     setState(() => _isGeneratingCard = true);
     try {
-      // Capture the share card as a PNG
+      final unitPref = context.read<UnitPreferenceService>();
+      // Wrap in MaterialApp so Text/Icon widgets have proper context
       final Uint8List imageBytes = await _screenshotController.captureFromLongWidget(
-        _buildShareCard(),
+        _buildShareCard(unitPref),
         pixelRatio: 3.0,
-        delay: const Duration(milliseconds: 100),
+        context: context,
+        delay: const Duration(milliseconds: 150),
       );
 
       await SharePlus.instance.share(
@@ -186,16 +192,19 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           text: _buildShareText(),
         ),
       );
-    } catch (_) {
-      await SharePlus.instance.share(ShareParams(text: _buildShareText()));
+    } catch (e) {
+      debugPrint('⚠️ Share card capture failed, falling back to text: $e');
+      if (mounted) await SharePlus.instance.share(ShareParams(text: _buildShareText()));
     } finally {
       if (mounted) setState(() => _isGeneratingCard = false);
     }
   }
 
-  /// Builds the off-screen share card widget captured by ScreenshotController.
-  Widget _buildShareCard() {
-    final dist = widget.distanceKm.toStringAsFixed(2);
+  /// Builds the share card widget captured by ScreenshotController.
+  Widget _buildShareCard(UnitPreferenceService unitPref) {
+    final dist = unitPref.toDisplay(widget.distanceKm).toStringAsFixed(2);
+    final unitLabel = unitPref.unitLabel.toUpperCase();
+    final paceLabel = unitPref.paceLabel;
     final hasPbs = _resolvedPbs.isNotEmpty;
     final hasBadges = _resolvedBadges.isNotEmpty;
 
@@ -246,8 +255,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                   fontWeight: FontWeight.w900,
                   height: 1,
                 )),
-            const Text('KM',
-                style: TextStyle(
+            Text(unitLabel,
+                style: const TextStyle(
                   color: Color(0xFF7ED957),
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -260,7 +269,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
               children: [
                 _cardStat(Icons.timer_outlined, widget.duration, 'TIME'),
                 const SizedBox(width: 24),
-                _cardStat(Icons.speed_outlined, '${widget.pace}/km', 'PACE'),
+                _cardStat(Icons.speed_outlined, '${widget.pace}/$paceLabel', 'PACE'),
                 const SizedBox(width: 24),
                 _cardStat(Icons.local_fire_department_outlined,
                     '${widget.calories}', 'KCAL'),
@@ -521,6 +530,9 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   }
 
   Widget _buildRunStats() {
+    final unitPref = context.watch<UnitPreferenceService>();
+    final dist = unitPref.formatDistance(widget.distanceKm);
+    final paceLabel = unitPref.paceLabel;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -542,11 +554,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _statItem('DISTANCE', '${widget.distanceKm.toStringAsFixed(2)} km'),
+              _statItem('DISTANCE', dist),
               _divider(),
               _statItem('TIME', widget.duration),
               _divider(),
-              _statItem('PACE', '${widget.pace}/km'),
+              _statItem('PACE', '${widget.pace}/$paceLabel'),
             ],
           ),
           const SizedBox(height: 12),

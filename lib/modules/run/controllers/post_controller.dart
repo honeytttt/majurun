@@ -220,30 +220,44 @@ class PostController extends ChangeNotifier {
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('⚠️ createBadgePost: no current user, skipping');
+        return;
+      }
 
-      String username = 'Runner';
+      String username = user.displayName ?? 'Runner';
+      String? userPhotoUrl = user.photoURL;
       try {
         final userDoc = await _firestore.collection('users').doc(user.uid).get();
-        username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
+        final data = userDoc.data();
+        if (data != null) {
+          final fetchedName = data['displayName'] as String?;
+          if (fetchedName != null && fetchedName.isNotEmpty) username = fetchedName;
+          userPhotoUrl = (data['photoUrl'] as String?) ?? userPhotoUrl;
+        }
       } catch (e) {
         debugPrint('⚠️ PostController: failed to fetch username, using fallback: $e');
       }
 
+      final media = badgeImageUrl.isNotEmpty
+          ? [{'url': badgeImageUrl, 'type': 'image'}]
+          : <Map<String, dynamic>>[];
+
       await _firestore.collection('posts').add({
         'userId': user.uid,
         'username': username,
+        if (userPhotoUrl != null) 'userPhotoUrl': userPhotoUrl,
         'content': _badgeCaption(badgeName),
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'badge_earned',
         'badgeName': badgeName,
-        'media': [{'url': badgeImageUrl, 'type': 'image'}],
+        'media': media,
         'likes': [],
       });
 
-      debugPrint('🏅 Badge post created: $badgeName');
-    } catch (e) {
-      debugPrint('❌ Error creating badge post: $e');
+      debugPrint('🏅 Badge post created: $badgeName with image: $badgeImageUrl');
+    } catch (e, st) {
+      debugPrint('❌ Error creating badge post for $badgeName: $e\n$st');
     }
   }
 

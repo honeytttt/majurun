@@ -751,13 +751,11 @@ class RunController extends ChangeNotifier {
       // Auto-post a badge achievement card to the feed for each badge earned.
       // Fires in the background so it doesn't block the UI transition.
       for (final badge in lastRunBadges) {
-        final imageUrl = PostController.badgeImageForName(badge);
-        if (imageUrl != null) {
-          postController.createBadgePost(
-            badgeName: badge,
-            badgeImageUrl: imageUrl,
-          ).catchError((e) => debugPrint('⚠️ Badge post failed: $e'));
-        }
+        final imageUrl = PostController.badgeImageForName(badge) ?? '';
+        postController.createBadgePost(
+          badgeName: badge,
+          badgeImageUrl: imageUrl,
+        ).catchError((e) => debugPrint('⚠️ Badge post failed for $badge: $e'));
       }
 
       // Update run streak and post milestone cards (3/7/14/30/60/90/180/365 days).

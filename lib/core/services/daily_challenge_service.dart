@@ -67,6 +67,26 @@ class DailyChallengeService {
       'xpReward': 40,
       'icon': 'wb_sunny',
     },
+    {
+      'id': 'daily_evening_run',
+      'name': 'Evening Run',
+      'description': 'Complete a run after 5 PM',
+      'type': 'evening_run',
+      'target': 1,
+      'unit': 'run',
+      'xpReward': 40,
+      'icon': 'nights_stay',
+    },
+    {
+      'id': 'daily_any_run',
+      'name': 'Just Run',
+      'description': 'Complete any run today',
+      'type': 'any_run',
+      'target': 1,
+      'unit': 'run',
+      'xpReward': 30,
+      'icon': 'directions_run',
+    },
   ];
 
   /// Weekly challenge definitions
@@ -388,8 +408,22 @@ class DailyChallengeService {
           );
         }
 
-        // Check for morning run challenge
+        // Time-of-day run challenges
         if (challenge['type'] == 'morning_run' && startTime.hour < 9) {
+          await updateChallengeProgress(
+            userId: userId,
+            challengeId: challenge['id'],
+            progress: 1.0,
+          );
+        }
+        if (challenge['type'] == 'evening_run' && startTime.hour >= 17) {
+          await updateChallengeProgress(
+            userId: userId,
+            challengeId: challenge['id'],
+            progress: 1.0,
+          );
+        }
+        if (challenge['type'] == 'any_run') {
           await updateChallengeProgress(
             userId: userId,
             challengeId: challenge['id'],

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:majurun/core/services/account_deletion_service.dart';
+import 'package:majurun/core/services/unit_preference_service.dart';
+import 'package:provider/provider.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;
@@ -168,7 +170,71 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             const SizedBox(height: 25),
             _buildInputField('EMAIL', _emailController, enabled: false),
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
+            // ─── Distance Unit Preference ─────────────────────────────────
+            const Text(
+              'DISTANCE UNIT',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Consumer<UnitPreferenceService>(
+              builder: (context, unitPref, _) => Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => unitPref.setUseKm(true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: unitPref.useKm ? const Color(0xFF00C853) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Kilometers (km)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: unitPref.useKm ? Colors.white : Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => unitPref.setUseKm(false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: !unitPref.useKm ? const Color(0xFF00C853) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Miles (mi)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: !unitPref.useKm ? Colors.white : Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Affects how distances are shown throughout the app. Data is always stored in km.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
             SizedBox(
