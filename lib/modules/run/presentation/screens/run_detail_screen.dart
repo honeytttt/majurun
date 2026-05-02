@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/run/presentation/screens/pro_run_summary_screen.dart';
+import 'package:majurun/modules/run/presentation/widgets/pro_split_insights.dart';
 
 
 class RunDetailScreen extends StatefulWidget {
@@ -428,6 +429,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               ),
               const SizedBox(height: 15),
               _buildSplitsList(),
+              // P3 — Pro advanced split insights (pace trend, fade %, projections)
+              ProSplitInsights(runData: widget.runData),
             ]),
           ),
 

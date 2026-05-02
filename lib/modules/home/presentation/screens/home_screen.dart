@@ -39,6 +39,7 @@ import 'package:majurun/modules/home/presentation/screens/saved_posts_screen.dar
 import 'package:majurun/modules/engagement/engagement_feed_card.dart';
 import 'package:majurun/modules/engagement/features/games/games_feed_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/streak_hype_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/weekly_recap_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -810,6 +811,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
               // E1 — Streak hype panel (visible when currentStreak > 0)
               const SliverToBoxAdapter(child: StreakHypeCard()),
+
+              // E2 — Weekly recap card (24 h window after Sunday 20:00)
+              const SliverToBoxAdapter(child: WeeklyRecapCard()),
 
               // Daily Challenges banner
               SliverToBoxAdapter(
