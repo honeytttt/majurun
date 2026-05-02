@@ -76,7 +76,9 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
           .get();
       _savedCache[widget.post.id] = doc.exists;
       if (mounted) setState(() => _isSaved = doc.exists);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ FeedItemWrapper: failed to load saved state: $e');
+    }
   }
 
   void _toggleSave(String currentUserId) {

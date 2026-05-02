@@ -226,7 +226,9 @@ class PostController extends ChangeNotifier {
       try {
         final userDoc = await _firestore.collection('users').doc(user.uid).get();
         username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ PostController: failed to fetch username, using fallback: $e');
+      }
 
       await _firestore.collection('posts').add({
         'userId': user.uid,
@@ -280,7 +282,9 @@ class PostController extends ChangeNotifier {
       try {
         final userDoc = await _firestore.collection('users').doc(user.uid).get();
         username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ PostController: failed to fetch username, using fallback: $e');
+      }
 
       final imageUrl = _streakImages[streakDays];
       final media = imageUrl != null ? [{'url': imageUrl, 'type': 'image'}] : <Map<String, dynamic>>[];
@@ -318,7 +322,9 @@ class PostController extends ChangeNotifier {
       try {
         final userDoc = await _firestore.collection('users').doc(user.uid).get();
         username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'Runner';
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ PostController: failed to fetch username, using fallback: $e');
+      }
 
       final km = totalKm.toStringAsFixed(1);
       final hours = totalSeconds ~/ 3600;

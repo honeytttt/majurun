@@ -280,7 +280,9 @@ class _NewMessageSheetState extends State<_NewMessageSheet> {
             .doc(widget.currentUserId)
             .get();
         currentUserName = doc.data()?['displayName'] as String? ?? currentUserName;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ ConversationsListScreen: failed to fetch display name, using fallback: $e');
+      }
 
       final conversationId = await widget.dmService.getOrCreateConversation(
         currentUserId: widget.currentUserId,

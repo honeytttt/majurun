@@ -87,7 +87,9 @@ class MapMarkerBuilder {
           canvas.restore();
           drawn = true;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ MapMarkerBuilder: avatar draw failed, using fallback silhouette: $e');
+      }
     }
 
     if (!drawn) {

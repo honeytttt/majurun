@@ -58,7 +58,9 @@ class DailyContentService {
       try {
         final userDoc = await _db.collection('users').doc(user.uid).get();
         username = userDoc.data()?['displayName'] as String? ?? user.displayName ?? 'MajuRun';
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ DailyContentService: failed to fetch username, using fallback: $e');
+      }
 
       if (wonMotivational) {
         final media = PostController.motivationalMediaForDay(dayOfYear);

@@ -471,7 +471,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           .limit(500)
           .get();
       if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ HomeScreen: failed to load blocked users: $e');
+    }
   }
 
   Future<void> _loadChallengeSummary() async {
@@ -485,7 +487,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           _challengesDone = challenges.where((c) => c['completed'] == true).length;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ HomeScreen: failed to load challenge summary: $e');
+    }
   }
 
   @override

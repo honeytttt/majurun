@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/core/services/error_handler_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/utils/route_utils.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
@@ -145,14 +146,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
     if (!_gpsTrackingStarted || _runController == null) return;
     try {
       _runController!.stateController.pauseRun();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ ActiveWorkout: pauseRun failed: $e');
+    }
   }
 
   void _resumeGpsTrackingIfNeeded() {
     if (!_gpsTrackingStarted || _runController == null) return;
     try {
       _runController!.stateController.resumeRun();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ ActiveWorkout: resumeRun failed: $e');
+    }
   }
 
   void _stopGpsTrackingAndCollect() {
@@ -497,7 +502,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
             'completed': completed,
           });
         }
-      } catch (_) {}
+      } catch (e, st) {
+        debugPrint('⚠️ ActiveWorkout: Firestore save failed: $e\n$st');
+        ErrorHandlerService().handleError(e, stackTrace: st, context: 'ActiveWorkoutScreen.saveWorkout');
+      }
 
       // Single auto-post (ONE TIME) using RunController.postController
       if (!_postCreated) {

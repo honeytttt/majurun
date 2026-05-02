@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:majurun/core/services/error_handler_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Tracks cumulative distance milestones.
@@ -36,7 +38,10 @@ class MilestoneService {
           return milestone;
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      debugPrint('⚠️ MilestoneService.checkAndAward failed: $e\n$st');
+      ErrorHandlerService().handleError(e, stackTrace: st, context: 'MilestoneService.checkAndAward');
+    }
     return null;
   }
 

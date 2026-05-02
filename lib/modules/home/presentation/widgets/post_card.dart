@@ -79,7 +79,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           .get();
       _savedCache[widget.post.id] = doc.exists;
       if (mounted) setState(() => _isSaved = doc.exists);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ PostCard: failed to load saved state: $e');
+    }
   }
 
   @override

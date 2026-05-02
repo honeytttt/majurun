@@ -555,7 +555,9 @@ class RunController extends ChangeNotifier {
               : (data['firstName'] as String?)?.trim() ?? '';
           voiceController.setUserName(callName);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ RunController: failed to fetch user name for voice, using default: $e');
+      }
 
       // Enable wake lock to keep screen on
       await WakeLockService.enable();
