@@ -9,7 +9,7 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/engagement-tier-1-live-cheers` (build 163+) — branch from here for new work.
+**Current base branch:** `feature/e1-streak-hype-p1-pro-badge-frames` (build 164+) — branch from here for new work.
 
 ### Pending CI task (do on next build commit)
 - Bump `actions/checkout@v4` → `actions/checkout@v5` in **both** `.github/workflows/ios-build.yml` and `.github/workflows/android-build.yml`
