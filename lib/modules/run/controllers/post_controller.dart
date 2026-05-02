@@ -31,10 +31,10 @@ class PostController extends ChangeNotifier {
     int calories,
   ) {
     final messages = [
-      "Just crushed a $distance km run! 🏃‍♂️💨",
-      "Another $distance km in the books! Pace: $pace min/km ⚡",
-      "Completed my $planTitle: $distance km, $duration, burned $calories cal! 🔥",
-      "$distance km done! Feeling strong 💪 Time: $duration",
+      'Just crushed a $distance km run! 🏃‍♂️💨',
+      'Another $distance km in the books! Pace: $pace min/km ⚡',
+      'Completed my $planTitle: $distance km, $duration, burned $calories cal! 🔥',
+      '$distance km done! Feeling strong 💪 Time: $duration',
       "New run logged: $distance km at $pace pace! Let's go! 🎯",
     ];
     messages.shuffle();
@@ -59,11 +59,11 @@ class PostController extends ChangeNotifier {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        debugPrint("⚠️ No user logged in, cannot create post");
+        debugPrint('⚠️ No user logged in, cannot create post');
         return;
       }
 
-      debugPrint("📝 Creating post for user: ${user.uid}");
+      debugPrint('📝 Creating post for user: ${user.uid}');
       
       // Get username from Firestore
       String username = 'Runner';
@@ -72,9 +72,9 @@ class PostController extends ChangeNotifier {
         username = userDoc.data()?['displayName'] as String? ?? 
                    user.displayName ?? 
                    'Runner';
-        debugPrint("👤 Username: $username");
+        debugPrint('👤 Username: $username');
       } catch (e) {
-        debugPrint("⚠️ Could not fetch username: $e");
+        debugPrint('⚠️ Could not fetch username: $e');
       }
       
       // Use the override URL if provided, otherwise upload to Cloudinary
@@ -91,8 +91,8 @@ class PostController extends ChangeNotifier {
       // Upload map image to Cloudinary if bytes are available and no override exists
       if (mapImageUrl == null && mapImageBytes != null && mapImageBytes.isNotEmpty) {
         try {
-          debugPrint("📸 Map image bytes: ${mapImageBytes.length}");
-          debugPrint("⬆️ Uploading map image to Cloudinary...");
+          debugPrint('📸 Map image bytes: ${mapImageBytes.length}');
+          debugPrint('⬆️ Uploading map image to Cloudinary...');
 
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final fileName = 'run_map_${user.uid}_$timestamp.png';
@@ -100,10 +100,10 @@ class PostController extends ChangeNotifier {
           mapImageUrl = await _cloudinary.uploadMedia(mapImageBytes, fileName, false);
 
           if (mapImageUrl != null) {
-            debugPrint("✅ Map image uploaded to Cloudinary: $mapImageUrl");
+            debugPrint('✅ Map image uploaded to Cloudinary: $mapImageUrl');
           }
         } catch (e) {
-          debugPrint("❌ Error uploading map image: $e");
+          debugPrint('❌ Error uploading map image: $e');
         }
       }
 
@@ -111,13 +111,13 @@ class PostController extends ChangeNotifier {
       String? selfieUrl;
       if (selfieBytes != null && selfieBytes.isNotEmpty) {
         try {
-          debugPrint("🤳 Uploading selfie to Cloudinary...");
+          debugPrint('🤳 Uploading selfie to Cloudinary...');
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final selfieFileName = 'run_selfie_${user.uid}_$timestamp.jpg';
           selfieUrl = await _cloudinary.uploadMedia(selfieBytes, selfieFileName, false);
-          debugPrint("✅ Selfie uploaded to Cloudinary: $selfieUrl");
+          debugPrint('✅ Selfie uploaded to Cloudinary: $selfieUrl');
         } catch (e) {
-          debugPrint("⚠️ Selfie upload failed (proceeding without): $e");
+          debugPrint('⚠️ Selfie upload failed (proceeding without): $e');
         }
       }
 
@@ -133,7 +133,14 @@ class PostController extends ChangeNotifier {
       final sampledPoints = (hasUploadedImage || !hasGoodRoute)
           ? <LatLng>[]
           : RouteUtils.sampleRoutePoints(routePoints);
-      debugPrint("📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)");
+      debugPrint('📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)');
+
+      // Extract hashtags from post text for tag-based search
+      final extractedTags = RegExp(r'#(\w+)')
+          .allMatches(aiContent)
+          .map((m) => m.group(1)!.toLowerCase())
+          .toSet()
+          .toList();
 
       // Create post document in Firestore
       final postData = {
@@ -151,17 +158,18 @@ class PostController extends ChangeNotifier {
         'mapImageUrl': mapImageUrl,
         if (selfieUrl != null) 'selfieUrl': selfieUrl,
         if (kmSplits.isNotEmpty) 'kmSplits': kmSplits,
+        if (extractedTags.isNotEmpty) 'tags': extractedTags,
         'likes': [],
         'type': 'run_activity',
       };
 
-      debugPrint("💾 Saving post to Firestore...");
+      debugPrint('💾 Saving post to Firestore...');
       await _firestore.collection('posts').add(postData);
       
-      debugPrint("✅ Post created successfully");
+      debugPrint('✅ Post created successfully');
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ Error creating auto post: $e");
+      debugPrint('❌ Error creating auto post: $e');
       rethrow;
     }
   }
@@ -339,48 +347,92 @@ class PostController extends ChangeNotifier {
 
   // ─── Motivational cards ────────────────────────────────────────────────────
 
-  static const List<String> _motivationalImages = [
-    AssetUrls.motivational_cards_card_01, AssetUrls.motivational_cards_card_02,
-    AssetUrls.motivational_cards_card_03, AssetUrls.motivational_cards_card_04,
-    AssetUrls.motivational_cards_card_05, AssetUrls.motivational_cards_card_06,
-    AssetUrls.motivational_cards_card_07, AssetUrls.motivational_cards_card_08,
-    AssetUrls.motivational_cards_card_09, AssetUrls.motivational_cards_card_10,
-    AssetUrls.motivational_cards_card_11, AssetUrls.motivational_cards_card_12,
-    AssetUrls.motivational_cards_card_13, AssetUrls.motivational_cards_card_14,
-    AssetUrls.motivational_cards_card_15, AssetUrls.motivational_cards_card_16,
-    AssetUrls.motivational_cards_card_17, AssetUrls.motivational_cards_card_18,
-    AssetUrls.motivational_cards_card_19, AssetUrls.motivational_cards_card_20,
-    AssetUrls.motivational_cards_card_21, AssetUrls.motivational_cards_card_22,
-    AssetUrls.motivational_cards_card_23, AssetUrls.motivational_cards_card_24,
-    AssetUrls.motivational_cards_card_25, AssetUrls.motivational_cards_card_26,
-    AssetUrls.motivational_cards_card_27, AssetUrls.motivational_cards_card_28,
-    AssetUrls.motivational_cards_card_29, AssetUrls.motivational_cards_card_30,
+  // Combined pools: images + videos interleaved so every 4th-5th daily post is a video.
+  // Format: [url, type] pairs in the rotation list — type is 'image' or 'video'.
+  static const List<List<String>> _motivationalPool = [
+    [AssetUrls.motivational_cards_card_01, 'image'],
+    [AssetUrls.motivational_cards_card_02, 'image'],
+    [AssetUrls.motivational_cards_card_03, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_01, 'video'],
+    [AssetUrls.motivational_cards_card_04, 'image'],
+    [AssetUrls.motivational_cards_card_05, 'image'],
+    [AssetUrls.motivational_cards_card_06, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_02, 'video'],
+    [AssetUrls.motivational_cards_card_07, 'image'],
+    [AssetUrls.motivational_cards_card_08, 'image'],
+    [AssetUrls.motivational_cards_card_09, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_03, 'video'],
+    [AssetUrls.motivational_cards_card_10, 'image'],
+    [AssetUrls.motivational_cards_card_11, 'image'],
+    [AssetUrls.motivational_cards_card_12, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_04, 'video'],
+    [AssetUrls.motivational_cards_card_13, 'image'],
+    [AssetUrls.motivational_cards_card_14, 'image'],
+    [AssetUrls.motivational_cards_card_15, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_05, 'video'],
+    [AssetUrls.motivational_cards_card_16, 'image'],
+    [AssetUrls.motivational_cards_card_17, 'image'],
+    [AssetUrls.motivational_cards_card_18, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_06, 'video'],
+    [AssetUrls.motivational_cards_card_19, 'image'],
+    [AssetUrls.motivational_cards_card_20, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_07, 'video'],
+    [AssetUrls.motivational_cards_card_21, 'image'],
+    [AssetUrls.motivational_cards_card_22, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_08, 'video'],
+    [AssetUrls.motivational_cards_card_23, 'image'],
+    [AssetUrls.motivational_cards_card_24, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_09, 'video'],
+    [AssetUrls.motivational_cards_card_25, 'image'],
+    [AssetUrls.motivational_cards_card_26, 'image'],
+    [AssetUrls.motivational_videos_motiv_video_10, 'video'],
+    [AssetUrls.motivational_cards_card_27, 'image'],
+    [AssetUrls.motivational_cards_card_28, 'image'],
+    [AssetUrls.motivational_cards_card_29, 'image'],
+    [AssetUrls.motivational_cards_card_30, 'image'],
   ];
 
-  static const List<String> _educationImages = [
-    AssetUrls.education_cards_edu_breathing_01, AssetUrls.education_cards_edu_cadence_01,
-    AssetUrls.education_cards_edu_gear_01,     AssetUrls.education_cards_edu_heat_01,
-    AssetUrls.education_cards_edu_hills_01,    AssetUrls.education_cards_edu_injury_01,
-    AssetUrls.education_cards_edu_injury_02,   AssetUrls.education_cards_edu_mental_01,
-    AssetUrls.education_cards_edu_mental_02,   AssetUrls.education_cards_edu_nutrition_01,
-    AssetUrls.education_cards_edu_nutrition_02, AssetUrls.education_cards_edu_pacing_01,
-    AssetUrls.education_cards_edu_race_day_01, AssetUrls.education_cards_edu_recovery_01,
-    AssetUrls.education_cards_edu_recovery_02, AssetUrls.education_cards_edu_running_form_01,
-    AssetUrls.education_cards_edu_running_form_02, AssetUrls.education_cards_edu_training_01,
-    AssetUrls.education_cards_edu_training_02, AssetUrls.education_cards_edu_warmup_01,
+  static const List<List<String>> _educationPool = [
+    [AssetUrls.education_cards_edu_breathing_01, 'image'],
+    [AssetUrls.education_cards_edu_cadence_01, 'image'],
+    [AssetUrls.education_videos_edu_video_breathing, 'video'],
+    [AssetUrls.education_cards_edu_gear_01, 'image'],
+    [AssetUrls.education_cards_edu_heat_01, 'image'],
+    [AssetUrls.education_videos_edu_video_warmup, 'video'],
+    [AssetUrls.education_cards_edu_hills_01, 'image'],
+    [AssetUrls.education_cards_edu_injury_01, 'image'],
+    [AssetUrls.education_videos_edu_video_form, 'video'],
+    [AssetUrls.education_cards_edu_injury_02, 'image'],
+    [AssetUrls.education_cards_edu_mental_01, 'image'],
+    [AssetUrls.education_videos_edu_video_recovery, 'video'],
+    [AssetUrls.education_cards_edu_mental_02, 'image'],
+    [AssetUrls.education_cards_edu_nutrition_01, 'image'],
+    [AssetUrls.education_videos_edu_video_nutrition, 'video'],
+    [AssetUrls.education_cards_edu_nutrition_02, 'image'],
+    [AssetUrls.education_cards_edu_pacing_01, 'image'],
+    [AssetUrls.education_videos_edu_video_cooldown, 'video'],
+    [AssetUrls.education_cards_edu_race_day_01, 'image'],
+    [AssetUrls.education_cards_edu_recovery_01, 'image'],
+    [AssetUrls.education_cards_edu_recovery_02, 'image'],
+    [AssetUrls.education_cards_edu_running_form_01, 'image'],
+    [AssetUrls.education_cards_edu_running_form_02, 'image'],
+    [AssetUrls.education_cards_edu_training_01, 'image'],
+    [AssetUrls.education_cards_edu_training_02, 'image'],
+    [AssetUrls.education_cards_edu_warmup_01, 'image'],
   ];
 
-  /// Returns the motivational image URL for a given calendar day (rotates through all 30).
-  static String motivationalImageForDay(int dayOfYear) =>
-      _motivationalImages[dayOfYear % _motivationalImages.length];
+  /// Returns [url, mediaType] for the motivational post for a given calendar day.
+  static List<String> motivationalMediaForDay(int dayOfYear) =>
+      _motivationalPool[dayOfYear % _motivationalPool.length];
 
-  /// Returns the education image URL for a given calendar day (rotates through all 20).
-  static String educationImageForDay(int dayOfYear) =>
-      _educationImages[dayOfYear % _educationImages.length];
+  /// Returns [url, mediaType] for the education post for a given calendar day.
+  static List<String> educationMediaForDay(int dayOfYear) =>
+      _educationPool[dayOfYear % _educationPool.length];
 
-  /// Posts today's motivational card to the global feed (called by DailyContentService).
+  /// Posts today's motivational card (image or video) to the global feed.
   Future<void> createMotivationalPost({
-    required String imageUrl,
+    required String mediaUrl,
+    required String mediaType,
     required String userId,
     required String username,
   }) async {
@@ -391,18 +443,19 @@ class PostController extends ChangeNotifier {
         'content': '💪 Stay motivated — every run counts. Keep going, MajuRun community! #MajuRun #Motivation',
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'motivational',
-        'media': [{'url': imageUrl, 'type': 'image'}],
+        'media': [{'url': mediaUrl, 'type': mediaType}],
         'likes': [],
       });
-      debugPrint('💪 Motivational post created');
+      debugPrint('💪 Motivational post created (type: $mediaType)');
     } catch (e) {
       debugPrint('❌ Error creating motivational post: $e');
     }
   }
 
-  /// Posts today's education card to the global feed (called by DailyContentService).
+  /// Posts today's education card (image or video) to the global feed.
   Future<void> createEducationPost({
-    required String imageUrl,
+    required String mediaUrl,
+    required String mediaType,
     required String userId,
     required String username,
   }) async {
@@ -413,10 +466,10 @@ class PostController extends ChangeNotifier {
         'content': '📚 Running tip of the day — learn something new every day to run smarter. #MajuRun #RunningTips',
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'education',
-        'media': [{'url': imageUrl, 'type': 'image'}],
+        'media': [{'url': mediaUrl, 'type': mediaType}],
         'likes': [],
       });
-      debugPrint('📚 Education post created');
+      debugPrint('📚 Education post created (type: $mediaType)');
     } catch (e) {
       debugPrint('❌ Error creating education post: $e');
     }
@@ -424,13 +477,13 @@ class PostController extends ChangeNotifier {
 
   Future<void> generateVeoVideo() async {
     try {
-      debugPrint("🎬 Generating Veo video...");
+      debugPrint('🎬 Generating Veo video...');
       await Future.delayed(const Duration(seconds: 2));
-      lastVideoUrl = "https://placeholder-video-url.com/video.mp4";
-      debugPrint("✅ Video generated: $lastVideoUrl");
+      lastVideoUrl = 'https://placeholder-video-url.com/video.mp4';
+      debugPrint('✅ Video generated: $lastVideoUrl');
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ Error generating video: $e");
+      debugPrint('❌ Error generating video: $e');
       rethrow;
     }
   }
@@ -452,7 +505,7 @@ class PostController extends ChangeNotifier {
                    user.displayName ?? 
                    'Runner';
       } catch (e) {
-        debugPrint("⚠️ Could not fetch username: $e");
+        debugPrint('⚠️ Could not fetch username: $e');
       }
 
       await _firestore.collection('posts').add({
@@ -466,10 +519,10 @@ class PostController extends ChangeNotifier {
         'type': 'run_video',
       });
 
-      debugPrint("✅ Professional post created with video");
+      debugPrint('✅ Professional post created with video');
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ Error finalizing pro post: $e");
+      debugPrint('❌ Error finalizing pro post: $e');
       rethrow;
     }
   }

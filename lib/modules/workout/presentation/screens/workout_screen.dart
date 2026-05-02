@@ -408,7 +408,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             child: child,
           );
         },
-        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }
@@ -457,7 +456,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     const SizedBox(height: 28),
                     _buildFeaturedCard(),
                     const SizedBox(height: 32),
-                    _buildSectionTitle("AI SPECIALIZED WORKOUTS"),
+                    _buildSectionTitle('AI SPECIALIZED WORKOUTS'),
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -489,7 +488,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
-                "AI POWERED",
+                'AI POWERED',
                 style: TextStyle(
                   fontSize: 10,
                   color: Colors.black,
@@ -513,7 +512,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 12),
                     SizedBox(width: 4),
                     Text(
-                      "PRO",
+                      'PRO',
                       style: TextStyle(
                         fontSize: 10,
                         color: Color(0xFFFFD700),
@@ -528,7 +527,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
         const SizedBox(height: 12),
         const Text(
-          "WORKOUT HUB",
+          'WORKOUT HUB',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w900,
@@ -538,7 +537,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          "Choose your training style",
+          'Choose your training style',
           style: TextStyle(
             fontSize: 14,
             color: Colors.white.withValues(alpha: 0.6),
@@ -816,7 +815,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
           border: Border.all(
             color: const Color(0xFF00E676).withValues(alpha: 0.3),
-            width: 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -850,7 +848,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          "RECOMMENDED",
+                          'RECOMMENDED',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
@@ -871,7 +869,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             Icon(Icons.play_circle_filled, size: 14, color: Colors.white),
                             SizedBox(width: 4),
                             Text(
-                              "AI-GUIDED",
+                              'AI-GUIDED',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -929,7 +927,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     BoxShadow(
                       color: const Color(0xFF00E676).withValues(alpha: 0.4),
                       blurRadius: 16,
-                      spreadRadius: 0,
                     ),
                   ],
                 ),
@@ -1051,7 +1048,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               color: isLocked
                   ? const Color(0xFF2A2A3E)
                   : accentColor.withValues(alpha: 0.3),
-              width: 1,
             ),
           ),
           child: Stack(

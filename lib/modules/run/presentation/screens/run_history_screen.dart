@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -151,6 +152,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       if (!connected) {
         if (!mounted) { setState(() => _isSyncing = false); return; }
         final ctx = context;
+        // ignore: use_build_context_synchronously — ctx captured before async gap; strava.authorize requires a BuildContext for OAuth webview
         final authorized = await strava.authorize(ctx);
         if (!authorized || !mounted) {
           setState(() => _isSyncing = false);
@@ -158,7 +160,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         }
       }
 
-      final result = await strava.syncActivities(days: 365);
+      final result = await strava.syncActivities();
       if (!mounted) return;
 
       if (result.error != null) {
@@ -253,7 +255,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           slivers: [
             SliverAppBar(
               pinned: true,
-              floating: false,
               expandedHeight: 60,
               backgroundColor: const Color(0xFF1A1A2E),
               elevation: 0,
@@ -264,8 +265,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               title: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("RUN ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
-                  Text("LOG", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
+                  Text('RUN ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
+                  Text('LOG', style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
                 ],
               ),
               centerTitle: true,
@@ -327,7 +328,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   children: [
                     Icon(Icons.history, size: 16, color: Colors.grey),
                     SizedBox(width: 8),
-                    Text("RECENT SESSIONS", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
+                    Text('RECENT SESSIONS', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
                   ],
                 ),
               ),
@@ -342,17 +343,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               )
             else if (runs.isEmpty)
               const SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.directions_run, size: 48, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text("No sessions yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                      SizedBox(height: 8),
-                      Text("Start your first session.", style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
+                child: EmptyStateWidget(
+                  icon: Icons.directions_run_rounded,
+                  title: 'No sessions yet',
+                  subtitle: 'Lace up and complete your first run — it will appear here.',
                 ),
               )
             else
@@ -453,7 +447,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+          bottom: BorderSide(color: Colors.grey.shade300),
         ),
       ),
       child: Row(
@@ -506,7 +500,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 const Icon(Icons.directions_run, size: 14, color: Colors.white),
                 const SizedBox(width: 6),
                 Text(
-                  "${totalKm.toStringAsFixed(1)} KM",
+                  '${totalKm.toStringAsFixed(1)} KM',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -546,12 +540,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   String _weekDayLabel(Map<String, dynamic> run) {
     final week = run['week'];
     final day = run['day'];
-    if (week != null && day != null) return "Wk $week • Day $day";
+    if (week != null && day != null) return 'Wk $week • Day $day';
     final weekDay = run['weekDay']?.toString();
     if (weekDay != null && weekDay.isNotEmpty) {
-      return weekDay.replaceAll("Week", "Wk").replaceAll(",", " •");
+      return weekDay.replaceAll('Week', 'Wk').replaceAll(',', ' •');
     }
-    return "";
+    return '';
   }
 
   bool? _completedFlag(Map<String, dynamic> run) {
@@ -572,6 +566,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       if (parsed != null) return parsed;
     }
     return DateTime.now();
+  }
+
+  String _weatherEmoji(String condition) {
+    switch (condition.toLowerCase()) {
+      case 'clear':        return '☀️';
+      case 'clouds':       return '☁️';
+      case 'rain':         return '🌧️';
+      case 'drizzle':      return '🌦️';
+      case 'thunderstorm': return '⛈️';
+      case 'snow':         return '❄️';
+      case 'fog':          return '🌫️';
+      default:             return '🌡️';
+    }
   }
 
   // Robust parsing for points: LatLng, GeoPoint, Map(lat/lng), Map(latitude/longitude)
@@ -656,24 +663,24 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ),
             child: Row(
               children: [
-                Expanded(child: _buildStatWhite("Distance", "${stats['totalKm'].toStringAsFixed(1)} km")),
+                Expanded(child: _buildStatWhite('Distance', "${stats['totalKm'].toStringAsFixed(1)} km")),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
-                Expanded(child: _buildStatWhite("Time", stats['totalTime'])),
+                Expanded(child: _buildStatWhite('Time', stats['totalTime'])),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
-                Expanded(child: _buildStatWhite("Avg Pace", stats['avgPace'])),
+                Expanded(child: _buildStatWhite('Avg Pace', stats['avgPace'])),
               ],
             ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildStatCard("Avg HR", "${stats['avgBpm']}", Icons.favorite, Colors.red)),
+              Expanded(child: _buildStatCard('Avg HR', "${stats['avgBpm']}", Icons.favorite, Colors.red)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Streak", "${stats['streak']}", Icons.local_fire_department, Colors.orange)),
+              Expanded(child: _buildStatCard('Streak', "${stats['streak']}", Icons.local_fire_department, Colors.orange)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Sessions", "${stats['totalRuns']}", Icons.check_circle, Colors.green)),
+              Expanded(child: _buildStatCard('Sessions', "${stats['totalRuns']}", Icons.check_circle, Colors.green)),
               const SizedBox(width: 8),
-              Expanded(child: _buildStatCard("Calories", "${stats['totalCalories']}", Icons.whatshot, Colors.deepOrange)),
+              Expanded(child: _buildStatCard('Calories', "${stats['totalCalories']}", Icons.whatshot, Colors.deepOrange)),
             ],
           ),
           const SizedBox(height: 12),
@@ -681,7 +688,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             children: [
               Expanded(
                 child: _buildRecordCard(
-                  "Top Pace",
+                  'Top Pace',
                   records['bestPace'] ?? '--:--',
                   records['bestPaceDate'] ?? '',
                   Icons.flash_on,
@@ -691,7 +698,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildRecordCard(
-                  "Longest Distance",
+                  'Longest Distance',
                   records['longestDistance'] ?? '-- km',
                   records['longestDate'] ?? '',
                   Icons.star,
@@ -791,7 +798,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 Icon(Icons.emoji_events, size: 16, color: Colors.amber),
                 SizedBox(width: 8),
                 Text(
-                  "BADGES",
+                  'BADGES',
                   style: TextStyle(
                     color: Colors.grey,
                     fontWeight: FontWeight.bold,
@@ -1003,7 +1010,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final startTime = DateFormat('HH:mm').format(date);
     final endTime = DateFormat('HH:mm').format(date.add(Duration(seconds: durationSeconds)));
 
-    final pace = run['pace'] ?? "0:00";
+    final pace = run['pace'] ?? '0:00';
 
     final caloriesVal = run['calories'] ?? 0;
     final calories = (caloriesVal is num) ? caloriesVal.toInt() : 0;
@@ -1012,13 +1019,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final avgBpm = (avgBpmRaw is num) ? avgBpmRaw.toInt() : 0;
 
     final isTraining = _isTrainingRun(run);
-    final isProRun = !isTraining && (run['planTitle'] != "Free Run");
+    final isProRun = !isTraining && (run['planTitle'] != 'Free Run');
     final isExternal = run['isExternal'] == true;
     final externalSource = run['source']?.toString() ?? '';
 
     final status = _completedFlag(run);
     final weekDayLabel = _weekDayLabel(run);
-    final statusLabel = status == null ? null : (status ? "Completed" : "In Progress");
+    final statusLabel = status == null ? null : (status ? 'Completed' : 'In Progress');
 
     // We still keep mapImageUrl for non-web fallback or legacy, but on Web we prefer route
     final mapImageUrl = (run['mapImageUrl'] ?? '').toString();
@@ -1091,14 +1098,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             if (isExternal)
                               _badge(label: _getSourceLabel(externalSource), icon: Icons.cloud_download, colors: [Colors.purple.shade400, Colors.purple.shade600])
                             else if (isTraining)
-                              _badge(label: "SESSION", icon: Icons.fitness_center, colors: [Colors.green.shade400, Colors.green.shade700])
+                              _badge(label: 'SESSION', icon: Icons.fitness_center, colors: [Colors.green.shade400, Colors.green.shade700])
                             else if (isProRun)
-                              _badge(label: "PRO", icon: Icons.auto_awesome, colors: [Colors.blue.shade400, Colors.blue.shade600]),
+                              _badge(label: 'PRO', icon: Icons.auto_awesome, colors: [Colors.blue.shade400, Colors.blue.shade600]),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "${distance.toStringAsFixed(1)} km",
+                          '${distance.toStringAsFixed(1)} km',
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
                         ),
 
@@ -1113,8 +1120,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               if (statusLabel != null)
                                 _chip(
                                   text: statusLabel,
-                                  icon: statusLabel == "Completed" ? Icons.check_circle : Icons.timelapse,
-                                  color: statusLabel == "Completed" ? Colors.green : Colors.orange,
+                                  icon: statusLabel == 'Completed' ? Icons.check_circle : Icons.timelapse,
+                                  color: statusLabel == 'Completed' ? Colors.green : Colors.orange,
                                 ),
                             ],
                           ),
@@ -1123,11 +1130,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            _historyStat("Time", timeString, Icons.timer_outlined, Colors.blue),
+                            _historyStat('Time', timeString, Icons.timer_outlined, Colors.blue),
                             const SizedBox(width: 15),
-                            _historyStat("Pace", "$pace /km", Icons.speed, Colors.green),
+                            _historyStat('Pace', '$pace /km', Icons.speed, Colors.green),
                             const SizedBox(width: 15),
-                            _historyStat("Cals", "$calories", Icons.whatshot, Colors.orange),
+                            _historyStat('Cals', '$calories', Icons.whatshot, Colors.orange),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -1136,9 +1143,37 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
                             const SizedBox(width: 4),
                             Text(
-                              "Avg HR: $avgBpm",
+                              'Avg HR: $avgBpm',
                               style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                             ),
+                            // Weather chip — shown when weather was recorded
+                            if (run['temp'] != null && run['condition'] != null) ...[
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE3F2FD),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _weatherEmoji(run['condition'].toString()),
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${(run['temp'] as num).round()}°C',
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1565C0)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],
@@ -1354,8 +1389,6 @@ Built with MajuRun 💪
         mapToolbarEnabled: false,
         rotateGesturesEnabled: false,
         tiltGesturesEnabled: false,
-        mapType: MapType.normal,
-        myLocationEnabled: false,
         myLocationButtonEnabled: false,
       ),
     );
@@ -1413,19 +1446,18 @@ Built with MajuRun 💪
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 10),
@@ -1433,7 +1465,7 @@ Built with MajuRun 💪
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
+                Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
                 Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
                 if (date.isNotEmpty) Text(date, style: const TextStyle(fontSize: 8, color: Colors.grey)),
               ],

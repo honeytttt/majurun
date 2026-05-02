@@ -12,6 +12,7 @@ import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/badge_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
 
 /// User Profile Screen - For viewing OTHER users' profiles
 /// Matches ProfileScreen (self) design exactly
@@ -286,10 +287,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF00E676)),
+        body: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              ShimmerLoader.profileHeaderSkeleton(),
+              const Divider(height: 1),
+              ...List.generate(3, (_) => ShimmerLoader.postSkeleton()),
+            ],
+          ),
         ),
       );
     }
@@ -775,7 +783,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 media: _parseMedia(data['media'], data['mapImageUrl']),
                 createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
                 likes: List<String>.from(data['likes'] ?? []),
-                comments: const [],
                 quotedPostId: data['quotedPostId'],
                 routePoints: _parseRoutePoints(data['routePoints']),
               );

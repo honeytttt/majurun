@@ -29,31 +29,26 @@ class AppConfig {
 
   static const String cloudinaryCloudName = String.fromEnvironment(
     'CLOUDINARY_CLOUD_NAME',
-    defaultValue: '', // Must be provided at build time
   );
 
   static const String cloudinaryApiKey = String.fromEnvironment(
     'CLOUDINARY_API_KEY',
-    defaultValue: '', // Must be provided at build time
   );
 
   static const String cloudinaryUploadPreset = String.fromEnvironment(
     'CLOUDINARY_UPLOAD_PRESET',
-    defaultValue: '', // Must be provided at build time
   );
 
   // ==================== WEATHER ====================
 
   static const String weatherApiKey = String.fromEnvironment(
     'WEATHER_API_KEY',
-    defaultValue: '',
   );
 
   // ==================== GOOGLE MAPS ====================
 
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_KEY',
-    defaultValue: '', // Fallback to native config if empty
   );
 
   // ==================== RECAPTCHA ====================

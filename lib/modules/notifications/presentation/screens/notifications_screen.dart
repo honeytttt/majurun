@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
 import 'package:majurun/modules/notifications/presentation/widgets/notification_tile.dart';
 import 'package:majurun/modules/home/presentation/screens/user_profile_screen.dart';
+import 'package:majurun/modules/home/domain/entities/post.dart';
+import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+import 'package:majurun/modules/dm/presentation/screens/chat_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -163,8 +167,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _navigateToUserProfile(notification);
         break;
       case NotificationType.dm:
-        // TODO: Navigate to DM conversation
-        _showDmNotImplemented();
+        _navigateToDm(notification);
         break;
       case NotificationType.badge:
         // Show badge details or navigate to profile badges section
@@ -173,8 +176,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case NotificationType.like:
       case NotificationType.comment:
       case NotificationType.post:
-        // TODO: Navigate to post
-        _navigateToUserProfile(notification);
+        _navigateToPost(notification);
         break;
       case NotificationType.reminder:
         // Daily reminders have no specific destination — just mark as read.
@@ -198,10 +200,45 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  void _showDmNotImplemented() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening conversations...')),
+  void _navigateToDm(AppNotification notification) {
+    final conversationId = notification.metadata?['conversationId'] as String?;
+    if (conversationId == null || notification.fromUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open conversation')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversationId: conversationId,
+          otherUserId: notification.fromUserId,
+          otherUserName: notification.fromUsername,
+        ),
+      ),
     );
+  }
+
+  Future<void> _navigateToPost(AppNotification notification) async {
+    final postId = notification.metadata?['postId'] as String?;
+    if (postId == null || postId.isEmpty) {
+      // No postId — fall back to the poster's profile
+      _navigateToUserProfile(notification);
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance.collection('posts').doc(postId).get();
+      if (!doc.exists) return;
+      if (!mounted) return;
+      final post = AppPost.fromFirestore(doc);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      );
+    } catch (_) {
+      if (mounted) _navigateToUserProfile(notification);
+    }
   }
 
   void _showBadgeDetails(AppNotification notification) {

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/services/background_location_service.dart';
+import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/weather_service.dart';
 
 enum RunState { idle, running, paused, autoPaused }
@@ -60,7 +62,7 @@ class RunStateController extends ChangeNotifier {
   // Pace calculation
   double get averageSpeedMs => _activeRunSeconds > 0 ? _totalDistance / _activeRunSeconds : 0.0;
   String get paceString {
-    if (averageSpeedMs < 0.5) return "0:00";
+    if (averageSpeedMs < 0.5) return '0:00';
     final paceMinKm = 16.666666 / averageSpeedMs;
     final minutes = paceMinKm.floor();
     final seconds = ((paceMinKm - minutes) * 60).round();
@@ -163,6 +165,17 @@ class RunStateController extends ChangeNotifier {
       _totalDistance = distance;
       _updatePolylines();
       notifyListeners();
+      // Persist every GPS fix so a crash can never lose the route
+      if (!kIsWeb && _state == RunState.running) {
+        OfflineDatabaseService().appendRunPoint(ActiveRunPoint(
+          lat: position.latitude,
+          lng: position.longitude,
+          accuracy: position.accuracy,
+          speed: position.speed,
+          altitude: position.altitude,
+          recordedAt: DateTime.now(),
+        ));
+      }
     };
 
     _locationService.onAutoPauseChanged = (isAutoPaused) {
@@ -294,6 +307,10 @@ class RunStateController extends ChangeNotifier {
     _state = RunState.idle;
     _stopTimer();
     await _locationService.stopTracking();
+    // Clear point-by-point track — run is now saved via pending_runs
+    if (!kIsWeb) {
+      await OfflineDatabaseService().clearRunPoints();
+    }
 
     // Log final stats
     final stats = _locationService.getRouteStats();
@@ -447,11 +464,11 @@ class RunStateController extends ChangeNotifier {
       final timeDiff = thisKmTime - previousKm.durationSeconds;
 
       if (timeDiff.abs() < 5) {
-        comparison = "Same pace as previous kilometer";
+        comparison = 'Same pace as previous kilometer';
       } else if (timeDiff < 0) {
-        comparison = "Faster by ${timeDiff.abs()} seconds. Great job!";
+        comparison = 'Faster by ${timeDiff.abs()} seconds. Great job!';
       } else {
-        comparison = "Slower by $timeDiff seconds. Keep pushing!";
+        comparison = 'Slower by $timeDiff seconds. Keep pushing!';
       }
     }
 
@@ -518,19 +535,66 @@ class RunStateController extends ChangeNotifier {
     final points = routePoints;
     if (points.isEmpty) return;
 
-    // Create single polyline with gradient effect
+    // Simplify for rendering only — full set kept in location service for
+    // accurate distance calculation. DP ε ≈ 3 m in degrees.
+    final renderPoints = points.length > 50
+        ? _douglasPeuckerLatLng(points, 0.00003)
+        : points;
+
     _polylines = {
       Polyline(
         polylineId: const PolylineId('run_route'),
-        points: points,
+        points: renderPoints,
         color: Colors.blue,
         width: 5,
-        patterns: const [],
         jointType: JointType.round,
         startCap: Cap.roundCap,
         endCap: Cap.roundCap,
       ),
     };
+  }
+
+  /// Douglas-Peucker line simplification for LatLng lists.
+  /// Operates in degree-space — epsilon ≈ metres / 111_000.
+  List<LatLng> _douglasPeuckerLatLng(List<LatLng> pts, double epsilon) {
+    if (pts.length < 3) return pts;
+
+    double maxDist = 0;
+    int maxIdx = 0;
+    final first = pts.first;
+    final last = pts.last;
+
+    for (int i = 1; i < pts.length - 1; i++) {
+      final d = _perpendicularDistLL(pts[i], first, last);
+      if (d > maxDist) {
+        maxDist = d;
+        maxIdx = i;
+      }
+    }
+
+    if (maxDist > epsilon) {
+      final left  = _douglasPeuckerLatLng(pts.sublist(0, maxIdx + 1), epsilon);
+      final right = _douglasPeuckerLatLng(pts.sublist(maxIdx), epsilon);
+      return [...left.sublist(0, left.length - 1), ...right];
+    }
+    return [first, last];
+  }
+
+  double _perpendicularDistLL(LatLng p, LatLng a, LatLng b) {
+    final dx = b.longitude - a.longitude;
+    final dy = b.latitude  - a.latitude;
+    if (dx == 0 && dy == 0) {
+      final dlat = p.latitude  - a.latitude;
+      final dlng = p.longitude - a.longitude;
+      return (dlat * dlat + dlng * dlng) * 0.5; // squared distance proxy
+    }
+    final t = ((p.longitude - a.longitude) * dx + (p.latitude - a.latitude) * dy)
+        / (dx * dx + dy * dy);
+    final nx = a.longitude + t * dx;
+    final ny = a.latitude  + t * dy;
+    final dlat = p.latitude  - ny;
+    final dlng = p.longitude - nx;
+    return (dlat * dlat + dlng * dlng) * 0.5;
   }
 
   // ============== GPS QUALITY INDICATOR ==============

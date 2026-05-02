@@ -8,6 +8,7 @@ import 'package:majurun/modules/run/data/repositories/firestore_run_history_impl
 import 'package:majurun/modules/run/domain/entities/run_post.dart';
 import 'package:majurun/core/services/user_stats_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:majurun/core/services/daily_challenge_service.dart';
 
 class StatsController extends ChangeNotifier {
   final RunHistoryRepository _repository;
@@ -23,7 +24,7 @@ class StatsController extends ChangeNotifier {
   double historyDistance = 0.0;
   int runStreak = 0;
   int totalRuns = 0;
-  String totalHistoryTimeStr = "00:00:00";
+  String totalHistoryTimeStr = '00:00:00';
 
   Future<void> refreshHistoryStats() async {
     final stats = await _repository.getStats();
@@ -119,6 +120,17 @@ class StatsController extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ ERROR updating user stats: $e');
+    }
+
+    // Update daily challenge progress
+    try {
+      await DailyChallengeService().updateChallengesAfterRun(
+        userId: uid,
+        distanceKm: distanceKm,
+        startTime: DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint('⚠️ Challenge progress update failed: $e');
     }
 
     // Update local state

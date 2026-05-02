@@ -270,7 +270,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                           ],
                         ),
                       );
-                      if (confirm == true) {
+                      if (confirm ?? false) {
                         setState(() {
                           _settings = VoiceSettings.defaults();
                         });
@@ -359,7 +359,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                     Text('Voice (iOS)', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.grey[800])),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
-                      value: _settings.voiceName,
+                      initialValue: _settings.voiceName,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

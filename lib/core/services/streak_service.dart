@@ -250,12 +250,12 @@ class StreakService {
 
   /// Get level title based on level number
   String getLevelTitle(int level) {
-    if (level < 5) return "Beginner Runner";
-    if (level < 10) return "Active Runner";
-    if (level < 20) return "Dedicated Runner";
-    if (level < 35) return "Expert Runner";
-    if (level < 50) return "Elite Athlete";
-    if (level < 75) return "Champion";
-    return "Legend";
+    if (level < 5) return 'Beginner Runner';
+    if (level < 10) return 'Active Runner';
+    if (level < 20) return 'Dedicated Runner';
+    if (level < 35) return 'Expert Runner';
+    if (level < 50) return 'Elite Athlete';
+    if (level < 75) return 'Champion';
+    return 'Legend';
   }
 }

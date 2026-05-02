@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:majurun/modules/notifications/domain/entities/app_notification.dart';
 
@@ -94,17 +95,50 @@ class NotificationTile extends StatelessWidget {
       );
     }
 
+    // If the stored photoUrl is present, use it directly.
+    if (notification.fromUserPhotoUrl != null &&
+        notification.fromUserPhotoUrl!.isNotEmpty) {
+      return CircleAvatar(
+        radius: 24,
+        backgroundColor: Colors.grey[200],
+        backgroundImage:
+            CachedNetworkImageProvider(notification.fromUserPhotoUrl!),
+      );
+    }
+
+    // Fall back: fetch the sender's current Firestore photoUrl so avatars
+    // show up even for notifications created before the field was stored.
+    if (notification.fromUserId.isNotEmpty &&
+        notification.fromUserId != 'system') {
+      return FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance
+            .collection('users')
+            .doc(notification.fromUserId)
+            .get(),
+        builder: (context, snap) {
+          final url = snap.data?.data() is Map
+              ? (snap.data!.data() as Map<String, dynamic>)['photoUrl']
+                  as String?
+              : null;
+          return CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.grey[200],
+            backgroundImage:
+                url != null && url.isNotEmpty
+                    ? CachedNetworkImageProvider(url)
+                    : null,
+            child: url == null || url.isEmpty
+                ? Icon(Icons.person, color: Colors.grey[400])
+                : null,
+          );
+        },
+      );
+    }
+
     return CircleAvatar(
       radius: 24,
       backgroundColor: Colors.grey[200],
-      backgroundImage: notification.fromUserPhotoUrl != null &&
-              notification.fromUserPhotoUrl!.isNotEmpty
-          ? CachedNetworkImageProvider(notification.fromUserPhotoUrl!)
-          : null,
-      child: notification.fromUserPhotoUrl == null ||
-              notification.fromUserPhotoUrl!.isEmpty
-          ? Icon(Icons.person, color: Colors.grey[400])
-          : null,
+      child: Icon(Icons.person, color: Colors.grey[400]),
     );
   }
 

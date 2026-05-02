@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/training/presentation/screens/active_workout_screen.dart';
 import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/core/services/payment_service.dart';
 
 class TrainingDrawer extends StatefulWidget {
   final Function(Widget?)? onSubPageSelected;
@@ -41,72 +42,72 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildSectionHeader("BEGINNER"),
+                _buildSectionHeader('BEGINNER'),
                 _planTile(
                   context,
-                  title: "Walk to Run",
-                  subtitle: "6 Weeks • 3 Days/Week",
+                  title: 'Walk to Run',
+                  subtitle: '6 Weeks • 3 Days/Week',
                   icon: Icons.directions_walk,
                   color: const Color(0xFF66BB6A),
                   isPro: false,
-                  onTap: () => _startPlan(context, "Walk to Run"),
+                  onTap: () => _startPlan(context, 'Walk to Run'),
                 ),
                 _planTile(
                   context,
-                  title: "Train 0 to 5K",
-                  subtitle: "8 Weeks • 3 Days/Week",
+                  title: 'Train 0 to 5K',
+                  subtitle: '8 Weeks • 3 Days/Week',
                   icon: Icons.directions_run,
                   color: const Color(0xFF4CAF50),
                   isPro: false,
-                  onTap: () => _startPlan(context, "Train 0 to 5K"),
+                  onTap: () => _startPlan(context, 'Train 0 to 5K'),
                 ),
-                _buildSectionHeader("INTERMEDIATE"),
+                _buildSectionHeader('INTERMEDIATE'),
                 _planTile(
                   context,
-                  title: "5K to 10K",
-                  subtitle: "8 Weeks • 3 Days/Week",
+                  title: '5K to 10K',
+                  subtitle: '8 Weeks • 3 Days/Week',
                   icon: Icons.whatshot,
                   color: const Color(0xFF2196F3),
                   isPro: true,
-                  onTap: () => _startPlan(context, "5K to 10K"),
+                  onTap: () => _startPlan(context, '5K to 10K'),
                 ),
                 _planTile(
                   context,
-                  title: "Speed Development",
-                  subtitle: "6 Weeks • 4 Days/Week",
+                  title: 'Speed Development',
+                  subtitle: '6 Weeks • 4 Days/Week',
                   icon: Icons.speed,
                   color: const Color(0xFF00BCD4),
                   isPro: true,
-                  onTap: () => _startPlan(context, "Speed Development"),
+                  onTap: () => _startPlan(context, 'Speed Development'),
                 ),
-                _buildSectionHeader("ADVANCED"),
+                _buildSectionHeader('ADVANCED'),
                 _planTile(
                   context,
-                  title: "10K to Half Marathon",
-                  subtitle: "8 Weeks • 3 Days/Week",
+                  title: '10K to Half Marathon',
+                  subtitle: '8 Weeks • 3 Days/Week',
                   icon: Icons.bolt,
                   color: const Color(0xFFFF9800),
                   isPro: true,
-                  onTap: () => _startPlan(context, "10K to Half Marathon"),
+                  onTap: () => _startPlan(context, '10K to Half Marathon'),
                 ),
                 _planTile(
                   context,
-                  title: "Half to Full Marathon",
-                  subtitle: "12 Weeks • 3 Days/Week",
+                  title: 'Half to Full Marathon',
+                  subtitle: '12 Weeks • 3 Days/Week',
                   icon: Icons.emoji_events,
                   color: const Color(0xFF9C27B0),
                   isPro: true,
-                  onTap: () => _startPlan(context, "Half to Full Marathon"),
+                  onTap: () => _startPlan(context, 'Half to Full Marathon'),
                 ),
-                _buildSectionHeader("AI CHALLENGES"),
+                _buildSectionHeader('AI CHALLENGES'),
                 _planTile(
                   context,
-                  title: "Morning Burn",
-                  subtitle: "6 Weeks • High Intensity",
+                  title: 'Morning Burn',
+                  subtitle: '6 Weeks • High Intensity',
                   icon: Icons.local_fire_department,
                   color: Colors.redAccent,
                   isPro: false,
-                  onTap: () => _startPlan(context, "Morning Burn"),
+                  onTap: () => _startPlan(context, 'Morning Burn'),
                 ),
               ],
             ),
@@ -125,13 +126,13 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("TRAINING",
+          Text('TRAINING',
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2)),
-          Text("Select your path",
+          Text('Select your path',
               style: TextStyle(color: Colors.grey, fontSize: 14)),
         ],
       ),
@@ -220,7 +221,7 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
     return Container(
       padding: const EdgeInsets.all(20),
       child: _isPro
-          ? const Text("PRO PLAN ACTIVE",
+          ? const Text('PRO PLAN ACTIVE',
               style: TextStyle(
                   color: Colors.green,
                   fontWeight: FontWeight.bold,
@@ -229,7 +230,7 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
           : TextButton(
               onPressed: () => _showProDialog(context),
               child: const Text(
-                "UPGRADE TO PRO",
+                'UPGRADE TO PRO',
                 style: TextStyle(
                   color: Color(0xFFFFD700),
                   fontWeight: FontWeight.bold,
@@ -277,13 +278,7 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement payment flow
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Subscription feature coming soon!'),
-                  backgroundColor: Color(0xFF00E676),
-                ),
-              );
+              _openPaywall(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFFD700),
@@ -296,8 +291,17 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
     );
   }
 
+  void _openPaywall(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ProPaywallSheet(),
+    ).then((_) => _checkProStatus()); // refresh Pro status after sheet closes
+  }
+
   void _startPlan(BuildContext context, String planName) {
-    Navigator.pop(context);
+    Navigator.pop(context); // close drawer
 
     final planId = _getPlanId(planName);
     final trainingService = context.read<TrainingService>();
@@ -356,6 +360,280 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
     }
   }
 }
+
+// ─── Pro Paywall Bottom Sheet ────────────────────────────────────────────────
+
+class _ProPaywallSheet extends StatefulWidget {
+  const _ProPaywallSheet();
+
+  @override
+  State<_ProPaywallSheet> createState() => _ProPaywallSheetState();
+}
+
+class _ProPaywallSheetState extends State<_ProPaywallSheet> {
+  final PaymentService _paymentService = PaymentService();
+  bool _initialized = false;
+  // 0 = monthly, 1 = yearly
+  int _selectedPlan = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _paymentService.initialize();
+    if (mounted) setState(() => _initialized = true);
+  }
+
+  Future<void> _purchase() async {
+    final product = _selectedPlan == 0
+        ? _paymentService.monthlyProduct
+        : _paymentService.yearlyProduct;
+
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Products not available. Please try again.')),
+      );
+      return;
+    }
+
+    final started = await _paymentService.purchaseSubscription(product);
+    if (!mounted) return;
+
+    if (started) {
+      // Listen for completion — close sheet when isPro flips
+      _paymentService.addListener(_onPaymentUpdate);
+    } else if (_paymentService.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_paymentService.error!)),
+      );
+    }
+  }
+
+  void _onPaymentUpdate() {
+    if (_paymentService.isPro && mounted) {
+      _paymentService.removeListener(_onPaymentUpdate);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🎉 Welcome to MajuRun Pro!'),
+          backgroundColor: Color(0xFF00E676),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _paymentService.removeListener(_onPaymentUpdate);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0A1A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Crown icon
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.workspace_premium,
+                    color: Color(0xFFFFD700), size: 32),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'MajuRun Pro',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Unlock your full running potential',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              // Features
+              _featureRow(Icons.route, 'All advanced training plans'),
+              _featureRow(Icons.analytics_outlined, 'Deep run analytics'),
+              _featureRow(Icons.record_voice_over, 'AI voice coaching'),
+              _featureRow(Icons.emoji_events, 'Exclusive Pro badges'),
+              const SizedBox(height: 20),
+              // Plan selector
+              if (!_initialized)
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                      color: Color(0xFFFFD700), strokeWidth: 2),
+                )
+              else ...[
+                Row(
+                  children: [
+                    Expanded(child: _planCard(
+                      index: 0,
+                      label: 'Monthly',
+                      price: _paymentService.monthlyProduct?.price ?? '\$1.99',
+                      period: '/ month',
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: _planCard(
+                      index: 1,
+                      label: 'Yearly',
+                      price: _paymentService.yearlyProduct?.price ?? '\$15.99',
+                      period: '/ year',
+                      badge: 'Save 33%',
+                    )),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Subscribe button
+                ListenableBuilder(
+                  listenable: _paymentService,
+                  builder: (_, __) => SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _paymentService.isLoading ? null : _purchase,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD700),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _paymentService.isLoading
+                          ? const SizedBox(
+                              width: 22, height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.black),
+                            )
+                          : const Text(
+                              'Start Pro Subscription',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Restore
+                TextButton(
+                  onPressed: () => _paymentService.restorePurchases(),
+                  child: const Text(
+                    'Restore Purchases',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _featureRow(IconData icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF00E676), size: 18),
+          const SizedBox(width: 12),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _planCard({
+    required int index,
+    required String label,
+    required String price,
+    required String period,
+    String? badge,
+  }) {
+    final selected = _selectedPlan == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPlan = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFFFFD700).withValues(alpha: 0.12)
+              : const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFFFFD700)
+                : const Color(0xFF2D2D44),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (badge != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E676).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(badge,
+                    style: const TextStyle(
+                        color: Color(0xFF00E676),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
+              ),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(price,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+            Text(period,
+                style: const TextStyle(color: Colors.white38, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Pro Feature Item ─────────────────────────────────────────────────────────
 
 class _ProFeatureItem extends StatelessWidget {
   final String text;

@@ -8,6 +8,8 @@ import 'package:majurun/modules/search/presentation/widgets/recent_searches_list
 import 'package:majurun/modules/home/presentation/screens/user_profile_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -134,7 +136,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       await _searchService.clearRecentSearches();
       await _loadRecentSearches();
     }
@@ -178,7 +180,6 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
         media: _parseMedia(data['media'], data['mapImageUrl']),
         createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         likes: List<String>.from(data['likes'] ?? []),
-        comments: const [],
         quotedPostId: data['quotedPostId'],
         routePoints: _parseRoutePoints(data['routePoints']),
       );
@@ -299,8 +300,9 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
 
   Widget _buildBody() {
     if (_isSearching) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      return ListView.builder(
+        itemCount: 6,
+        itemBuilder: (_, __) => ShimmerLoader.leaderboardRowSkeleton(),
       );
     }
 
@@ -369,34 +371,10 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   }
 
   Widget _buildEmptyState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[500],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try a different search term',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[400],
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateWidget(
+      icon: Icons.search_off_rounded,
+      title: message,
+      subtitle: 'Try a different search term or check your spelling.',
     );
   }
 }

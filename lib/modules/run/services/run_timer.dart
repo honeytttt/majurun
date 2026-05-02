@@ -40,7 +40,7 @@ class RunTimer extends ChangeNotifier {
   void start() {
     if (_isRunning) return;
 
-    debugPrint("⏱️ Starting timer");
+    debugPrint('⏱️ Starting timer');
     _isRunning = true;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -54,7 +54,7 @@ class RunTimer extends ChangeNotifier {
   void pause() {
     if (!_isRunning) return;
 
-    debugPrint("⏸️ Pausing timer at $_secondsElapsed seconds");
+    debugPrint('⏸️ Pausing timer at $_secondsElapsed seconds');
     _isRunning = false;
     _timer?.cancel();
     _timer = null;
@@ -64,12 +64,12 @@ class RunTimer extends ChangeNotifier {
   void resume() {
     if (_isRunning) return;
 
-    debugPrint("▶️ Resuming timer from $_secondsElapsed seconds");
+    debugPrint('▶️ Resuming timer from $_secondsElapsed seconds');
     start();
   }
 
   void stop() {
-    debugPrint("⏹️ Stopping timer at $_secondsElapsed seconds");
+    debugPrint('⏹️ Stopping timer at $_secondsElapsed seconds');
     _isRunning = false;
     _timer?.cancel();
     _timer = null;
@@ -77,7 +77,7 @@ class RunTimer extends ChangeNotifier {
   }
 
   void reset() {
-    debugPrint("🔄 Resetting timer");
+    debugPrint('🔄 Resetting timer');
     _secondsElapsed = 0;
     _isRunning = false;
     _timer?.cancel();
@@ -87,7 +87,7 @@ class RunTimer extends ChangeNotifier {
 
   @override
   void dispose() {
-    debugPrint("🗑️ Disposing RunTimer");
+    debugPrint('🗑️ Disposing RunTimer');
     _timer?.cancel();
     super.dispose();
   }

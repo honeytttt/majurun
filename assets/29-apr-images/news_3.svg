@@ -1,0 +1,9 @@
+<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#121212"/>
+  <rect x="20" y="20" width="360" height="360" rx="20" fill="#1E1E1E" stroke="#00E676" stroke-width="2"/>
+  <text x="200" y="120" font-family="Arial" font-size="24" fill="#FFFFFF" text-anchor="middle" font-weight="bold">NEW BADGES</text>
+  <text x="200" y="160" font-family="Arial" font-size="24" fill="#FFFFFF" text-anchor="middle" font-weight="bold">UNLOCKED!</text>
+  <path d="M200 200 L230 280 L150 230 L250 230 L170 280 Z" fill="#FFD700" stroke="#FFD700" stroke-width="2"/>
+  <text x="200" y="340" font-family="Arial" font-size="18" fill="#ADB5BD" text-anchor="middle">Check your profile to see</text>
+  <text x="200" y="370" font-family="Arial" font-size="18" fill="#ADB5BD" text-anchor="middle">what you've earned.</text>
+</svg>

@@ -63,29 +63,27 @@ android {
             keyPassword = "android"
         }
 
-        // Release signing config — loaded from key.properties (not committed)
+        // Release signing config — loaded from key.properties (not committed).
+        // FAIL CLOSED: if key.properties is missing, throw immediately rather than
+        // silently signing a production build with the debug keystore.
         create("release") {
             val keystorePropertiesFile = rootProject.file("key.properties")
-            if (keystorePropertiesFile.exists()) {
-                val keystoreProperties = Properties()
-                keystoreProperties.load(keystorePropertiesFile.inputStream())
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
+            require(keystorePropertiesFile.exists()) {
+                "key.properties not found. Release builds require a production keystore. " +
+                "Supply key.properties or run a debug build instead."
             }
+            val keystoreProperties = Properties()
+            keystoreProperties.load(keystorePropertiesFile.inputStream())
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
         }
     }
 
     buildTypes {
         release {
-            // Use release signing if key.properties exists, otherwise use debug
-            val keystorePropertiesFile = rootProject.file("key.properties")
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
 
             // Enable ProGuard/R8 for release builds
             isMinifyEnabled = true

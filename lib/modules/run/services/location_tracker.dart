@@ -43,32 +43,32 @@ class LocationTracker extends ChangeNotifier {
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> checkAndRequestPermissions() async {
-    debugPrint("📍 Checking if location service is enabled...");
+    debugPrint('📍 Checking if location service is enabled...');
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    debugPrint("📍 Location service enabled: $serviceEnabled");
+    debugPrint('📍 Location service enabled: $serviceEnabled');
 
     if (!serviceEnabled) {
-      debugPrint("❌ Location services are DISABLED");
-      throw Exception("Please enable location services to track your run");
+      debugPrint('❌ Location services are DISABLED');
+      throw Exception('Please enable location services to track your run');
     }
 
-    debugPrint("🔐 Checking location permission...");
+    debugPrint('🔐 Checking location permission...');
     var permission = await Geolocator.checkPermission();
-    debugPrint("🔐 Current permission status: $permission");
+    debugPrint('🔐 Current permission status: $permission');
 
     if (permission == LocationPermission.denied) {
-      debugPrint("🔐 Permission denied — requesting now...");
+      debugPrint('🔐 Permission denied — requesting now...');
       permission = await Geolocator.requestPermission();
-      debugPrint("🔐 Permission after request: $permission");
+      debugPrint('🔐 Permission after request: $permission');
     }
 
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      debugPrint("❌ Permission DENIED or DENIED FOREVER");
-      throw Exception("Location permission is required to track your run");
+      debugPrint('❌ Permission DENIED or DENIED FOREVER');
+      throw Exception('Location permission is required to track your run');
     }
 
-    debugPrint("✅ All location checks PASSED");
+    debugPrint('✅ All location checks PASSED');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ class LocationTracker extends ChangeNotifier {
 
     // Get initial position
     try {
-      debugPrint("📍 Getting initial position...");
+      debugPrint('📍 Getting initial position...');
       _currentPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -90,11 +90,11 @@ class LocationTracker extends ChangeNotifier {
         ),
       );
       _routePoints.add(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
-      debugPrint("✅ Initial position: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}");
+      debugPrint('✅ Initial position: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}');
       _isInitialized = true;
     } catch (e) {
-      debugPrint("❌ Failed to get initial position: $e");
-      throw Exception("Failed to get your location. Please try again.");
+      debugPrint('❌ Failed to get initial position: $e');
+      throw Exception('Failed to get your location. Please try again.');
     }
 
     _isTracking = true;
@@ -129,25 +129,25 @@ class LocationTracker extends ChangeNotifier {
         accuracy: LocationAccuracy.high,
         distanceFilter: RunConstants.distanceFilterMeters,
         activityType: ActivityType.fitness,
-        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true, // blue status bar — shows user location is active
       );
     }
     return AndroidSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: RunConstants.distanceFilterMeters,
-      forceLocationManager: false,
-      intervalDuration: Duration(seconds: 1),
-      foregroundNotificationConfig: ForegroundNotificationConfig(
+      intervalDuration: const Duration(seconds: 1),
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'MajuRun',
         notificationText: 'Tracking your run...',
+        notificationChannelName: 'Run Tracking',
         enableWakeLock: true,
+        setOngoing: true, // prevents user or OS from swiping away the notification
       ),
     );
   }
 
   void _startLocationStream() {
-    debugPrint("📍 Starting location updates");
+    debugPrint('📍 Starting location updates');
     _positionStream?.cancel();
 
     _positionStream = Geolocator.getPositionStream(
@@ -155,17 +155,17 @@ class LocationTracker extends ChangeNotifier {
     ).listen(
       _onPositionUpdate,
       onError: (error) {
-        debugPrint("❌ Location stream error: $error");
+        debugPrint('❌ Location stream error: $error');
       },
       onDone: () {
-        debugPrint("📍 Location stream closed");
+        debugPrint('📍 Location stream closed');
       },
     );
   }
 
   void _onPositionUpdate(Position position) {
     if (!_isTracking) {
-      debugPrint("⚠️ Location update received but not tracking");
+      debugPrint('⚠️ Location update received but not tracking');
       return;
     }
 
@@ -181,9 +181,9 @@ class LocationTracker extends ChangeNotifier {
       // Only add distance if it's reasonable - filters out GPS jumps
       if (distance < RunConstants.gpsJumpThresholdMeters) {
         _totalDistance += distance;
-        debugPrint("📍 +${distance.toStringAsFixed(1)}m (Total: ${_totalDistance.toStringAsFixed(1)}m)");
+        debugPrint('📍 +${distance.toStringAsFixed(1)}m (Total: ${_totalDistance.toStringAsFixed(1)}m)');
       } else {
-        debugPrint("⚠️ GPS jump detected: ${distance.toStringAsFixed(1)}m - ignoring");
+        debugPrint('⚠️ GPS jump detected: ${distance.toStringAsFixed(1)}m - ignoring');
       }
     }
 
@@ -194,7 +194,7 @@ class LocationTracker extends ChangeNotifier {
 
   @override
   void dispose() {
-    debugPrint("🗑️ Disposing LocationTracker");
+    debugPrint('🗑️ Disposing LocationTracker');
     _positionStream?.cancel();
     super.dispose();
   }

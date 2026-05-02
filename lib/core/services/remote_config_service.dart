@@ -45,6 +45,11 @@ class RemoteConfigService {
   static const String experimentNewFeedLayout = 'experiment_new_feed_layout';
   static const String experimentPaceDisplay = 'experiment_pace_display';
 
+  // Engagement features (Tier 1)
+  static const String enableLiveCheers = 'enable_live_cheers';
+  static const String enableWeeklyRecap = 'enable_weekly_recap';
+  static const String enableAdvancedSplits = 'enable_advanced_splits';
+
   /// Initialize remote config
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -86,6 +91,13 @@ class RemoteConfigService {
         // A/B tests
         experimentNewFeedLayout: 'control',
         experimentPaceDisplay: 'min_km',
+
+        // Engagement (Tier 1) — kill switch defaults ON; flip in console to disable.
+        enableLiveCheers: true,
+
+        // Engagement (Tier 2) — weekly recap + advanced splits.
+        enableWeeklyRecap: true,
+        enableAdvancedSplits: true,
       });
 
       // Set fetch settings
@@ -216,6 +228,17 @@ class RemoteConfigService {
 
   /// Get pace display experiment variant
   String get paceDisplayVariant => getString(experimentPaceDisplay);
+
+  // ==================== ENGAGEMENT FLAGS ====================
+
+  /// Whether the live-cheers overlay is enabled on the post-run congrats screen.
+  bool get isLiveCheersEnabled => getBool(enableLiveCheers);
+
+  /// Whether the weekly recap card is shown in the feed after Sunday 20:00.
+  bool get isWeeklyRecapEnabled => getBool(enableWeeklyRecap);
+
+  /// Whether the Pro advanced split insights panel is shown on run detail.
+  bool get isAdvancedSplitsEnabled => getBool(enableAdvancedSplits);
 
   // ==================== VERSION CHECK ====================
 

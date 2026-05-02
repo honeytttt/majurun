@@ -64,7 +64,6 @@ class GoalsService extends ChangeNotifier {
         period: goal.period,
         startDate: goal.startDate,
         endDate: goal.endDate,
-        isActive: true,
       );
 
       _activeGoals.add(newGoal);
@@ -152,9 +151,9 @@ class GoalsService extends ChangeNotifier {
         final daysFromMonday = now.weekday - 1;
         return DateTime(now.year, now.month, now.day - daysFromMonday);
       case GoalPeriod.monthly:
-        return DateTime(now.year, now.month, 1);
+        return DateTime(now.year, now.month);
       case GoalPeriod.yearly:
-        return DateTime(now.year, 1, 1);
+        return DateTime(now.year);
       case GoalPeriod.custom:
         return goalStart;
     }
@@ -165,7 +164,7 @@ class GoalsService extends ChangeNotifier {
       case GoalPeriod.weekly:
         return periodStart.add(const Duration(days: 6));
       case GoalPeriod.monthly:
-        final nextMonth = DateTime(periodStart.year, periodStart.month + 1, 1);
+        final nextMonth = DateTime(periodStart.year, periodStart.month + 1);
         return nextMonth.subtract(const Duration(days: 1));
       case GoalPeriod.yearly:
         return DateTime(periodStart.year, 12, 31);

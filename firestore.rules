@@ -2,133 +2,157 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if user owns the document
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Helper function to check if user is admin
-    // Admin email: majurun.app@gmail.com
+    // Primary: Firebase Custom Claim. Fallback: known admin email (safety net).
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'majurun.app@gmail.com';
+      return request.auth != null && (
+        request.auth.token.get('admin', false) == true ||
+        request.auth.token.email == 'majurun.app@gmail.com'
+      );
     }
 
-    // Users collection
+    // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // Allow users to create/update their own document, admin can update any
       allow create: if isAuthenticated() && (isOwner(userId) || isAdmin());
       allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();
 
-      // User's followers subcollection
+      // followers/{followerId} — the follower document represents followerId following userId.
+      // Only the follower themselves may add/remove their own record.
       match /followers/{followerId} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        allow write: if isOwner(followerId);
       }
 
-      // User's following subcollection
+      // following/{followingId} — only the account owner manages who they follow.
       match /following/{followingId} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        allow write: if isOwner(userId);
       }
 
-      // User's training history subcollection
       match /training_history/{historyId} {
         allow read: if isAuthenticated();
         allow write: if isOwner(userId) || isAdmin();
       }
 
-      // User's blocked users subcollection
       match /blockedUsers/{blockedUserId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
-      // User's saved routes subcollection
       match /routes/{routeId} {
         allow read: if isAuthenticated();
         allow write: if isOwner(userId) || isAdmin();
       }
 
-      // User's shoes subcollection
       match /shoes/{shoeId} {
         allow read: if isAuthenticated();
         allow write: if isOwner(userId) || isAdmin();
       }
 
-      // User's goals subcollection
+      match /savedPosts/{postId} {
+        allow read, write: if isOwner(userId);
+      }
+
       match /goals/{goalId} {
         allow read: if isAuthenticated();
         allow write: if isOwner(userId) || isAdmin();
       }
 
-      // User's run history subcollection
+      match /dailyChallenges/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /weeklyChallenges/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /monthlyChallenges/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
       match /runHistory/{runId} {
         allow read: if isAuthenticated();
         allow write: if isOwner(userId) || isAdmin();
       }
 
-      // User's settings subcollection (voice, notifications, etc.)
       match /settings/{settingId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // User privacy settings collection
+    // ─── User privacy ─────────────────────────────────────────────────────────
     match /userPrivacy/{userId} {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
     }
 
-    // Posts collection
+    // ─── Posts ────────────────────────────────────────────────────────────────
     match /posts/{postId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() &&
-        (resource.data.userId == request.auth.uid ||
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'comments']) ||
-         isAdmin());
 
-      // Comments subcollection
+      // Creator must own the document; required fields must be present; content size-capped.
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'content', 'createdAt']) &&
+        request.resource.data.content is string &&
+        request.resource.data.content.size() <= 2000;
+
+      // Owner can edit all fields; any auth user may update only likes/comments counters.
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'comments']) ||
+        isAdmin()
+      );
+
+      allow delete: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Comments
       match /comments/{commentId} {
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
-        allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+
+        allow create: if isAuthenticated() &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.keys().hasAll(['userId', 'content', 'createdAt']) &&
+          request.resource.data.content is string &&
+          request.resource.data.content.size() <= 1000;
+
+        allow update, delete: if isAuthenticated() &&
+          (resource.data.userId == request.auth.uid || isAdmin());
       }
     }
 
-    // Notifications collection - user's personal notifications
+    // ─── Notifications ────────────────────────────────────────────────────────
     match /notifications/{userId} {
       allow read: if isOwner(userId);
       allow write: if isAuthenticated();
 
       match /items/{notificationId} {
         allow read: if isOwner(userId);
-        // Any authenticated user can create a notification for another user
-        // (required for follow/like/comment social interactions)
         allow create: if isAuthenticated() &&
           request.resource.data.keys().hasAll(['type', 'senderId', 'createdAt']) &&
           request.resource.data.senderId == request.auth.uid &&
-          request.resource.data.type in ['follow', 'like', 'comment', 'mention', 'badge', 'dm', 'post'];
-        allow update, delete: if isOwner(userId); // Only owner can modify/delete
+          request.resource.data.type in ['follow', 'like', 'comment', 'mention', 'badge', 'dm', 'post', 'reminder'] &&
+          userId != request.auth.uid;
+        allow update, delete: if isOwner(userId);
       }
     }
 
-    // User notification settings (bell subscriptions)
+    // ─── Notification settings ────────────────────────────────────────────────
     match /userNotificationSettings/{userId} {
       allow read, write: if isOwner(userId);
     }
 
-    // Conversations collection - DM
+    // ─── Conversations / DMs ──────────────────────────────────────────────────
     match /conversations/{conversationId} {
-      // Allow read/write only if user is a participant
       allow read: if isAuthenticated() &&
         request.auth.uid in resource.data.participants;
       allow create: if isAuthenticated() &&
@@ -138,7 +162,6 @@ service cloud.firestore {
       allow delete: if isAuthenticated() &&
         request.auth.uid in resource.data.participants;
 
-      // Messages subcollection
       match /messages/{messageId} {
         allow read: if isAuthenticated() &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
@@ -149,28 +172,33 @@ service cloud.firestore {
       }
     }
 
-    // Events collection (if exists)
+    // ─── Events ───────────────────────────────────────────────────────────────
+    // Events are admin-managed content; authenticated users may only read.
     match /events/{eventId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
 
-    // Challenges collection
+    // ─── Challenges ───────────────────────────────────────────────────────────
     match /challenges/{challengeId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Contact messages collection
+    // ─── Contact messages ─────────────────────────────────────────────────────
     match /contactMessages/{messageId} {
-      allow create: if isAuthenticated(); // Anyone can submit a contact form
-      allow read, update, delete: if isAdmin(); // Only admin can view/manage
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
 
-    // App logs collection — written by any authenticated app user, read only by admin
+    // ─── App logs ─────────────────────────────────────────────────────────────
+    // Size-capped to prevent log-flooding abuse.
     match /app_logs/{logId} {
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['level', 'message', 'userId', 'timestamp']) &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() <= 2000;
       allow read, delete: if isAdmin();
     }
   }

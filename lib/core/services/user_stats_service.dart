@@ -193,7 +193,7 @@ class UserStatsService {
         'totalCalories':    totalCalories,
       }, SetOptions(merge: true));
 
-      debugPrint('✅ UserStatsService: Recalculated — ${totalKm.toStringAsFixed(2)} km, $totalRuns runs, ${totalSeconds}s, ${totalCalories} kcal');
+      debugPrint('✅ UserStatsService: Recalculated — ${totalKm.toStringAsFixed(2)} km, $totalRuns runs, ${totalSeconds}s, $totalCalories kcal');
       return (totalKm: totalKm, totalRuns: totalRuns);
     } catch (e) {
       debugPrint('⚠️ UserStatsService.recalculateAndSyncStats: $e');

@@ -56,10 +56,8 @@ class RemoteLogger {
           'tag':       tag,
           'message':   truncated,
           'error':     error?.toString(),
-          'stack':     stackTrace != null
-              ? stackTrace.toString().substring(
-                  0, stackTrace.toString().length.clamp(0, 500))
-              : null,
+          'stack':     stackTrace?.toString().substring(
+                  0, stackTrace.toString().length.clamp(0, 500)),
           'userId':    uid,
           'platform':  defaultTargetPlatform.name, // android / iOS / etc.
           'isRelease': kReleaseMode,

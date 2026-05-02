@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,6 +24,8 @@ import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -50,12 +53,25 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _showPosts = true;  // Show Posts by default
+  // Cache the streak+activity future so it is created once, not on every rebuild.
+  late final Future<Map<String, dynamic>> _streakFuture;
 
   @override
   void initState() {
     super.initState();
     // Sync badges from run history when profile loads
     _syncBadges();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final streakFallback = <String, dynamic>{'streak': <String, dynamic>{}, 'summary': null};
+    _streakFuture = uid.isEmpty
+        ? Future.value(streakFallback)
+        : Future.wait([
+            StreakService().updateStreak(uid),
+            WeeklySummaryService().getCurrentWeekSummary(),
+          ]).then((results) => <String, dynamic>{
+            'streak': results[0] as Map<String, dynamic>,
+            'summary': results[1] as WeeklySummary,
+          }).catchError((Object _) => streakFallback);
   }
 
   Future<void> _syncBadges() async {
@@ -98,11 +114,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             dynamic uploadedImageUrl = imageUrl;
 
             if (kIsWeb && imageData is Uint8List) {
-              debugPrint("📤 Uploading from ProfileScreen...");
+              debugPrint('📤 Uploading from ProfileScreen...');
               final user = FirebaseAuth.instance.currentUser;
               if (user != null) {
                 final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-                final fileName = "profile_${user.uid}_$timestamp.png";
+                final fileName = 'profile_${user.uid}_$timestamp.png';
                 uploadedImageUrl = await StorageService().uploadMedia(imageData, fileName, false);
               }
             }
@@ -126,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // settings screen context is unmounted by the time we reach here.
             if (profileContext.mounted) {
               ScaffoldMessenger.of(profileContext).showSnackBar(
-                const SnackBar(content: Text("Profile updated successfully!")),
+                const SnackBar(content: Text('Profile updated successfully!')),
               );
             }
           },
@@ -149,6 +165,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           initialTab: showFollowers ? 0 : 1,
         ),
       ),
+    );
+  }
+
+  void _navigateToShoeTracker() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ShoeTrackerScreen()),
     );
   }
 
@@ -191,7 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const Center(child: Text("Not logged in"));
+    if (uid == null) return const Center(child: Text('Not logged in'));
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -230,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         title: const Text(
-          "MY PROFILE",
+          'MY PROFILE',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -251,6 +274,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   text: 'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
                 ));
               },
+            ),
+          ),
+          // Shoe Tracker Button
+          Semantics(
+            button: true,
+            label: 'Shoe tracker',
+            child: IconButton(
+              icon: const FaIcon(FontAwesomeIcons.shoePrints, size: 20, color: Color(0xFF7ED957)),
+              tooltip: 'My Shoes',
+              onPressed: _navigateToShoeTracker,
             ),
           ),
           // Voice Coach Settings Button
@@ -676,22 +709,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStreakAndActivity(String userId) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: Future.wait([
-        StreakService().updateStreak(userId),
-        WeeklySummaryService().getCurrentWeekSummary(),
-      ]).then((results) => {
-        'streak': results[0] as Map<String, dynamic>,
-        'summary': results[1] as WeeklySummary,
-      }),
+      future: _streakFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
+        // On error or missing data, fall through with empty defaults — never spin forever.
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
         }
 
         final data = snapshot.data!;
-        final streakData = data['streak'] as Map<String, dynamic>;
-        final summary = data['summary'] as WeeklySummary;
+        final streakData = (data['streak'] as Map<String, dynamic>?) ?? {};
+        final summary = data['summary'] as WeeklySummary?;
         final currentStreak = streakData['currentStreak'] as int? ?? 0;
+        if (summary == null) return const SizedBox.shrink();
 
         return Column(
           children: [
@@ -796,7 +828,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: hasRun ? const Color(0xFF00E676) : Colors.grey[300]!,
-                                width: 1,
                               ),
                             ),
                             child: Center(
@@ -968,35 +999,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(fontSize: 13, color: Colors.grey[700]),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => PushNotificationService().requestBatteryOptimizationExemption(),
-                    icon: const Icon(Icons.battery_saver, size: 16),
-                    label: const Text('Ignore Optimization'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+            if (!kIsWeb && Platform.isIOS) ...[
+              // iOS: open system notification settings
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await PushNotificationService().openNotificationSettings();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Opening notification settings...')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.settings, size: 16),
+                  label: const Text('Open Notification Settings'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => PushNotificationService().requestExactAlarmPermission(),
-                    icon: const Icon(Icons.alarm, size: 16),
-                    label: const Text('Allow Exact Alarms'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await PushNotificationService().requestBatteryOptimizationExemption();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('System settings opened — find MajuRun and tap "Don\'t optimize"'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.battery_saver, size: 16),
+                      label: const Text('Ignore Optimization'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await PushNotificationService().requestExactAlarmPermission();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Exact alarm permission requested — tap Allow if prompted'),
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.alarm, size: 16),
+                      label: const Text('Allow Exact Alarms'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -1132,7 +1206,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 media: _parseMedia(data['media'], data['mapImageUrl']),
                 createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
                 likes: List<String>.from(data['likes'] ?? []),
-                comments: const [],
                 quotedPostId: data['quotedPostId'],
                 routePoints: _parseRoutePoints(data['routePoints']),
               );

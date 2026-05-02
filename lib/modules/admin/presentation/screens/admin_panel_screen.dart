@@ -311,7 +311,9 @@ class _LogsTabState extends State<_LogsTab> {
         .where('timestamp', isLessThan: Timestamp.fromDate(cutoff))
         .get();
     final batch = FirebaseFirestore.instance.batch();
-    for (final doc in snap.docs) batch.delete(doc.reference);
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
     await batch.commit();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

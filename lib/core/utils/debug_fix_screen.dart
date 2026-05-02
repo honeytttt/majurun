@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/core/utils/majurun_debugger.dart';
 
@@ -14,6 +15,12 @@ class DebugFixScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Guard: never show debug tools in production builds
+    if (!kDebugMode) {
+      return const Scaffold(
+        body: Center(child: Text('Not available')),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('🔧 Debug & Fix'),
@@ -140,7 +147,7 @@ class DebugFixScreen extends StatelessWidget {
                 'This will add/update followersCount and followingCount fields.',
               );
               
-              if (confirmed == true) {
+              if (confirmed ?? false) {
                 if (!context.mounted) return;
                 _showLoading(context);
                 await MajurunDebugger.fixMyUserDocument();

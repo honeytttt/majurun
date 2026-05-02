@@ -261,7 +261,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _showError('Upload failed. Please try again.');
       }
     } catch (e) {
-      debugPrint("❌ Media upload error: $e");
+      debugPrint('❌ Media upload error: $e');
       _showError('Upload failed: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -326,16 +326,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     try {
       const uuid = Uuid();
+      // Extract hashtags from content to enable #tag search
+      final tags = RegExp(r'#(\w+)')
+          .allMatches(text)
+          .map((m) => m.group(1)!.toLowerCase())
+          .toSet()
+          .toList();
       final post = AppPost(
         id: uuid.v4(),
         userId: user.uid,
-        username: user.displayName ?? "Runner",
+        username: user.displayName ?? 'Runner',
         content: text,
         media: List.from(_mediaList),
         createdAt: DateTime.now(),
-        likes: const [],
-        comments: const [],
-        quotedPostId: null,
+        tags: tags,
       );
 
       await _postRepo.createPost(post);
@@ -346,7 +350,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (mounted) Navigator.pop(context);
       }
     } catch (e) {
-      debugPrint("❌ Post creation failed: $e");
+      debugPrint('❌ Post creation failed: $e');
       _showError('Failed to create post: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -388,7 +392,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("New Post", style: TextStyle(color: Colors.black)),
+        title: const Text('New Post', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -410,7 +414,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 : TextButton(
                     onPressed: canPost ? _handlePost : null,
                     child: Text(
-                      "POST",
+                      'POST',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: canPost ? const Color(0xFF00E676) : Colors.grey,
@@ -425,6 +429,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         behavior: HitTestBehavior.opaque,
         child: Column(
         children: [
+          // Upload progress indicator — visible when uploading media or submitting post
+          if (_isUploading)
+            const LinearProgressIndicator(
+              backgroundColor: Color(0xFFE8F5E9),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E676)),
+              minHeight: 3,
+            ),
           // TEXT INPUT
           Expanded(
             child: TextField(

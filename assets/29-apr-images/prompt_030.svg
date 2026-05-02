@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark Background -->
+  <rect width="100%" height="100%" fill="#111111"/>
+  
+  <!-- Outer Border -->
+  <rect x="15" y="15" width="370" height="370" rx="20" fill="#1A1A1A" stroke="#00E676" stroke-width="3"/>
+  
+  <!-- Header Category -->
+  <rect x="100" y="40" width="200" height="30" rx="15" fill="#00E676" opacity="0.1"/>
+  <text x="200" y="60" font-family="Arial" font-size="12" fill="#00E676" text-anchor="middle" font-weight="bold" letter-spacing="2">MOTIVATION</text>
+  
+  <!-- Main Content -->
+    <text x="200" y="165" font-family="Arial" font-size="24" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Slow runners make fast</text>
+    <text x="200" y="200" font-family="Arial" font-size="24" fill="#FFFFFF" text-anchor="middle" font-weight="bold">excuses obsolete.</text>
+  
+  <!-- Footer Brand -->
+  <line x1="150" y1="330" x2="250" y2="330" stroke="#00E676" stroke-width="2"/>
+  <text x="200" y="355" font-family="Arial" font-size="16" fill="#00E676" text-anchor="middle" font-weight="bold" letter-spacing="3">MAJURUN</text>
+  <text x="200" y="375" font-family="Arial" font-size="10" fill="#666666" text-anchor="middle">#030</text>
+</svg>

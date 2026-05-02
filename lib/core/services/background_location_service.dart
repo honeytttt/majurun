@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:majurun/modules/run/constants/run_constants.dart';
 
 /// GPS accuracy levels for filtering
@@ -105,7 +107,7 @@ class BackgroundLocationService {
   bool _isTracking = false;
   bool _isPaused = false;
   bool _autoPaused = false;
-  bool _isAutoPauseEnabled = true;
+  bool isAutoPauseEnabled = true;
 
   // Route data with memory management
   final List<FilteredPosition> _routePoints = [];
@@ -116,6 +118,12 @@ class BackgroundLocationService {
   Timer? _watchdogTimer;
   DateTime? _lastUpdateTime;
   static const int _watchdogSilenceSeconds = 30; // alert after 30s with no GPS
+
+  // Accelerometer sensor fusion for false-pause prevention
+  StreamSubscription<AccelerometerEvent>? _accelSub;
+  double _accelMagnitude = 0.0; // rolling magnitude of last reading (m/s²)
+  // Movement threshold: ≥2.5 m/s² above gravity means the runner is moving
+  static const double _accelMoveThreshold = 2.5;
 
   // Callbacks
   void Function(FilteredPosition position, double totalDistance)? onPositionUpdate;
@@ -129,9 +137,6 @@ class BackgroundLocationService {
   bool get isTracking => _isTracking;
   bool get isPaused => _isPaused;
   bool get isAutoPaused => _autoPaused;
-  bool get isAutoPauseEnabled => _isAutoPauseEnabled;
-  set isAutoPauseEnabled(bool value) => _isAutoPauseEnabled = value;
-
   double get totalDistance => _totalDistance;
   List<FilteredPosition> get routePoints => List.unmodifiable(_routePoints);
   FilteredPosition? get lastPosition => _lastPosition;
@@ -218,10 +223,27 @@ class BackgroundLocationService {
     // Start position stream with optimized settings
     _startPositionStream();
     _startWatchdog();
+    _startAccelerometer();
     _isTracking = true;
 
     debugPrint('🏃 Background location tracking started');
     return true;
+  }
+
+  void _startAccelerometer() {
+    if (kIsWeb) return;
+    _accelSub?.cancel();
+    _accelSub = accelerometerEventStream(
+      
+    ).listen((event) {
+      // Magnitude of total acceleration vector; gravity alone ≈ 9.8 m/s²
+      final mag = math.sqrt(
+          event.x * event.x + event.y * event.y + event.z * event.z);
+      // Deviation from gravity — positive = extra movement
+      _accelMagnitude = (mag - 9.8).abs();
+    }, onError: (_) {
+      _accelMagnitude = 0.0;
+    });
   }
 
   void _startPositionStream() {
@@ -237,7 +259,6 @@ class BackgroundLocationService {
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'MajuRun - Tracking Your Run',
           notificationText: 'GPS tracking active in background',
-          notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
           enableWakeLock: true,
         ),
       );
@@ -246,7 +267,6 @@ class BackgroundLocationService {
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: RunConstants.distanceFilterMeters,
         activityType: ActivityType.fitness,
-        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
@@ -342,20 +362,29 @@ class BackgroundLocationService {
         return;
       }
 
-      // Check for stationary state (auto-pause) using raw distance
-      if (_isAutoPauseEnabled) {
-        if (position.speed < RunConstants.stationarySpeedThreshold && rawDistance < 2) {
+      // Check for stationary state (auto-pause) using raw distance + accelerometer fusion.
+      // Accelerometer veto: if the phone's motion exceeds _accelMoveThreshold the runner
+      // is likely still moving — GPS speed may lag in urban canyons, so don't pause yet.
+      if (isAutoPauseEnabled) {
+        final gpsStationary =
+            position.speed < RunConstants.stationarySpeedThreshold && rawDistance < 2;
+        final accelStationary = _accelMagnitude < _accelMoveThreshold;
+        final isStationary = gpsStationary && accelStationary;
+
+        if (isStationary) {
           _stationarySeconds++;
           if (_stationarySeconds >= RunConstants.autoPauseDelaySeconds && !_autoPaused) {
             _autoPaused = true;
             onAutoPauseChanged?.call(true);
-            debugPrint('⏸️ Auto-paused: stationary for $_stationarySeconds seconds');
+            debugPrint('⏸️ Auto-paused: stationary for $_stationarySeconds s '
+                '(gps=${position.speed.toStringAsFixed(1)} m/s, accel=${_accelMagnitude.toStringAsFixed(2)} m/s²)');
           }
         } else {
           if (_autoPaused && _stationarySeconds >= RunConstants.autoResumeDelaySeconds) {
             _autoPaused = false;
             onAutoPauseChanged?.call(false);
-            debugPrint('▶️ Auto-resumed: movement detected');
+            debugPrint('▶️ Auto-resumed: movement detected '
+                '(gps=${position.speed.toStringAsFixed(1)} m/s, accel=${_accelMagnitude.toStringAsFixed(2)} m/s²)');
           }
           if (!_autoPaused) {
             _stationarySeconds = 0;
@@ -475,6 +504,10 @@ class BackgroundLocationService {
 
     await _positionStream?.cancel();
     _positionStream = null;
+
+    _accelSub?.cancel();
+    _accelSub = null;
+    _accelMagnitude = 0.0;
 
     debugPrint('⏹️ Location tracking stopped');
   }

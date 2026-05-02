@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:majurun/core/config/app_config.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -13,6 +16,7 @@ import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/static_map_url.dart';
+import 'package:majurun/modules/run/presentation/widgets/milestone_badge_sheet.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
@@ -41,6 +45,11 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // Stats glow — pulses while actively running
+  late AnimationController _glowController;
+  late Animation<double> _glowAnim;
+
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +64,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
+    _glowAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+
     _loadAvatarMarker();
     // Re-assert wakelock — iOS may drop it during TTS/audio session changes
     WakeLockService.enable();
@@ -63,6 +80,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   @override
   void dispose() {
     _pulseController.dispose();
+    _glowController.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -111,8 +129,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                     child: _buildMapSection(runController),
                   ),
 
-                  // Stats section
-                  _buildStatsSection(runController),
+                  // Stats section — isolated so GPS map updates don't repaint it
+                  RepaintBoundary(child: _buildStatsSection(runController)),
 
                   // Bottom controls
                   SafeArea(
@@ -138,19 +156,30 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  HomeScreen.tabNotifier.value = 0; // switch to feed so pill is visible
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+              Tooltip(
+                message: 'Minimise run screen',
+                child: GestureDetector(
+                  onTap: () {
+                    final messenger = ScaffoldMessenger.of(context);
+                    Navigator.of(context).pop();
+                    HomeScreen.tabNotifier.value = 0; // switch to feed so pill is visible
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Run still tracking in background'),
+                        duration: Duration(seconds: 3),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white, size: 22),
                   ),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: Colors.white, size: 22),
                 ),
               ),
               const SizedBox(width: 8),
@@ -169,38 +198,44 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: _toggleLiveShare,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: _isLiveSharing
-                        ? Colors.red.withValues(alpha: 0.8)
-                        : Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isLiveSharing ? Icons.share_location : Icons.location_on_outlined,
-                    color: Colors.white,
-                    size: 18,
+              Tooltip(
+                message: _isLiveSharing ? 'Stop live sharing' : 'Share live location',
+                child: GestureDetector(
+                  onTap: _toggleLiveShare,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _isLiveSharing
+                          ? Colors.red.withValues(alpha: 0.8)
+                          : Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isLiveSharing ? Icons.share_location : Icons.location_on_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: runController.toggleVoice,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: runController.isVoiceEnabled
-                        ? const Color(0xFF2D7A3E)
-                        : Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
-                    color: Colors.white,
-                    size: 18,
+              Tooltip(
+                message: runController.isVoiceEnabled ? 'Mute voice coach' : 'Unmute voice coach',
+                child: GestureDetector(
+                  onTap: runController.toggleVoice,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: runController.isVoiceEnabled
+                          ? const Color(0xFF2D7A3E)
+                          : Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      runController.isVoiceEnabled ? Icons.volume_up : Icons.volume_off,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -222,7 +257,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: runController.gpsQualityColor.withValues(alpha: 0.5),
-              width: 1,
             ),
           ),
           child: Row(
@@ -402,15 +436,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                             anchor: const Offset(0.5, 0.5),
                           ),
                       },
-                      myLocationEnabled: false,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
                       compassEnabled: false,
                       rotateGesturesEnabled: false,
-                      scrollGesturesEnabled: true,
                       tiltGesturesEnabled: false,
-                      zoomGesturesEnabled: true,
                     ),
                   ),
 
@@ -492,7 +523,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   Future<void> _loadAvatarMarker() async {
     try {
       final current = await MapMarkerBuilder.buildForCurrentUser(
-        borderColor: const Color(0xFF7ED957), // green for current position
+        
       );
       final start = await MapMarkerBuilder.buildForCurrentUser(
         borderColor: const Color(0xFFFC4C02), // Strava orange for start
@@ -516,54 +547,115 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   }
 
   Widget _buildStatsSection(RunController runController) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        children: [
-          // Main stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    final isRunning = runController.state == RunState.running;
+    return AnimatedBuilder(
+      animation: _glowAnim,
+      builder: (context, _) {
+        final glow = isRunning ? _glowAnim.value : 0.0;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            // Subtle animated glow behind stats when actively running
+            boxShadow: isRunning
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF7ED957)
+                          .withValues(alpha: 0.06 + glow * 0.1),
+                      blurRadius: 40 + glow * 20,
+                    ),
+                  ]
+                : [],
+          ),
+          child: Column(
             children: [
-              _buildMainStat(
-                'DISTANCE',
-                runController.distanceString,
-                'KM',
-                runController.state == RunState.running,
+              // Main stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildMainStat(
+                    'DISTANCE',
+                    runController.distanceString,
+                    'KM',
+                    isRunning,
+                    glow,
+                  ),
+                  // Vertical divider
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                  _buildMainStat(
+                    'TIME',
+                    runController.durationString,
+                    '',
+                    isRunning,
+                    glow,
+                  ),
+                ],
               ),
-              _buildMainStat(
-                'TIME',
-                runController.durationString,
-                '',
-                runController.state == RunState.running,
+
+              const SizedBox(height: 16),
+
+              // Animated running dots (only while active)
+              if (isRunning) _buildRunningDots(glow),
+              if (!isRunning) const SizedBox(height: 4),
+
+              const SizedBox(height: 12),
+
+              // Secondary stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSecondaryStat('AVG PACE', '${runController.paceString}/km', glow),
+                  _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km', glow),
+                  _buildSecondaryStat('CAL', '${runController.totalCalories}', glow),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // BPM + HR Zone row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildHrZoneStat(runController.currentBpm),
+                ],
               ),
             ],
           ),
-
-          const SizedBox(height: 20),
-
-          // Secondary stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSecondaryStat('AVG PACE', '${runController.paceString}/km'),
-              _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km'),
-              _buildSecondaryStat('CAL', '${runController.totalCalories}'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // BPM + HR Zone row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildHrZoneStat(runController.currentBpm),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildMainStat(String label, String value, String unit, bool isActive) {
+  /// Three dots that animate left-to-right like a running cadence indicator.
+  Widget _buildRunningDots(double glow) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (i) {
+        // Each dot is offset in the animation cycle
+        final offset = (glow + i / 5) % 1.0;
+        final active = offset < 0.5;
+        return Container(
+          width: 6,
+          height: 6,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active
+                ? const Color(0xFF7ED957).withValues(alpha: 0.6 + offset * 0.8)
+                : Colors.white.withValues(alpha: 0.12),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildMainStat(
+      String label, String value, String unit, bool isActive, double glow) {
+    final valueColor = isActive
+        ? Color.lerp(const Color(0xFF7ED957), const Color(0xFFCCFF90),
+            glow * 0.4)!
+        : Colors.grey;
     return Column(
       children: [
         Text(
@@ -576,32 +668,57 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           ),
         ),
         const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 44,
-                fontWeight: FontWeight.bold,
-                color: isActive ? const Color(0xFF7ED957) : Colors.grey,
-                height: 1,
-              ),
-            ),
-            if (unit.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 6),
-                child: Text(
-                  unit,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+        // Soft glow halo behind the number while running
+        if (isActive)
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7ED957)
+                          .withValues(alpha: 0.05 + glow * 0.12),
+                      blurRadius: 30 + glow * 15,
+                      spreadRadius: 5,
+                    ),
+                  ],
                 ),
               ),
-          ],
+              _mainStatText(value, unit, valueColor),
+            ],
+          )
+        else
+          _mainStatText(value, unit, valueColor),
+      ],
+    );
+  }
+
+  Widget _mainStatText(String value, String unit, Color valueColor) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 44,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+            height: 1,
+          ),
         ),
+        if (unit.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              unit,
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ),
       ],
     );
   }
@@ -631,7 +748,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       decoration: BoxDecoration(
         color: zoneColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: zoneColor.withValues(alpha: 0.4), width: 1),
+        border: Border.all(color: zoneColor.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -652,7 +769,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildSecondaryStat(String label, String value) {
+  Widget _buildSecondaryStat(String label, String value, double glow) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -660,14 +777,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF2D7A3E).withValues(alpha: 0.2),
-            Colors.black.withValues(alpha: 0.5),
+            const Color(0xFF2D7A3E).withValues(alpha: 0.25 + glow * 0.15),
+            Colors.black.withValues(alpha: 0.45),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF2D7A3E).withValues(alpha: 0.3),
-          width: 1,
+          color: const Color(0xFF7ED957)
+              .withValues(alpha: 0.15 + glow * 0.25),
         ),
       ),
       child: Column(
@@ -684,10 +801,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF7ED957),
+              color: Color.lerp(
+                const Color(0xFF7ED957),
+                const Color(0xFFCCFF90),
+                glow * 0.3,
+              ),
             ),
           ),
         ],
@@ -748,34 +869,43 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
           const SizedBox(width: 12),
 
-          // Stop button
+          // End Run button — single tap with confirmation dialog
           Expanded(
-            child: ElevatedButton(
-              onPressed: () => _handleStopRun(runController),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
+            child: GestureDetector(
+              onTap: () {
+                final rc = context.read<RunController>();
+                _handleStopRun(rc);
+              },
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB71C1C),
                   borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 8,
-                shadowColor: Colors.red.withValues(alpha: 0.5),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.stop, size: 26),
-                  SizedBox(width: 8),
-                  Text(
-                    'FINISH',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.35),
+                      blurRadius: 8,
                     ),
+                  ],
+                ),
+                child: const Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.stop_circle_outlined, size: 22, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'END RUN',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -828,40 +958,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   }
 
   Future<void> _handleStopRun(RunController runController) async {
-    Uint8List? mapImageBytes;
-
-    // Capture map image using Static Maps API.
-    // Flutter's RepaintBoundary.toImage() cannot capture Google Maps on Android
-    // (platform view renders natively, outside Flutter's render tree — always gray).
-    // Instead, build a Static Maps URL from the route points and download the image.
-    if (runController.routePoints.length >= 2) {
-      try {
-        const apiKey = AppConfig.googleMapsApiKey;
-        final staticUrl = StaticMapUrl.build(
-          points: runController.routePoints,
-          apiKey: apiKey,
-          width: 640,
-          height: 320,
-          scale: 2,
-        );
-        if (staticUrl.isNotEmpty) {
-          final response = await http.get(Uri.parse(staticUrl))
-              .timeout(const Duration(seconds: 10));
-          if (response.statusCode == 200) {
-            mapImageBytes = response.bodyBytes;
-            debugPrint('✅ Static map fetched: ${mapImageBytes.length} bytes');
-          } else {
-            debugPrint('⚠️ Static map HTTP ${response.statusCode}');
-          }
-        }
-      } catch (e) {
-        debugPrint('❌ Error fetching static map: $e');
-      }
-    }
-
-    if (!mounted) return;
-
-    // Capture final stats BEFORE stop clears them
+    // ── Step 1: Capture all in-memory stats IMMEDIATELY ──────────────────────
+    // Do this before any async work so nothing is lost if state resets.
     final distanceKm      = runController.stateController.totalDistance / 1000;
     final duration        = runController.stateController.durationString;
     final pace            = runController.stateController.paceString;
@@ -871,85 +969,51 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final routePoints     = List.of(runController.stateController.routePoints);
     const planTitle       = 'Free Run';
 
-    // ── Ask for selfie (all runs, no distance gate) ──────────────────────────
-    final selfieBytes = await _showSelfiePrompt();
+    // ── Step 2: Ask for selfie (user-driven, unavoidable wait) ───────────────
+    final shareText = '🏃 Just finished a ${distanceKm.toStringAsFixed(2)}km '
+        'run in $duration!\nAvg pace: $pace/km • $calories kcal burned 🔥\n\n'
+        'Tracked with MajuRun 🚀 #MajuRun #Running';
+    final selfieBytes = await _showSelfiePrompt(shareText: shareText);
 
     if (!mounted) return;
-
     final nav = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
 
-    // Show saving overlay while history is written (Cloudinary upload happens
-    // later, after the user reviews the post in the editor).
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black54,
-      builder: (_) => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Color(0xFF7ED957), strokeWidth: 3),
-            SizedBox(height: 16),
-            Text('Saving your run…',
-                style: TextStyle(color: Colors.white70, fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      await runController.stopRun(
-        context,
-        planTitle: planTitle,
-        mapImageBytes: mapImageBytes,
-      );
-    } catch (e) {
-      debugPrint("❌ Error saving run: $e");
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Run saved locally — will sync when back online'),
-          backgroundColor: Colors.orange.shade700,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-
-    if (!mounted) return;
-    Navigator.of(context).pop(); // close saving overlay
-
-    if (!mounted) return;
-
-    // Generate suggested caption for the editor
-    final suggestedText = runController.generatePostText(
-      planTitle: planTitle,
-      distance: '${distanceKm.toStringAsFixed(2)} km',
-      duration: duration,
+    // ── Step 3: Background save — static map + Firestore, no dialog ──────────
+    // Fire both in background. The save future resolves to ({pbs, badges})
+    // and is passed to CongratulationsScreen which shows a pill until done.
+    final saveFuture = _runBackgroundSave(
+      runController: runController,
+      distanceKm: distanceKm,
+      durationSeconds: durationSeconds,
       pace: pace,
       calories: calories,
+      avgBpm: avgBpm,
+      routePoints: routePoints,
+      planTitle: planTitle,
+      selfieBytes: selfieBytes,
     );
 
-    final pbs = runController.lastRunPbs;
-    final badges = runController.lastRunBadges;
-
-    if (selfieBytes == null) {
-      // User didn't pick a selfie — auto-post in background with map (if available)
-      // then go straight to congratulations. No need to show the editor.
-      runController.postController.createAutoPost(
-        aiContent: suggestedText,
-        routePoints: routePoints,
-        distance: distanceKm,
+    // ── Step 4: Milestone sheet (runs while save is happening in background) ──
+    final milestone = milestoneFor(distanceKm);
+    MilestoneBadgeResult? milestoneResult;
+    if (milestone != null && mounted) {
+      milestoneResult = await MilestoneBadgeSheet.show(
+        context: context,
+        milestone: milestone,
+        distanceKm: distanceKm,
+        duration: duration,
         pace: pace,
-        bpm: avgBpm,
-        durationSeconds: durationSeconds,
         calories: calories,
-        planTitle: planTitle,
-        mapImageBytes: mapImageBytes,
-        kmSplits: runController.lastRunKmSplits,
-      ).catchError((e) {
-        debugPrint('❌ Auto-post failed: $e');
-      });
+      );
+    }
+    if (!mounted) return;
 
+    // ── Step 5: Navigate to results IMMEDIATELY ───────────────────────────────
+    // User sees their stats right away. The sync pill on CongratulationsScreen
+    // shows "Saving…" → "Run saved" as saveFuture resolves.
+    if (selfieBytes == null ||
+        milestoneResult?.action == MilestoneBadgeAction.postNow ||
+        milestoneResult?.action == MilestoneBadgeAction.autoPosted) {
       nav.pushReplacement(
         MaterialPageRoute(
           builder: (_) => CongratulationsScreen(
@@ -958,21 +1022,30 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             pace: pace,
             calories: calories,
             planTitle: planTitle,
-            pbs: pbs,
-            badges: badges,
+            saveFuture: saveFuture,
           ),
         ),
       );
       return;
     }
 
-    // Selfie selected — show editor so user can choose between selfie and map
+    // Selfie + Edit path — open post editor
+    final suggestedText = runController.generatePostText(
+      planTitle: planTitle,
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: duration,
+      pace: pace,
+      calories: calories,
+    );
+    final effectiveCaption = milestoneResult?.action == MilestoneBadgeAction.edit
+        ? milestoneResult!.suggestedCaption
+        : suggestedText;
+
     nav.pushReplacement(
       MaterialPageRoute(
         builder: (_) => RunPostEditorScreen(
-          mapImageBytes: mapImageBytes,
           selfieBytes: selfieBytes,
-          initialText: suggestedText,
+          initialText: effectiveCaption,
           routePoints: routePoints,
           distanceKm: distanceKm,
           duration: duration,
@@ -981,17 +1054,96 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           planTitle: planTitle,
           durationSeconds: durationSeconds,
           avgBpm: avgBpm,
-          pbs: pbs,
-          badges: badges,
           kmSplits: runController.lastRunKmSplits,
         ),
       ),
     );
   }
 
+  /// Fires all slow work (static map HTTP + Firestore save + auto-post) in the
+  /// background and returns a Future that resolves once the save completes.
+  Future<({List<String> pbs, List<String> badges})> _runBackgroundSave({
+    required RunController runController,
+    required double distanceKm,
+    required int durationSeconds,
+    required String pace,
+    required int calories,
+    required int avgBpm,
+    required List routePoints,
+    required String planTitle,
+    required Uint8List? selfieBytes,
+  }) async {
+    // Fetch static map concurrently with the Firestore save.
+    Uint8List? mapImageBytes;
+    final mapFuture = _fetchStaticMap(routePoints.cast());
+
+    // stopRun writes Firestore history, computes PBs/badges.
+    await runController.stopRun(
+      // ignore: use_build_context_synchronously
+      context,
+    );
+
+    final pbs    = List<String>.from(runController.lastRunPbs);
+    final badges = List<String>.from(runController.lastRunBadges);
+
+    // Wait for map (with cap — already running in background since above)
+    mapImageBytes = await mapFuture;
+
+    // Fire auto-post with the now-available map image
+    final suggestedText = runController.generatePostText(
+      planTitle: planTitle,
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: runController.stateController.durationString,
+      pace: pace,
+      calories: calories,
+    );
+    runController.postController.createAutoPost(
+      aiContent: suggestedText,
+      routePoints: routePoints.cast(),
+      distance: distanceKm,
+      pace: pace,
+      bpm: avgBpm,
+      durationSeconds: durationSeconds,
+      calories: calories,
+      planTitle: planTitle,
+      mapImageBytes: mapImageBytes,
+      selfieBytes: selfieBytes,
+      kmSplits: runController.lastRunKmSplits,
+    ).catchError((e) => debugPrint('❌ Auto-post failed: $e'));
+
+    return (pbs: pbs, badges: badges);
+  }
+
+  /// Downloads the static map image. Returns null on any error.
+  /// Capped at 8 s — we don't want to block the save for a map thumbnail.
+  Future<Uint8List?> _fetchStaticMap(List<dynamic> routePoints) async {
+    if (routePoints.length < 2) return null;
+    try {
+      const apiKey = AppConfig.googleMapsApiKey;
+      final staticUrl = StaticMapUrl.build(
+        points: routePoints.cast(),
+        apiKey: apiKey,
+      );
+      if (staticUrl.isEmpty) return null;
+      final response =
+          await http.get(Uri.parse(staticUrl)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) return response.bodyBytes;
+    } catch (e) {
+      debugPrint('❌ Static map fetch: $e');
+    }
+    return null;
+  }
+
   /// Shows a bottom sheet giving the user 20 seconds to pick a selfie/video.
   /// Returns selfie bytes if picked, null if skipped/timed out.
-  Future<Uint8List?> _showSelfiePrompt() async {
+  ///
+  /// Layout: [Camera] [Share] [Skip]
+  ///   • Camera   → opens an action sheet to choose Take Photo / Choose from Gallery.
+  ///   • Share    → opens system share sheet with run summary text (no selfie attached).
+  ///                After sharing the user lands back here so they can still add a selfie
+  ///                or skip; nothing is auto-posted by tapping Share.
+  ///   • Skip     → closes with null bytes (no selfie attached to the post).
+  Future<Uint8List?> _showSelfiePrompt({required String shareText}) async {
     final completer = Completer<Uint8List?>();
     Timer? countdown;
     int secondsLeft = 20;
@@ -1007,7 +1159,6 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
@@ -1044,11 +1195,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.camera_alt, color: Color(0xFF7ED957), size: 22),
+                      const Icon(PhosphorIconsDuotone.cameraPlus,
+                          color: Color(0xFF7ED957), size: 24),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'Add a selfie to your run post?',
+                          'Add a photo to your run post?',
                           style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1073,13 +1225,21 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                   const SizedBox(height: 20),
                   Row(
                     children: [
+                      // Camera → opens an inner action sheet (Take Photo / Choose from Gallery).
+                      // Consolidates the previous separate Camera + Gallery buttons.
                       Expanded(
                         child: _selfieBtn(
-                          icon: Icons.camera_alt_outlined,
+                          icon: PhosphorIconsDuotone.camera,
                           label: 'Camera',
                           onTap: () async {
                             countdown?.cancel();
-                            final bytes = await _pickSelfie(ImageSource.camera);
+                            final source = await _pickPhotoSource(ctx);
+                            if (source == null) {
+                              // User backed out of the inner sheet — stay on the prompt
+                              // and resume countdown so the user can still skip.
+                              return;
+                            }
+                            final bytes = await _pickSelfie(source);
                             // Complete BEFORE popping — popping triggers .then()
                             // which would race and complete the completer with null.
                             if (!completer.isCompleted) completer.complete(bytes);
@@ -1088,15 +1248,25 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                         ),
                       ),
                       const SizedBox(width: 12),
+                      // Share → quick share to system share sheet (Twitter / WhatsApp / etc).
+                      // Replaces the previous Gallery button (camera button now covers gallery).
+                      // Does NOT auto-post to feed — user still picks selfie or skips after.
                       Expanded(
                         child: _selfieBtn(
-                          icon: Icons.photo_library_outlined,
-                          label: 'Gallery',
+                          icon: PhosphorIconsDuotone.shareNetwork,
+                          label: 'Share',
                           onTap: () async {
                             countdown?.cancel();
-                            final bytes = await _pickSelfie(ImageSource.gallery);
-                            // Complete BEFORE popping — same race as camera.
-                            if (!completer.isCompleted) completer.complete(bytes);
+                            try {
+                              await SharePlus.instance.share(
+                                ShareParams(text: shareText),
+                              );
+                            } catch (e) {
+                              debugPrint('❌ Quick share failed: $e');
+                            }
+                            // After share, treat as "no selfie chosen" and continue the
+                            // normal post flow so the user still gets the post editor.
+                            if (!completer.isCompleted) completer.complete(null);
                             if (ctx.mounted) Navigator.of(ctx).pop();
                           },
                         ),
@@ -1104,7 +1274,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                       const SizedBox(width: 12),
                       Expanded(
                         child: _selfieBtn(
-                          icon: Icons.close,
+                          icon: PhosphorIconsDuotone.x,
                           label: 'Skip',
                           color: Colors.white24,
                           onTap: () {
@@ -1160,8 +1330,70 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       if (kIsWeb) return await file.readAsBytes();
       return await File(file.path).readAsBytes();
     } catch (e) {
-      debugPrint("❌ Selfie pick error: $e");
+      debugPrint('❌ Selfie pick error: $e');
       return null;
     }
+  }
+
+  /// Inner action sheet that lets the user choose between camera capture
+  /// and gallery picker. Returns null if dismissed without choosing.
+  Future<ImageSource?> _pickPhotoSource(BuildContext ctx) {
+    return showModalBottomSheet<ImageSource>(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F1F1F),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      Icon(PhosphorIconsDuotone.image,
+                          color: Color(0xFF7ED957), size: 22),
+                      SizedBox(width: 10),
+                      Text(
+                        'Add a photo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(PhosphorIconsDuotone.camera,
+                      color: Color(0xFF7ED957)),
+                  title: const Text('Take photo',
+                      style: TextStyle(color: Colors.white)),
+                  subtitle: const Text('Snap a quick post-run selfie',
+                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  onTap: () => Navigator.of(sheetCtx).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(PhosphorIconsDuotone.imagesSquare,
+                      color: Color(0xFF7ED957)),
+                  title: const Text('Choose from gallery',
+                      style: TextStyle(color: Colors.white)),
+                  subtitle: const Text('Pick an existing photo',
+                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  onTap: () => Navigator.of(sheetCtx).pop(ImageSource.gallery),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

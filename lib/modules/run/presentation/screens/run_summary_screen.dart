@@ -24,7 +24,7 @@ class RunSummaryScreen extends StatefulWidget {
 class _RunSummaryScreenState extends State<RunSummaryScreen> {
   final GlobalKey _cardKey = GlobalKey();
   bool _showGraph = true;
-  String _aiGeneratedPost = "Analyzing your performance...";
+  String _aiGeneratedPost = 'Analyzing your performance...';
   bool _isFinalizing = false;
 
   @override
@@ -38,12 +38,12 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     if (!mounted) return;
 
     String planContext = widget.planTitle != null
-        ? "Another session of ${widget.planTitle} in the books."
-        : "Another great run in the books.";
+        ? 'Another session of ${widget.planTitle} in the books.'
+        : 'Another great run in the books.';
 
     setState(() {
-      _aiGeneratedPost = "$planContext ${widget.controller.distanceString} KM crushed. "
-          "Engine stayed steady at ${widget.controller.currentBpm} BPM. "
+      _aiGeneratedPost = '$planContext ${widget.controller.distanceString} KM crushed. '
+          'Engine stayed steady at ${widget.controller.currentBpm} BPM. '
           "The road doesn't get easier, you just get stronger. #MajurunPro";
     });
   }
@@ -53,7 +53,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("PRO SUMMARY",
+        title: const Text('PRO SUMMARY',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -107,7 +107,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
           ? GestureDetector(
               onTap: () => widget.controller.generateVeoVideo(),
               child: const Center(
-                  child: Text("GENERATE VE-O REPLAY",
+                  child: Text('GENERATE VE-O REPLAY',
                       style: TextStyle(color: Colors.cyanAccent))),
             )
           : const Center(child: Icon(Icons.check_circle, color: Colors.greenAccent, size: 40)),
@@ -118,9 +118,9 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _statItem("DISTANCE", "${widget.controller.distanceString} KM"),
-        _statItem("TIME", widget.controller.durationString),
-        _statItem("CALORIES", "${widget.controller.totalCalories} KCAL"),
+        _statItem('DISTANCE', '${widget.controller.distanceString} KM'),
+        _statItem('TIME', widget.controller.durationString),
+        _statItem('CALORIES', '${widget.controller.totalCalories} KCAL'),
       ],
     );
   }
@@ -140,10 +140,10 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text("PERFORMANCE TREND", style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('PERFORMANCE TREND', style: TextStyle(fontWeight: FontWeight.bold)),
           TextButton(
               onPressed: () => setState(() => _showGraph = !_showGraph),
-              child: Text(_showGraph ? "VIEW LIST" : "VIEW GRAPH")),
+              child: Text(_showGraph ? 'VIEW LIST' : 'VIEW GRAPH')),
         ],
       ),
     );
@@ -280,7 +280,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
               child: _isFinalizing
                   ? const CircularProgressIndicator()
-                  : const Text("SHARE TO MAJURUN FEED",
+                  : const Text('SHARE TO MAJURUN FEED',
                       style: TextStyle(color: Colors.white)),
             ),
           ),
@@ -291,7 +291,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
             child: OutlinedButton.icon(
               onPressed: _exportGpx,
               icon: const Icon(Icons.upload_file, size: 18),
-              label: const Text("EXPORT GPX"),
+              label: const Text('EXPORT GPX'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black87,
                 side: const BorderSide(color: Colors.black26),
@@ -300,7 +300,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
           ),
           TextButton(
               onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
-              child: const Text("DISCARD", style: TextStyle(color: Colors.red))),
+              child: const Text('DISCARD', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -310,7 +310,7 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
     setState(() => _isFinalizing = true);
     try {
       await widget.controller.finalizeProPost(
-          _aiGeneratedPost, widget.controller.lastVideoUrl ?? "",
+          _aiGeneratedPost, widget.controller.lastVideoUrl ?? '',
           planTitle: widget.planTitle);
       if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
     } catch (e) {

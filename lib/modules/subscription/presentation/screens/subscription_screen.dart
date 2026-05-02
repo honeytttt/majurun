@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:majurun/core/services/payment_service.dart';
+import 'package:majurun/core/services/analytics_service.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 class SubscriptionScreen extends StatelessWidget {
@@ -57,6 +58,14 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PaymentService().initialize();
+      // Track paywall impression for conversion funnel analysis
+      AnalyticsService().logEvent(
+        name: 'paywall_viewed',
+        parameters: {
+          'is_paywall': widget.isPaywall,
+          if (widget.paywallFeature != null) 'feature': widget.paywallFeature,
+        },
+      );
     });
   }
 
@@ -86,7 +95,6 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (widget.isPaywall && widget.paywallFeature != null)
                   _buildPaywallBanner(),
@@ -347,8 +355,28 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
 
   Future<void> _purchase(BuildContext context, PaymentService payment, ProductDetails product) async {
     final messenger = ScaffoldMessenger.of(context);
+
+    // Track purchase intent
+    AnalyticsService().logEvent(
+      name: 'purchase_initiated',
+      parameters: {
+        'product_id': product.id,
+        'price': product.rawPrice,
+        'currency': product.currencyCode,
+      },
+    );
+
     final success = await payment.purchaseSubscription(product);
-    if (!success && payment.error != null) {
+    if (success) {
+      AnalyticsService().logEvent(
+        name: 'purchase_completed',
+        parameters: {'product_id': product.id},
+      );
+    } else if (payment.error != null) {
+      AnalyticsService().logEvent(
+        name: 'purchase_failed',
+        parameters: {'product_id': product.id, 'error': payment.error},
+      );
       messenger.showSnackBar(
         SnackBar(content: Text(payment.error!), backgroundColor: Colors.redAccent),
       );

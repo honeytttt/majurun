@@ -42,19 +42,19 @@ class _BounceClickState extends State<BounceClick> with SingleTickerProviderStat
   }
 
   void _onTapDown(TapDownDetails details) {
-    if (widget.onTap != null) {
+    if (widget.onTap != null && mounted) {
       _controller.forward();
     }
   }
 
   void _onTapUp(TapUpDetails details) {
-    if (widget.onTap != null) {
+    if (widget.onTap != null && mounted) {
       _controller.reverse();
     }
   }
 
   void _onTapCancel() {
-    if (widget.onTap != null) {
+    if (widget.onTap != null && mounted) {
       _controller.reverse();
     }
   }

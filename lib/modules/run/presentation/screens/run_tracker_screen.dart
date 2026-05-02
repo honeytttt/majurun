@@ -91,7 +91,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             _buildControlCenter(context),
             const Spacer(flex: 2),
             _buildStatsGrid(context),
-            const Spacer(flex: 1),
+            const Spacer(),
             _buildFooterLink(context),
             const SizedBox(height: 20),
           ],
@@ -165,7 +165,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("No activities found yet!"),
+                            content: Text('No activities found yet!'),
                             duration: Duration(seconds: 2),
                           ),
                         );
@@ -174,7 +174,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text("Error: ${e.toString()}"),
+                          content: Text('Error: $e'),
                           duration: const Duration(seconds: 2),
                         ),
                       );
@@ -236,7 +236,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             _buildGpsStatus(runController),
             const SizedBox(height: 12),
             BounceClick(
-              onTap: () => _handleStartRun(context),
+              onTap: _handleStartRun,
               child: Semantics(
                 button: true,
                 label: 'Start a new run',
@@ -248,7 +248,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                     boxShadow: AppEffects.neonGlow(),
                   ),
                   child: const Text(
-                    "START",
+                    'START',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 22,
@@ -328,7 +328,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
-  Future<void> _handleStartRun(BuildContext context) async {
+  Future<void> _handleStartRun() async {
     final runController = Provider.of<RunController>(context, listen: false);
 
     // Start GPS + wakelock + TTS init BEFORE the warmup dialog.
@@ -337,6 +337,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     // Without this, locking during warmup suspends the VM and the countdown
     // freezes — the run never starts.
     await runController.prewarmGps();
+    if (!mounted) return;
 
     // Show 5-second warmup countdown.
     await showDialog<void>(
@@ -347,22 +348,22 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       ),
     );
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     try {
-      await runController.startRun(planTitle: "Free Run");
+      await runController.startRun();
 
-      if (context.mounted) {
+      if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveRunScreen()),
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("❌ Error: ${e.toString()}"),
+            content: Text('❌ Error: $e'),
             duration: const Duration(seconds: 3),
             backgroundColor: Colors.red,
           ),
@@ -396,10 +397,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _smallStat("TOTAL KM", (stats['totalKm'] as double).toStringAsFixed(1)),
-                  _smallStat("TIME", stats['totalTime'] as String),
-                  _smallStat("STREAK", "${stats['streak']}D"),
-                  _smallStat("RUNS", "${stats['runs']}"),
+                  _smallStat('TOTAL KM', (stats['totalKm'] as double).toStringAsFixed(1)),
+                  _smallStat('TIME', stats['totalTime'] as String),
+                  _smallStat('STREAK', "${stats['streak']}D"),
+                  _smallStat('RUNS', "${stats['runs']}"),
                 ],
               ),
             );
@@ -771,7 +772,6 @@ class _WarmupCountdownDialogState extends State<_WarmupCountdownDialog>
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: const Color(0xFF7ED957),
-                      width: 1,
                     ),
                   ),
                 ),

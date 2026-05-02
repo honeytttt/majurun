@@ -24,7 +24,7 @@ class FirebaseAuthImpl implements AuthRepository {
     if (user == null) return null;
     return AppUser(
       uid: user.uid,
-      email: user.email ?? "",
+      email: user.email ?? '',
       displayName: user.displayName,
       photoUrl: user.photoURL,
       isGuest: user.isAnonymous,
@@ -37,7 +37,7 @@ class FirebaseAuthImpl implements AuthRepository {
     required Function(String verificationId) onCodeSent,
     required Function(String errorMessage) onError,
   }) async {
-    debugPrint("verifyPhoneNumber called with phone: $phoneNumber");
+    debugPrint('verifyPhoneNumber called with phone: $phoneNumber');
 
     try {
       await _auth.verifyPhoneNumber(
@@ -49,23 +49,23 @@ class FirebaseAuthImpl implements AuthRepository {
           // which makes the subsequent manual OTP entry fail with "session-expired".
           // For test numbers Firebase also fires this instantly before the OTP
           // screen is even shown — same problem.
-          debugPrint("Auto-verification available — skipping auto sign-in, user will complete OTP manually");
+          debugPrint('Auto-verification available — skipping auto sign-in, user will complete OTP manually');
         },
         verificationFailed: (FirebaseAuthException e) {
-          debugPrint("Verification failed: ${e.code} - ${e.message}");
-          onError(e.message ?? "Verification failed: ${e.code}");
+          debugPrint('Verification failed: ${e.code} - ${e.message}');
+          onError(e.message ?? 'Verification failed: ${e.code}');
         },
         codeSent: (String verificationId, int? resendToken) {
-          debugPrint("Code sent successfully - verificationId: $verificationId");
+          debugPrint('Code sent successfully - verificationId: $verificationId');
           onCodeSent(verificationId);
         },
         codeAutoRetrievalTimeout: (String verificationId) {
-          debugPrint("Auto retrieval timeout: $verificationId");
+          debugPrint('Auto retrieval timeout: $verificationId');
         },
       );
     } catch (e) {
-      debugPrint("Exception in verifyPhoneNumber: $e");
-      onError("Phone verification exception: $e");
+      debugPrint('Exception in verifyPhoneNumber: $e');
+      onError('Phone verification exception: $e');
     }
   }
 
@@ -122,22 +122,21 @@ class FirebaseAuthImpl implements AuthRepository {
       // verification token before the user taps it (fixes "link already expired").
       await user.sendEmailVerification(ActionCodeSettings(
         url: 'https://majurun-8d8b5.firebaseapp.com',
-        handleCodeInApp: false,
         iOSBundleId: 'com.majurun.app',
         androidPackageName: 'com.majurun.app',
         androidInstallApp: true,
         androidMinimumVersion: '21',
       ));
-      debugPrint("Email account created for UID: ${user.uid}");
+      debugPrint('Email account created for UID: ${user.uid}');
       return _mapUser(user);
     } on FirebaseAuthException catch (e) {
-      debugPrint("Auth exception during signup: ${e.code} - ${e.message}");
+      debugPrint('Auth exception during signup: ${e.code} - ${e.message}');
       if (e.code == 'email-already-in-use') {
-        throw "This email is already registered. Please sign in or reset your password.";
+        throw 'This email is already registered. Please sign in or reset your password.';
       }
-      throw e.message ?? "Signup failed: ${e.code}";
+      throw e.message ?? 'Signup failed: ${e.code}';
     } catch (e) {
-      debugPrint("Unexpected error during signup: $e");
+      debugPrint('Unexpected error during signup: $e');
       rethrow;
     }
   }
@@ -174,7 +173,7 @@ class FirebaseAuthImpl implements AuthRepository {
           'email': userCredential.user!.email ?? '',
           'photoUrl': userCredential.user!.photoURL ?? '',
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        }, SetOptions(merge: true));
       }
     }
     return _mapUser(userCredential.user);
@@ -219,25 +218,25 @@ class FirebaseAuthImpl implements AuthRepository {
       
       return _mapUser(userCredential.user);
     } on FirebaseAuthException catch (e) {
-      debugPrint("Twitter sign-in error: ${e.code} - ${e.message}");
+      debugPrint('Twitter sign-in error: ${e.code} - ${e.message}');
       
       if (e.code == 'account-exists-with-different-credential') {
-        throw "An account already exists with the same email address but different sign-in credentials.";
+        throw 'An account already exists with the same email address but different sign-in credentials.';
       } else if (e.code == 'provider-already-linked') {
-        throw "Twitter account is already linked to another account.";
+        throw 'Twitter account is already linked to another account.';
       }
       
-      throw e.message ?? "Twitter sign-in failed";
+      throw e.message ?? 'Twitter sign-in failed';
     } catch (e) {
-      debugPrint("Unexpected error during Twitter sign-in: $e");
-      throw "Twitter sign-in failed: $e";
+      debugPrint('Unexpected error during Twitter sign-in: $e');
+      throw 'Twitter sign-in failed: $e';
     }
   }
 
   @override
   Future<AppUser?> signInAsGuest() async {
     // REMOVED: Guest sign-in functionality - now throws unimplemented
-    throw UnimplementedError("Guest sign-in has been disabled");
+    throw UnimplementedError('Guest sign-in has been disabled');
   }
 
   @override
@@ -254,7 +253,6 @@ class FirebaseAuthImpl implements AuthRepository {
       // the token before the user taps it.
       final actionCodeSettings = ActionCodeSettings(
         url: 'https://majurun-8d8b5.firebaseapp.com',
-        handleCodeInApp: false,
         iOSBundleId: 'com.majurun.app',
         androidPackageName: 'com.majurun.app',
         androidInstallApp: true,

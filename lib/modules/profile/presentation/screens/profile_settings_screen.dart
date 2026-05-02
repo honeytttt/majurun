@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:majurun/core/services/account_deletion_service.dart';
 
@@ -85,9 +86,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Future<void> _saveProfile() async {
     dynamic imageData;
     if (_imageFile != null) {
-      imageData = _imageFile!;
+      imageData = _imageFile;
     } else if (_webImage != null) {
-      imageData = _webImage!;
+      imageData = _webImage;
     }
 
     widget.onSave(
@@ -113,11 +114,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new), onPressed: () => Navigator.pop(context)),
-        title: const Text("PROFILE SETTINGS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
+        title: const Text('PROFILE SETTINGS', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
         actions: [
           TextButton(
             onPressed: _saveProfile,
-            child: Text("Save", style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text('Save', style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),
@@ -151,22 +152,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
             ),
             const SizedBox(height: 40),
-            _buildInputField("FULL NAME", _nameController),
+            _buildInputField('FULL NAME', _nameController),
             const SizedBox(height: 25),
-            _buildInputField("NICKNAME (optional)", _nicknameController, hint: "e.g. Flash, Iron Mike..."),
+            _buildInputField('NICKNAME (optional)', _nicknameController, hint: 'e.g. Flash, Iron Mike...'),
             const SizedBox(height: 25),
-            _buildInputField("BIO", _bioController, maxLines: 4),
+            _buildInputField('BIO', _bioController, maxLines: 4),
             const SizedBox(height: 25),
-            _buildInputField("LOCATION", _locationController, icon: Icons.location_on_outlined),
+            _buildInputField('LOCATION', _locationController, icon: Icons.location_on_outlined),
             const SizedBox(height: 25),
             _buildInputField(
-              "PHONE NUMBER (private — only you see this)",
+              'PHONE NUMBER (private — only you see this)',
               _phoneController,
               icon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 25),
-            _buildInputField("EMAIL", _emailController, enabled: false),
+            _buildInputField('EMAIL', _emailController, enabled: false),
             const SizedBox(height: 48),
             const Divider(),
             const SizedBox(height: 16),
@@ -224,28 +225,123 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
+    await _deleteAccountWithReauth(user);
+  }
+
+  /// Handles the full deletion flow including re-authentication when required.
+  Future<void> _deleteAccountWithReauth(User user, {bool isRetry = false}) async {
+    if (!mounted) return;
+
+    // Show spinner
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final success = await AccountDeletionService().deleteAccount(userId: userId);
+    try {
+      final success = await AccountDeletionService().deleteAccount(userId: user.uid);
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss spinner
 
-    if (!mounted) return;
-    Navigator.pop(context); // dismiss spinner
+      if (success) {
+        await GoogleSignIn().signOut();
+        await FirebaseAuth.instance.signOut();
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        _showDeleteError();
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss spinner
 
-    if (success) {
-      // Navigate to login root — account is gone
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete account. Please try again.')),
-      );
+      if (e.code == 'requires-recent-login' && !isRetry) {
+        await _reauthAndRetry(user);
+      } else {
+        _showDeleteError();
+      }
     }
+  }
+
+  /// Prompts for re-authentication then retries deletion.
+  Future<void> _reauthAndRetry(User user) async {
+    final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+
+    if (isGoogle) {
+      await _reauthGoogle(user);
+    } else {
+      await _reauthPassword(user);
+    }
+  }
+
+  Future<void> _reauthGoogle(User user) async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null || !mounted) return;
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await user.reauthenticateWithCredential(credential);
+      if (mounted) await _deleteAccountWithReauth(user, isRetry: true);
+    } catch (_) {
+      if (mounted) _showDeleteError();
+    }
+  }
+
+  Future<void> _reauthPassword(User user) async {
+    final passwordCtrl = TextEditingController();
+    final reauthed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm your password'),
+        content: TextField(
+          controller: passwordCtrl,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Password'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    passwordCtrl.dispose();
+    if (reauthed != true || !mounted) return;
+
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: passwordCtrl.text,
+      );
+      await user.reauthenticateWithCredential(credential);
+      if (mounted) await _deleteAccountWithReauth(user, isRetry: true);
+    } on FirebaseAuthException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Incorrect password. Account not deleted.')),
+        );
+      }
+    }
+  }
+
+  void _showDeleteError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to delete account. Please try again.')),
+    );
   }
 
   Widget _buildAvatarImage() {
@@ -331,7 +427,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.black),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),

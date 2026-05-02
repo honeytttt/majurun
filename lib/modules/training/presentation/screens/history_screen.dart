@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
 
 class HistoryScreen extends StatefulWidget {
   final VoidCallback onBack; // callback to return to main menu
@@ -30,9 +32,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     // If duration missing, still show single time (clean)
     if (durationSeconds == null || durationSeconds <= 0) {
-      return "$datePart • $end";
+      return '$datePart • $end';
     }
-    return "$datePart • $start–$end";
+    return '$datePart • $start–$end';
   }
 
   // Small helper: safe Timestamp -> DateTime
@@ -70,7 +72,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 onPressed: widget.onBack,
               ),
               const Text(
-                "WORKOUT CALENDAR",
+                'WORKOUT CALENDAR',
                 style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
               ),
             ],
@@ -78,7 +80,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
 
         TableCalendar(
-          firstDay: DateTime.utc(2024, 1, 1),
+          firstDay: DateTime.utc(2024),
           lastDay: DateTime.utc(2030, 12, 31),
           focusedDay: _focusedDay,
           selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
@@ -98,7 +100,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
         Expanded(
           child: (userId == null || userId.isEmpty)
-              ? const Center(child: CircularProgressIndicator())
+              ? ListView.builder(
+                  itemCount: 5,
+                  itemBuilder: (_, __) => ShimmerLoader.runTileSkeleton(),
+                )
               : StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('users')
@@ -107,8 +112,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       .orderBy('completedAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasError) return const Center(child: Text("Failed to load sessions."));
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    if (snapshot.hasError) return const Center(child: Text('Failed to load sessions.'));
+                    if (!snapshot.hasData) {
+                      return ListView.builder(
+                        itemCount: 5,
+                        itemBuilder: (_, __) => ShimmerLoader.runTileSkeleton(),
+                      );
+                    }
 
                     final docs = snapshot.data!.docs;
 
@@ -122,7 +132,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           }).toList();
 
                     if (filteredDocs.isEmpty) {
-                      return const Center(child: Text("No sessions recorded for this period."));
+                      return const EmptyStateWidget(
+                        icon: Icons.fitness_center_outlined,
+                        title: 'No sessions yet',
+                        subtitle: 'Complete a training session to see your history here.',
+                      );
                     }
 
                     return ListView.builder(
@@ -131,8 +145,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         final data = filteredDocs[index].data() as Map<String, dynamic>;
 
                         final planTitle = (data['planTitle'] ?? 'Session').toString();
-                        final week = _asInt(data['week'], fallback: 0);
-                        final day = _asInt(data['day'], fallback: 0);
+                        final week = _asInt(data['week']);
+                        final day = _asInt(data['day']);
 
                         final completedAt = _asDateTime(data['completedAt']) ?? DateTime.now();
 
@@ -169,7 +183,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                           // ✅ Professional subtitle
                           subtitle: Text(
-                            "Wk $week • Day $day  •  $timeRange",
+                            'Wk $week • Day $day  •  $timeRange',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

@@ -5,6 +5,8 @@ import 'package:majurun/core/services/personal_records_service.dart';
 import 'package:majurun/core/services/training_load_service.dart';
 import 'package:majurun/core/services/segments_service.dart';
 import 'package:majurun/core/services/celebration_service.dart';
+import 'package:majurun/core/theme/app_effects.dart';
+import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 /// Pro Run Summary Screen - Like Strava/Nike post-run analysis
@@ -203,7 +205,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                         width: 4,
                       ),
                     },
-                    myLocationEnabled: false,
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
                   )
@@ -260,7 +261,11 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
 
   Widget _buildMainStats() {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(20),
+      decoration: AppEffects.glassDecoration(opacity: 0.08, borderRadius: 20).copyWith(
+        boxShadow: AppEffects.softShadow(),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -337,6 +342,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
           ],
         ),
         borderRadius: BorderRadius.circular(16),
+        boxShadow: AppEffects.neonGlow(color: Colors.amber, opacity: 0.25),
       ),
       child: Column(
         children: [
@@ -418,6 +424,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
         border: Border.all(
           color: Color(load.effect.colorValue).withValues(alpha: 0.5),
         ),
+        boxShadow: AppEffects.softShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,6 +517,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1B2B1D),
         borderRadius: BorderRadius.circular(16),
+        boxShadow: AppEffects.softShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,7 +761,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
-                  show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
                     color: Colors.white.withValues(alpha: 0.05),
@@ -761,9 +768,8 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                   ),
                 ),
                 titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(),
+                  topTitles: const AxisTitles(),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -844,27 +850,18 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             ),
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCompactStat('AVG PACE', _formatPace(widget.runData.avgPaceSecondsPerKm)),
-              _buildCompactStat('BEST PACE', _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm)),
-              _buildCompactStat('CADENCE', '${widget.runData.avgCadence ?? '--'}'),
+              Expanded(child: UnifiedMetricTile(icon: Icons.speed_rounded, label: 'Avg Pace', value: _formatPace(widget.runData.avgPaceSecondsPerKm), unit: '/km')),
+              const SizedBox(width: 8),
+              Expanded(child: UnifiedMetricTile(icon: Icons.flash_on_rounded, label: 'Best Pace', value: _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm), unit: '/km', showGlow: true)),
+              const SizedBox(width: 8),
+              Expanded(child: UnifiedMetricTile(icon: Icons.rotate_right_rounded, label: 'Cadence', value: '${widget.runData.avgCadence ?? '--'}', unit: 'spm')),
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildCompactStat(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white30, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -921,7 +918,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
-                  show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
                     color: Colors.white.withValues(alpha: 0.05),
@@ -929,9 +925,8 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                   ),
                 ),
                 titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(),
+                  topTitles: const AxisTitles(),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -1012,14 +1007,15 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             ),
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCompactStat('AVG HR', '${avgHR}'),
-              _buildCompactStat('MAX HR', '${widget.runData.maxHeartRate ?? '--'}'),
-              _buildCompactStat('CALORIES', '${widget.runData.calories}'),
+              Expanded(child: UnifiedMetricTile(icon: Icons.favorite_rounded, label: 'Avg HR', value: '$avgHR', unit: 'bpm', accentColor: Colors.redAccent)),
+              const SizedBox(width: 8),
+              Expanded(child: UnifiedMetricTile(icon: Icons.favorite_border_rounded, label: 'Max HR', value: '${widget.runData.maxHeartRate ?? '--'}', unit: 'bpm', accentColor: Colors.red.shade700)),
+              const SizedBox(width: 8),
+              Expanded(child: UnifiedMetricTile(icon: Icons.local_fire_department_rounded, label: 'Calories', value: '${widget.runData.calories}', unit: 'kcal', accentColor: Colors.orange)),
             ],
           ),
         ),

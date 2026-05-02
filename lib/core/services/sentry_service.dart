@@ -20,7 +20,6 @@ class SentryService {
       (options) {
         options.dsn = const String.fromEnvironment(
           'SENTRY_DSN',
-          defaultValue: '', // Add your Sentry DSN here or via env
         );
         options.tracesSampleRate = kDebugMode ? 1.0 : 0.2;
         options.profilesSampleRate = kDebugMode ? 1.0 : 0.1;

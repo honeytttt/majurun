@@ -57,14 +57,24 @@ jobs:
     steps:
       - name: Select Xcode version
         run: |
-          # List available Xcode versions
+          echo "=== Available Xcode versions ==="
           ls /Applications | grep Xcode
 
-          # Use Xcode 16.2 on macos-15 (supports Swift 6 for Firebase 11.x)
-          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          # Apple requires iOS 26 SDK (Xcode 26+) for all App Store uploads.
+          # macos-15 already has Xcode_26.x installed alongside Xcode 16.x.
+          # Pick the highest Xcode 26.x available.
+          XCODE_26=$(ls /Applications | grep "^Xcode_26" | sort -V | tail -1)
+          if [ -n "$XCODE_26" ]; then
+            sudo xcode-select -s "/Applications/${XCODE_26}/Contents/Developer"
+            echo "Selected: $XCODE_26"
+          else
+            echo "ERROR: Xcode 26 not found on this runner. Available versions:"
+            ls /Applications | grep "^Xcode_"
+            exit 1
+          fi
+
           xcodebuild -version
-          xcodebuild -showsdks | grep iOS || echo "Checking available platforms..."
-          xcodebuild -showsdks
+          xcodebuild -showsdks | grep -E "iphoneos"
 
       - name: Download iOS Platform
         timeout-minutes: 10
@@ -298,7 +308,6 @@ jobs:
 
       - name: Upload to App Store Connect
         if: success()
-        continue-on-error: true   # IPA artifact is uploaded above; version-bump races won't fail the build
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -319,12 +328,14 @@ jobs:
           IPA_PATH=$(find $RUNNER_TEMP/export -name "*.ipa" | head -1)
           echo "Uploading IPA: $IPA_PATH"
 
-          # Upload using xcrun altool
+          # Upload using xcrun altool (still supported in Xcode 26)
+          # --output-format xml gives structured error output on failure
           xcrun altool --upload-app \
             --type ios \
             --file "$IPA_PATH" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --output-format xml
 
           echo "✅ Successfully uploaded to App Store Connect!"
 

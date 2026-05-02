@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
@@ -16,8 +17,9 @@ import 'package:majurun/modules/profile/presentation/screens/user_profile_screen
 import 'package:timeago/timeago.dart' as timeago;
 
 // ✅ Import expandable text and post detail screen
-import 'package:majurun/modules/home/presentation/widgets/expandable_text.dart';
+import 'package:majurun/core/widgets/hashtag_text.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/hashtag_posts_screen.dart';
 
 class FeedItemWrapper extends StatefulWidget {
   final AppPost post;
@@ -36,6 +38,10 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   bool get wantKeepAlive => true;
   late bool _isLiked;
   late int _localLikesCount;
+  bool _isSaved = false;
+  // Static in-memory cache so saved state persists across widget recreations
+  // (scroll-off/back, stream-triggered parent rebuilds, etc.)
+  static final Map<String, bool> _savedCache = {};
   // Cache futures/streams so parent setState() rebuilds don't recreate them.
   // Without this, every Firestore like-update triggers a parent setState which
   // rebuilds visible FeedItemWrapper widgets and spawns new stream subscriptions.
@@ -50,6 +56,43 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     _localLikesCount = widget.post.likes.length;
     _userPhotoFuture = _getUserPhotoUrl(widget.post.userId);
     _commentsStream = PostRepositoryImpl().getCommentsStream(widget.post.id);
+    if (currentUserId != null) {
+      // Use cache for instant render; only hit Firestore if we haven't checked yet
+      if (_savedCache.containsKey(widget.post.id)) {
+        _isSaved = _savedCache[widget.post.id]!;
+      } else {
+        _loadSavedState(currentUserId);
+      }
+    }
+  }
+
+  Future<void> _loadSavedState(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('savedPosts')
+          .doc(widget.post.id)
+          .get();
+      _savedCache[widget.post.id] = doc.exists;
+      if (mounted) setState(() => _isSaved = doc.exists);
+    } catch (_) {}
+  }
+
+  void _toggleSave(String currentUserId) {
+    final newValue = !_isSaved;
+    _savedCache[widget.post.id] = newValue; // update cache immediately
+    setState(() => _isSaved = newValue);
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .collection('savedPosts')
+        .doc(widget.post.id);
+    if (newValue) {
+      ref.set({'savedAt': FieldValue.serverTimestamp(), 'postId': widget.post.id});
+    } else {
+      ref.delete();
+    }
   }
 
   @override
@@ -204,7 +247,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       const Icon(Icons.repeat, size: 16, color: Colors.green),
                       const SizedBox(width: 4),
                       Text(
-                        "reposted",
+                        'reposted',
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                     ],
@@ -227,19 +270,18 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
             if (widget.post.content.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ExpandableText(
+                child: HashtagText(
                   text: widget.post.content,
                   maxLines: 5,
                   style: const TextStyle(fontSize: 16, height: 1.35, color: Colors.black87),
-                  onTap: () {
-                    debugPrint('📱 ExpandableText tapped from FeedItem');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PostDetailScreen(post: widget.post),
-                      ),
-                    );
-                  },
+                  onBodyTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post)),
+                  ),
+                  onHashtagTap: (tag) => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => HashtagPostsScreen(tag: tag)),
+                  ),
                 ),
               ),
 
@@ -310,10 +352,12 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                   children: [
                     Row(
                       children: [
-                        // Like Button — optimistic state
+                        // Like Button — optimistic state (Phosphor duotone heart)
                         IconButton(
                           icon: Icon(
-                            _isLiked ? Icons.favorite : Icons.favorite_border,
+                            _isLiked
+                                ? PhosphorIconsFill.heart
+                                : PhosphorIconsDuotone.heart,
                             size: 22,
                             color: _isLiked ? Colors.red : Colors.grey[700],
                           ),
@@ -322,30 +366,48 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                               : () => _showLoginSnack(context),
                         ),
                         Text(
-                          "$_localLikesCount",
-                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
+                          '$_localLikesCount',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: _isLiked ? Colors.red : Colors.black54,
+                          ),
                         ),
                         const SizedBox(width: 16),
 
                         // Comment Button
-                        IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black45),
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => CommentSheet(postId: widget.post.id),
-                            );
-                          },
-                        ),
                         StreamBuilder<List<Map<String, dynamic>>>(
                           stream: _commentsStream,
                           builder: (context, snapshot) {
                             final count = snapshot.data?.length ?? 0;
-                            return Text(
-                              "$count",
-                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
+                            final hasComments = count > 0;
+                            const activeColor = Color(0xFF00B96B);
+                            return Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    hasComments
+                                        ? PhosphorIconsFill.chatCircle
+                                        : PhosphorIconsDuotone.chatCircle,
+                                    size: 20,
+                                    color: hasComments ? activeColor : Colors.black45,
+                                  ),
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => CommentSheet(postId: widget.post.id),
+                                    );
+                                  },
+                                ),
+                                Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: hasComments ? activeColor : Colors.black54,
+                                  ),
+                                ),
+                              ],
                             );
                           },
                         ),
@@ -353,9 +415,10 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                     ),
                     Row(
                       children: [
-                        // Repost Button
+                        // Repost Button — Phosphor arrows-clockwise reads cleaner than the loop
                         IconButton(
-                          icon: const Icon(Icons.repeat, size: 22, color: Colors.green),
+                          icon: const Icon(PhosphorIconsDuotone.repeat,
+                              size: 22, color: Colors.green),
                           onPressed: currentUserId != null
                               ? () {
                                   PostRepositoryImpl().repost(
@@ -374,10 +437,25 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                               : () => _showLoginSnack(context),
                         ),
 
-                        // Share Button
+                        // Share Button — Phosphor paper-plane reads more "send" than share-square
                         IconButton(
-                          icon: const Icon(Icons.share, size: 20, color: Colors.black45),
+                          icon: const Icon(PhosphorIconsDuotone.paperPlaneTilt,
+                              size: 20, color: Colors.black45),
                           onPressed: () => _handleShare(context),
+                        ),
+
+                        // Bookmark Button (duotone fill when saved for the gold pop)
+                        IconButton(
+                          icon: Icon(
+                            _isSaved
+                                ? PhosphorIconsFill.bookmarkSimple
+                                : PhosphorIconsDuotone.bookmarkSimple,
+                            size: 22,
+                            color: _isSaved ? const Color(0xFFFFD700) : Colors.black45,
+                          ),
+                          onPressed: currentUserId != null
+                              ? () => _toggleSave(currentUserId)
+                              : null,
                         ),
                       ],
                     ),
@@ -401,8 +479,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -432,8 +508,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFFFF6B35), Color(0xFFFF8C00)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -469,8 +543,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF7C4DFF), Color(0xFF448AFF)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -646,7 +718,6 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
     Navigator.push(
       context,
       PageRouteBuilder(
-        opaque: true,
         transitionDuration: const Duration(milliseconds: 220),
         pageBuilder: (_, animation, __) => FadeTransition(
           opacity: animation,
@@ -794,8 +865,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
       final dx = _tapPos.dx * (1 - scale);
       final dy = _tapPos.dy * (1 - scale);
       target = Matrix4.identity()
-        ..translate(dx, dy)
-        ..scale(scale);
+        ..translateByDouble(dx, dy, 0, 1)
+        ..scaleByDouble(scale, scale, 1, 0);
     }
     _animation = Matrix4Tween(begin: _ctrl.value, end: target).animate(
       CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
@@ -818,7 +889,6 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
               transformationController: _ctrl,
               minScale: 0.5,
               maxScale: 8.0,
-              boundaryMargin: EdgeInsets.zero,
               child: Image.network(
                 widget.imageUrl,
                 fit: BoxFit.contain,

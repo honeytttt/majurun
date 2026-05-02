@@ -58,15 +58,10 @@ class LeaderboardService {
         }
       }
 
-      // If not enough users, pad with sample data for demo
-      if (leaderboard.length < 8) {
-        leaderboard.addAll(_getSampleLeaderboard(leaderboard.length + 1));
-      }
-
       return leaderboard.take(limit).toList();
     } catch (e) {
       debugPrint('Error getting weekly leaderboard: $e');
-      return _getSampleLeaderboard(1);
+      return [];
     }
   }
 
@@ -74,7 +69,7 @@ class LeaderboardService {
   Future<List<Map<String, dynamic>>> getMonthlyLeaderboard({int limit = 20}) async {
     try {
       final now = DateTime.now();
-      final monthStart = DateTime(now.year, now.month, 1);
+      final monthStart = DateTime(now.year, now.month);
 
       final snapshot = await _firestore
           .collection('users')
@@ -104,15 +99,10 @@ class LeaderboardService {
         }
       }
 
-      // Pad with sample data if needed
-      if (leaderboard.length < 8) {
-        leaderboard.addAll(_getSampleLeaderboard(leaderboard.length + 1));
-      }
-
       return leaderboard.take(limit).toList();
     } catch (e) {
       debugPrint('Error getting monthly leaderboard: $e');
-      return _getSampleLeaderboard(1);
+      return [];
     }
   }
 
@@ -145,15 +135,10 @@ class LeaderboardService {
         }
       }
 
-      // Pad with sample data if needed
-      if (leaderboard.length < 8) {
-        leaderboard.addAll(_getSampleLeaderboard(leaderboard.length + 1));
-      }
-
       return leaderboard.take(limit).toList();
     } catch (e) {
       debugPrint('Error getting all-time leaderboard: $e');
-      return _getSampleLeaderboard(1);
+      return [];
     }
   }
 
@@ -262,46 +247,7 @@ class LeaderboardService {
     }
   }
 
-  /// Sample leaderboard data for demo/placeholder
-  List<Map<String, dynamic>> _getSampleLeaderboard(int startRank) {
-    final sampleUsers = [
-      {'name': 'Alex Rivera', 'distance': 245.5},
-      {'name': 'Sarah Chen', 'distance': 228.2},
-      {'name': 'Mike Ross', 'distance': 215.0},
-      {'name': 'Emma Wilson', 'distance': 198.7},
-      {'name': 'James Liu', 'distance': 175.4},
-      {'name': 'Lisa Park', 'distance': 168.9},
-      {'name': 'David Kim', 'distance': 155.2},
-      {'name': 'Anna Smith', 'distance': 142.8},
-    ];
-
-    return sampleUsers
-        .skip(startRank - 1)
-        .mapIndexed((index, user) => {
-          'rank': startRank + index,
-          'userId': 'sample_${startRank + index}',
-          'displayName': user['name'] as String,
-          'photoUrl': null,
-          'distance': user['distance'] as double,
-          'avatar': _getAvatarLetter(user['name'] as String),
-          'isCurrentUser': false,
-          'isSample': true,
-        })
-        .toList();
-  }
-
   String _getAvatarLetter(String name) {
     return name.isNotEmpty ? name[0].toUpperCase() : 'R';
-  }
-}
-
-/// Extension to add mapIndexed to Iterable
-extension IterableExtension<E> on Iterable<E> {
-  Iterable<T> mapIndexed<T>(T Function(int index, E element) f) sync* {
-    var index = 0;
-    for (final element in this) {
-      yield f(index, element);
-      index++;
-    }
   }
 }

@@ -20,7 +20,7 @@ class DailyContentService {
 
     final now = DateTime.now();
     final today = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
-    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+    final dayOfYear = now.difference(DateTime(now.year)).inDays;
 
     final docRef = _db.collection('dailyContent').doc(today);
 
@@ -61,23 +61,25 @@ class DailyContentService {
       } catch (_) {}
 
       if (wonMotivational) {
-        final imageUrl = PostController.motivationalImageForDay(dayOfYear);
+        final media = PostController.motivationalMediaForDay(dayOfYear);
         await _post.createMotivationalPost(
-          imageUrl: imageUrl,
+          mediaUrl: media[0],
+          mediaType: media[1],
           userId: user.uid,
           username: username,
         );
-        debugPrint('💪 Daily motivational post published for $today');
+        debugPrint('💪 Daily motivational post published for $today (${media[1]})');
       }
 
       if (wonEducation) {
-        final imageUrl = PostController.educationImageForDay(dayOfYear);
+        final media = PostController.educationMediaForDay(dayOfYear);
         await _post.createEducationPost(
-          imageUrl: imageUrl,
+          mediaUrl: media[0],
+          mediaType: media[1],
           userId: user.uid,
           username: username,
         );
-        debugPrint('📚 Daily education post published for $today');
+        debugPrint('📚 Daily education post published for $today (${media[1]})');
       }
     } catch (e) {
       debugPrint('⚠️ DailyContentService: $e');

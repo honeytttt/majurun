@@ -12,11 +12,11 @@ class StorageService {
 
       final contentType = isVideo ? 'video/mp4' : 'image/png';
 
-      debugPrint("StorageService: Uploading $uniqueFileName");
+      debugPrint('StorageService: Uploading $uniqueFileName');
 
       return await _s3Service.uploadFile(fileBytes, uniqueFileName, contentType);
     } catch (e) {
-      debugPrint("StorageService Upload Error: $e");
+      debugPrint('StorageService Upload Error: $e');
       return null;
     }
   }

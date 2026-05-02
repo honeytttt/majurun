@@ -13,13 +13,11 @@ class AppEffects {
         color: glowColor.withValues(alpha: opacity),
         blurRadius: 12,
         spreadRadius: 2,
-        offset: const Offset(0, 0),
       ),
       BoxShadow(
         color: glowColor.withValues(alpha: opacity * 0.5),
         blurRadius: 20,
         spreadRadius: 4,
-        offset: const Offset(0, 0),
       ),
     ];
   }
@@ -68,8 +66,6 @@ class AppEffects {
   /// Accent Gradient (Green to Teal)
   static LinearGradient accentGradient() {
     return const LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
       colors: [
         Color(0xFF00E676),
         Color(0xFF00C853),

@@ -53,17 +53,17 @@ class RunHistory {
     final secs = durationSeconds % 60;
 
     if (hours > 0) {
-      return "${hours}h ${mins}m ${secs}s";
+      return '${hours}h ${mins}m ${secs}s';
     } else if (mins > 0) {
-      return "${mins}m ${secs}s";
+      return '${mins}m ${secs}s';
     } else {
-      return "${secs}s";
+      return '${secs}s';
     }
   }
 
   /// Format distance with unit
   String get formattedDistance {
-    return "${distanceKm.toStringAsFixed(2)} km";
+    return '${distanceKm.toStringAsFixed(2)} km';
   }
 
   /// Copy with method for creating modified instances

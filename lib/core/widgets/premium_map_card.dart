@@ -111,7 +111,6 @@ class _PremiumMapCardState extends State<PremiumMapCard> {
             endCap: Cap.roundCap,
           ),
         },
-        myLocationEnabled: false,
         zoomControlsEnabled: false,
         mapToolbarEnabled: false,
         scrollGesturesEnabled: false,

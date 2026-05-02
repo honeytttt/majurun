@@ -62,6 +62,8 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
   bool _includeMap = false;
   bool _includeSelfie = false;
   bool _isPosting = false;
+  List<String> _typingSuggestions = []; // suggestions shown when typing #
+  String _currentTagQuery = '';
 
   @override
   void initState() {
@@ -71,12 +73,116 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
     // If no selfie → map ON (map is the fallback primary image)
     _includeSelfie = widget.selfieBytes != null;
     _includeMap = widget.selfieBytes == null && widget.mapImageBytes != null;
+    _textController.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    _textController.removeListener(_onTextChanged);
     _textController.dispose();
     super.dispose();
+  }
+
+  /// Smart tags based on run distance, time of day, and PBs.
+  List<String> _smartTags() {
+    final tags = <String>['running', 'majurun'];
+    final dist = widget.distanceKm;
+
+    if (dist >= 40 && dist <= 45) {
+      tags.addAll(['marathon', 'fullmarathon', '42k']);
+    } else if (dist >= 19 && dist < 23) {
+      tags.addAll(['halfmarathon', '21k', 'longrun']);
+    } else if (dist >= 9 && dist < 11.5) {
+      tags.addAll(['10k', 'tenk']);
+    } else if (dist >= 4.5 && dist < 5.5) {
+      tags.addAll(['5k', 'fivek']);
+    } else if (dist >= 2.5 && dist < 3.5) {
+      tags.add('3k');
+    } else if (dist >= 1.5 && dist < 2.5) {
+      tags.add('2k');
+    } else if (dist >= 1.0) {
+      tags.add('longrun');
+    }
+
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      tags.add('morningrun');
+    } else if (hour >= 17 && hour < 21) {
+      tags.add('eveningrun');
+    } else if (hour >= 21 || hour < 5) {
+      tags.add('nightrun');
+    }
+
+    if (widget.pbs.isNotEmpty) tags.addAll(['personalrecord', 'newpb', 'pb']);
+
+    tags.addAll(['fitness', 'runner', 'runnerscommunity']);
+    return tags.toSet().toList();
+  }
+
+  void _onTextChanged() {
+    setState(() {});
+    _updateTypingSuggestions();
+  }
+
+  void _updateTypingSuggestions() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) {
+      setState(() { _typingSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    final before = text.substring(0, cursor);
+    final hashIndex = before.lastIndexOf('#');
+    if (hashIndex == -1) {
+      setState(() { _typingSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    final partial = before.substring(hashIndex + 1);
+    if (partial.contains(' ') || partial.contains('\n')) {
+      setState(() { _typingSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    _currentTagQuery = partial.toLowerCase();
+    final pool = _smartTags();
+    if (_currentTagQuery.isEmpty) {
+      setState(() { _typingSuggestions = pool.take(8).toList(); });
+      return;
+    }
+    setState(() {
+      _typingSuggestions = pool.where((t) => t.startsWith(_currentTagQuery)).take(6).toList();
+    });
+  }
+
+  void _insertTag(String tag) {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0) {
+      // append to end
+      _textController.value = TextEditingValue(
+        text: '${text.trimRight()} #$tag ',
+        selection: TextSelection.collapsed(offset: text.trimRight().length + tag.length + 3),
+      );
+      setState(() { _typingSuggestions = []; _currentTagQuery = ''; });
+      return;
+    }
+    final before = text.substring(0, cursor);
+    final after = text.substring(cursor);
+    final hashIndex = before.lastIndexOf('#');
+    if (hashIndex == -1) {
+      // No # being typed — append at end
+      final newText = '${text.trimRight()} #$tag ';
+      _textController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newText.length),
+      );
+    } else {
+      final newText = '${text.substring(0, hashIndex)}#$tag $after';
+      _textController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: hashIndex + tag.length + 2),
+      );
+    }
+    setState(() { _typingSuggestions = []; _currentTagQuery = ''; });
   }
 
   Future<void> _publish() async {
@@ -103,6 +209,47 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
     }
     if (!mounted) return;
     _goToCongrats();
+  }
+
+  Widget _buildTagSuggestions() {
+    final suggestions = _typingSuggestions.isNotEmpty ? _typingSuggestions : _smartTags().take(8).toList();
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: suggestions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final tag = suggestions[i];
+          final alreadyUsed = _textController.text.toLowerCase().contains('#$tag');
+          return GestureDetector(
+            onTap: () => _insertTag(tag),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: alreadyUsed
+                    ? const Color(0xFF7ED957).withValues(alpha: 0.15)
+                    : const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: alreadyUsed
+                      ? const Color(0xFF7ED957)
+                      : Colors.white24,
+                ),
+              ),
+              child: Text(
+                '#$tag',
+                style: TextStyle(
+                  color: alreadyUsed ? const Color(0xFF7ED957) : Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _goToCongrats() {
@@ -176,6 +323,11 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
                             ),
                           ),
                         ),
+
+                        const SizedBox(height: 12),
+
+                        // ── Hashtag suggestions ──────────────────────────
+                        _buildTagSuggestions(),
 
                         const SizedBox(height: 20),
 

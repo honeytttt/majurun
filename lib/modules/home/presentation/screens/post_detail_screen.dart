@@ -10,6 +10,8 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:majurun/core/widgets/user_avatar.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
+import 'package:majurun/core/widgets/hashtag_text.dart';
+import 'package:majurun/modules/home/presentation/screens/hashtag_posts_screen.dart';
 
 /// Post Detail Screen - Full post view with all content
 class PostDetailScreen extends StatefulWidget {
@@ -186,13 +188,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             // Full Content
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(
-                widget.post.content,
-                style: const TextStyle(
-                  fontSize: 16,
-                  height: 1.5,
-                  color: Colors.black87,
-                ),
+              child: HashtagText(
+                text: widget.post.content,
+                style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87),
+                onHashtagTap: (tag) => Navigator.push(context, MaterialPageRoute(builder: (_) => HashtagPostsScreen(tag: tag))),
               ),
             ),
 

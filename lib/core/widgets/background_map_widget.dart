@@ -48,7 +48,6 @@ class BackgroundMapWidget extends StatelessWidget {
               scrollGesturesEnabled: false,
               tiltGesturesEnabled: false,
               zoomGesturesEnabled: false,
-              mapType: MapType.normal,
               liteModeEnabled: true, // Performance optimization
             ),
           ),

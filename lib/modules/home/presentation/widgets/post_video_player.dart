@@ -41,6 +41,10 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   }
 
   Future<void> _initializeVideo() async {
+    // Dispose previous controller so its listener doesn't accumulate on retry
+    final prev = _controller;
+    _controller = null;
+    await prev?.dispose();
     try {
       final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
       _controller = controller;
@@ -434,7 +438,6 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                                   fontWeight: FontWeight.w600,
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black,
                                       blurRadius: 4,
                                     ),
                                   ],
@@ -448,7 +451,6 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                                   fontWeight: FontWeight.w600,
                                   shadows: const [
                                     Shadow(
-                                      color: Colors.black,
                                       blurRadius: 4,
                                     ),
                                   ],

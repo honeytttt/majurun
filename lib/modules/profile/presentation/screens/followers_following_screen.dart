@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/follow_service.dart';
+import 'package:majurun/core/widgets/empty_state_widget.dart';
+import 'package:majurun/core/widgets/shimmer_loader.dart';
 
 class FollowersFollowingScreen extends StatefulWidget {
   final String userId;
@@ -89,35 +91,23 @@ class _FollowersFollowingScreenState extends State<FollowersFollowingScreen>
       stream: _followService.getFollowersStream(widget.userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF00E676)),
+          return ListView.builder(
+            itemCount: 6,
+            itemBuilder: (_, __) => ShimmerLoader.leaderboardRowSkeleton(),
           );
         }
 
         if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
+          return Center(child: Text('Error: ${snapshot.error}'));
         }
 
         final followers = snapshot.data ?? [];
 
         if (followers.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'No followers yet',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
+          return const EmptyStateWidget(
+            icon: Icons.people_outline_rounded,
+            title: 'No followers yet',
+            subtitle: 'Share your runs and challenge others to follow your journey.',
           );
         }
 
@@ -141,35 +131,23 @@ class _FollowersFollowingScreenState extends State<FollowersFollowingScreen>
       stream: _followService.getFollowingStream(widget.userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF00E676)),
+          return ListView.builder(
+            itemCount: 6,
+            itemBuilder: (_, __) => ShimmerLoader.leaderboardRowSkeleton(),
           );
         }
 
         if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
+          return Center(child: Text('Error: ${snapshot.error}'));
         }
 
         final following = snapshot.data ?? [];
 
         if (following.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'Not following anyone yet',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
+          return const EmptyStateWidget(
+            icon: Icons.person_add_alt_1_outlined,
+            title: 'Not following anyone yet',
+            subtitle: 'Find other runners to follow and get inspired.',
           );
         }
 

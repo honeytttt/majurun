@@ -33,6 +33,13 @@ import 'package:majurun/core/services/notification_service.dart';
 import 'package:majurun/core/services/storage_service.dart';
 import 'package:majurun/core/theme/app_theme.dart';
 import 'package:majurun/modules/admin/presentation/screens/admin_panel_screen.dart';
+import 'package:majurun/modules/challenges/presentation/screens/challenges_screen.dart';
+import 'package:majurun/core/services/daily_challenge_service.dart';
+import 'package:majurun/modules/home/presentation/screens/saved_posts_screen.dart';
+import 'package:majurun/modules/engagement/engagement_feed_card.dart';
+import 'package:majurun/modules/engagement/features/games/games_feed_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/streak_hype_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/weekly_recap_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,10 +58,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final StorageService _storageService = StorageService();
 
-  String _userName = "Loading...";
-  String _userBio = "Loading...";
-  String _profileImageUrl = "";
-  String _email = "";
+  String _userName = 'Loading...';
+  String _userBio = 'Loading...';
+  String _profileImageUrl = '';
+  String _email = '';
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
@@ -90,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _email = user.email ?? "";
+    _email = user.email ?? '';
 
     _userDataSubscription = FirebaseFirestore.instance
         .collection('users')
@@ -101,9 +108,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = doc.data();
         if (data == null) return;
         setState(() {
-          _userName = data['displayName'] ?? "No Name";
-          _userBio = data['bio'] ?? "No Bio";
-          _profileImageUrl = data['photoUrl'] ?? "";
+          _userName = data['displayName'] ?? 'No Name';
+          _userBio = data['bio'] ?? 'No Bio';
+          _profileImageUrl = data['photoUrl'] ?? '';
         });
       }
     }, onError: (_) {
@@ -126,9 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (imageOrUrl is String && imageOrUrl.startsWith('http')) {
       finalImageUrl = imageOrUrl;
     } else if (imageOrUrl != null) {
-      debugPrint("📤 Uploading raw data from HomeScreen...");
+      debugPrint('📤 Uploading raw data from HomeScreen...');
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = "profile_${user.uid}_$timestamp.png";
+      final String fileName = 'profile_${user.uid}_$timestamp.png';
       if (kIsWeb && imageOrUrl is Uint8List) {
         finalImageUrl = await _storageService.uploadMedia(imageOrUrl, fileName, false);
       }
@@ -140,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
         {
           'displayName': name,
           'bio': bio,
-          'photoUrl': finalImageUrl ?? "",
+          'photoUrl': finalImageUrl ?? '',
           'email': email,
         },
         SetOptions(merge: true),
@@ -153,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await _storageService.deleteOldImage(oldImageUrl);
       }
     } catch (e) {
-      debugPrint("❌ Firestore Update Failed: $e");
+      debugPrint('❌ Firestore Update Failed: $e');
     }
   }
 
@@ -270,7 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
           border: const Border(
             top: BorderSide(
               color: AppTheme.silverMedium,
-              width: 1,
             ),
           ),
           boxShadow: <BoxShadow>[
@@ -370,7 +376,6 @@ class _HomeScreenState extends State<HomeScreen> {
               BoxShadow(
                 color: brandGreen.withValues(alpha: 0.3),
                 blurRadius: 12,
-                spreadRadius: 0,
               ),
             ],
           ),
@@ -406,7 +411,12 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _sendingVerification = false;
   Set<String> _blockedUserIds = {};
   bool _showNewPostsBanner = false;
+  double _lastScrollPixels = 0;
   int _newPostCount = 0;
+
+  // Daily challenge summary for the feed banner
+  int _challengesDone = 0;
+  int _challengesTotal = 0;
 
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
@@ -441,6 +451,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     _feedScrollController.addListener(_onScroll);
     HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
     _loadBlockedUsers();
+    _loadChallengeSummary();
     
     // Load cached posts for instant startup
     final cached = CacheService().getCachedPosts();
@@ -457,8 +468,23 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           .collection('users')
           .doc(uid)
           .collection('blockedUsers')
+          .limit(500)
           .get();
       if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
+    } catch (_) {}
+  }
+
+  Future<void> _loadChallengeSummary() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final challenges = await DailyChallengeService().getDailyChallenges(uid);
+      if (mounted) {
+        setState(() {
+          _challengesTotal = challenges.length;
+          _challengesDone = challenges.where((c) => c['completed'] == true).length;
+        });
+      }
     } catch (_) {}
   }
 
@@ -482,6 +508,12 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   }
 
   void _onScroll() {
+    // Pause any playing videos when the user scrolls fast — prevents audio
+    // from multiple videos overlapping during quick flick gestures.
+    final pixels = _feedScrollController.position.pixels;
+    if ((pixels - _lastScrollPixels).abs() > 200) VideoSessionManager.pauseAll();
+    _lastScrollPixels = pixels;
+
     if (_feedScrollController.position.pixels >=
             _feedScrollController.position.maxScrollExtent - 200 &&
         !_isLoadingMore &&
@@ -534,7 +566,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                 Icon(Icons.error_outline, size: 48, color: brandGreen),
                 const SizedBox(height: 16),
                 Text(
-                  "Error: ${snapshot.error}",
+                  'Error: ${snapshot.error}',
                   style: const TextStyle(color: AppTheme.textSecondary),
                 ),
               ],
@@ -625,7 +657,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               SliverAppBar(
                 floating: true,
                 snap: true,
-                pinned: false,
                 elevation: 0,
                 toolbarHeight: 90,
                 backgroundColor: Colors.white,
@@ -651,7 +682,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                       decoration: BoxDecoration(
                         color: Colors.orange.shade50,
                         borderRadius: const BorderRadius.all(Radius.circular(14)),
-                        border: Border.all(color: Colors.orange.shade200, width: 1),
+                        border: Border.all(color: Colors.orange.shade200),
                       ),
                       child: IconButton(
                         padding: EdgeInsets.zero,
@@ -676,7 +707,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                       borderRadius: const BorderRadius.all(Radius.circular(14)),
                       border: Border.all(
                         color: silverMedium,
-                        width: 1,
                       ),
                     ),
                     child: IconButton(
@@ -686,6 +716,27 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const SearchScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: silverLight,
+                      borderRadius: const BorderRadius.all(Radius.circular(14)),
+                      border: Border.all(color: silverMedium),
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.bookmark_border_rounded, color: AppTheme.textSecondary, size: 24),
+                      tooltip: 'Saved Posts',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
                         );
                       },
                     ),
@@ -758,6 +809,23 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   ),
                 ),
 
+              // E1 — Streak hype panel (visible when currentStreak > 0)
+              const SliverToBoxAdapter(child: StreakHypeCard()),
+
+              // E2 — Weekly recap card (24 h window after Sunday 20:00)
+              const SliverToBoxAdapter(child: WeeklyRecapCard()),
+
+              // Daily Challenges banner
+              SliverToBoxAdapter(
+                child: _buildChallengesBanner(context),
+              ),
+
+              // Engagement addon cards (trivia, streak risk, etc.)
+              const SliverToBoxAdapter(child: EngagementFeedCard()),
+
+              // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
+              const SliverToBoxAdapter(child: GamesFeedCard()),
+
               displayPosts.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
@@ -771,13 +839,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                                 borderRadius: const BorderRadius.all(Radius.circular(24)),
                                 border: Border.all(
                                   color: silverMedium,
-                                  width: 1,
                                 ),
                                 boxShadow: <BoxShadow>[
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.03),
                                     blurRadius: 10,
-                                    spreadRadius: 0,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
@@ -848,8 +914,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                           );
                         },
                         childCount: displayPosts.length + (_postRepo.hasMorePosts ? 1 : 0),
-                        addAutomaticKeepAlives: true,
-                        addRepaintBoundaries: true,
                       ),
                     ),
               const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
@@ -948,7 +1012,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Text(
-                        "MAJU",
+                        'MAJU',
                         style: TextStyle(
                           color: brandGreen,
                           fontWeight: FontWeight.w900,
@@ -958,7 +1022,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         ),
                       ),
                       const Text(
-                        "RUN",
+                        'RUN',
                         style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w900,
@@ -999,7 +1063,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   borderRadius: const BorderRadius.all(Radius.circular(14)),
                   border: Border.all(
                     color: AppTheme.silverMedium,
-                    width: 1,
                   ),
                 ),
                 child: IconButton(
@@ -1044,6 +1107,103 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildChallengesBanner(BuildContext context) {
+    final allDone = _challengesTotal > 0 && _challengesDone == _challengesTotal;
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ChallengesScreen()),
+        );
+        // Refresh summary when returning
+        _loadChallengeSummary();
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: allDone
+                ? [const Color(0xFF1A2A1A), const Color(0xFF0D1A10)]
+                : [const Color(0xFF1A1A2E), const Color(0xFF0F0F1F)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: allDone
+                ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                : const Color(0xFF2D2D44),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: allDone
+                    ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                    : const Color(0xFF2D2D44),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                allDone ? Icons.emoji_events : Icons.flag_outlined,
+                color: allDone ? const Color(0xFF00E676) : Colors.white70,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    allDone ? 'All challenges done! 🎉' : 'Daily Challenges',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (_challengesTotal > 0)
+                    Text(
+                      '$_challengesDone / $_challengesTotal completed',
+                      style: TextStyle(
+                        color: allDone
+                            ? const Color(0xFF00E676)
+                            : Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (_challengesTotal > 0)
+              SizedBox(
+                width: 60,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _challengesTotal > 0
+                        ? _challengesDone / _challengesTotal
+                        : 0,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      allDone ? const Color(0xFF00E676) : const Color(0xFF4FC3F7),
+                    ),
+                    minHeight: 6,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }

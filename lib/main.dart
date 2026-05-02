@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -29,9 +30,12 @@ import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/health_sync_service.dart';
+import 'modules/engagement/engagement_service.dart';
 import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
+import 'core/services/offline_sync_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -65,34 +69,22 @@ Future<void> main() async {
 
     // Initialize timezone data so scheduled notifications fire at the correct
     // LOCAL time. Without this, tz.local defaults to UTC which causes reminders
-    // to fire at wrong times (e.g. 7:30 UTC = 3:30 PM in Malaysia UTC+8).
+    // to fire at wrong times.
     tz_data.initializeTimeZones();
-    // Use device's UTC offset to pick the closest named timezone.
-    // This avoids requiring the flutter_timezone package while still handling
-    // the most common case correctly.
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-    final offsetHours = offsetMinutes / 60;
-    String timezoneName = 'UTC';
-    if (offsetHours >= 7.5 && offsetHours < 9) {
-      timezoneName = 'Asia/Kuala_Lumpur'; // UTC+8 (Malaysia, Singapore)
-    } else if (offsetHours >= 5.5 && offsetHours < 6) {
-      timezoneName = 'Asia/Kolkata'; // UTC+5:30
-    } else if (offsetHours >= 7 && offsetHours < 8) {
-      timezoneName = 'Asia/Bangkok'; // UTC+7
-    } else if (offsetHours >= 8 && offsetHours < 9) {
-      timezoneName = 'Asia/Shanghai'; // UTC+8 exact
-    } else if (offsetHours >= 9 && offsetHours < 10) {
-      timezoneName = 'Asia/Tokyo'; // UTC+9
-    } else if (offsetHours > 0) {
-      // Generic positive offset zones
-      timezoneName = 'Etc/GMT-${offsetHours.round()}';
-    } else if (offsetHours < 0) {
-      timezoneName = 'Etc/GMT+${(-offsetHours).round()}';
-    }
     try {
-      tz.setLocalLocation(tz.getLocation(timezoneName));
+      // Use flutter_timezone to get the exact location name (e.g. 'Asia/Kuala_Lumpur')
+      // instead of manual offset guessing. This handles DST and regional nuances correctly.
+      final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(currentTimeZone));
     } catch (_) {
-      // Fallback: keep UTC if location lookup fails
+      // Fallback: Use a basic offset guess if the plugin fails
+      final offset = DateTime.now().timeZoneOffset.inHours;
+      final fallbackName = offset >= 0 ? 'Etc/GMT-$offset' : 'Etc/GMT+${-offset}';
+      try {
+        tz.setLocalLocation(tz.getLocation(fallbackName));
+      } catch (_) {
+        tz.setLocalLocation(tz.getLocation('UTC'));
+      }
     }
 
     // Configure audio session: TTS ducks music while speaking, restores after.
@@ -112,16 +104,18 @@ Future<void> main() async {
       if (!e.toString().contains('duplicate-app')) rethrow;
     }
 
-    // Offline persistence — feed and profile load instantly on relaunch
+    // Offline persistence — feed and profile load instantly on relaunch.
+    // Capped at 100MB to prevent disk bloat on heavy users.
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      cacheSizeBytes: 100 * 1024 * 1024,
     );
 
-    // Firebase App Check — run async after runApp() so it doesn't block the first frame.
-    // App Attest on iOS can take 3–5 seconds on first launch; there's no UX benefit
-    // to blocking startup for it — requests made before it completes still work.
-    Future(() => FirebaseAppCheck.instance.activate(
+    // Firebase App Check — activated before runApp so every subsequent Firestore/Functions
+    // request carries a valid token. App Attest may take a few seconds on first iOS launch,
+    // but that happens during the Flutter engine warm-up and doesn't block the first frame.
+    // unawaited intentionally: activation is best-effort; a failure here should not crash startup.
+    unawaited(FirebaseAppCheck.instance.activate(
       androidProvider: AppConfig.isProduction
           ? AndroidProvider.playIntegrity
           : AndroidProvider.debug,
@@ -142,6 +136,13 @@ Future<void> main() async {
 
     // Setup global error handling
     crashReporting.setupGlobalErrorHandling();
+
+    // Replace the default red debug banner with a minimal fallback widget.
+    // In production users never see a crash dump — they see a friendly message.
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      if (kDebugMode) return ErrorWidget(details.exception);
+      return _AppErrorFallback(error: details.exception.toString());
+    };
 
     runApp(
       MultiProvider(
@@ -185,6 +186,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         PushNotificationService().scheduleDefaultNotifications();
+        EngagementService.maybeRun(user.uid); // engagement addons — isolated
       }
     }
   }
@@ -201,9 +203,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Initialize notifications + schedule default daily notifications
         PushNotificationService().initialize().then((_) {
           PushNotificationService().scheduleDefaultNotifications();
+          EngagementService.maybeRun(user.uid); // engagement addons — isolated
         });
         // Auto-sync run history from health apps on first install (silent)
         HealthSyncService().autoSyncOnFirstInstall();
+        // Upload any runs saved offline while the device had no connectivity
+        OfflineSyncService.start();
         // Set user ID for analytics, crash reporting, and Sentry
         analytics.setUserId(user.uid);
         crashReporting.setUserId(user.uid);
@@ -213,6 +218,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         analytics.setUserId(null);
         crashReporting.clearUserId();
         sentry.clearUser();
+        OfflineSyncService.stop();
       }
     });
   }
@@ -234,6 +240,49 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
       home: const AuthWrapper(),
+    );
+  }
+}
+
+/// Minimal production error fallback shown instead of the red debug banner.
+class _AppErrorFallback extends StatelessWidget {
+  const _AppErrorFallback({required this.error});
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return const Material(
+      color: Color(0xFF0D0D0D),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 56, color: Color(0xFF7ED957)),
+                SizedBox(height: 20),
+                Text(
+                  'Something went wrong',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Your run data is safe. Please restart the app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.0+121
+version: 1.0.1+168
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -48,7 +48,7 @@ dependencies:
   table_calendar: ^3.1.2
 
   # Maps & Location ─────────────────────────────────────────
-  geolocator: ^13.0.1
+  geolocator: ^14.0.0
   google_maps_flutter: ^2.9.0
   latlong2: ^0.9.1
 
@@ -106,6 +106,10 @@ dependencies:
   firebase_app_check: ^0.3.2+10
   audio_session: ^0.1.21          # manages AVAudioSession lifecycle (duck + restore)
   wakelock_plus: ^1.2.10          # keeps screen on during warmup + active run
+
+  # Premium icons (duotone style for badges, finish card, feed action bars).
+  # Used incrementally — Material icons remain elsewhere until full sweep.
+  phosphor_flutter: ^2.1.0
 
   # Remove or conditionalize ────────────────────────────────
   # js: ^0.6.7                  # ← REMOVE (only for web)

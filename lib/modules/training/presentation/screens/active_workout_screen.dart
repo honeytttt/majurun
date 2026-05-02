@@ -452,7 +452,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
 
       // Sample route points to limit document size (max 200 points)
       final finalRoutePoints = RouteUtils.sampleRoutePoints(_gpsRoutePoints);
-      debugPrint("📍 Training route points: ${_gpsRoutePoints.length} -> ${finalRoutePoints.length} (sampled)");
+      debugPrint('📍 Training route points: ${_gpsRoutePoints.length} -> ${finalRoutePoints.length} (sampled)');
 
       // Save to stats/repository history (ONE TIME)
       if (!_historySaved) {
@@ -516,8 +516,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
         );
 
         final trainingContent = completed
-            ? "$aiContent\nCompleted Week $_activeWeek Day $_activeDay of ${widget.planTitle}! 🎉"
-            : "$aiContent\nTraining session: Week $_activeWeek Day $_activeDay of ${widget.planTitle}.";
+            ? '$aiContent\nCompleted Week $_activeWeek Day $_activeDay of ${widget.planTitle}! 🎉'
+            : '$aiContent\nTraining session: Week $_activeWeek Day $_activeDay of ${widget.planTitle}.';
 
         // ✅ IMPORTANT:
         // - pass routePoints so feed can render map (like main runs)
@@ -529,7 +529,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
           pace: paceStr,
           bpm: 0,
           planTitle: widget.planTitle,
-          mapImageUrlOverride: null,
         );
       }
 
@@ -687,11 +686,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
         ),
         child: Row(
           children: [
-            Expanded(child: _timeMiniCard("FULL SESSION DURATION", total, Colors.blueAccent)),
+            Expanded(child: _timeMiniCard('FULL SESSION DURATION', total, Colors.blueAccent)),
             const SizedBox(width: 10),
-            Expanded(child: _timeMiniCard("TIME COMPLETED", done, const Color(0xFF7ED957))),
+            Expanded(child: _timeMiniCard('TIME COMPLETED', done, const Color(0xFF7ED957))),
             const SizedBox(width: 10),
-            Expanded(child: _timeMiniCard("TIME REMAINING", remaining, Colors.orangeAccent)),
+            Expanded(child: _timeMiniCard('TIME REMAINING', remaining, Colors.orangeAccent)),
           ],
         ),
       ),

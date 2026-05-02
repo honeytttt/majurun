@@ -60,7 +60,7 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
               border: Border.all(color: const Color(0xFF2A2A3E)),
             ),
             child: const Text(
-              "This post is no longer available.",
+              'This post is no longer available.',
               style: TextStyle(fontSize: 13, color: Colors.white54, fontStyle: FontStyle.italic),
             ),
           );

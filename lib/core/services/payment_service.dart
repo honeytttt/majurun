@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 /// Payment service for handling in-app purchases and subscriptions
 class PaymentService extends ChangeNotifier {
@@ -133,11 +135,8 @@ class PaymentService extends ChangeNotifier {
 
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
-          // Verify purchase and grant entitlement
-          final valid = await _verifyPurchase(purchase);
-          if (valid) {
-            await _deliverProduct(purchase);
-          }
+          // Verify receipt server-side and grant entitlement via Cloud Function.
+          await _verifyAndDeliver(purchase);
 
           // Complete the purchase
           if (purchase.pendingCompletePurchase) {
@@ -170,34 +169,43 @@ class PaymentService extends ChangeNotifier {
     }
   }
 
-  /// Verify purchase with backend (simplified - in production, verify server-side)
-  Future<bool> _verifyPurchase(PurchaseDetails purchase) async {
-    // In production, send the receipt to your server for validation
-    // For now, we trust the local verification
-    return purchase.verificationData.localVerificationData.isNotEmpty;
-  }
+  /// Verify receipt server-side via Cloud Function and grant entitlement.
+  /// The Cloud Function is the ONLY trusted writer of isPro=true in Firestore.
+  /// Returns true if the server confirmed and granted the entitlement.
+  Future<bool> _verifyAndDeliver(PurchaseDetails purchase) async {
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'asia-southeast1')
+          .httpsCallable('verifySubscription');
 
-  /// Deliver the product (grant Pro access)
-  Future<void> _deliverProduct(PurchaseDetails purchase) async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return;
+      final result = await callable.call(<String, dynamic>{
+        'productId': purchase.productID,
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        // iOS uses the base64 receipt; Android uses the purchase token.
+        'receiptData': Platform.isIOS
+            ? purchase.verificationData.serverVerificationData
+            : null,
+        'purchaseToken': Platform.isAndroid
+            ? purchase.verificationData.serverVerificationData
+            : null,
+      });
 
-    // Determine subscription duration based on product
-    final isYearly = purchase.productID == _yearlyProductId;
-    final duration = isYearly ? const Duration(days: 365) : const Duration(days: 30);
-    final expiryDate = DateTime.now().add(duration);
-
-    // Update Firestore
-    await _firestore.collection('users').doc(userId).update({
-      'isPro': true,
-      'subscriptionType': isYearly ? 'yearly' : 'monthly',
-      'subscriptionExpiry': Timestamp.fromDate(expiryDate),
-      'lastPurchaseId': purchase.purchaseID,
-      'lastPurchaseDate': FieldValue.serverTimestamp(),
-    });
-
-    _isPro = true;
-    notifyListeners();
+      final success = result.data['success'] == true;
+      if (success) {
+        _isPro = true;
+        notifyListeners();
+      }
+      return success;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('verifySubscription function error: ${e.code} — ${e.message}');
+      _error = e.message ?? 'Verification failed';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      debugPrint('verifySubscription error: $e');
+      _error = 'Verification failed';
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Restore previous purchases

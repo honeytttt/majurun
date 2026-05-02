@@ -94,7 +94,6 @@ class RunMapPreview extends StatelessWidget {
               rotateGesturesEnabled: false,
               tiltGesturesEnabled: false,
               mapToolbarEnabled: false,
-              myLocationEnabled: false,
               myLocationButtonEnabled: false,
             ),
           ),
@@ -164,20 +163,7 @@ class RunMapPreview extends StatelessWidget {
     return null;
   }
 
-  Widget _placeholder(String msg) => Container(
-    height: 200,
-    decoration: BoxDecoration(
-      color: Colors.grey[200],
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
-        const SizedBox(height: 8),
-        Text(msg, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-      ]),
-    ),
-  );
+  Widget _placeholder(String msg) => const SizedBox.shrink();
 }
 
 /// Full-screen interactive map opened when user taps a feed map preview.
@@ -218,7 +204,6 @@ class _FullScreenMapScreenState extends State<_FullScreenMapScreen> {
           ),
           zoom: 13,
         ),
-        mapType: MapType.normal,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
@@ -244,13 +229,7 @@ class _FullScreenMapScreenState extends State<_FullScreenMapScreen> {
             anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
-        scrollGesturesEnabled: true,
-        rotateGesturesEnabled: true,
-        tiltGesturesEnabled: true,
         mapToolbarEnabled: false,
-        myLocationEnabled: false,
         myLocationButtonEnabled: false,
         onMapCreated: (controller) {
           _controller = controller;

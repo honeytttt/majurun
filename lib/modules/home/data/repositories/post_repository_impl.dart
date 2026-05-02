@@ -101,7 +101,6 @@ class PostRepositoryImpl {
       media: mediaList,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likes: List<String>.from(data['likes'] ?? []),
-      comments: const [],
       quotedPostId: data['quotedPostId'],
       routePoints: routePoints,
       runPlanTitle: data['planTitle'] as String?,
@@ -110,6 +109,7 @@ class PostRepositoryImpl {
       runBpm: (data['bpm'] as num?)?.toInt(),
       runDurationSeconds: (data['durationSeconds'] as num?)?.toInt(),
       runCalories: (data['calories'] as num?)?.toInt(),
+      tags: (data['tags'] as List?)?.whereType<String>().toList() ?? const [],
     );
   }
 
@@ -194,6 +194,19 @@ class PostRepositoryImpl {
   /// Get all currently cached posts
   List<AppPost> getCachedPosts() => List.unmodifiable(_cachedPosts);
 
+  /// Stream of posts tagged with [tag] (without '#' prefix).
+  Stream<List<AppPost>> getPostsByTag(String tag) {
+    return _db
+        .collection(FirestoreCollections.posts)
+        .where(PostFields.tags, arrayContains: tag)
+        .orderBy(PostFields.createdAt, descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              try { return _mapDocToAppPost(doc); } catch (_) { return null; }
+            }).whereType<AppPost>().toList());
+  }
+
   Future<void> createPost(
     AppPost post, {
     double? numericDistance,
@@ -219,6 +232,7 @@ class PostRepositoryImpl {
             .toList(),
         PostFields.createdAt: FieldValue.serverTimestamp(),
         PostFields.likes: [],
+        if (post.tags.isNotEmpty) PostFields.tags: post.tags,
         if (post.quotedPostId != null) PostFields.quotedPostId: post.quotedPostId,
         if (post.routePoints != null)
           PostFields.routePoints: post.routePoints!

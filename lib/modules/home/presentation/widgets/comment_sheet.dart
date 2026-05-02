@@ -8,7 +8,9 @@ import 'package:video_player/video_player.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/services/cloudinary_service.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 import '../../data/repositories/post_repository_impl.dart';
+import '../screens/hashtag_posts_screen.dart';
 
 class CommentSheet extends StatefulWidget {
   final String postId;
@@ -30,6 +32,51 @@ class _CommentSheetState extends State<CommentSheet> {
   String? selectedMediaName;
   bool isVideo = false;
   bool isUploading = false;
+  List<String> _tagSuggestions = [];
+
+  static const _runningTags = [
+    'running', 'majurun', 'runner', 'fitness', 'motivation',
+    'morningrun', 'eveningrun', '5k', '10k', 'halfmarathon',
+    'marathon', 'pb', 'runnerscommunity', 'runninglife',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    if (cursor <= 0) { if (_tagSuggestions.isNotEmpty) setState(() => _tagSuggestions = []); return; }
+    final before = text.substring(0, cursor);
+    final match = RegExp(r'#(\w*)$').firstMatch(before);
+    if (match == null) {
+      if (_tagSuggestions.isNotEmpty) setState(() => _tagSuggestions = []);
+      return;
+    }
+    final query = match.group(1)!.toLowerCase();
+    final already = RegExp(r'#(\w+)').allMatches(text).map((m) => m.group(1)!.toLowerCase()).toSet();
+    final filtered = _runningTags.where((t) => t.startsWith(query) && !already.contains(t)).take(6).toList();
+    setState(() => _tagSuggestions = filtered);
+  }
+
+  void _insertTag(String tag) {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    if (cursor <= 0) return;
+    final before = text.substring(0, cursor);
+    final match = RegExp(r'#\w*$').firstMatch(before);
+    final start = match?.start ?? cursor;
+    final newText = text.replaceRange(start, cursor, '#$tag ');
+    final newCursor = start + tag.length + 2;
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
+    setState(() => _tagSuggestions = []);
+  }
 
   @override
   void dispose() {
@@ -71,7 +118,7 @@ class _CommentSheetState extends State<CommentSheet> {
     await _postRepo.addComment(
       postId: widget.postId,
       userId: user.uid,
-      username: user.displayName ?? "Runner",
+      username: user.displayName ?? 'Runner',
       content: _controller.text.trim(),
       parentId: replyingToId,
       media: mediaList,
@@ -98,7 +145,7 @@ class _CommentSheetState extends State<CommentSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
-        color: Colors.orange,
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -108,18 +155,18 @@ class _CommentSheetState extends State<CommentSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white54,
+              color: Colors.grey.shade300,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
-              "Comments",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+              'Comments',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
             ),
           ),
-          const Divider(height: 1, color: Colors.white24),
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _postRepo.getCommentsStream(widget.postId),
@@ -128,7 +175,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No comments yet.", style: TextStyle(color: Colors.white)));
+                  return const Center(child: Text('No comments yet.', style: TextStyle(color: Colors.black45)));
                 }
 
                 final all = snapshot.data!;
@@ -148,6 +195,7 @@ class _CommentSheetState extends State<CommentSheet> {
           ),
           if (isUploading) const LinearProgressIndicator(),
           if (selectedMediaBytes != null) _buildMediaPreview(),
+          if (_tagSuggestions.isNotEmpty) _buildTagSuggestions(),
           _buildInputArea(),
         ],
       ),
@@ -171,7 +219,7 @@ class _CommentSheetState extends State<CommentSheet> {
   }
 
   Widget _buildCommentItem(Map<String, dynamic> comment) {
-    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final List likes = comment['likes'] as List? ?? [];
     final bool isLiked = likes.contains(currentUserId);
     final List mediaList = comment['media'] as List? ?? [];
@@ -197,11 +245,18 @@ class _CommentSheetState extends State<CommentSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        comment['username'] ?? "Runner",
+                        comment['username'] ?? 'Runner',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       if (comment['content'] != null && comment['content'].toString().isNotEmpty)
-                        Text(comment['content']),
+                        HashtagText(
+                          text: comment['content'].toString(),
+                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          onHashtagTap: (tag) => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => HashtagPostsScreen(tag: tag)),
+                          ),
+                        ),
                       if (mediaList.isNotEmpty) _buildCommentMedia(mediaList.first),
                     ],
                   ),
@@ -210,7 +265,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   children: [
                     Text(
                       timeago.format((comment['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now()),
-                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                      style: const TextStyle(fontSize: 11, color: Colors.black45),
                     ),
                     const SizedBox(width: 12),
                     GestureDetector(
@@ -219,15 +274,15 @@ class _CommentSheetState extends State<CommentSheet> {
                         replyingToUsername = comment['username'];
                       }),
                       child: const Text(
-                        "Reply",
+                        'Reply',
                         style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.share, size: 14, color: Colors.grey),
                       onPressed: () => _shareCommentExternally(
-                        comment['content'] ?? "",
-                        comment['username'] ?? "Runner",
+                        comment['content'] ?? '',
+                        comment['username'] ?? 'Runner',
                       ),
                     ),
                     const Spacer(),
@@ -246,7 +301,7 @@ class _CommentSheetState extends State<CommentSheet> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text("${likes.length}", style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                    Text('${likes.length}', style: const TextStyle(fontSize: 12, color: Colors.black45)),
                   ],
                 )
               ],
@@ -310,12 +365,47 @@ class _CommentSheetState extends State<CommentSheet> {
     );
   }
 
+  Widget _buildTagSuggestions() {
+    return Container(
+      height: 38,
+      color: const Color(0xFFF8F8F8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        itemCount: _tagSuggestions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final tag = _tagSuggestions[i];
+          return GestureDetector(
+            onTap: () => _insertTag(tag),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                '#$tag',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF00B96B),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.orange)),
+        border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -328,7 +418,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   const Icon(Icons.reply, size: 16, color: Colors.blue),
                   const SizedBox(width: 8),
                   Text(
-                    "Replying to @$replyingToUsername",
+                    'Replying to @$replyingToUsername',
                     style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
@@ -351,7 +441,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   controller: _controller,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
-                    hintText: "Write a comment...",
+                    hintText: 'Write a comment...',
                     border: InputBorder.none,
                   ),
                 ),
