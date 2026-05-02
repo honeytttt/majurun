@@ -958,37 +958,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   }
 
   Future<void> _handleStopRun(RunController runController) async {
-    Uint8List? mapImageBytes;
-
-    // Capture map image using Static Maps API.
-    // Flutter's RepaintBoundary.toImage() cannot capture Google Maps on Android
-    // (platform view renders natively, outside Flutter's render tree — always gray).
-    // Instead, build a Static Maps URL from the route points and download the image.
-    if (runController.routePoints.length >= 2) {
-      try {
-        const apiKey = AppConfig.googleMapsApiKey;
-        final staticUrl = StaticMapUrl.build(
-          points: runController.routePoints,
-          apiKey: apiKey,
-        );
-        if (staticUrl.isNotEmpty) {
-          final response = await http.get(Uri.parse(staticUrl))
-              .timeout(const Duration(seconds: 10));
-          if (response.statusCode == 200) {
-            mapImageBytes = response.bodyBytes;
-            debugPrint('✅ Static map fetched: ${mapImageBytes.length} bytes');
-          } else {
-            debugPrint('⚠️ Static map HTTP ${response.statusCode}');
-          }
-        }
-      } catch (e) {
-        debugPrint('❌ Error fetching static map: $e');
-      }
-    }
-
-    if (!mounted) return;
-
-    // Capture final stats BEFORE stop clears them
+    // ── Step 1: Capture all in-memory stats IMMEDIATELY ──────────────────────
+    // Do this before any async work so nothing is lost if state resets.
     final distanceKm      = runController.stateController.totalDistance / 1000;
     final duration        = runController.stateController.durationString;
     final pace            = runController.stateController.paceString;
@@ -998,75 +969,31 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final routePoints     = List.of(runController.stateController.routePoints);
     const planTitle       = 'Free Run';
 
-    // ── Ask for selfie (all runs, no distance gate) ──────────────────────────
-    // Share text built ahead of time so the Share button on the prompt sheet
-    // can fire SharePlus without touching controller state mid-stop.
+    // ── Step 2: Ask for selfie (user-driven, unavoidable wait) ───────────────
     final shareText = '🏃 Just finished a ${distanceKm.toStringAsFixed(2)}km '
         'run in $duration!\nAvg pace: $pace/km • $calories kcal burned 🔥\n\n'
         'Tracked with MajuRun 🚀 #MajuRun #Running';
     final selfieBytes = await _showSelfiePrompt(shareText: shareText);
 
     if (!mounted) return;
-
     final nav = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
 
-    // Show saving overlay while history is written (Cloudinary upload happens
-    // later, after the user reviews the post in the editor).
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black54,
-      builder: (_) => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Color(0xFF7ED957), strokeWidth: 3),
-            SizedBox(height: 16),
-            Text('Saving your run…',
-                style: TextStyle(color: Colors.white70, fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      await runController.stopRun(
-        context,
-        mapImageBytes: mapImageBytes,
-      );
-    } catch (e) {
-      debugPrint('❌ Error saving run: $e');
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Run saved locally — will sync when back online'),
-          backgroundColor: Colors.orange.shade700,
-        ),
-      );
-    }
-
-    if (!mounted) return;
-    Navigator.of(context).pop(); // close saving overlay
-
-    if (!mounted) return;
-
-    // Generate suggested caption for the editor
-    final suggestedText = runController.generatePostText(
-      planTitle: planTitle,
-      distance: '${distanceKm.toStringAsFixed(2)} km',
-      duration: duration,
+    // ── Step 3: Background save — static map + Firestore, no dialog ──────────
+    // Fire both in background. The save future resolves to ({pbs, badges})
+    // and is passed to CongratulationsScreen which shows a pill until done.
+    final saveFuture = _runBackgroundSave(
+      runController: runController,
+      distanceKm: distanceKm,
+      durationSeconds: durationSeconds,
       pace: pace,
       calories: calories,
+      avgBpm: avgBpm,
+      routePoints: routePoints,
+      planTitle: planTitle,
+      selfieBytes: selfieBytes,
     );
 
-    final pbs = runController.lastRunPbs;
-    final badges = runController.lastRunBadges;
-
-    // ── Milestone celebration sheet (5K / 10K / Half / Full) ─────────────────
-    // Fires AFTER selfie resolve so the selfie (if picked) can still ride along
-    // on the auto-post. 15 s auto-confirm: if the user doesn't react, we
-    // auto-post the combined run-+-badge celebration. CLAUDE.md voice/audio
-    // path is untouched — this is purely a post-finish UI sheet.
+    // ── Step 4: Milestone sheet (runs while save is happening in background) ──
     final milestone = milestoneFor(distanceKm);
     MilestoneBadgeResult? milestoneResult;
     if (milestone != null && mounted) {
@@ -1081,95 +1008,42 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     }
     if (!mounted) return;
 
-    final milestoneAutoPost = milestoneResult?.action == MilestoneBadgeAction.postNow ||
-        milestoneResult?.action == MilestoneBadgeAction.autoPosted;
-    final milestoneEdit = milestoneResult?.action == MilestoneBadgeAction.edit;
-    // Caption override: if a milestone sheet resolved with a non-skip action,
-    // use the milestone-specific celebration caption instead of the AI text.
-    final effectiveCaption = (milestoneAutoPost || milestoneEdit)
+    // ── Step 5: Navigate to results IMMEDIATELY ───────────────────────────────
+    // User sees their stats right away. The sync pill on CongratulationsScreen
+    // shows "Saving…" → "Run saved" as saveFuture resolves.
+    if (selfieBytes == null ||
+        milestoneResult?.action == MilestoneBadgeAction.postNow ||
+        milestoneResult?.action == MilestoneBadgeAction.autoPosted) {
+      nav.pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => CongratulationsScreen(
+            distanceKm: distanceKm,
+            duration: duration,
+            pace: pace,
+            calories: calories,
+            planTitle: planTitle,
+            saveFuture: saveFuture,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Selfie + Edit path — open post editor
+    final suggestedText = runController.generatePostText(
+      planTitle: planTitle,
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: duration,
+      pace: pace,
+      calories: calories,
+    );
+    final effectiveCaption = milestoneResult?.action == MilestoneBadgeAction.edit
         ? milestoneResult!.suggestedCaption
         : suggestedText;
 
-    if (selfieBytes == null) {
-      // User didn't pick a selfie — auto-post in background with map (if available)
-      // then go straight to congratulations. No need to show the editor.
-      // If a milestone sheet auto-posted, the celebration caption replaces the
-      // AI text so the post reads as a badge-unlocked celebration.
-      runController.postController.createAutoPost(
-        aiContent: effectiveCaption,
-        routePoints: routePoints,
-        distance: distanceKm,
-        pace: pace,
-        bpm: avgBpm,
-        durationSeconds: durationSeconds,
-        calories: calories,
-        planTitle: planTitle,
-        mapImageBytes: mapImageBytes,
-        kmSplits: runController.lastRunKmSplits,
-      ).catchError((e) {
-        debugPrint('❌ Auto-post failed: $e');
-      });
-
-      nav.pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => CongratulationsScreen(
-            distanceKm: distanceKm,
-            duration: duration,
-            pace: pace,
-            calories: calories,
-            planTitle: planTitle,
-            pbs: pbs,
-            badges: badges,
-          ),
-        ),
-      );
-      return;
-    }
-
-    // ── Selfie path branches ────────────────────────────────────────────────
-    // If a milestone sheet auto-posted (or the user tapped Post now), we honor
-    // that intent: auto-post the combined run + badge + selfie post and go to
-    // the congratulations screen, skipping the editor entirely.
-    if (milestoneAutoPost) {
-      runController.postController.createAutoPost(
-        aiContent: effectiveCaption,
-        routePoints: routePoints,
-        distance: distanceKm,
-        pace: pace,
-        bpm: avgBpm,
-        durationSeconds: durationSeconds,
-        calories: calories,
-        planTitle: planTitle,
-        mapImageBytes: mapImageBytes,
-        selfieBytes: selfieBytes,
-        kmSplits: runController.lastRunKmSplits,
-      ).catchError((e) {
-        debugPrint('❌ Milestone auto-post failed: $e');
-      });
-
-      nav.pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => CongratulationsScreen(
-            distanceKm: distanceKm,
-            duration: duration,
-            pace: pace,
-            calories: calories,
-            planTitle: planTitle,
-            pbs: pbs,
-            badges: badges,
-          ),
-        ),
-      );
-      return;
-    }
-
-    // Selfie selected — show editor so user can choose between selfie and map.
-    // If milestone resolved with Edit, the editor opens with the badge
-    // celebration caption pre-filled instead of the AI-generated one.
     nav.pushReplacement(
       MaterialPageRoute(
         builder: (_) => RunPostEditorScreen(
-          mapImageBytes: mapImageBytes,
           selfieBytes: selfieBytes,
           initialText: effectiveCaption,
           routePoints: routePoints,
@@ -1180,12 +1054,84 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           planTitle: planTitle,
           durationSeconds: durationSeconds,
           avgBpm: avgBpm,
-          pbs: pbs,
-          badges: badges,
           kmSplits: runController.lastRunKmSplits,
         ),
       ),
     );
+  }
+
+  /// Fires all slow work (static map HTTP + Firestore save + auto-post) in the
+  /// background and returns a Future that resolves once the save completes.
+  Future<({List<String> pbs, List<String> badges})> _runBackgroundSave({
+    required RunController runController,
+    required double distanceKm,
+    required int durationSeconds,
+    required String pace,
+    required int calories,
+    required int avgBpm,
+    required List routePoints,
+    required String planTitle,
+    required Uint8List? selfieBytes,
+  }) async {
+    // Fetch static map concurrently with the Firestore save.
+    Uint8List? mapImageBytes;
+    final mapFuture = _fetchStaticMap(routePoints.cast());
+
+    // stopRun writes Firestore history, computes PBs/badges.
+    await runController.stopRun(
+      // ignore: use_build_context_synchronously
+      context,
+    );
+
+    final pbs    = List<String>.from(runController.lastRunPbs);
+    final badges = List<String>.from(runController.lastRunBadges);
+
+    // Wait for map (with cap — already running in background since above)
+    mapImageBytes = await mapFuture;
+
+    // Fire auto-post with the now-available map image
+    final suggestedText = runController.generatePostText(
+      planTitle: planTitle,
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: runController.stateController.durationString,
+      pace: pace,
+      calories: calories,
+    );
+    runController.postController.createAutoPost(
+      aiContent: suggestedText,
+      routePoints: routePoints.cast(),
+      distance: distanceKm,
+      pace: pace,
+      bpm: avgBpm,
+      durationSeconds: durationSeconds,
+      calories: calories,
+      planTitle: planTitle,
+      mapImageBytes: mapImageBytes,
+      selfieBytes: selfieBytes,
+      kmSplits: runController.lastRunKmSplits,
+    ).catchError((e) => debugPrint('❌ Auto-post failed: $e'));
+
+    return (pbs: pbs, badges: badges);
+  }
+
+  /// Downloads the static map image. Returns null on any error.
+  /// Capped at 8 s — we don't want to block the save for a map thumbnail.
+  Future<Uint8List?> _fetchStaticMap(List<dynamic> routePoints) async {
+    if (routePoints.length < 2) return null;
+    try {
+      const apiKey = AppConfig.googleMapsApiKey;
+      final staticUrl = StaticMapUrl.build(
+        points: routePoints.cast(),
+        apiKey: apiKey,
+      );
+      if (staticUrl.isEmpty) return null;
+      final response =
+          await http.get(Uri.parse(staticUrl)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) return response.bodyBytes;
+    } catch (e) {
+      debugPrint('❌ Static map fetch: $e');
+    }
+    return null;
   }
 
   /// Shows a bottom sheet giving the user 20 seconds to pick a selfie/video.

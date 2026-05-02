@@ -11,6 +11,8 @@ import 'package:majurun/modules/engagement/features/milestone/milestone_service.
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
 
+enum _SyncState { idle, syncing, saved, error }
+
 class CongratulationsScreen extends StatefulWidget {
   final double distanceKm;
   final String duration;
@@ -19,6 +21,11 @@ class CongratulationsScreen extends StatefulWidget {
   final String planTitle;
   final List<String> pbs;
   final List<String> badges;
+
+  /// Optional future that resolves once the background save completes.
+  /// When provided, a subtle sync-status pill is shown at the bottom.
+  /// Resolves to ({pbs, badges}) — used to update the screen without a rebuild.
+  final Future<({List<String> pbs, List<String> badges})>? saveFuture;
 
   const CongratulationsScreen({
     super.key,
@@ -29,6 +36,7 @@ class CongratulationsScreen extends StatefulWidget {
     required this.planTitle,
     this.pbs = const [],
     this.badges = const [],
+    this.saveFuture,
   });
 
   @override
@@ -45,14 +53,19 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   final ScreenshotController _screenshotController = ScreenshotController();
   bool _isGeneratingCard = false;
 
+  // Sync status pill — shown when saveFuture is provided
+  _SyncState _syncState = _SyncState.idle;
+  List<String> _resolvedPbs = const [];
+  List<String> _resolvedBadges = const [];
+
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
     if (km >= 42.195) return AssetUrls.celebrations_videos_celebrate_marathon;
     if (km >= 21.0975) return AssetUrls.celebrations_videos_celebrate_half_marathon;
     if (km >= 10.0) return AssetUrls.celebrations_videos_celebrate_10k;
     if (km >= 5.0) return AssetUrls.celebrations_videos_celebrate_5k;
-    if (widget.pbs.isNotEmpty) return AssetUrls.celebrations_videos_celebrate_pb;
-    if (widget.badges.isNotEmpty) return AssetUrls.celebrations_videos_celebrate_badge_earned;
+    if (_resolvedPbs.isNotEmpty) return AssetUrls.celebrations_videos_celebrate_pb;
+    if (_resolvedBadges.isNotEmpty) return AssetUrls.celebrations_videos_celebrate_badge_earned;
     return AssetUrls.celebrations_videos_celebrate_first_run;
   }
 
@@ -65,9 +78,29 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     );
     _scaleAnim = CurvedAnimation(parent: _animController, curve: Curves.elasticOut);
     _fadeAnim  = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
+    _resolvedPbs = List.of(_resolvedPbs);
+    _resolvedBadges = List.of(_resolvedBadges);
+
     _animController.forward();
     _initVideo();
     _checkMilestone();
+
+    // Wire up background save future
+    if (widget.saveFuture != null) {
+      _syncState = _SyncState.syncing;
+      widget.saveFuture!.then((result) {
+        if (!mounted) return;
+        setState(() {
+          _resolvedPbs = result.pbs;
+          _resolvedBadges = result.badges;
+          _syncState = _SyncState.saved;
+        });
+        // Re-init video now that we know if there are PBs/badges
+        _initVideo();
+      }).catchError((_) {
+        if (mounted) setState(() => _syncState = _SyncState.error);
+      });
+    }
   }
 
   Future<void> _checkMilestone() async {
@@ -131,8 +164,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       '🏃 Just finished a ${dist}km run in ${widget.duration}!',
       'Avg pace: ${widget.pace}/km • ${widget.calories} kcal burned 🔥',
     ];
-    if (widget.pbs.isNotEmpty) lines.add('⚡ New Personal Best: ${widget.pbs.join(', ')}');
-    if (widget.badges.isNotEmpty) lines.add('🏅 Badge earned: ${widget.badges.join(' & ')}');
+    if (_resolvedPbs.isNotEmpty) lines.add('⚡ New Personal Best: ${_resolvedPbs.join(', ')}');
+    if (_resolvedBadges.isNotEmpty) lines.add('🏅 Badge earned: ${_resolvedBadges.join(' & ')}');
     lines.add('\nTracked with MajuRun 🚀 #MajuRun #Running');
     return lines.join('\n');
   }
@@ -163,8 +196,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   /// Builds the off-screen share card widget captured by ScreenshotController.
   Widget _buildShareCard() {
     final dist = widget.distanceKm.toStringAsFixed(2);
-    final hasPbs = widget.pbs.isNotEmpty;
-    final hasBadges = widget.badges.isNotEmpty;
+    final hasPbs = _resolvedPbs.isNotEmpty;
+    final hasBadges = _resolvedBadges.isNotEmpty;
 
     return SizedBox(
       width: 400,
@@ -247,8 +280,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 ),
                 child: Text(
                   hasPbs
-                      ? '⚡ New PB: ${widget.pbs.first}'
-                      : '🏅 ${widget.badges.first} badge earned!',
+                      ? '⚡ New PB: ${_resolvedPbs.first}'
+                      : '🏅 ${_resolvedBadges.first} badge earned!',
                   style: const TextStyle(
                     color: Color(0xFFFFD700),
                     fontSize: 13,
@@ -293,8 +326,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       final userName = (userDoc.data()?['displayName'] as String?) ?? user.displayName ?? 'Runner';
       final dist = widget.distanceKm.toStringAsFixed(2);
       final lines = <String>['🎉 Achievement unlocked after a ${dist}km run!'];
-      if (widget.pbs.isNotEmpty) lines.add('⚡ ${widget.pbs.join(' • ')}');
-      if (widget.badges.isNotEmpty) lines.add('🏅 ${widget.badges.join(' & ')} badge earned!');
+      if (_resolvedPbs.isNotEmpty) lines.add('⚡ ${_resolvedPbs.join(' • ')}');
+      if (_resolvedBadges.isNotEmpty) lines.add('🏅 ${_resolvedBadges.join(' & ')} badge earned!');
 
       await FirebaseFirestore.instance.collection('posts').add({
         'userId': user.uid,
@@ -325,7 +358,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     }
   }
 
-  bool get _hasAchievements => widget.pbs.isNotEmpty || widget.badges.isNotEmpty;
+  bool get _hasAchievements => _resolvedPbs.isNotEmpty || _resolvedBadges.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -351,11 +384,75 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 // it's safe to leave unconditionally in the column.
                 const SizedBox(height: 24),
                 const LiveCheersOverlay(),
+                const SizedBox(height: 12),
+                _buildSyncPill(),
                 const SizedBox(height: 16),
                 _buildActions(),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncPill() {
+    if (_syncState == _SyncState.idle) return const SizedBox.shrink();
+
+    final isSyncing = _syncState == _SyncState.syncing;
+    final isError = _syncState == _SyncState.error;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: Container(
+        key: ValueKey(_syncState),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isError
+              ? Colors.orange.shade800.withValues(alpha: 0.85)
+              : isSyncing
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFF00C853).withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isError
+                ? Colors.orange.shade700
+                : isSyncing
+                    ? Colors.white24
+                    : const Color(0xFF00C853).withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSyncing)
+              const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: Colors.white54,
+                ),
+              )
+            else
+              Icon(
+                isError ? Icons.cloud_off_rounded : Icons.check_circle_rounded,
+                size: 14,
+                color: isError ? Colors.orange.shade300 : const Color(0xFF00C853),
+              ),
+            const SizedBox(width: 7),
+            Text(
+              isSyncing
+                  ? 'Saving run…'
+                  : isError
+                      ? 'Saved locally — will sync'
+                      : 'Run saved',
+              style: TextStyle(
+                fontSize: 12,
+                color: isError ? Colors.orange.shade300 : Colors.white70,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -503,13 +600,13 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           ),
         ),
         const SizedBox(height: 12),
-        ...widget.badges.map((b) => _achievementTile(
+        ..._resolvedBadges.map((b) => _achievementTile(
               icon: '🏅',
               title: '$b Badge Earned!',
               subtitle: 'First time completing a $b run. Amazing!',
               color: const Color(0xFFFFD700),
             )),
-        ...widget.pbs.map((pb) => _achievementTile(
+        ..._resolvedPbs.map((pb) => _achievementTile(
               icon: '⚡',
               title: 'New Personal Best!',
               subtitle: pb,

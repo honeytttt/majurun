@@ -8,55 +8,74 @@ import 'package:majurun/modules/auth/presentation/screens/login_screen.dart';
 import 'package:majurun/modules/auth/presentation/screens/onboarding_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  // Ensure the animated splash plays for at least 2.2 s so users always see
+  // it — even on fast devices where Firebase auth resolves in <200 ms.
+  final Future<void> _minSplash =
+      Future.delayed(const Duration(milliseconds: 2200));
 
   @override
   Widget build(BuildContext context) {
     final authRepository = context.watch<AuthRepository>();
 
-    return StreamBuilder<AppUser?>(
-      stream: authRepository.onAuthStateChanged,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return FutureBuilder<void>(
+      future: _minSplash,
+      builder: (context, timerSnap) {
+        // While minimum splash time hasn't elapsed, always show the splash.
+        if (timerSnap.connectionState != ConnectionState.done) {
           return const _LoadingScreen();
         }
 
-        final user = snapshot.data;
-        if (user == null) return const LoginScreen();
-
-        // Admin check: supports both modern Custom Claims and legacy email fallback.
-        // This ensures zero downtime for the existing admin while enabling claim-based security.
-        return FutureBuilder<IdTokenResult>(
-          future: FirebaseAuth.instance.currentUser!.getIdTokenResult(),
-          builder: (context, tokenSnap) {
-            // While checking token, show a loader to prevent premature redirection to Onboarding
-            if (tokenSnap.connectionState == ConnectionState.waiting) {
+        return StreamBuilder<AppUser?>(
+          stream: authRepository.onAuthStateChanged,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const _LoadingScreen();
             }
 
-            final isAdmin = (tokenSnap.data?.claims?['admin'] == true) || 
-                            (user.email == 'majurun.app@gmail.com');
-            
-            if (isAdmin) return const HomeScreen();
+            final user = snapshot.data;
+            if (user == null) return const LoginScreen();
 
-            // Regular User Flow
-            // Use snapshots() NOT get() — avoids the FutureBuilder reset problem.
-            return StreamBuilder<DocumentSnapshot>(
-              key: ValueKey(user.uid),
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-              builder: (context, profileSnap) {
-                if (profileSnap.connectionState == ConnectionState.waiting) {
+            // Admin check: supports both modern Custom Claims and legacy email fallback.
+            return FutureBuilder<IdTokenResult>(
+              future: FirebaseAuth.instance.currentUser!.getIdTokenResult(),
+              builder: (context, tokenSnap) {
+                if (tokenSnap.connectionState == ConnectionState.waiting) {
                   return const _LoadingScreen();
                 }
 
-                final data = profileSnap.data?.data() as Map<String, dynamic>?;
-                final hasProfile = data != null && data['dob'] != null;
+                final isAdmin = (tokenSnap.data?.claims?['admin'] == true) ||
+                    (user.email == 'majurun.app@gmail.com');
 
-                return hasProfile ? const HomeScreen() : const OnboardingScreen();
+                if (isAdmin) return const HomeScreen();
+
+                return StreamBuilder<DocumentSnapshot>(
+                  key: ValueKey(user.uid),
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .snapshots(),
+                  builder: (context, profileSnap) {
+                    if (profileSnap.connectionState == ConnectionState.waiting) {
+                      return const _LoadingScreen();
+                    }
+
+                    final data =
+                        profileSnap.data?.data() as Map<String, dynamic>?;
+                    final hasProfile = data != null && data['dob'] != null;
+
+                    return hasProfile
+                        ? const HomeScreen()
+                        : const OnboardingScreen();
+                  },
+                );
               },
             );
           },
