@@ -56,6 +56,7 @@ class RunController extends ChangeNotifier {
   List<String> lastRunPbs = [];
   List<String> lastRunBadges = [];
   List<Map<String, dynamic>> lastRunKmSplits = [];
+  List<String> get lastRunCompletedChallenges => statsController.lastCompletedChallenges;
 
   RunController() {
     _setupCallbacks();

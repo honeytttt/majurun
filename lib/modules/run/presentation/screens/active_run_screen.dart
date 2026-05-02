@@ -1085,6 +1085,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           durationSeconds: durationSeconds,
           avgBpm: avgBpm,
           kmSplits: runController.lastRunKmSplits,
+          saveFuture: saveFuture,
         ),
       ),
     );
@@ -1092,7 +1093,11 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
 
   /// Fires all slow work (static map HTTP + Firestore save + auto-post) in the
   /// background and returns a Future that resolves once the save completes.
-  Future<({List<String> pbs, List<String> badges})> _runBackgroundSave({
+  ///
+  /// Auto-post is only created when [selfieBytes] is null — if the user took a
+  /// selfie they will post via RunPostEditorScreen, so we must not double-post.
+  Future<({List<String> pbs, List<String> badges, String? postId, List<String> completedChallenges})>
+      _runBackgroundSave({
     required RunController runController,
     required double distanceKm,
     required int durationSeconds,
@@ -1113,35 +1118,43 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       context,
     );
 
-    final pbs    = List<String>.from(runController.lastRunPbs);
-    final badges = List<String>.from(runController.lastRunBadges);
+    final pbs               = List<String>.from(runController.lastRunPbs);
+    final badges            = List<String>.from(runController.lastRunBadges);
+    final completedChallenges = List<String>.from(runController.lastRunCompletedChallenges);
 
     // Wait for map (with cap — already running in background since above)
     mapImageBytes = await mapFuture;
 
-    // Fire auto-post with the now-available map image
-    final suggestedText = runController.generatePostText(
-      planTitle: planTitle,
-      distance: '${distanceKm.toStringAsFixed(2)} km',
-      duration: runController.stateController.durationString,
-      pace: pace,
-      calories: calories,
-    );
-    runController.postController.createAutoPost(
-      aiContent: suggestedText,
-      routePoints: routePoints.cast(),
-      distance: distanceKm,
-      pace: pace,
-      bpm: avgBpm,
-      durationSeconds: durationSeconds,
-      calories: calories,
-      planTitle: planTitle,
-      mapImageBytes: mapImageBytes,
-      selfieBytes: selfieBytes,
-      kmSplits: runController.lastRunKmSplits,
-    ).catchError((e) => debugPrint('❌ Auto-post failed: $e'));
+    // Only auto-post when there is no selfie — the selfie path posts via
+    // RunPostEditorScreen, so calling createAutoPost here would create a duplicate.
+    String? postId;
+    if (selfieBytes == null) {
+      final suggestedText = runController.generatePostText(
+        planTitle: planTitle,
+        distance: '${distanceKm.toStringAsFixed(2)} km',
+        duration: runController.stateController.durationString,
+        pace: pace,
+        calories: calories,
+      );
+      try {
+        postId = await runController.postController.createAutoPost(
+          aiContent: suggestedText,
+          routePoints: routePoints.cast(),
+          distance: distanceKm,
+          pace: pace,
+          bpm: avgBpm,
+          durationSeconds: durationSeconds,
+          calories: calories,
+          planTitle: planTitle,
+          mapImageBytes: mapImageBytes,
+          kmSplits: runController.lastRunKmSplits,
+        );
+      } catch (e) {
+        debugPrint('❌ Auto-post failed: $e');
+      }
+    }
 
-    return (pbs: pbs, badges: badges);
+    return (pbs: pbs, badges: badges, postId: postId, completedChallenges: completedChallenges);
   }
 
   /// Downloads the static map image. Returns null on any error.

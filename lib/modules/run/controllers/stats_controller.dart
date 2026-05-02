@@ -26,6 +26,9 @@ class StatsController extends ChangeNotifier {
   int totalRuns = 0;
   String totalHistoryTimeStr = '00:00:00';
 
+  /// Challenges newly completed during the most recent run.
+  List<String> lastCompletedChallenges = [];
+
   Future<void> refreshHistoryStats() async {
     final stats = await _repository.getStats();
     totalRuns = stats.totalRuns;
@@ -124,12 +127,13 @@ class StatsController extends ChangeNotifier {
 
     // Update daily challenge progress
     try {
-      await DailyChallengeService().updateChallengesAfterRun(
+      lastCompletedChallenges = await DailyChallengeService().updateChallengesAfterRun(
         userId: uid,
         distanceKm: distanceKm,
         startTime: DateTime.now(),
       );
     } catch (e) {
+      lastCompletedChallenges = [];
       debugPrint('⚠️ Challenge progress update failed: $e');
     }
 

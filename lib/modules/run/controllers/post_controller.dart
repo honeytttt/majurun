@@ -41,8 +41,9 @@ class PostController extends ChangeNotifier {
     return messages.first;
   }
 
-  // Create auto post after run with map image and optional selfie
-  Future<void> createAutoPost({
+  // Create auto post after run with map image and optional selfie.
+  // Returns the Firestore document ID of the created post, or null on failure.
+  Future<String?> createAutoPost({
     required String aiContent,
     required List<LatLng> routePoints,
     required double distance,
@@ -60,7 +61,7 @@ class PostController extends ChangeNotifier {
       final user = _auth.currentUser;
       if (user == null) {
         debugPrint('⚠️ No user logged in, cannot create post');
-        return;
+        return null;
       }
 
       debugPrint('📝 Creating post for user: ${user.uid}');
@@ -164,10 +165,11 @@ class PostController extends ChangeNotifier {
       };
 
       debugPrint('💾 Saving post to Firestore...');
-      await _firestore.collection('posts').add(postData);
-      
-      debugPrint('✅ Post created successfully');
+      final ref = await _firestore.collection('posts').add(postData);
+
+      debugPrint('✅ Post created successfully: ${ref.id}');
       notifyListeners();
+      return ref.id;
     } catch (e) {
       debugPrint('❌ Error creating auto post: $e');
       rethrow;

@@ -389,16 +389,22 @@ class DailyChallengeService {
     }
   }
 
-  /// Auto-update challenge progress after a run
-  Future<void> updateChallengesAfterRun({
+  /// Auto-update challenge progress after a run.
+  /// Returns the names of challenges that were newly completed this run.
+  Future<List<String>> updateChallengesAfterRun({
     required String userId,
     required double distanceKm,
     required DateTime startTime,
   }) async {
+    final newlyCompleted = <String>[];
     try {
-      // Update daily distance challenges
       final dailyChallenges = await getDailyChallenges(userId);
       for (final challenge in dailyChallenges) {
+        // Skip already-completed challenges — don't count them again.
+        if (challenge['completed'] == true) continue;
+
+        final wasIncomplete = challenge['completed'] != true;
+
         if (challenge['type'] == 'distance') {
           final currentProgress = (challenge['progress'] as num?)?.toDouble() ?? 0.0;
           await updateChallengeProgress(
@@ -406,15 +412,19 @@ class DailyChallengeService {
             challengeId: challenge['id'],
             progress: currentProgress + distanceKm,
           );
+          final target = (challenge['target'] as num).toDouble();
+          if (wasIncomplete && (currentProgress + distanceKm) >= target) {
+            newlyCompleted.add(challenge['name'] as String);
+          }
         }
 
-        // Time-of-day run challenges
         if (challenge['type'] == 'morning_run' && startTime.hour < 9) {
           await updateChallengeProgress(
             userId: userId,
             challengeId: challenge['id'],
             progress: 1.0,
           );
+          if (wasIncomplete) newlyCompleted.add(challenge['name'] as String);
         }
         if (challenge['type'] == 'evening_run' && startTime.hour >= 17) {
           await updateChallengeProgress(
@@ -422,6 +432,7 @@ class DailyChallengeService {
             challengeId: challenge['id'],
             progress: 1.0,
           );
+          if (wasIncomplete) newlyCompleted.add(challenge['name'] as String);
         }
         if (challenge['type'] == 'any_run') {
           await updateChallengeProgress(
@@ -429,12 +440,14 @@ class DailyChallengeService {
             challengeId: challenge['id'],
             progress: 1.0,
           );
+          if (wasIncomplete) newlyCompleted.add(challenge['name'] as String);
         }
       }
 
-      debugPrint('Challenges updated after run: ${distanceKm}km');
+      debugPrint('Challenges updated after run: ${distanceKm}km — completed: $newlyCompleted');
     } catch (e) {
       debugPrint('Error updating challenges after run: $e');
     }
+    return newlyCompleted;
   }
 }

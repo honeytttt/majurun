@@ -1,12 +1,14 @@
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
+import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
+import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
@@ -26,8 +28,13 @@ class CongratulationsScreen extends StatefulWidget {
 
   /// Optional future that resolves once the background save completes.
   /// When provided, a subtle sync-status pill is shown at the bottom.
-  /// Resolves to ({pbs, badges}) — used to update the screen without a rebuild.
-  final Future<({List<String> pbs, List<String> badges})>? saveFuture;
+  /// Resolves to ({pbs, badges, postId, completedChallenges}).
+  final Future<({List<String> pbs, List<String> badges, String? postId, List<String> completedChallenges})>?
+      saveFuture;
+
+  /// Post ID already known at construction time (selfie/editor path).
+  /// When provided, "View Post" is immediately active.
+  final String? postId;
 
   const CongratulationsScreen({
     super.key,
@@ -39,6 +46,7 @@ class CongratulationsScreen extends StatefulWidget {
     this.pbs = const [],
     this.badges = const [],
     this.saveFuture,
+    this.postId,
   });
 
   @override
@@ -59,6 +67,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   _SyncState _syncState = _SyncState.idle;
   List<String> _resolvedPbs = const [];
   List<String> _resolvedBadges = const [];
+  String? _postId;
 
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
@@ -80,10 +89,14 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     );
     _scaleAnim = CurvedAnimation(parent: _animController, curve: Curves.elasticOut);
     _fadeAnim  = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
-    _resolvedPbs = List.of(_resolvedPbs);
-    _resolvedBadges = List.of(_resolvedBadges);
+
+    // Copy from widget params (not from the empty class-level fields).
+    _resolvedPbs = List.of(widget.pbs);
+    _resolvedBadges = List.of(widget.badges);
+    _postId = widget.postId;
 
     _animController.forward();
+    HapticFeedback.heavyImpact();
     _initVideo();
     _checkMilestone();
 
@@ -95,10 +108,13 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         setState(() {
           _resolvedPbs = result.pbs;
           _resolvedBadges = result.badges;
+          _postId ??= result.postId;  // don't overwrite if already set by editor path
           _syncState = _SyncState.saved;
         });
         // Re-init video now that we know if there are PBs/badges
         _initVideo();
+        // Show challenge completion toasts
+        _showChallengeToasts(result.completedChallenges);
       }).catchError((_) {
         if (mounted) setState(() => _syncState = _SyncState.error);
       });
@@ -158,6 +174,68 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  /// Opens the specific post that was auto-created for this run.
+  /// Falls back to the feed tab if the post can't be loaded.
+  Future<void> _viewPost() async {
+    if (_postId == null) {
+      _goToFeed();
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance.collection('posts').doc(_postId).get();
+      if (!mounted) return;
+      if (!doc.exists) { _goToFeed(); return; }
+      final post = AppPost.fromFirestore(doc);
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      );
+    } catch (_) {
+      if (mounted) _goToFeed();
+    }
+  }
+
+  /// Shows a SnackBar toast for each newly completed challenge.
+  void _showChallengeToasts(List<String> challenges) {
+    if (!mounted || challenges.isEmpty) return;
+    // Stagger toasts so they don't all appear at once.
+    for (var i = 0; i < challenges.length; i++) {
+      Future.delayed(Duration(milliseconds: 500 + i * 1200), () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Text('🎯', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Challenge Complete!',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                      ),
+                      Text(
+                        challenges[i],
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1B5E20),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      });
+    }
+  }
+
   // ── Sharing ────────────────────────────────────────────────────────────────
 
   String _buildShareText() {
@@ -210,7 +288,10 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
 
     return SizedBox(
       width: 400,
-      child: Container(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -304,6 +385,33 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 style: TextStyle(color: Colors.white38, fontSize: 12)),
           ],
         ),
+      ),
+          // NEW PB sash — shown in top-right corner when a personal best was set
+          if (hasPbs)
+            Positioned(
+              top: 16,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFD700),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(6),
+                    bottomLeft: Radius.circular(6),
+                  ),
+                ),
+                child: const Text(
+                  '⚡ NEW PB',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -757,11 +865,20 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _goToFeed,
-            icon: const Icon(Icons.dynamic_feed_rounded),
-            label: const Text(
-              'View My Post',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            // Active immediately when postId known; grayed while save is running.
+            onPressed: (_syncState == _SyncState.syncing && _postId == null)
+                ? null
+                : _viewPost,
+            icon: (_syncState == _SyncState.syncing && _postId == null)
+                ? const SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54))
+                : const Icon(Icons.dynamic_feed_rounded),
+            label: Text(
+              (_syncState == _SyncState.syncing && _postId == null)
+                  ? 'Posting…'
+                  : 'View My Post',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00E676),

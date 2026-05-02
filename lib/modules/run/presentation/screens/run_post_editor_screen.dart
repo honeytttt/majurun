@@ -35,6 +35,11 @@ class RunPostEditorScreen extends StatefulWidget {
   final int avgBpm;
   final List<Map<String, dynamic>> kmSplits;
 
+  /// Background-save future from active_run_screen — forwarded to CongratulationsScreen
+  /// so the sync pill and challenge toast work on the selfie/editor path too.
+  final Future<({List<String> pbs, List<String> badges, String? postId, List<String> completedChallenges})>?
+      saveFuture;
+
   const RunPostEditorScreen({
     super.key,
     required this.initialText,
@@ -51,6 +56,7 @@ class RunPostEditorScreen extends StatefulWidget {
     this.pbs = const [],
     this.badges = const [],
     this.kmSplits = const [],
+    this.saveFuture,
   });
 
   @override
@@ -188,8 +194,9 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
   Future<void> _publish() async {
     setState(() => _isPosting = true);
     final runController = Provider.of<RunController>(context, listen: false);
+    String? postId;
     try {
-      await runController.postController.createAutoPost(
+      postId = await runController.postController.createAutoPost(
         aiContent: _textController.text.trim().isEmpty
             ? widget.initialText
             : _textController.text.trim(),
@@ -208,7 +215,7 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
       debugPrint('❌ RunPostEditorScreen: post error $e');
     }
     if (!mounted) return;
-    _goToCongrats();
+    _goToCongrats(postId: postId);
   }
 
   Widget _buildTagSuggestions() {
@@ -252,7 +259,7 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
     );
   }
 
-  void _goToCongrats() {
+  void _goToCongrats({String? postId}) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => CongratulationsScreen(
@@ -263,6 +270,8 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
           planTitle: widget.planTitle,
           pbs: widget.pbs,
           badges: widget.badges,
+          postId: postId,
+          saveFuture: widget.saveFuture,
         ),
       ),
     );
