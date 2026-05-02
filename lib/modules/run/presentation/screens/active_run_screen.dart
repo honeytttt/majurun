@@ -8,7 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams, XFile;
 import 'package:majurun/core/config/app_config.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
@@ -19,6 +20,7 @@ import 'package:majurun/modules/run/presentation/widgets/static_map_url.dart';
 import 'package:majurun/modules/run/presentation/widgets/milestone_badge_sheet.dart';
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
+import 'package:majurun/core/services/unit_preference_service.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 
@@ -48,6 +50,9 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   // Stats glow — pulses while actively running
   late AnimationController _glowController;
   late Animation<double> _glowAnim;
+
+  // Screenshot controller for the run-share card
+  final ScreenshotController _shareCardController = ScreenshotController();
 
 
   @override
@@ -970,10 +975,35 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     const planTitle       = 'Free Run';
 
     // ── Step 2: Ask for selfie (user-driven, unavoidable wait) ───────────────
-    final shareText = '🏃 Just finished a ${distanceKm.toStringAsFixed(2)}km '
-        'run in $duration!\nAvg pace: $pace/km • $calories kcal burned 🔥\n\n'
+    // Build the share card bytes in the background while the prompt is shown.
+    final unitPref = context.read<UnitPreferenceService>();
+    final shareText = '🏃 Just finished a ${unitPref.formatDistance(distanceKm)} '
+        'run in $duration!\nAvg pace: $pace/${unitPref.paceLabel} • $calories kcal burned 🔥\n\n'
         'Tracked with MajuRun 🚀 #MajuRun #Running';
-    final selfieBytes = await _showSelfiePrompt(shareText: shareText);
+
+    // Pre-capture the share card so the Share button can send it instantly.
+    Uint8List? shareCardBytes;
+    try {
+      shareCardBytes = await _shareCardController.captureFromLongWidget(
+        _buildRunShareCard(
+          distanceKm: distanceKm,
+          duration: duration,
+          pace: pace,
+          calories: calories,
+          unitPref: unitPref,
+        ),
+        pixelRatio: 3.0,
+        context: context,
+        delay: const Duration(milliseconds: 100),
+      );
+    } catch (e) {
+      debugPrint('⚠️ Share card pre-render failed: $e');
+    }
+
+    final selfieBytes = await _showSelfiePrompt(
+      shareText: shareText,
+      shareCardBytes: shareCardBytes,
+    );
 
     if (!mounted) return;
     final nav = Navigator.of(context);
@@ -1143,7 +1173,10 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   ///                After sharing the user lands back here so they can still add a selfie
   ///                or skip; nothing is auto-posted by tapping Share.
   ///   • Skip     → closes with null bytes (no selfie attached to the post).
-  Future<Uint8List?> _showSelfiePrompt({required String shareText}) async {
+  Future<Uint8List?> _showSelfiePrompt({
+    required String shareText,
+    Uint8List? shareCardBytes,
+  }) async {
     final completer = Completer<Uint8List?>();
     Timer? countdown;
     int secondsLeft = 20;
@@ -1258,11 +1291,19 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                           onTap: () async {
                             countdown?.cancel();
                             try {
-                              await SharePlus.instance.share(
-                                ShareParams(text: shareText),
-                              );
+                              if (shareCardBytes != null) {
+                                await SharePlus.instance.share(ShareParams(
+                                  files: [XFile.fromData(shareCardBytes, mimeType: 'image/png', name: 'majurun_run.png')],
+                                  text: shareText,
+                                ));
+                              } else {
+                                await SharePlus.instance.share(ShareParams(text: shareText));
+                              }
                             } catch (e) {
                               debugPrint('❌ Quick share failed: $e');
+                              try {
+                                await SharePlus.instance.share(ShareParams(text: shareText));
+                              } catch (_) {}
                             }
                             // After share, treat as "no selfie chosen" and continue the
                             // normal post flow so the user still gets the post editor.
@@ -1298,6 +1339,104 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     });
 
     return completer.future;
+  }
+
+  /// Builds the MAJURUN run-share card — same design as CongratulationsScreen.
+  /// Captured off-screen and shared as a PNG image.
+  Widget _buildRunShareCard({
+    required double distanceKm,
+    required String duration,
+    required String pace,
+    required int calories,
+    required UnitPreferenceService unitPref,
+  }) {
+    final dist = unitPref.toDisplay(distanceKm).toStringAsFixed(2);
+    final unitLabel = unitPref.unitLabel.toUpperCase();
+    final paceLabel = unitPref.paceLabel;
+
+    return SizedBox(
+      width: 400,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0D0D0D), Color(0xFF1A2A1A)],
+          ),
+        ),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF7ED957),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.directions_run, color: Colors.black, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Text('MAJURUN',
+                    style: TextStyle(
+                      color: Color(0xFF7ED957),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    )),
+              ],
+            ),
+            const SizedBox(height: 28),
+            Text(dist,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 72,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                )),
+            Text(unitLabel,
+                style: const TextStyle(
+                  color: Color(0xFF7ED957),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                )),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                _shareCardStat(Icons.timer_outlined, duration, 'TIME'),
+                const SizedBox(width: 24),
+                _shareCardStat(Icons.speed_outlined, '$pace/$paceLabel', 'PACE'),
+                const SizedBox(width: 24),
+                _shareCardStat(Icons.local_fire_department_outlined, '$calories', 'KCAL'),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text('#MajuRun #Running',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _shareCardStat(IconData icon, String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Icon(icon, color: const Color(0xFF7ED957), size: 14),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
+        ]),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+      ],
+    );
   }
 
   Widget _selfieBtn({
