@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
+import 'package:majurun/modules/profile/presentation/widgets/pro_badge_frame.dart';
 
 /// Distance milestones we celebrate after a single run.
 enum DistanceMilestone {
@@ -386,9 +387,11 @@ class _BadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = milestone.accentColor;
-    return Container(
-      width: 200,
-      height: 200,
+
+    // Inner badge artwork (160×160, sits inside the 200×200 frame)
+    final badge = Container(
+      width: 160,
+      height: 160,
       decoration: BoxDecoration(
         gradient: RadialGradient(
           colors: [accent.withValues(alpha: 0.30), Colors.transparent],
@@ -400,25 +403,25 @@ class _BadgeCard extends StatelessWidget {
         child: ClipOval(
           child: Image.network(
             milestone.badgeImageUrl,
-            width: 160,
-            height: 160,
+            width: 140,
+            height: 140,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
-              width: 160,
-              height: 160,
+              width: 140,
+              height: 140,
               decoration: BoxDecoration(
                 color: Colors.black,
                 shape: BoxShape.circle,
                 border: Border.all(color: accent, width: 3),
               ),
               alignment: Alignment.center,
-              child: Icon(milestone.phosphorIcon, size: 64, color: accent),
+              child: Icon(milestone.phosphorIcon, size: 58, color: accent),
             ),
             loadingBuilder: (_, child, progress) {
               if (progress == null) return child;
               return SizedBox(
-                width: 160,
-                height: 160,
+                width: 140,
+                height: 140,
                 child: Center(
                   child: CircularProgressIndicator(
                     color: accent,
@@ -435,6 +438,9 @@ class _BadgeCard extends StatelessWidget {
         ),
       ),
     );
+
+    // P1 — Pro users get an animated gold ring around the badge.
+    return ProBadgeFrame(child: badge);
   }
 }
 
