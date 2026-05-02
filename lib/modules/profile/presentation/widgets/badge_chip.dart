@@ -20,16 +20,17 @@ class BadgeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF00E676).withValues(alpha: 0.2),
-              const Color(0xFF00E676).withValues(alpha: 0.1),
-            ],
+          gradient: const LinearGradient(
+            colors: [Color(0xFF00C853), Color(0xFF00796B)],
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF00E676).withValues(alpha: 0.5),
-          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00C853).withValues(alpha: 0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -52,7 +53,7 @@ class BadgeChip extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E676),
+                  color: Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

@@ -45,6 +45,10 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // Stats glow — pulses while actively running
+  late AnimationController _glowController;
+  late Animation<double> _glowAnim;
+
 
   @override
   void initState() {
@@ -60,6 +64,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
+    _glowAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+
     _loadAvatarMarker();
     // Re-assert wakelock — iOS may drop it during TTS/audio session changes
     WakeLockService.enable();
@@ -68,6 +80,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   @override
   void dispose() {
     _pulseController.dispose();
+    _glowController.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -534,54 +547,115 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   }
 
   Widget _buildStatsSection(RunController runController) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        children: [
-          // Main stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    final isRunning = runController.state == RunState.running;
+    return AnimatedBuilder(
+      animation: _glowAnim,
+      builder: (context, _) {
+        final glow = isRunning ? _glowAnim.value : 0.0;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            // Subtle animated glow behind stats when actively running
+            boxShadow: isRunning
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF7ED957)
+                          .withValues(alpha: 0.06 + glow * 0.1),
+                      blurRadius: 40 + glow * 20,
+                    ),
+                  ]
+                : [],
+          ),
+          child: Column(
             children: [
-              _buildMainStat(
-                'DISTANCE',
-                runController.distanceString,
-                'KM',
-                runController.state == RunState.running,
+              // Main stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildMainStat(
+                    'DISTANCE',
+                    runController.distanceString,
+                    'KM',
+                    isRunning,
+                    glow,
+                  ),
+                  // Vertical divider
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                  _buildMainStat(
+                    'TIME',
+                    runController.durationString,
+                    '',
+                    isRunning,
+                    glow,
+                  ),
+                ],
               ),
-              _buildMainStat(
-                'TIME',
-                runController.durationString,
-                '',
-                runController.state == RunState.running,
+
+              const SizedBox(height: 16),
+
+              // Animated running dots (only while active)
+              if (isRunning) _buildRunningDots(glow),
+              if (!isRunning) const SizedBox(height: 4),
+
+              const SizedBox(height: 12),
+
+              // Secondary stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSecondaryStat('AVG PACE', '${runController.paceString}/km', glow),
+                  _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km', glow),
+                  _buildSecondaryStat('CAL', '${runController.totalCalories}', glow),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // BPM + HR Zone row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildHrZoneStat(runController.currentBpm),
+                ],
               ),
             ],
           ),
-
-          const SizedBox(height: 20),
-
-          // Secondary stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSecondaryStat('AVG PACE', '${runController.paceString}/km'),
-              _buildSecondaryStat('CUR PACE', '${runController.currentPaceString}/km'),
-              _buildSecondaryStat('CAL', '${runController.totalCalories}'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // BPM + HR Zone row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildHrZoneStat(runController.currentBpm),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildMainStat(String label, String value, String unit, bool isActive) {
+  /// Three dots that animate left-to-right like a running cadence indicator.
+  Widget _buildRunningDots(double glow) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (i) {
+        // Each dot is offset in the animation cycle
+        final offset = (glow + i / 5) % 1.0;
+        final active = offset < 0.5;
+        return Container(
+          width: 6,
+          height: 6,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active
+                ? const Color(0xFF7ED957).withValues(alpha: 0.6 + offset * 0.8)
+                : Colors.white.withValues(alpha: 0.12),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildMainStat(
+      String label, String value, String unit, bool isActive, double glow) {
+    final valueColor = isActive
+        ? Color.lerp(const Color(0xFF7ED957), const Color(0xFFCCFF90),
+            glow * 0.4)!
+        : Colors.grey;
     return Column(
       children: [
         Text(
@@ -594,32 +668,57 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           ),
         ),
         const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 44,
-                fontWeight: FontWeight.bold,
-                color: isActive ? const Color(0xFF7ED957) : Colors.grey,
-                height: 1,
-              ),
-            ),
-            if (unit.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 6),
-                child: Text(
-                  unit,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+        // Soft glow halo behind the number while running
+        if (isActive)
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7ED957)
+                          .withValues(alpha: 0.05 + glow * 0.12),
+                      blurRadius: 30 + glow * 15,
+                      spreadRadius: 5,
+                    ),
+                  ],
                 ),
               ),
-          ],
+              _mainStatText(value, unit, valueColor),
+            ],
+          )
+        else
+          _mainStatText(value, unit, valueColor),
+      ],
+    );
+  }
+
+  Widget _mainStatText(String value, String unit, Color valueColor) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 44,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+            height: 1,
+          ),
         ),
+        if (unit.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              unit,
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ),
       ],
     );
   }
@@ -670,7 +769,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildSecondaryStat(String label, String value) {
+  Widget _buildSecondaryStat(String label, String value, double glow) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -678,13 +777,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF2D7A3E).withValues(alpha: 0.2),
-            Colors.black.withValues(alpha: 0.5),
+            const Color(0xFF2D7A3E).withValues(alpha: 0.25 + glow * 0.15),
+            Colors.black.withValues(alpha: 0.45),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF2D7A3E).withValues(alpha: 0.3),
+          color: const Color(0xFF7ED957)
+              .withValues(alpha: 0.15 + glow * 0.25),
         ),
       ),
       child: Column(
@@ -701,10 +801,14 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF7ED957),
+              color: Color.lerp(
+                const Color(0xFF7ED957),
+                const Color(0xFFCCFF90),
+                glow * 0.3,
+              ),
             ),
           ),
         ],
