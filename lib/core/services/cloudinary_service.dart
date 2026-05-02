@@ -48,13 +48,13 @@ class CloudinaryService {
 
     try {
       final FormData formData = FormData.fromMap({
-        "file": MultipartFile.fromBytes(
+        'file': MultipartFile.fromBytes(
           fileBytes,
           filename: fileName,
         ),
-        "upload_preset": _uploadPreset,
-        "folder": "majurun",
-        "api_key": _apiKey,
+        'upload_preset': _uploadPreset,
+        'folder': 'majurun',
+        'api_key': _apiKey,
       });
 
       final Response response = await _dio.post(
@@ -62,7 +62,7 @@ class CloudinaryService {
         data: formData,
         onSendProgress: (sent, total) {
           if (total > 0) {
-            _log.v("Upload progress: ${(sent / total * 100).toStringAsFixed(0)}%");
+            _log.v('Upload progress: ${(sent / total * 100).toStringAsFixed(0)}%');
           }
         },
       );

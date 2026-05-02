@@ -101,7 +101,6 @@ class _LoginScreenState extends State<LoginScreen> {
               label: 'Resend',
               onPressed: () => firebaseUser.sendEmailVerification(ActionCodeSettings(
                 url: 'https://majurun-8d8b5.firebaseapp.com',
-                handleCodeInApp: false,
                 iOSBundleId: 'com.majurun.app',
                 androidPackageName: 'com.majurun.app',
                 androidInstallApp: true,
@@ -536,7 +535,7 @@ class _SocialButton extends StatelessWidget {
             if (iconWidget != null)
               iconWidget!
             else
-              Icon(icon!, color: iconColor, size: 26),
+              Icon(icon, color: iconColor, size: 26),
             const SizedBox(width: 8),
             Text(
               label,

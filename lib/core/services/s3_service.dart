@@ -11,7 +11,7 @@ class S3Service {
     try {
       final url = Uri.parse('https://$_bucketName.s3.$_region.amazonaws.com/$fileName');
       
-      debugPrint("Attempting upload to: $url");
+      debugPrint('Attempting upload to: $url');
 
       final response = await http.put(
         url,
@@ -23,14 +23,14 @@ class S3Service {
 
       if (response.statusCode == 200) {
         final finalUrl = 'https://$_bucketName.s3.$_region.amazonaws.com/$fileName';
-        debugPrint("Upload Success: $finalUrl");
+        debugPrint('Upload Success: $finalUrl');
         return finalUrl;
       } else {
-        debugPrint("S3 Error ${response.statusCode}: ${response.body}");
+        debugPrint('S3 Error ${response.statusCode}: ${response.body}');
         return null;
       }
     } catch (e) {
-      debugPrint("S3 Service Runtime Error: $e");
+      debugPrint('S3 Service Runtime Error: $e');
       return null;
     }
   }
@@ -39,18 +39,18 @@ class S3Service {
   /// This downloads the map from Google's servers and uploads it to S3.
   Future<String?> downloadAndUploadMap(String staticMapUrl, String fileName) async {
     try {
-      debugPrint("🌐 Fetching static map from Google...");
+      debugPrint('🌐 Fetching static map from Google...');
       final response = await http.get(Uri.parse(staticMapUrl));
       
       if (response.statusCode == 200) {
-        debugPrint("✅ Map bytes received: ${response.bodyBytes.length} bytes");
+        debugPrint('✅ Map bytes received: ${response.bodyBytes.length} bytes');
         return await uploadFile(response.bodyBytes, fileName, 'image/png');
       } else {
-        debugPrint("❌ Failed to download static map: ${response.statusCode}");
+        debugPrint('❌ Failed to download static map: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      debugPrint("❌ Error in downloadAndUploadMap: $e");
+      debugPrint('❌ Error in downloadAndUploadMap: $e');
       return null;
     }
   }
@@ -66,17 +66,17 @@ class S3Service {
 
       final url = Uri.parse('https://$_bucketName.s3.$_region.amazonaws.com/$fileName');
       
-      debugPrint("🧹 S3: Attempting to delete old file: $fileName");
+      debugPrint('🧹 S3: Attempting to delete old file: $fileName');
       
       final response = await http.delete(url); 
       
       if (response.statusCode == 204 || response.statusCode == 200) {
-        debugPrint("✅ S3: Successfully deleted old image: $fileName");
+        debugPrint('✅ S3: Successfully deleted old image: $fileName');
       } else {
-        debugPrint("⚠️ S3: Delete status code: ${response.statusCode}");
+        debugPrint('⚠️ S3: Delete status code: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint("❌ S3: Failed to delete old image: $e");
+      debugPrint('❌ S3: Failed to delete old image: $e');
     }
   }
 }

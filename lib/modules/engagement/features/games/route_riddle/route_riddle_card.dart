@@ -158,7 +158,6 @@ class _RouteRiddleCardState extends State<RouteRiddleCard> {
         tiltGesturesEnabled: false,
         zoomGesturesEnabled: false,
         myLocationButtonEnabled: false,
-        mapType: MapType.normal,
       ),
     );
   }

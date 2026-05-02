@@ -251,10 +251,8 @@ class _OtpScreenState extends State<OtpScreen> {
         keyboardType: TextInputType.number,
         textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
         maxLength: 1,
-        obscureText: false,       // explicit — prevents autofill from hiding digits
         autocorrect: false,
         enableSuggestions: false,
-        autofillHints: const [], // disables Samsung / MIUI autofill masking
         style: const TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.bold,
@@ -266,7 +264,7 @@ class _OtpScreenState extends State<OtpScreen> {
           LengthLimitingTextInputFormatter(1),
         ],
         decoration: const InputDecoration(
-          counterText: "",
+          counterText: '',
           border: InputBorder.none,
           focusedBorder: InputBorder.none,
           enabledBorder: InputBorder.none,

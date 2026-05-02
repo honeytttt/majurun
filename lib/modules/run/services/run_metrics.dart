@@ -21,7 +21,7 @@ class RunMetrics {
   /// Format pace as "M:SS" string.
   static String paceString(double distanceMeters, int secondsElapsed) {
     final speedMs = averageSpeedMs(distanceMeters, secondsElapsed);
-    if (speedMs < RunConstants.paceMinSpeedMs) return "0:00";
+    if (speedMs < RunConstants.paceMinSpeedMs) return '0:00';
 
     final paceMinKm = RunConstants.paceConversionFactor / speedMs;
     final minutes = paceMinKm.floor();

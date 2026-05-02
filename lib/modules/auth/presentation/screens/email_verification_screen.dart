@@ -60,7 +60,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       await FirebaseAuth.instance.currentUser?.sendEmailVerification(
         ActionCodeSettings(
           url: 'https://majurun-8d8b5.firebaseapp.com',
-          handleCodeInApp: false,
           iOSBundleId: 'com.majurun.app',
           androidPackageName: 'com.majurun.app',
           androidInstallApp: true,

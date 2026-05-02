@@ -101,7 +101,6 @@ class PostRepositoryImpl {
       media: mediaList,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likes: List<String>.from(data['likes'] ?? []),
-      comments: const [],
       quotedPostId: data['quotedPostId'],
       routePoints: routePoints,
       runPlanTitle: data['planTitle'] as String?,

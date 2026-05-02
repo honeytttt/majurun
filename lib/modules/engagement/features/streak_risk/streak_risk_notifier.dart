@@ -33,7 +33,7 @@ class StreakRiskNotifier {
       final todayKey = _todayKey();
 
       // Only do this check once per calendar day
-      if (prefs.getBool('$_prefPrefix$todayKey') == true) return;
+      if (prefs.getBool('$_prefPrefix$todayKey') ?? false) return;
 
       // Read streak data
       final doc = await FirebaseFirestore.instance
@@ -92,7 +92,7 @@ class StreakRiskNotifier {
 
     final loc = tz.local;
     final now = tz.TZDateTime.now(loc);
-    final target = tz.TZDateTime(loc, now.year, now.month, now.day, 19, 0);
+    final target = tz.TZDateTime(loc, now.year, now.month, now.day, 19);
 
     final emoji = streak >= 30 ? '🔥' : streak >= 7 ? '⚡' : '💪';
     final title = '$emoji Streak at Risk — Day $streak';

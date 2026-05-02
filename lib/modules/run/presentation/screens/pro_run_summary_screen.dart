@@ -205,7 +205,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                         width: 4,
                       ),
                     },
-                    myLocationEnabled: false,
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
                   )
@@ -762,7 +761,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
-                  show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
                     color: Colors.white.withValues(alpha: 0.05),
@@ -770,9 +768,8 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                   ),
                 ),
                 titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(),
+                  topTitles: const AxisTitles(),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -859,7 +856,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             children: [
               Expanded(child: UnifiedMetricTile(icon: Icons.speed_rounded, label: 'Avg Pace', value: _formatPace(widget.runData.avgPaceSecondsPerKm), unit: '/km')),
               const SizedBox(width: 8),
-              Expanded(child: UnifiedMetricTile(icon: Icons.flash_on_rounded, label: 'Best Pace', value: _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm), unit: '/km', accentColor: const Color(0xFF00E676), showGlow: true)),
+              Expanded(child: UnifiedMetricTile(icon: Icons.flash_on_rounded, label: 'Best Pace', value: _formatPace(widget.runData.bestPaceSecondsPerKm ?? widget.runData.avgPaceSecondsPerKm), unit: '/km', showGlow: true)),
               const SizedBox(width: 8),
               Expanded(child: UnifiedMetricTile(icon: Icons.rotate_right_rounded, label: 'Cadence', value: '${widget.runData.avgCadence ?? '--'}', unit: 'spm')),
             ],
@@ -921,7 +918,6 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
-                  show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
                     color: Colors.white.withValues(alpha: 0.05),
@@ -929,9 +925,8 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                   ),
                 ),
                 titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(),
+                  topTitles: const AxisTitles(),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,

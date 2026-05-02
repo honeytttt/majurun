@@ -36,7 +36,7 @@ class ShareableRunCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("MAJURUN PRO", 
+                const Text('MAJURUN PRO', 
                   style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: 10)),
                 Text(DateTime.now().toString().substring(0, 10), 
                   style: const TextStyle(color: Colors.grey, fontSize: 10)),
@@ -44,13 +44,13 @@ class ShareableRunCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(distance, style: const TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900, height: 1)),
-            const Text("KILOMETERS", style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
+            const Text('KILOMETERS', style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
             const SizedBox(height: 24),
             Row(
               children: [
-                _buildStat("PACE", pace),
+                _buildStat('PACE', pace),
                 const SizedBox(width: 30),
-                _buildStat("HEART RATE", "$bpm BPM"),
+                _buildStat('HEART RATE', '$bpm BPM'),
               ],
             ),
             const SizedBox(height: 30),

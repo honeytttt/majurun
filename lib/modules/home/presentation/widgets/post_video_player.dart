@@ -438,7 +438,6 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                                   fontWeight: FontWeight.w600,
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black,
                                       blurRadius: 4,
                                     ),
                                   ],
@@ -452,7 +451,6 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
                                   fontWeight: FontWeight.w600,
                                   shadows: const [
                                     Shadow(
-                                      color: Colors.black,
                                       blurRadius: 4,
                                     ),
                                   ],

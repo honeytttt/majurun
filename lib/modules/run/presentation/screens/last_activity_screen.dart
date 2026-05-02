@@ -30,7 +30,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       borderColor: const Color(0xFFFC4C02), // orange = start
     );
     final end = await MapMarkerBuilder.buildForCurrentUser(
-      borderColor: const Color(0xFF7ED957), // green = end
+      
     );
     if (mounted) {
       setState(() {
@@ -53,7 +53,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
     final seconds = durationSeconds % 60;
     final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
 
-    final pace = widget.lastRun['pace'] ?? "8:15";
+    final pace = widget.lastRun['pace'] ?? '8:15';
     final calories = widget.lastRun['calories'] ?? 0;
 
     final date = widget.lastRun['date'] as DateTime? ?? DateTime.now();
@@ -63,7 +63,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
     final dateStr = DateFormat('MMM dd').format(startDateTime);
     final startTime = DateFormat('HH:mm').format(startDateTime);
     final endTime = DateFormat('HH:mm').format(date);
-    final headerDateTime = "$dateStr • $startTime–$endTime";
+    final headerDateTime = '$dateStr • $startTime–$endTime';
 
     final elevationRaw = widget.lastRun['elevation'] ?? 118.0;
     final elevation = (elevationRaw is num) ? elevationRaw.toDouble() : 118.0;
@@ -78,7 +78,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "LAST ACTIVITY",
+          'LAST ACTIVITY',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -109,7 +109,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                     icon: const Icon(Icons.share, size: 16),
-                    label: const Text("Share"),
+                    label: const Text('Share'),
                   ),
                 ],
               ),
@@ -128,7 +128,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        "My Session",
+                        'My Session',
                         style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Icon(Icons.directions_run, color: Colors.blue),
@@ -137,22 +137,22 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                   const SizedBox(height: 25),
                   Row(
                     children: [
-                      _detailStat("Distance (km)", distance, Icons.route),
-                      _detailStat("Time (min:sec)", timeString, Icons.timer),
+                      _detailStat('Distance (km)', distance, Icons.route),
+                      _detailStat('Time (min:sec)', timeString, Icons.timer),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _detailStat("Pace (min/km)", pace, Icons.speed),
-                      _detailStat("Calories", "$calories", Icons.local_fire_department),
+                      _detailStat('Pace (min/km)', pace, Icons.speed),
+                      _detailStat('Calories', '$calories', Icons.local_fire_department),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _detailStat("Elevation Gain (m)", "${elevation.toInt()}", Icons.terrain),
-                      _detailStat("Avg Heart Rate", "145 BPM", Icons.favorite),
+                      _detailStat('Elevation Gain (m)', '${elevation.toInt()}', Icons.terrain),
+                      _detailStat('Avg Heart Rate', '145 BPM', Icons.favorite),
                     ],
                   ),
                 ],
@@ -235,7 +235,6 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
         initialCameraPosition: CameraPosition(target: center, zoom: zoom),
-        mapType: MapType.normal,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
@@ -263,13 +262,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
             anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
-        scrollGesturesEnabled: true,
-        rotateGesturesEnabled: true,
-        tiltGesturesEnabled: true,
         mapToolbarEnabled: false,
-        myLocationEnabled: false,
         myLocationButtonEnabled: false,
       ),
     );
@@ -353,7 +346,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: const Center(
-        child: Text("No map preview", style: TextStyle(color: Colors.grey)),
+        child: Text('No map preview', style: TextStyle(color: Colors.grey)),
       ),
     );
   }

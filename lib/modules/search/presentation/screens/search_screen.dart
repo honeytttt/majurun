@@ -136,7 +136,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       await _searchService.clearRecentSearches();
       await _loadRecentSearches();
     }
@@ -180,7 +180,6 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
         media: _parseMedia(data['media'], data['mapImageUrl']),
         createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         likes: List<String>.from(data['likes'] ?? []),
-        comments: const [],
         quotedPostId: data['quotedPostId'],
         routePoints: _parseRoutePoints(data['routePoints']),
       );

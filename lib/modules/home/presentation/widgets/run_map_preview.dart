@@ -94,7 +94,6 @@ class RunMapPreview extends StatelessWidget {
               rotateGesturesEnabled: false,
               tiltGesturesEnabled: false,
               mapToolbarEnabled: false,
-              myLocationEnabled: false,
               myLocationButtonEnabled: false,
             ),
           ),
@@ -205,7 +204,6 @@ class _FullScreenMapScreenState extends State<_FullScreenMapScreen> {
           ),
           zoom: 13,
         ),
-        mapType: MapType.normal,
         polylines: {
           Polyline(
             polylineId: const PolylineId('route'),
@@ -231,13 +229,7 @@ class _FullScreenMapScreenState extends State<_FullScreenMapScreen> {
             anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
-        scrollGesturesEnabled: true,
-        rotateGesturesEnabled: true,
-        tiltGesturesEnabled: true,
         mapToolbarEnabled: false,
-        myLocationEnabled: false,
         myLocationButtonEnabled: false,
         onMapCreated: (controller) {
           _controller = controller;

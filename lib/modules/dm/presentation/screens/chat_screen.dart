@@ -361,7 +361,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 );
-                if (confirm == true && mounted) {
+                if ((confirm ?? false) && mounted) {
                   await _dmService.blockUser(currentUserId, widget.otherUserId);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

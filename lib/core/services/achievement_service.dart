@@ -176,7 +176,7 @@ class AchievementService extends ChangeNotifier {
   /// Send achievement notification
   Future<void> _sendAchievementNotification(Achievement achievement) async {
     await _pushService.showAchievementNotification(
-      title: "Achievement Unlocked! ${achievement.icon}",
+      title: 'Achievement Unlocked! ${achievement.icon}',
       body: achievement.name,
       achievementId: achievement.id,
     );

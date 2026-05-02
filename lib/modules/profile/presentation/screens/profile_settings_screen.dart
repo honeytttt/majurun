@@ -86,9 +86,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Future<void> _saveProfile() async {
     dynamic imageData;
     if (_imageFile != null) {
-      imageData = _imageFile!;
+      imageData = _imageFile;
     } else if (_webImage != null) {
-      imageData = _webImage!;
+      imageData = _webImage;
     }
 
     widget.onSave(
@@ -114,11 +114,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new), onPressed: () => Navigator.pop(context)),
-        title: const Text("PROFILE SETTINGS", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
+        title: const Text('PROFILE SETTINGS', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
         actions: [
           TextButton(
             onPressed: _saveProfile,
-            child: Text("Save", style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text('Save', style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),
@@ -152,22 +152,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
             ),
             const SizedBox(height: 40),
-            _buildInputField("FULL NAME", _nameController),
+            _buildInputField('FULL NAME', _nameController),
             const SizedBox(height: 25),
-            _buildInputField("NICKNAME (optional)", _nicknameController, hint: "e.g. Flash, Iron Mike..."),
+            _buildInputField('NICKNAME (optional)', _nicknameController, hint: 'e.g. Flash, Iron Mike...'),
             const SizedBox(height: 25),
-            _buildInputField("BIO", _bioController, maxLines: 4),
+            _buildInputField('BIO', _bioController, maxLines: 4),
             const SizedBox(height: 25),
-            _buildInputField("LOCATION", _locationController, icon: Icons.location_on_outlined),
+            _buildInputField('LOCATION', _locationController, icon: Icons.location_on_outlined),
             const SizedBox(height: 25),
             _buildInputField(
-              "PHONE NUMBER (private — only you see this)",
+              'PHONE NUMBER (private — only you see this)',
               _phoneController,
               icon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 25),
-            _buildInputField("EMAIL", _emailController, enabled: false),
+            _buildInputField('EMAIL', _emailController, enabled: false),
             const SizedBox(height: 48),
             const Divider(),
             const SizedBox(height: 16),
@@ -427,7 +427,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.black),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),

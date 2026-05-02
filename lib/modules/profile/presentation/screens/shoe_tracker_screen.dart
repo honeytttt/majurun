@@ -220,7 +220,7 @@ class _ShoeTrackerScreenState extends State<ShoeTrackerScreen>
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       await _service.retireShoe(shoe.id);
     }
   }
@@ -343,7 +343,7 @@ class _ShoeTrackerScreenState extends State<ShoeTrackerScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.directions_run, size: 64, color: Colors.white12),
+            const Icon(Icons.directions_run, size: 64, color: Colors.white12),
             const SizedBox(height: 16),
             const Text('No shoes yet',
                 style: TextStyle(color: Colors.white38, fontSize: 16)),
@@ -482,9 +482,9 @@ class _ShoeTrackerScreenState extends State<ShoeTrackerScreen>
                                   )),
                             ),
                           if (shoe.isDefault && !retired)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: const Icon(Icons.star_rounded,
+                            const Padding(
+                              padding: EdgeInsets.only(left: 6),
+                              child: Icon(Icons.star_rounded,
                                   color: Color(0xFFFFD700), size: 16),
                             ),
                         ],

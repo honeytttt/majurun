@@ -38,7 +38,7 @@ class HealthSyncService {
     try {
       return await _health.hasPermissions(types) ?? false;
     } catch (e) {
-      debugPrint("Health permission check error: $e");
+      debugPrint('Health permission check error: $e');
       return false;
     }
   }
@@ -48,7 +48,7 @@ class HealthSyncService {
     try {
       return await _health.requestAuthorization(types);
     } catch (e) {
-      debugPrint("Health permission request error: $e");
+      debugPrint('Health permission request error: $e');
       return false;
     }
   }
@@ -64,7 +64,7 @@ class HealthSyncService {
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
-      return HealthSyncResult(imported: 0, skipped: 0, error: "Not logged in");
+      return HealthSyncResult(imported: 0, skipped: 0, error: 'Not logged in');
     }
 
     int imported = 0;
@@ -74,8 +74,8 @@ class HealthSyncService {
       // 1. Check/Request Permissions
       bool requested = await _health.requestAuthorization(types);
       if (!requested) {
-        if (!silent) debugPrint("Health permissions denied by user.");
-        return HealthSyncResult(imported: 0, skipped: 0, error: "Permissions denied");
+        if (!silent) debugPrint('Health permissions denied by user.');
+        return HealthSyncResult(imported: 0, skipped: 0, error: 'Permissions denied');
       }
 
       // 2. Fetch data from the specified range
@@ -140,11 +140,11 @@ class HealthSyncService {
         onProgress?.call(done, total);
       }
 
-      debugPrint("✅ Health Sync Complete: $imported imported, $skipped skipped");
+      debugPrint('✅ Health Sync Complete: $imported imported, $skipped skipped');
       return HealthSyncResult(imported: imported, skipped: skipped);
 
     } catch (e) {
-      if (!silent) debugPrint("Health Sync Error: $e");
+      if (!silent) debugPrint('Health Sync Error: $e');
       return HealthSyncResult(imported: imported, skipped: skipped, error: e.toString());
     }
   }
@@ -251,7 +251,9 @@ class HealthSyncService {
     if (lowerSource.contains('google')) return 'Google Fit Run';
     if (lowerSource.contains('apple') || lowerSource.contains('health')) return 'Apple Health Run';
     if (lowerSource.contains('runtrainer') || lowerSource.contains('run trainer') ||
-        lowerSource.contains('asics') || lowerSource.contains('runkeeper')) return 'Run Trainer';
+        lowerSource.contains('asics') || lowerSource.contains('runkeeper')) {
+      return 'Run Trainer';
+    }
     if (lowerSource.contains('polar')) return 'Polar Run';
     if (lowerSource.contains('suunto')) return 'Suunto Run';
     if (lowerSource.contains('wahoo')) return 'Wahoo Run';
@@ -265,7 +267,7 @@ class HealthSyncService {
   Future<void> autoSyncOnFirstInstall() async {
     const key = 'health_auto_synced_v1';
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(key) == true) return;
+    if (prefs.getBool(key) ?? false) return;
 
     final granted = await requestPermissions();
     if (!granted) return;

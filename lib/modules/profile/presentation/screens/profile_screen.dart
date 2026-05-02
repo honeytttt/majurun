@@ -114,11 +114,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             dynamic uploadedImageUrl = imageUrl;
 
             if (kIsWeb && imageData is Uint8List) {
-              debugPrint("📤 Uploading from ProfileScreen...");
+              debugPrint('📤 Uploading from ProfileScreen...');
               final user = FirebaseAuth.instance.currentUser;
               if (user != null) {
                 final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-                final fileName = "profile_${user.uid}_$timestamp.png";
+                final fileName = 'profile_${user.uid}_$timestamp.png';
                 uploadedImageUrl = await StorageService().uploadMedia(imageData, fileName, false);
               }
             }
@@ -142,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // settings screen context is unmounted by the time we reach here.
             if (profileContext.mounted) {
               ScaffoldMessenger.of(profileContext).showSnackBar(
-                const SnackBar(content: Text("Profile updated successfully!")),
+                const SnackBar(content: Text('Profile updated successfully!')),
               );
             }
           },
@@ -214,7 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const Center(child: Text("Not logged in"));
+    if (uid == null) return const Center(child: Text('Not logged in'));
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -253,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         title: const Text(
-          "MY PROFILE",
+          'MY PROFILE',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -828,7 +828,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: hasRun ? const Color(0xFF00E676) : Colors.grey[300]!,
-                                width: 1,
                               ),
                             ),
                             child: Center(
@@ -1033,7 +1032,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('System settings opened — find MajuRun and tap "Don\'t optimize"'),
-                              duration: Duration(seconds: 4),
                             ),
                           );
                         }
@@ -1208,7 +1206,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 media: _parseMedia(data['media'], data['mapImageUrl']),
                 createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
                 likes: List<String>.from(data['likes'] ?? []),
-                comments: const [],
                 quotedPostId: data['quotedPostId'],
                 routePoints: _parseRoutePoints(data['routePoints']),
               );

@@ -52,7 +52,7 @@ class TriviaNotifier {
 
     final loc = tz.local;
     final now = tz.TZDateTime.now(loc);
-    var target = tz.TZDateTime(loc, now.year, now.month, now.day, 9, 0);
+    var target = tz.TZDateTime(loc, now.year, now.month, now.day, 9);
     if (target.isBefore(now)) target = target.add(const Duration(days: 1));
 
     await plugin.zonedSchedule(
@@ -64,8 +64,6 @@ class TriviaNotifier {
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
           icon: '@mipmap/ic_launcher',
         ),
         iOS: DarwinNotificationDetails(

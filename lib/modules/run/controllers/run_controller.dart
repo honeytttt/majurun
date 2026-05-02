@@ -71,10 +71,10 @@ class RunController extends ChangeNotifier {
     // Auto-pause callback
     stateController.onAutoPauseChanged = (isAutoPaused) {
       if (isAutoPaused) {
-        voiceController.speakTraining("Run auto-paused. Start moving to continue.");
+        voiceController.speakTraining('Run auto-paused. Start moving to continue.');
         _showAutoPauseSnackBar();
       } else {
-        voiceController.speakTraining("Run resumed.");
+        voiceController.speakTraining('Run resumed.');
       }
       notifyListeners();
     };
@@ -213,7 +213,7 @@ class RunController extends ChangeNotifier {
   void _handleIdleDetected() {
     final callback = _showSnackBar;
     if (callback == null) {
-      debugPrint("⚠️ No UI callback for idle notification");
+      debugPrint('⚠️ No UI callback for idle notification');
       return;
     }
 
@@ -228,14 +228,14 @@ class RunController extends ChangeNotifier {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                "No movement for 10 minutes. Are you done?",
+                'No movement for 10 minutes. Are you done?',
                 style: TextStyle(color: Colors.white),
               ),
             ),
           ],
         ),
         action: SnackBarAction(
-          label: "END RUN",
+          label: 'END RUN',
           textColor: Colors.white,
           onPressed: () => _onStopRun?.call(),
         ),
@@ -257,14 +257,14 @@ class RunController extends ChangeNotifier {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                "Auto-paused: No movement detected",
+                'Auto-paused: No movement detected',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
               ),
             ),
           ],
         ),
         action: SnackBarAction(
-          label: "RESUME",
+          label: 'RESUME',
           textColor: Colors.white,
           onPressed: resumeRun,
         ),
@@ -329,9 +329,9 @@ class RunController extends ChangeNotifier {
       SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 8),
-        content: Text("${km}km reached - Tap PLAY to hear update"),
+        content: Text('${km}km reached - Tap PLAY to hear update'),
         action: SnackBarAction(
-          label: "PLAY",
+          label: 'PLAY',
           onPressed: () {
             voiceController.speakKmMilestone(
               km: km,
@@ -384,7 +384,7 @@ class RunController extends ChangeNotifier {
       ),
     );
 
-    if (shouldRecover == true) {
+    if (shouldRecover ?? false) {
       _showSnackBar?.call(
         const SnackBar(
           content: Text('Run recovery is being improved. Starting fresh run.'),
@@ -418,7 +418,6 @@ class RunController extends ChangeNotifier {
 
     _showSnackBar?.call(
       SnackBar(
-        duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.green,
         content: Row(
@@ -427,7 +426,7 @@ class RunController extends ChangeNotifier {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                "Run saved! ${distanceStr}km in $durationStr",
+                'Run saved! ${distanceStr}km in $durationStr',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
@@ -533,9 +532,9 @@ class RunController extends ChangeNotifier {
     await stateController.prewarmGps();
   }
 
-  Future<void> startRun({String planTitle = "Free Run", BuildContext? context}) async {
+  Future<void> startRun({String planTitle = 'Free Run', BuildContext? context}) async {
     try {
-      debugPrint("🎬 RunController: Starting run");
+      debugPrint('🎬 RunController: Starting run');
       _lastError = null;
 
       if (context != null) {
@@ -551,7 +550,7 @@ class RunController extends ChangeNotifier {
         if (uid != null) {
           final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
           final data = doc.data() ?? {};
-          final callName = (data['nickname'] as String?)?.trim().isNotEmpty == true
+          final callName = (data['nickname'] as String?)?.trim().isNotEmpty ?? false
               ? data['nickname'] as String
               : (data['firstName'] as String?)?.trim() ?? '';
           voiceController.setUserName(callName);
@@ -560,7 +559,7 @@ class RunController extends ChangeNotifier {
 
       // Enable wake lock to keep screen on
       await WakeLockService.enable();
-      debugPrint("🔒 Screen wake lock enabled");
+      debugPrint('🔒 Screen wake lock enabled');
 
       // Start tracking
       await stateController.startRun();
@@ -612,9 +611,9 @@ class RunController extends ChangeNotifier {
       startAutoSave(planTitle);
       notifyListeners();
 
-      debugPrint("✅ RunController: Run started successfully");
+      debugPrint('✅ RunController: Run started successfully');
     } catch (e) {
-      debugPrint("❌ RunController: Error starting run: $e");
+      debugPrint('❌ RunController: Error starting run: $e');
       _lastError = e.toString();
       _crashReporting.recordRunTrackingError(phase: 'start', errorMessage: e.toString());
       await WakeLockService.disable();
@@ -623,7 +622,7 @@ class RunController extends ChangeNotifier {
   }
 
   void pauseRun() {
-    debugPrint("🎬 RunController: Pausing run");
+    debugPrint('🎬 RunController: Pausing run');
     stateController.pauseRun();
     voiceController.speakRunPaused();
     _analytics.logRunPaused();
@@ -631,7 +630,7 @@ class RunController extends ChangeNotifier {
   }
 
   void resumeRun() {
-    debugPrint("🎬 RunController: Resuming run");
+    debugPrint('🎬 RunController: Resuming run');
     stateController.resumeRun();
     voiceController.speakRunResumed();
     _analytics.logRunResumed();
@@ -640,13 +639,13 @@ class RunController extends ChangeNotifier {
 
   Future<void> stopRun(
     BuildContext context, {
-    String planTitle = "Free Run",
+    String planTitle = 'Free Run',
     Uint8List? mapImageBytes,
   }) async {
     try {
       setUiContext(context);
 
-      debugPrint("🎬 RunController: Stopping run");
+      debugPrint('🎬 RunController: Stopping run');
       debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
 
       // Capture final stats before stopping
@@ -674,9 +673,9 @@ class RunController extends ChangeNotifier {
       await stateController.stopRun();
       await voiceController.speakRunStopped();
 
-      debugPrint("📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace");
-      debugPrint("📍 Route points: ${finalRoutePoints.length} points");
-      debugPrint("📊 GPS Acceptance Rate: ${stateController.gpsAcceptanceRate.toStringAsFixed(1)}%");
+      debugPrint('📊 Final stats - Distance: ${finalDistance}km, Duration: ${finalDuration}s, Pace: $finalPace');
+      debugPrint('📍 Route points: ${finalRoutePoints.length} points');
+      debugPrint('📊 GPS Acceptance Rate: ${stateController.gpsAcceptanceRate.toStringAsFixed(1)}%');
       debugPrint("📊 Elevation gain: ${routeStats['elevationGain']?.toStringAsFixed(0) ?? '0'}m");
 
       // Log analytics — includes GPS health so silent failures show up in Firebase
@@ -770,28 +769,28 @@ class RunController extends ChangeNotifier {
         }
       }
 
-      debugPrint("✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges");
+      debugPrint('✅ Run saved to history — PBs: $lastRunPbs, Badges: $lastRunBadges');
 
       // Clean up
       await RunRecoveryService.clearRecoverableRun();
       try { IntervalTrainingService().stop(); } catch (_) {}
       stopAutoSave();
-      debugPrint("✅ Recovery data cleared");
+      debugPrint('✅ Recovery data cleared');
 
       await WakeLockService.disable();
-      debugPrint("🔓 Screen wake lock disabled");
+      debugPrint('🔓 Screen wake lock disabled');
 
       stateController.resetRun();
-      debugPrint("✅ Run data reset");
+      debugPrint('✅ Run data reset');
 
       _lastMilestoneSnackKm = 0;
 
       _showRunSavedNotification(finalDistance, finalDuration);
 
       notifyListeners();
-      debugPrint("✅ RunController: Stop complete");
+      debugPrint('✅ RunController: Stop complete');
     } catch (e, stack) {
-      debugPrint("❌ RunController: Error stopping run: $e");
+      debugPrint('❌ RunController: Error stopping run: $e');
       _crashReporting.recordRunTrackingError(phase: 'stop', errorMessage: e.toString());
       _crashReporting.recordError(e, stack, reason: 'Error stopping run');
       stopAutoSave();
@@ -869,7 +868,7 @@ class RunController extends ChangeNotifier {
 
   @override
   void dispose() {
-    debugPrint("🗑️ Disposing RunController");
+    debugPrint('🗑️ Disposing RunController');
     stopAutoSave();
     unawaited(WakeLockService.disable()); // fire-and-forget; dispose() can't be async
     stateController.removeListener(_onStateControllerChanged);

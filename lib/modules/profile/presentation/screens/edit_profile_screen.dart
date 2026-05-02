@@ -101,7 +101,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to save profile: $e")),
+          SnackBar(content: Text('Failed to save profile: $e')),
         );
       }
     }
@@ -125,7 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           onPressed: () => _isSaving ? null : Navigator.pop(context),
         ),
         title: const Text(
-          "EDIT PROFILE", 
+          'EDIT PROFILE', 
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14),
         ),
         actions: [
@@ -133,7 +133,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextButton(
               onPressed: _saveProfile,
               child: const Text(
-                "Save", 
+                'Save', 
                 style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
@@ -172,13 +172,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                _buildInputField("FULL NAME", _nameController, enabled: !_isSaving),
+                _buildInputField('FULL NAME', _nameController, enabled: !_isSaving),
                 const SizedBox(height: 25),
-                _buildInputField("NICKNAME (optional)", _nicknameController, enabled: !_isSaving, hint: "e.g. Flash, Iron Mike..."),
+                _buildInputField('NICKNAME (optional)', _nicknameController, enabled: !_isSaving, hint: 'e.g. Flash, Iron Mike...'),
                 const SizedBox(height: 25),
-                _buildInputField("BIO", _bioController, maxLines: 4, enabled: !_isSaving),
+                _buildInputField('BIO', _bioController, maxLines: 4, enabled: !_isSaving),
                 const SizedBox(height: 25),
-                _buildInputField("EMAIL", _emailController, enabled: !_isSaving),
+                _buildInputField('EMAIL', _emailController, enabled: !_isSaving),
               ],
             ),
           ),
@@ -194,7 +194,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const CircularProgressIndicator(color: brandGreen),
                     const SizedBox(height: 20),
                     Text(
-                      "Uploading to S3...",
+                      'Uploading to S3...',
                       style: TextStyle(
                         color: Colors.black.withValues(alpha: 0.7),
                         fontWeight: FontWeight.bold,
@@ -249,7 +249,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.black),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),

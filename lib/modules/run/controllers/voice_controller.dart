@@ -10,105 +10,105 @@ const List<String> _kEncouragements = [
   "You're doing amazing! Keep it up!",
 // ... (rest of encouragement phrases)
   "Every step counts — you've got this!",
-  "Your legs are stronger than you think!",
-  "Champions are made on days like this!",
-  "Push through — the finish line is closer than you know!",
+  'Your legs are stronger than you think!',
+  'Champions are made on days like this!',
+  'Push through — the finish line is closer than you know!',
   "You showed up, and that's already half the battle!",
-  "Keep moving forward — one foot at a time!",
-  "Breathe deep, stay steady, keep going!",
-  "You are built for this moment!",
-  "Pain is temporary, glory is forever — keep running!",
-  "Your body can do this — trust your training!",
-  "Strong mind, strong legs, strong finish!",
+  'Keep moving forward — one foot at a time!',
+  'Breathe deep, stay steady, keep going!',
+  'You are built for this moment!',
+  'Pain is temporary, glory is forever — keep running!',
+  'Your body can do this — trust your training!',
+  'Strong mind, strong legs, strong finish!',
   "You've already beaten everyone who stayed on the couch!",
-  "This is YOUR run — own every meter!",
-  "Nothing stops you today — nothing!",
-  "Feel the rhythm of your run and go!",
+  'This is YOUR run — own every meter!',
+  'Nothing stops you today — nothing!',
+  'Feel the rhythm of your run and go!',
   "You're getting faster, stronger, better with every step!",
   "Dig deep — there's more in the tank!",
-  "Progress, not perfection — keep running!",
+  'Progress, not perfection — keep running!',
   "You're writing your own story with every kilometer!",
   "Incredible pace — don't slow down now!",
-  "You were born to run — show the world!",
-  "Every kilometer is a victory — celebrate this one!",
-  "The road is yours — take it!",
+  'You were born to run — show the world!',
+  'Every kilometer is a victory — celebrate this one!',
+  'The road is yours — take it!',
   "Sweat, smile, repeat — you've got this!",
   "You're proving something to yourself right now!",
-  "Endurance is built one step at a time — keep building!",
-  "Running is a gift — enjoy every stride!",
-  "Your future self will thank you for not stopping!",
+  'Endurance is built one step at a time — keep building!',
+  'Running is a gift — enjoy every stride!',
+  'Your future self will thank you for not stopping!',
   "Feel those feet hitting the ground — that's power!",
-  "You are unstoppable when you choose to be!",
-  "Consistent effort creates extraordinary results — keep going!",
-  "The hardest part is already behind you!",
+  'You are unstoppable when you choose to be!',
+  'Consistent effort creates extraordinary results — keep going!',
+  'The hardest part is already behind you!',
   "Believe in the distance you've already covered!",
   "You're tougher than any hill, any wind, any doubt!",
-  "You are 100 percent capable of finishing this!",
-  "Keep your eyes forward and your spirit high!",
-  "Every runner hits a wall — and every runner breaks through!",
-  "Lean in, breathe out, and keep moving!",
-  "You chose to run today — now see it through!",
-  "Strong legs carry strong hearts — yours is the strongest!",
+  'You are 100 percent capable of finishing this!',
+  'Keep your eyes forward and your spirit high!',
+  'Every runner hits a wall — and every runner breaks through!',
+  'Lean in, breathe out, and keep moving!',
+  'You chose to run today — now see it through!',
+  'Strong legs carry strong hearts — yours is the strongest!',
   "The miles are melting — you're almost there!",
-  "Run with purpose, run with heart, run with everything you have!",
+  'Run with purpose, run with heart, run with everything you have!',
   "Winners don't quit and quitters don't win — keep running!",
   "You make this look easy because you've trained hard!",
-  "Pace yourself and own this run!",
+  'Pace yourself and own this run!',
   "There's a better version of you at the finish — go find them!",
   "Head up, chest out, eyes forward — let's go!",
-  "Your determination is your superpower today!",
+  'Your determination is your superpower today!',
   "You came this far — don't stop now!",
-  "Running is 90 percent mental — your mind is winning!",
-  "Every drop of sweat is a step toward greatness!",
-  "Stay strong, stay consistent, stay running!",
+  'Running is 90 percent mental — your mind is winning!',
+  'Every drop of sweat is a step toward greatness!',
+  'Stay strong, stay consistent, stay running!',
   "You are a machine right now — don't stop the engine!",
-  "Listen to your body and tell it to keep going!",
-  "This pace, this distance, this day — all yours!",
+  'Listen to your body and tell it to keep going!',
+  'This pace, this distance, this day — all yours!',
   "You're lapping everyone who didn't start!",
-  "Resilience is your middle name — prove it!",
+  'Resilience is your middle name — prove it!',
   "Go for it — you'll regret stopping, not pushing!",
   "Excellence is a habit you're building right now!",
-  "Feel the strength in your stride — you are powerful!",
-  "Hard work is working — keep at it!",
-  "Your journey today inspires more people than you know!",
-  "Sweat is fat crying — make it cry harder!",
-  "You are a runner, and runners finish what they start!",
+  'Feel the strength in your stride — you are powerful!',
+  'Hard work is working — keep at it!',
+  'Your journey today inspires more people than you know!',
+  'Sweat is fat crying — make it cry harder!',
+  'You are a runner, and runners finish what they start!',
   "Look how far you've come — now go even further!",
-  "Stay the course — greatness is straight ahead!",
+  'Stay the course — greatness is straight ahead!',
   "You're not just running — you're becoming someone stronger!",
-  "Every second of effort is investing in a healthier you!",
-  "Let the rhythm carry you — flow into this run!",
+  'Every second of effort is investing in a healthier you!',
+  'Let the rhythm carry you — flow into this run!',
   "You've broken limits before — break another one today!",
-  "Keep your cadence, keep your calm, keep going!",
+  'Keep your cadence, keep your calm, keep going!',
   "You're doing something most people only wish they did!",
-  "One step at a time — just one more step!",
-  "Your grit is showing — and it looks incredible!",
-  "This run belongs to you — claim it!",
-  "The best view comes after the hardest climb — keep going!",
-  "You are more resilient than you realize!",
-  "Stay hungry, stay humble, stay running!",
-  "Your consistency today is your confidence tomorrow!",
+  'One step at a time — just one more step!',
+  'Your grit is showing — and it looks incredible!',
+  'This run belongs to you — claim it!',
+  'The best view comes after the hardest climb — keep going!',
+  'You are more resilient than you realize!',
+  'Stay hungry, stay humble, stay running!',
+  'Your consistency today is your confidence tomorrow!',
   "You're writing a comeback story with every stride!",
   "Don't count the kilometers — make the kilometers count!",
   "Keep the fire burning — you're almost at the breakthrough!",
   "You're a warrior out here — warriors don't stop!",
-  "Breathe, believe, and keep your feet moving!",
-  "Pain is just weakness leaving the body — push through!",
+  'Breathe, believe, and keep your feet moving!',
+  'Pain is just weakness leaving the body — push through!',
   "You chose the harder path today — that's why you'll win!",
-  "Light feet, strong heart, clear mind — go!",
-  "Your effort today is the gift you give your future self!",
-  "Nobody remembers the easy runs — make this one legendary!",
+  'Light feet, strong heart, clear mind — go!',
+  'Your effort today is the gift you give your future self!',
+  'Nobody remembers the easy runs — make this one legendary!',
   "You're fueled by determination — and you have plenty left!",
-  "Run tall, run strong, run proud!",
-  "There are no shortcuts to any place worth going — run on!",
+  'Run tall, run strong, run proud!',
+  'There are no shortcuts to any place worth going — run on!',
   "You're in the zone — stay there!",
   "Champions train when nobody's watching — you're doing it!",
   "Every meter you've run today is a personal record of effort!",
-  "Stay loose, stay focused, stay moving!",
+  'Stay loose, stay focused, stay moving!',
   "The only run you regret is the one you didn't finish!",
-  "You are the athlete you always wanted to be — right now!",
-  "Go hard — rest is coming, but not yet!",
-  "This is the run that makes the next one easier — push on!",
+  'You are the athlete you always wanted to be — right now!',
+  'Go hard — rest is coming, but not yet!',
+  'This is the run that makes the next one easier — push on!',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,12 +118,12 @@ const List<String> _kEncouragements = [
 // ─────────────────────────────────────────────────────────────────────────────
 final Map<double, String> _kApproachingPhrases = {
   4.0:  "You're just 1 kilometer away from 5K! Keep pushing!",
-  8.0:  "Only 2 kilometers to 10K! You can do this!",
-  9.0:  "Just 1 kilometer left to reach 10K! Give it everything!",
+  8.0:  'Only 2 kilometers to 10K! You can do this!',
+  9.0:  'Just 1 kilometer left to reach 10K! Give it everything!',
   19.0: "2 kilometers to the half marathon! You're so close!",
-  20.0: "Just 1 kilometer to the half marathon! Dig deep!",
-  40.0: "Only 2 kilometers to the full marathon! This is it!",
-  41.0: "1 kilometer to the full marathon! You are a legend!",
+  20.0: 'Just 1 kilometer to the half marathon! Dig deep!',
+  40.0: 'Only 2 kilometers to the full marathon! This is it!',
+  41.0: '1 kilometer to the full marathon! You are a legend!',
 };
 
 class VoiceController extends ChangeNotifier {
@@ -162,28 +162,28 @@ class VoiceController extends ChangeNotifier {
       final voiceName = _settings.voiceName;
 
       if (kIsWeb) {
-        await _tts.setLanguage("en-US");
+        await _tts.setLanguage('en-US');
         await _tts.setSpeechRate(0.42);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
-        await _tts.speak(" ");
+        await _tts.speak(' ');
         await Future.delayed(const Duration(milliseconds: 100));
         await _tts.stop();
-        debugPrint("✅ Voice initialized for WEB (warmed up)");
+        debugPrint('✅ Voice initialized for WEB (warmed up)');
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
         final name = voiceName.isNotEmpty ? voiceName : 'Samantha';
-        await _tts.setVoice({"name": name, "locale": "en-US"});
-        await _tts.setLanguage("en-US");
+        await _tts.setVoice({'name': name, 'locale': 'en-US'});
+        await _tts.setLanguage('en-US');
         await _tts.setSpeechRate(_settings.speechRate);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
-        debugPrint("✅ Voice initialized for iOS ($name)");
+        debugPrint('✅ Voice initialized for iOS ($name)');
       } else {
-        await _tts.setLanguage("en-US");
+        await _tts.setLanguage('en-US');
         await _tts.setSpeechRate(_settings.speechRate);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
-        debugPrint("✅ Voice initialized (default)");
+        debugPrint('✅ Voice initialized (default)');
       }
 
       // Configure audio session ONCE with duck-only settings so background
@@ -215,14 +215,14 @@ class VoiceController extends ChangeNotifier {
 
       _isInitialized = true;
     } catch (e) {
-      debugPrint("⚠️ Error initializing voice: $e");
+      debugPrint('⚠️ Error initializing voice: $e');
       _isInitialized = false;
     }
   }
 
   Future<void> ensureInitialized() async {
     if (!_isInitialized || kIsWeb) {
-      debugPrint("🔄 Re-initializing TTS...");
+      debugPrint('🔄 Re-initializing TTS...');
       await _initTts();
     }
   }
@@ -256,9 +256,9 @@ class VoiceController extends ChangeNotifier {
       }
 
       await _tts.speak(text);
-      debugPrint("🔊 Speaking: $text");
+      debugPrint('🔊 Speaking: $text');
     } catch (e) {
-      debugPrint("⚠️ Error speaking: $e");
+      debugPrint('⚠️ Error speaking: $e');
       await _initTts();
     }
   }
@@ -308,7 +308,7 @@ class VoiceController extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 100));
       await HapticFeedback.lightImpact();
     } catch (e) {
-      debugPrint("⚠️ Error playing milestone haptic: $e");
+      debugPrint('⚠️ Error playing milestone haptic: $e');
     }
   }
 
@@ -319,7 +319,7 @@ class VoiceController extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 50));
       await HapticFeedback.selectionClick();
     } catch (e) {
-      debugPrint("⚠️ Error playing ting sound: $e");
+      debugPrint('⚠️ Error playing ting sound: $e');
     }
   }
 
@@ -337,13 +337,13 @@ class VoiceController extends ChangeNotifier {
 
     final announcement = StringBuffer();
     final distanceStr = distanceKm.toStringAsFixed(1);
-    announcement.write("$distanceStr kilometers. ");
-    announcement.write("Pace: $paceMin ");
-    announcement.write(paceMin == 1 ? "minute " : "minutes ");
+    announcement.write('$distanceStr kilometers. ');
+    announcement.write('Pace: $paceMin ');
+    announcement.write(paceMin == 1 ? 'minute ' : 'minutes ');
     if (paceSec > 0) {
-      announcement.write("$paceSec. ");
+      announcement.write('$paceSec. ');
     } else {
-      announcement.write(". ");
+      announcement.write('. ');
     }
 
     await _speak(announcement.toString());
@@ -379,70 +379,70 @@ class VoiceController extends ChangeNotifier {
 
     if (_settings.majorMilestones) {
       final name = _userName.isNotEmpty ? ' $_userName' : '';
-      if (km == 5) { announcement.write("Congratulations$name! "); }
-      else if (km == 10) { announcement.write("Incredible$name! "); }
+      if (km == 5) { announcement.write('Congratulations$name! '); }
+      else if (km == 10) { announcement.write('Incredible$name! '); }
       else if (km == 21) { announcement.write("Half marathon complete$name! You're amazing! "); }
-      else if (km == 42) { announcement.write("Full marathon$name! This is legendary! "); }
+      else if (km == 42) { announcement.write('Full marathon$name! This is legendary! '); }
     }
 
     announcement.write("You've completed $km ");
-    announcement.write(km == 1 ? "kilometer. " : "kilometers. ");
+    announcement.write(km == 1 ? 'kilometer. ' : 'kilometers. ');
 
     if (_settings.totalTime) {
-      announcement.write("Your total time is ");
+      announcement.write('Your total time is ');
       if (hours > 0) {
-        announcement.write("$hours ");
-        announcement.write(hours == 1 ? "hour " : "hours ");
+        announcement.write('$hours ');
+        announcement.write(hours == 1 ? 'hour ' : 'hours ');
       }
       if (minutes > 0 || hours == 0) {
-        if (hours > 0) announcement.write("and ");
-        announcement.write("$minutes ");
-        announcement.write(minutes == 1 ? "minute" : "minutes");
+        if (hours > 0) announcement.write('and ');
+        announcement.write('$minutes ');
+        announcement.write(minutes == 1 ? 'minute' : 'minutes');
       }
       if (seconds > 0 && hours == 0) {
-        announcement.write(" and $seconds ");
-        announcement.write(seconds == 1 ? "second" : "seconds");
+        announcement.write(' and $seconds ');
+        announcement.write(seconds == 1 ? 'second' : 'seconds');
       }
-      announcement.write(". ");
+      announcement.write('. ');
     }
 
     if (_settings.lastKmPace) {
       final paceParts = lastKmPace.split(':');
       final paceMin = int.tryParse(paceParts[0]) ?? 0;
       final paceSec = int.tryParse(paceParts.length > 1 ? paceParts[1] : '0') ?? 0;
-      announcement.write("Your last kilometer pace was $paceMin ");
-      announcement.write(paceMin == 1 ? "minute " : "minutes ");
+      announcement.write('Your last kilometer pace was $paceMin ');
+      announcement.write(paceMin == 1 ? 'minute ' : 'minutes ');
       if (paceSec > 0) {
-        announcement.write("and $paceSec ");
-        announcement.write(paceSec == 1 ? "second " : "seconds ");
+        announcement.write('and $paceSec ');
+        announcement.write(paceSec == 1 ? 'second ' : 'seconds ');
       }
-      announcement.write("per kilometer. ");
+      announcement.write('per kilometer. ');
     }
 
     if (_settings.averagePace) {
-      announcement.write("Your average pace is $avgPaceMin ");
-      announcement.write(avgPaceMin == 1 ? "minute " : "minutes ");
+      announcement.write('Your average pace is $avgPaceMin ');
+      announcement.write(avgPaceMin == 1 ? 'minute ' : 'minutes ');
       if (avgPaceSec > 0) {
-        announcement.write("and $avgPaceSec ");
-        announcement.write(avgPaceSec == 1 ? "second " : "seconds ");
+        announcement.write('and $avgPaceSec ');
+        announcement.write(avgPaceSec == 1 ? 'second ' : 'seconds ');
       }
-      announcement.write("per kilometer. ");
+      announcement.write('per kilometer. ');
     }
 
     if (comparison != null && comparison.isNotEmpty) {
       announcement.write(comparison);
-      announcement.write(". ");
+      announcement.write('. ');
     }
 
     if (_settings.encouragement) {
       if (km == 42) {
         announcement.write("You've conquered a full marathon! Absolute champion!");
       } else if (km == 21) {
-        announcement.write("Half marathon done! Incredible effort!");
+        announcement.write('Half marathon done! Incredible effort!');
       } else if (km == 10) {
         announcement.write("You've hit 10K! You're unstoppable!");
       } else if (km == 5) {
-        announcement.write("5K complete! Amazing work!");
+        announcement.write('5K complete! Amazing work!');
       } else {
         announcement.write(_pickEncouragement());
       }
@@ -474,13 +474,13 @@ class VoiceController extends ChangeNotifier {
     resetApproachingMilestones();
     final greeting = _userName.isNotEmpty
         ? "Let's go$_nameSuffix! Run started. Stay safe and enjoy your run!"
-        : "Run started. Stay safe and enjoy your run!";
+        : 'Run started. Stay safe and enjoy your run!';
     await _speak(greeting);
   }
 
   Future<void> speakRunPaused() async {
     if (!_settings.pauseResume) return;
-    await _speak("Run paused. Take a breath$_nameSuffix!");
+    await _speak('Run paused. Take a breath$_nameSuffix!');
   }
 
   Future<void> speakRunResumed() async {
@@ -491,8 +491,8 @@ class VoiceController extends ChangeNotifier {
   Future<void> speakRunStopped() async {
     if (!_settings.runStartStop) return;
     final msg = _userName.isNotEmpty
-        ? "Great job$_nameSuffix! Run completed. Check your stats!"
-        : "Great job! Run completed. Check your stats!";
+        ? 'Great job$_nameSuffix! Run completed. Check your stats!'
+        : 'Great job! Run completed. Check your stats!';
     await _speak(msg);
   }
 

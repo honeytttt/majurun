@@ -58,13 +58,10 @@ class AppTheme {
         secondary: accentGreen,
         secondaryContainer: Color(0xFFC8E6C9),
         tertiary: darkGreen,
-        surface: surfaceWhite,
         surfaceContainerHighest: silverLight,
         error: errorRed,
-        onPrimary: Colors.white,
         onSecondary: textPrimary,
         onSurface: textPrimary,
-        onError: Colors.white,
       ),
 
       scaffoldBackgroundColor: backgroundWhite,
@@ -148,7 +145,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
-          side: BorderSide(color: silverMedium, width: 1),
+          side: BorderSide(color: silverMedium),
         ),
         margin: const EdgeInsets.symmetric(vertical: 8),
       ),
@@ -397,13 +394,11 @@ class AppDecorations {
     borderRadius: const BorderRadius.all(Radius.circular(16)),
     border: Border.all(
       color: AppTheme.silverMedium,
-      width: 1,
     ),
     boxShadow: <BoxShadow>[
       BoxShadow(
         color: Colors.black.withValues(alpha: 0.03),
         blurRadius: 10,
-        spreadRadius: 0,
         offset: const Offset(0, 2),
       ),
     ],
@@ -421,7 +416,6 @@ class AppDecorations {
     ),
     border: Border.all(
       color: AppTheme.silverMedium,
-      width: 1,
     ),
   );
 
@@ -434,7 +428,6 @@ class AppDecorations {
       BoxShadow(
         color: AppTheme.primaryGreen.withValues(alpha: 0.3),
         blurRadius: 8,
-        spreadRadius: 0,
       ),
     ],
   );

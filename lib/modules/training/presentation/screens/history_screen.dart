@@ -32,9 +32,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     // If duration missing, still show single time (clean)
     if (durationSeconds == null || durationSeconds <= 0) {
-      return "$datePart • $end";
+      return '$datePart • $end';
     }
-    return "$datePart • $start–$end";
+    return '$datePart • $start–$end';
   }
 
   // Small helper: safe Timestamp -> DateTime
@@ -72,7 +72,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 onPressed: widget.onBack,
               ),
               const Text(
-                "WORKOUT CALENDAR",
+                'WORKOUT CALENDAR',
                 style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
               ),
             ],
@@ -80,7 +80,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
 
         TableCalendar(
-          firstDay: DateTime.utc(2024, 1, 1),
+          firstDay: DateTime.utc(2024),
           lastDay: DateTime.utc(2030, 12, 31),
           focusedDay: _focusedDay,
           selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
@@ -145,8 +145,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         final data = filteredDocs[index].data() as Map<String, dynamic>;
 
                         final planTitle = (data['planTitle'] ?? 'Session').toString();
-                        final week = _asInt(data['week'], fallback: 0);
-                        final day = _asInt(data['day'], fallback: 0);
+                        final week = _asInt(data['week']);
+                        final day = _asInt(data['day']);
 
                         final completedAt = _asDateTime(data['completedAt']) ?? DateTime.now();
 
@@ -183,7 +183,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                           // ✅ Professional subtitle
                           subtitle: Text(
-                            "Wk $week • Day $day  •  $timeRange",
+                            'Wk $week • Day $day  •  $timeRange',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

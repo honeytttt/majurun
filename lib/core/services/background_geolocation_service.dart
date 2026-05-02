@@ -27,7 +27,7 @@ class BackgroundGeolocationService extends ChangeNotifier {
   double _avgSpeed = 0;
   double _maxSpeed = 0;
   double _elevationGain = 0;
-  double _currentAltitude = 0;
+  final double _currentAltitude = 0;
 
   // Callbacks
   Function(LocationPoint)? onLocationUpdate;

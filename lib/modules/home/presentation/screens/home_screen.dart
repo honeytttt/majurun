@@ -38,6 +38,7 @@ import 'package:majurun/core/services/daily_challenge_service.dart';
 import 'package:majurun/modules/home/presentation/screens/saved_posts_screen.dart';
 import 'package:majurun/modules/engagement/engagement_feed_card.dart';
 import 'package:majurun/modules/engagement/features/games/games_feed_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/streak_hype_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,10 +57,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final StorageService _storageService = StorageService();
 
-  String _userName = "Loading...";
-  String _userBio = "Loading...";
-  String _profileImageUrl = "";
-  String _email = "";
+  String _userName = 'Loading...';
+  String _userBio = 'Loading...';
+  String _profileImageUrl = '';
+  String _email = '';
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
@@ -95,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _email = user.email ?? "";
+    _email = user.email ?? '';
 
     _userDataSubscription = FirebaseFirestore.instance
         .collection('users')
@@ -106,9 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = doc.data();
         if (data == null) return;
         setState(() {
-          _userName = data['displayName'] ?? "No Name";
-          _userBio = data['bio'] ?? "No Bio";
-          _profileImageUrl = data['photoUrl'] ?? "";
+          _userName = data['displayName'] ?? 'No Name';
+          _userBio = data['bio'] ?? 'No Bio';
+          _profileImageUrl = data['photoUrl'] ?? '';
         });
       }
     }, onError: (_) {
@@ -131,9 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (imageOrUrl is String && imageOrUrl.startsWith('http')) {
       finalImageUrl = imageOrUrl;
     } else if (imageOrUrl != null) {
-      debugPrint("📤 Uploading raw data from HomeScreen...");
+      debugPrint('📤 Uploading raw data from HomeScreen...');
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = "profile_${user.uid}_$timestamp.png";
+      final String fileName = 'profile_${user.uid}_$timestamp.png';
       if (kIsWeb && imageOrUrl is Uint8List) {
         finalImageUrl = await _storageService.uploadMedia(imageOrUrl, fileName, false);
       }
@@ -145,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
         {
           'displayName': name,
           'bio': bio,
-          'photoUrl': finalImageUrl ?? "",
+          'photoUrl': finalImageUrl ?? '',
           'email': email,
         },
         SetOptions(merge: true),
@@ -158,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await _storageService.deleteOldImage(oldImageUrl);
       }
     } catch (e) {
-      debugPrint("❌ Firestore Update Failed: $e");
+      debugPrint('❌ Firestore Update Failed: $e');
     }
   }
 
@@ -275,7 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
           border: const Border(
             top: BorderSide(
               color: AppTheme.silverMedium,
-              width: 1,
             ),
           ),
           boxShadow: <BoxShadow>[
@@ -375,7 +375,6 @@ class _HomeScreenState extends State<HomeScreen> {
               BoxShadow(
                 color: brandGreen.withValues(alpha: 0.3),
                 blurRadius: 12,
-                spreadRadius: 0,
               ),
             ],
           ),
@@ -566,7 +565,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                 Icon(Icons.error_outline, size: 48, color: brandGreen),
                 const SizedBox(height: 16),
                 Text(
-                  "Error: ${snapshot.error}",
+                  'Error: ${snapshot.error}',
                   style: const TextStyle(color: AppTheme.textSecondary),
                 ),
               ],
@@ -657,7 +656,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               SliverAppBar(
                 floating: true,
                 snap: true,
-                pinned: false,
                 elevation: 0,
                 toolbarHeight: 90,
                 backgroundColor: Colors.white,
@@ -683,7 +681,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                       decoration: BoxDecoration(
                         color: Colors.orange.shade50,
                         borderRadius: const BorderRadius.all(Radius.circular(14)),
-                        border: Border.all(color: Colors.orange.shade200, width: 1),
+                        border: Border.all(color: Colors.orange.shade200),
                       ),
                       child: IconButton(
                         padding: EdgeInsets.zero,
@@ -708,7 +706,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                       borderRadius: const BorderRadius.all(Radius.circular(14)),
                       border: Border.all(
                         color: silverMedium,
-                        width: 1,
                       ),
                     ),
                     child: IconButton(
@@ -729,7 +726,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                     decoration: BoxDecoration(
                       color: silverLight,
                       borderRadius: const BorderRadius.all(Radius.circular(14)),
-                      border: Border.all(color: silverMedium, width: 1),
+                      border: Border.all(color: silverMedium),
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
@@ -811,6 +808,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   ),
                 ),
 
+              // E1 — Streak hype panel (visible when currentStreak > 0)
+              const SliverToBoxAdapter(child: StreakHypeCard()),
+
               // Daily Challenges banner
               SliverToBoxAdapter(
                 child: _buildChallengesBanner(context),
@@ -835,13 +835,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                                 borderRadius: const BorderRadius.all(Radius.circular(24)),
                                 border: Border.all(
                                   color: silverMedium,
-                                  width: 1,
                                 ),
                                 boxShadow: <BoxShadow>[
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.03),
                                     blurRadius: 10,
-                                    spreadRadius: 0,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
@@ -912,8 +910,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                           );
                         },
                         childCount: displayPosts.length + (_postRepo.hasMorePosts ? 1 : 0),
-                        addAutomaticKeepAlives: true,
-                        addRepaintBoundaries: true,
                       ),
                     ),
               const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
@@ -1012,7 +1008,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Text(
-                        "MAJU",
+                        'MAJU',
                         style: TextStyle(
                           color: brandGreen,
                           fontWeight: FontWeight.w900,
@@ -1022,7 +1018,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         ),
                       ),
                       const Text(
-                        "RUN",
+                        'RUN',
                         style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w900,
@@ -1063,7 +1059,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   borderRadius: const BorderRadius.all(Radius.circular(14)),
                   border: Border.all(
                     color: AppTheme.silverMedium,
-                    width: 1,
                   ),
                 ),
                 child: IconButton(

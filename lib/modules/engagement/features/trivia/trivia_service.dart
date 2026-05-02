@@ -14,7 +14,7 @@ class TriviaService {
 
   /// Returns today's question (rotates through all 30 by day-of-year).
   static TriviaQuestion todayQuestion() {
-    final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
+    final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year)).inDays;
     return kTriviaQuestions[dayOfYear % kTriviaQuestions.length];
   }
 

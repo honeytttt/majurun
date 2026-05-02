@@ -39,7 +39,6 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
       borderColor: const Color(0xFFFC4C02),
     );
     final end = await MapMarkerBuilder.buildForUser(uid,
-      borderColor: const Color(0xFF7ED957),
     );
     if (mounted) {
       setState(() {
@@ -110,13 +109,13 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   String _wkDayLabel(Map<String, dynamic> data) {
     final week = data['week'];
     final day = data['day'];
-    if (week != null && day != null) return "Wk $week • Day $day";
+    if (week != null && day != null) return 'Wk $week • Day $day';
 
     final weekDay = data['weekDay']?.toString();
     if (weekDay != null && weekDay.isNotEmpty) {
-      return weekDay.replaceAll("Week", "Wk").replaceAll(",", " •");
+      return weekDay.replaceAll('Week', 'Wk').replaceAll(',', ' •');
     }
-    return "";
+    return '';
   }
 
   bool? _completedFlag(Map<String, dynamic> data) {
@@ -155,7 +154,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         ? "$movingHours:${movingMins.toString().padLeft(2, '0')}:${movingSecs.toString().padLeft(2, '0')}"
         : "$movingMins:${movingSecs.toString().padLeft(2, '0')}";
 
-    final pace = widget.runData['pace'] ?? "0:00";
+    final pace = widget.runData['pace'] ?? '0:00';
     final calories = widget.runData['calories'] ?? 0;
     final avgBpmRaw = widget.runData['avgBpm'] ?? widget.runData['bpm'] ?? 0;
     final avgBpm = avgBpmRaw is num ? avgBpmRaw.toInt() : 0;
@@ -164,7 +163,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final isSession = _isSession(widget.runData);
     final wkDay = _wkDayLabel(widget.runData);
     final completed = _completedFlag(widget.runData);
-    final statusLabel = completed == null ? null : (completed ? "Completed" : "In Progress");
+    final statusLabel = completed == null ? null : (completed ? 'Completed' : 'In Progress');
 
     final double elevGain = (widget.runData['elevationGain'] as num?)?.toDouble() ?? 0.0;
     final double elevLoss = (widget.runData['elevationLoss'] as num?)?.toDouble() ?? 0.0;
@@ -196,7 +195,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "MY ",
+              'MY ',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
@@ -247,7 +246,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                 children: [
                   Text(DateFormat('h:mm a').format(date), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   const Spacer(),
-                  if (isSession) _badge(label: "SESSION", icon: Icons.fitness_center),
+                  if (isSession) _badge(label: 'SESSION', icon: Icons.fitness_center),
                   if (wkDay.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     _chip(text: wkDay, icon: Icons.calendar_today),
@@ -256,8 +255,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                     const SizedBox(width: 8),
                     _chip(
                       text: statusLabel,
-                      icon: statusLabel == "Completed" ? Icons.check_circle : Icons.timelapse,
-                      color: statusLabel == "Completed" ? Colors.green : Colors.orange,
+                      icon: statusLabel == 'Completed' ? Icons.check_circle : Icons.timelapse,
+                      color: statusLabel == 'Completed' ? Colors.green : Colors.orange,
                     ),
                   ],
                 ],
@@ -291,22 +290,22 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                   children: [
                     UnifiedMetricTile(
                       icon: Icons.directions_run_rounded,
-                      label: "Distance",
+                      label: 'Distance',
                       value: distance,
-                      unit: "KM",
+                      unit: 'KM',
                       accentColor: const Color(0xFF00FF87),
                     ),
                     UnifiedMetricTile(
                       icon: Icons.timer_outlined,
-                      label: "Duration",
+                      label: 'Duration',
                       value: timeString,
                       accentColor: Colors.blue,
                     ),
                     UnifiedMetricTile(
                       icon: Icons.speed,
-                      label: "Pace",
+                      label: 'Pace',
                       value: pace,
-                      unit: "/km",
+                      unit: '/km',
                       accentColor: Colors.orange,
                     ),
                   ],
@@ -319,21 +318,21 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                   children: [
                     UnifiedMetricTile(
                       icon: Icons.favorite,
-                      label: "AVG HR",
-                      value: avgBpm > 0 ? "$avgBpm ${_hrZoneNames[hrZone]}" : "--",
+                      label: 'AVG HR',
+                      value: avgBpm > 0 ? '$avgBpm ${_hrZoneNames[hrZone]}' : '--',
                       accentColor: hrZone > 0 ? [Colors.blue, Colors.green, Colors.orange, const Color(0xFFFC4C02), Colors.red][hrZone - 1] : Colors.grey,
                     ),
                     UnifiedMetricTile(
                       icon: Icons.local_fire_department,
-                      label: "CALORIES",
-                      value: "$calories",
+                      label: 'CALORIES',
+                      value: '$calories',
                       accentColor: Colors.redAccent,
                     ),
                     if (hasElevation)
                       UnifiedMetricTile(
                         icon: Icons.trending_up,
-                        label: "ELEV +",
-                        value: "${elevGain.toStringAsFixed(0)}m",
+                        label: 'ELEV +',
+                        value: '${elevGain.toStringAsFixed(0)}m',
                         accentColor: Colors.purple,
                       ),
                   ],
@@ -347,19 +346,19 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                     children: [
                       UnifiedMetricTile(
                         icon: Icons.timer_outlined,
-                        label: "TOTAL TIME",
+                        label: 'TOTAL TIME',
                         value: timeString,
                         accentColor: Colors.blue,
                       ),
                       UnifiedMetricTile(
                         icon: Icons.directions_run,
-                        label: "MOVING TIME",
+                        label: 'MOVING TIME',
                         value: movingTimeString,
                         accentColor: const Color(0xFF00FF87),
                       ),
                       UnifiedMetricTile(
                         icon: Icons.pause_circle_outline,
-                        label: "PAUSED",
+                        label: 'PAUSED',
                         value: _formatSeconds(durationSeconds - movingTimeSecs),
                         accentColor: Colors.redAccent,
                       ),
@@ -388,13 +387,13 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("MAP PREVIEW", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Text('MAP PREVIEW', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   if (!hasMapImage && hasRoute)
                     Row(
                       children: [
-                        _buildMapToggle("Pace", "pace"),
+                        _buildMapToggle('Pace', 'pace'),
                         const SizedBox(width: 8),
-                        _buildMapToggle("Elevation", "elevation"),
+                        _buildMapToggle('Elevation', 'elevation'),
                       ],
                     ),
                 ],
@@ -423,7 +422,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("SPLITS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Text('SPLITS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   _buildSplitSelector(),
                 ],
               ),
@@ -496,17 +495,17 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         ? "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
         : "$minutes:${seconds.toString().padLeft(2, '0')}";
 
-    final pace = widget.runData['pace'] ?? "0:00";
+    final pace = widget.runData['pace'] ?? '0:00';
     final calories = widget.runData['calories'] ?? 0;
 
     final isSession = _isSession(widget.runData);
     final wkDay = _wkDayLabel(widget.runData);
     final completed = _completedFlag(widget.runData);
-    final statusLabel = completed == null ? null : (completed ? "Completed" : "In Progress");
+    final statusLabel = completed == null ? null : (completed ? 'Completed' : 'In Progress');
 
     final sessionHeader = isSession
         ? " • SESSION${wkDay.isNotEmpty ? " • $wkDay" : ""}${statusLabel != null ? " • $statusLabel" : ""}"
-        : "";
+        : '';
 
     final shareText = '''
 🏃 MajuRun$sessionHeader
@@ -809,7 +808,6 @@ Keep moving 💪
       clipBehavior: Clip.antiAlias,
       child: GoogleMap(
         initialCameraPosition: initialPosition,
-        mapType: MapType.normal,
         polylines: polylines,
         markers: {
           Marker(
@@ -827,13 +825,7 @@ Keep moving 💪
             anchor: const Offset(0.5, 0.5),
           ),
         },
-        zoomControlsEnabled: true,
-        zoomGesturesEnabled: true,
-        scrollGesturesEnabled: true,
-        rotateGesturesEnabled: true,
-        tiltGesturesEnabled: true,
         mapToolbarEnabled: false,
-        myLocationEnabled: false,
         myLocationButtonEnabled: false,
         onMapCreated: (GoogleMapController controller) {
           Future.delayed(const Duration(milliseconds: 600), () {
@@ -878,18 +870,18 @@ Keep moving 💪
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildLegendItem(Colors.green, "Faster Pace"),
+          _buildLegendItem(Colors.green, 'Faster Pace'),
           const SizedBox(width: 20),
-          _buildLegendItem(Colors.red, "Slower Pace"),
+          _buildLegendItem(Colors.red, 'Slower Pace'),
         ],
       );
     } else {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildLegendItem(Colors.blue.shade800, "Higher Elevation"),
+          _buildLegendItem(Colors.blue.shade800, 'Higher Elevation'),
           const SizedBox(width: 20),
-          _buildLegendItem(Colors.blue.shade200, "Lower Elevation"),
+          _buildLegendItem(Colors.blue.shade200, 'Lower Elevation'),
         ],
       );
     }
@@ -912,9 +904,9 @@ Keep moving 💪
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSplitOption("1km"),
-          _buildSplitOption("2km"),
-          _buildSplitOption("5km"),
+          _buildSplitOption('1km'),
+          _buildSplitOption('2km'),
+          _buildSplitOption('5km'),
         ],
       ),
     );
@@ -1015,7 +1007,7 @@ Keep moving 💪
                 decoration: BoxDecoration(color: paceColor, borderRadius: BorderRadius.circular(8)),
                 child: Center(
                   child: Text(
-                    "${groupIndex + 1}",
+                    '${groupIndex + 1}',
                     style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1023,13 +1015,13 @@ Keep moving 💪
               const SizedBox(width: 16),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text("${distKm.toStringAsFixed(splitKm > 1 ? 0 : 2)} km · $timeStr",
+                  Text('${distKm.toStringAsFixed(splitKm > 1 ? 0 : 2)} km · $timeStr',
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Row(children: [
                     Icon(Icons.speed, size: 12, color: paceColor),
                     const SizedBox(width: 4),
-                    Text("$paceStr /km", style: TextStyle(fontSize: 12, color: paceColor, fontWeight: FontWeight.w600)),
+                    Text('$paceStr /km', style: TextStyle(fontSize: 12, color: paceColor, fontWeight: FontWeight.w600)),
                     if (elevChange != 0) ...[
                       const SizedBox(width: 16),
                       Icon(Icons.terrain, size: 12, color: elevColor),

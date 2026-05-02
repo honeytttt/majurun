@@ -31,10 +31,10 @@ class PostController extends ChangeNotifier {
     int calories,
   ) {
     final messages = [
-      "Just crushed a $distance km run! 🏃‍♂️💨",
-      "Another $distance km in the books! Pace: $pace min/km ⚡",
-      "Completed my $planTitle: $distance km, $duration, burned $calories cal! 🔥",
-      "$distance km done! Feeling strong 💪 Time: $duration",
+      'Just crushed a $distance km run! 🏃‍♂️💨',
+      'Another $distance km in the books! Pace: $pace min/km ⚡',
+      'Completed my $planTitle: $distance km, $duration, burned $calories cal! 🔥',
+      '$distance km done! Feeling strong 💪 Time: $duration',
       "New run logged: $distance km at $pace pace! Let's go! 🎯",
     ];
     messages.shuffle();
@@ -59,11 +59,11 @@ class PostController extends ChangeNotifier {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        debugPrint("⚠️ No user logged in, cannot create post");
+        debugPrint('⚠️ No user logged in, cannot create post');
         return;
       }
 
-      debugPrint("📝 Creating post for user: ${user.uid}");
+      debugPrint('📝 Creating post for user: ${user.uid}');
       
       // Get username from Firestore
       String username = 'Runner';
@@ -72,9 +72,9 @@ class PostController extends ChangeNotifier {
         username = userDoc.data()?['displayName'] as String? ?? 
                    user.displayName ?? 
                    'Runner';
-        debugPrint("👤 Username: $username");
+        debugPrint('👤 Username: $username');
       } catch (e) {
-        debugPrint("⚠️ Could not fetch username: $e");
+        debugPrint('⚠️ Could not fetch username: $e');
       }
       
       // Use the override URL if provided, otherwise upload to Cloudinary
@@ -91,8 +91,8 @@ class PostController extends ChangeNotifier {
       // Upload map image to Cloudinary if bytes are available and no override exists
       if (mapImageUrl == null && mapImageBytes != null && mapImageBytes.isNotEmpty) {
         try {
-          debugPrint("📸 Map image bytes: ${mapImageBytes.length}");
-          debugPrint("⬆️ Uploading map image to Cloudinary...");
+          debugPrint('📸 Map image bytes: ${mapImageBytes.length}');
+          debugPrint('⬆️ Uploading map image to Cloudinary...');
 
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final fileName = 'run_map_${user.uid}_$timestamp.png';
@@ -100,10 +100,10 @@ class PostController extends ChangeNotifier {
           mapImageUrl = await _cloudinary.uploadMedia(mapImageBytes, fileName, false);
 
           if (mapImageUrl != null) {
-            debugPrint("✅ Map image uploaded to Cloudinary: $mapImageUrl");
+            debugPrint('✅ Map image uploaded to Cloudinary: $mapImageUrl');
           }
         } catch (e) {
-          debugPrint("❌ Error uploading map image: $e");
+          debugPrint('❌ Error uploading map image: $e');
         }
       }
 
@@ -111,13 +111,13 @@ class PostController extends ChangeNotifier {
       String? selfieUrl;
       if (selfieBytes != null && selfieBytes.isNotEmpty) {
         try {
-          debugPrint("🤳 Uploading selfie to Cloudinary...");
+          debugPrint('🤳 Uploading selfie to Cloudinary...');
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final selfieFileName = 'run_selfie_${user.uid}_$timestamp.jpg';
           selfieUrl = await _cloudinary.uploadMedia(selfieBytes, selfieFileName, false);
-          debugPrint("✅ Selfie uploaded to Cloudinary: $selfieUrl");
+          debugPrint('✅ Selfie uploaded to Cloudinary: $selfieUrl');
         } catch (e) {
-          debugPrint("⚠️ Selfie upload failed (proceeding without): $e");
+          debugPrint('⚠️ Selfie upload failed (proceeding without): $e');
         }
       }
 
@@ -133,7 +133,7 @@ class PostController extends ChangeNotifier {
       final sampledPoints = (hasUploadedImage || !hasGoodRoute)
           ? <LatLng>[]
           : RouteUtils.sampleRoutePoints(routePoints);
-      debugPrint("📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)");
+      debugPrint('📍 Route points stored: ${sampledPoints.length} (hasUploadedImage: $hasUploadedImage)');
 
       // Extract hashtags from post text for tag-based search
       final extractedTags = RegExp(r'#(\w+)')
@@ -163,13 +163,13 @@ class PostController extends ChangeNotifier {
         'type': 'run_activity',
       };
 
-      debugPrint("💾 Saving post to Firestore...");
+      debugPrint('💾 Saving post to Firestore...');
       await _firestore.collection('posts').add(postData);
       
-      debugPrint("✅ Post created successfully");
+      debugPrint('✅ Post created successfully');
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ Error creating auto post: $e");
+      debugPrint('❌ Error creating auto post: $e');
       rethrow;
     }
   }
@@ -477,13 +477,13 @@ class PostController extends ChangeNotifier {
 
   Future<void> generateVeoVideo() async {
     try {
-      debugPrint("🎬 Generating Veo video...");
+      debugPrint('🎬 Generating Veo video...');
       await Future.delayed(const Duration(seconds: 2));
-      lastVideoUrl = "https://placeholder-video-url.com/video.mp4";
-      debugPrint("✅ Video generated: $lastVideoUrl");
+      lastVideoUrl = 'https://placeholder-video-url.com/video.mp4';
+      debugPrint('✅ Video generated: $lastVideoUrl');
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ Error generating video: $e");
+      debugPrint('❌ Error generating video: $e');
       rethrow;
     }
   }
@@ -505,7 +505,7 @@ class PostController extends ChangeNotifier {
                    user.displayName ?? 
                    'Runner';
       } catch (e) {
-        debugPrint("⚠️ Could not fetch username: $e");
+        debugPrint('⚠️ Could not fetch username: $e');
       }
 
       await _firestore.collection('posts').add({
@@ -519,10 +519,10 @@ class PostController extends ChangeNotifier {
         'type': 'run_video',
       });
 
-      debugPrint("✅ Professional post created with video");
+      debugPrint('✅ Professional post created with video');
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ Error finalizing pro post: $e");
+      debugPrint('❌ Error finalizing pro post: $e');
       rethrow;
     }
   }

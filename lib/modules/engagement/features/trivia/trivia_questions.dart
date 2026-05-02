@@ -200,7 +200,7 @@ const List<TriviaQuestion> kTriviaQuestions = [
     correctIndex: 1,
     explanation: 'The distance was standardised at 42.195 km at the 1908 London Olympics, '
         'set so the race could finish in front of the Royal Box at the stadium. '
-        "Before that, it varied between events.",
+        'Before that, it varied between events.',
   ),
 
   // ── FORM & BIOMECHANICS ────────────────────────────────────────────────────
@@ -312,7 +312,7 @@ const List<TriviaQuestion> kTriviaQuestions = [
     question: 'Which country has produced the most men\'s Olympic marathon champions since 1980?',
     options: ['United States', 'Kenya and Ethiopia (split dominance)', 'Japan'],
     correctIndex: 1,
-    explanation: "Kenya and Ethiopia have dominated distance running since the 1980s. "
+    explanation: 'Kenya and Ethiopia have dominated distance running since the 1980s. '
         'Scientists attribute this to factors including altitude training, childhood '
         'activity levels, running economy, and cultural tradition of running.',
   ),

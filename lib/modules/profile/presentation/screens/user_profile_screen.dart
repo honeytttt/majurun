@@ -783,7 +783,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 media: _parseMedia(data['media'], data['mapImageUrl']),
                 createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
                 likes: List<String>.from(data['likes'] ?? []),
-                comments: const [],
                 quotedPostId: data['quotedPostId'],
                 routePoints: _parseRoutePoints(data['routePoints']),
               );

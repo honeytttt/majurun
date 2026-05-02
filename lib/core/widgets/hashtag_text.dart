@@ -77,7 +77,7 @@ class _HashtagTextState extends State<HashtagText> {
       }
       final word = m.group(0)!.substring(1).toLowerCase();
       spans.add(TextSpan(
-        text: m.group(0)!,
+        text: m.group(0),
         style: tagStyle,
         recognizer: _rec(() => widget.onHashtagTap?.call(word)),
       ));

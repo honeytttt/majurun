@@ -118,7 +118,7 @@ class _CommentSheetState extends State<CommentSheet> {
     await _postRepo.addComment(
       postId: widget.postId,
       userId: user.uid,
-      username: user.displayName ?? "Runner",
+      username: user.displayName ?? 'Runner',
       content: _controller.text.trim(),
       parentId: replyingToId,
       media: mediaList,
@@ -162,7 +162,7 @@ class _CommentSheetState extends State<CommentSheet> {
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
-              "Comments",
+              'Comments',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
             ),
           ),
@@ -175,7 +175,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No comments yet.", style: TextStyle(color: Colors.black45)));
+                  return const Center(child: Text('No comments yet.', style: TextStyle(color: Colors.black45)));
                 }
 
                 final all = snapshot.data!;
@@ -219,7 +219,7 @@ class _CommentSheetState extends State<CommentSheet> {
   }
 
   Widget _buildCommentItem(Map<String, dynamic> comment) {
-    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final List likes = comment['likes'] as List? ?? [];
     final bool isLiked = likes.contains(currentUserId);
     final List mediaList = comment['media'] as List? ?? [];
@@ -245,7 +245,7 @@ class _CommentSheetState extends State<CommentSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        comment['username'] ?? "Runner",
+                        comment['username'] ?? 'Runner',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       if (comment['content'] != null && comment['content'].toString().isNotEmpty)
@@ -274,15 +274,15 @@ class _CommentSheetState extends State<CommentSheet> {
                         replyingToUsername = comment['username'];
                       }),
                       child: const Text(
-                        "Reply",
+                        'Reply',
                         style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.share, size: 14, color: Colors.grey),
                       onPressed: () => _shareCommentExternally(
-                        comment['content'] ?? "",
-                        comment['username'] ?? "Runner",
+                        comment['content'] ?? '',
+                        comment['username'] ?? 'Runner',
                       ),
                     ),
                     const Spacer(),
@@ -301,7 +301,7 @@ class _CommentSheetState extends State<CommentSheet> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text("${likes.length}", style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                    Text('${likes.length}', style: const TextStyle(fontSize: 12, color: Colors.black45)),
                   ],
                 )
               ],
@@ -418,7 +418,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   const Icon(Icons.reply, size: 16, color: Colors.blue),
                   const SizedBox(width: 8),
                   Text(
-                    "Replying to @$replyingToUsername",
+                    'Replying to @$replyingToUsername',
                     style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
@@ -441,7 +441,7 @@ class _CommentSheetState extends State<CommentSheet> {
                   controller: _controller,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
-                    hintText: "Write a comment...",
+                    hintText: 'Write a comment...',
                     border: InputBorder.none,
                   ),
                 ),

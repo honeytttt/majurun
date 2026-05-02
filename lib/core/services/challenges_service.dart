@@ -392,7 +392,7 @@ class ChallengesService extends ChangeNotifier {
     String? name,
     String? description,
   }) {
-    final startDate = DateTime(year, month, 1);
+    final startDate = DateTime(year, month);
     final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
 
     return {

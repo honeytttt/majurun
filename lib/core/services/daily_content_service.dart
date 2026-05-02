@@ -20,7 +20,7 @@ class DailyContentService {
 
     final now = DateTime.now();
     final today = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
-    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+    final dayOfYear = now.difference(DateTime(now.year)).inDays;
 
     final docRef = _db.collection('dailyContent').doc(today);
 

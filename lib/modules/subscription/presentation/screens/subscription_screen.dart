@@ -63,7 +63,7 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
         name: 'paywall_viewed',
         parameters: {
           'is_paywall': widget.isPaywall,
-          if (widget.paywallFeature != null) 'feature': widget.paywallFeature!,
+          if (widget.paywallFeature != null) 'feature': widget.paywallFeature,
         },
       );
     });
@@ -95,7 +95,6 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (widget.isPaywall && widget.paywallFeature != null)
                   _buildPaywallBanner(),
@@ -376,7 +375,7 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
     } else if (payment.error != null) {
       AnalyticsService().logEvent(
         name: 'purchase_failed',
-        parameters: {'product_id': product.id, 'error': payment.error!},
+        parameters: {'product_id': product.id, 'error': payment.error},
       );
       messenger.showSnackBar(
         SnackBar(content: Text(payment.error!), backgroundColor: Colors.redAccent),

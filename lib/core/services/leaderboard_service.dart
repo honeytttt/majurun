@@ -69,7 +69,7 @@ class LeaderboardService {
   Future<List<Map<String, dynamic>>> getMonthlyLeaderboard({int limit = 20}) async {
     try {
       final now = DateTime.now();
-      final monthStart = DateTime(now.year, now.month, 1);
+      final monthStart = DateTime(now.year, now.month);
 
       final snapshot = await _firestore
           .collection('users')

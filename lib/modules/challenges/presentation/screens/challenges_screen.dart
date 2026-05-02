@@ -376,7 +376,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
                   label: const Text('Mark as Done'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF00E676),
-                    side: const BorderSide(color: Color(0xFF00E676), width: 1),
+                    side: const BorderSide(color: Color(0xFF00E676)),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),

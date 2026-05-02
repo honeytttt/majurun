@@ -62,7 +62,7 @@ class RunStateController extends ChangeNotifier {
   // Pace calculation
   double get averageSpeedMs => _activeRunSeconds > 0 ? _totalDistance / _activeRunSeconds : 0.0;
   String get paceString {
-    if (averageSpeedMs < 0.5) return "0:00";
+    if (averageSpeedMs < 0.5) return '0:00';
     final paceMinKm = 16.666666 / averageSpeedMs;
     final minutes = paceMinKm.floor();
     final seconds = ((paceMinKm - minutes) * 60).round();
@@ -464,11 +464,11 @@ class RunStateController extends ChangeNotifier {
       final timeDiff = thisKmTime - previousKm.durationSeconds;
 
       if (timeDiff.abs() < 5) {
-        comparison = "Same pace as previous kilometer";
+        comparison = 'Same pace as previous kilometer';
       } else if (timeDiff < 0) {
-        comparison = "Faster by ${timeDiff.abs()} seconds. Great job!";
+        comparison = 'Faster by ${timeDiff.abs()} seconds. Great job!';
       } else {
-        comparison = "Slower by $timeDiff seconds. Keep pushing!";
+        comparison = 'Slower by $timeDiff seconds. Keep pushing!';
       }
     }
 
@@ -547,7 +547,6 @@ class RunStateController extends ChangeNotifier {
         points: renderPoints,
         color: Colors.blue,
         width: 5,
-        patterns: const [],
         jointType: JointType.round,
         startCap: Cap.roundCap,
         endCap: Cap.roundCap,

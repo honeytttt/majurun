@@ -60,12 +60,7 @@ class PushNotificationService {
 
       // Request FCM permissions
       final settings = await _fcm.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
         announcement: true,
-        criticalAlert: false,
       );
 
       debugPrint('Push permission status: ${settings.authorizationStatus}');
@@ -122,13 +117,7 @@ class PushNotificationService {
 
     // iOS settings — also set foreground display so notifications show while app is open
     const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-      defaultPresentAlert: true,
-      defaultPresentBadge: true,
-      defaultPresentSound: true,
-      defaultPresentBanner: true,
+      
     );
 
     const initSettings = InitializationSettings(
@@ -168,8 +157,6 @@ class PushNotificationService {
         'Run Reminders',
         description: 'Daily run reminders and training notifications',
         importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
       ),
     );
 
@@ -180,8 +167,6 @@ class PushNotificationService {
         'Achievements',
         description: 'Personal records and milestone notifications',
         importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
       ),
     );
 
@@ -191,8 +176,6 @@ class PushNotificationService {
         _socialChannelId,
         'Social',
         description: 'Kudos, comments, and follower notifications',
-        importance: Importance.defaultImportance,
-        playSound: true,
       ),
     );
 
@@ -203,8 +186,6 @@ class PushNotificationService {
         'Challenges',
         description: 'Challenge updates and completions',
         importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
       ),
     );
 
@@ -459,7 +440,7 @@ class PushNotificationService {
 
   /// Send run reminder notification
   Future<void> showRunReminder({
-    String title = "Time to Run!",
+    String title = 'Time to Run!',
     String body = "Your body is ready. Let's hit the road!",
   }) async {
     await _ensureInitialized();
@@ -509,8 +490,8 @@ class PushNotificationService {
     required String value,
   }) async {
     await _ensureInitialized();
-    const title = "New Personal Record! 🏆";
-    final body = "You just set a new $recordType: $value. Keep pushing!";
+    const title = 'New Personal Record! 🏆';
+    final body = 'You just set a new $recordType: $value. Keep pushing!';
     await _showLocalNotification(
       title: title,
       body: body,
@@ -541,12 +522,11 @@ class PushNotificationService {
     required String pace,
   }) async {
     await _ensureInitialized();
-    const title = "Your run post is ready! 🏃";
-    final body = "$distance km at $pace/km — tap to view, edit or share your post.";
+    const title = 'Your run post is ready! 🏃';
+    final body = '$distance km at $pace/km — tap to view, edit or share your post.';
     await _showLocalNotification(
       title: title,
       body: body,
-      channelId: _socialChannelId,
       payload: jsonEncode({'type': 'run_post_ready'}),
     );
     // Write to in-app notification center
@@ -591,7 +571,6 @@ class PushNotificationService {
     await _showLocalNotification(
       title: title,
       body: body,
-      channelId: _socialChannelId,
       payload: jsonEncode({
         'type': 'social',
         'userId': userId,
@@ -674,7 +653,7 @@ class PushNotificationService {
     for (final weekday in weekdays) {
       await _localNotifications.zonedSchedule(
         100 + weekday, // Unique ID per day
-        "Time to Run!",
+        'Time to Run!',
         _getReminderMessage(weekday),
         _nextInstanceOfWeekdayTime(weekday, hour, minute),
         const NotificationDetails(
@@ -723,21 +702,21 @@ class PushNotificationService {
   String _getReminderMessage(int weekday) {
     switch (weekday) {
       case 1:
-        return "Start your week strong! Ready for a run?";
+        return 'Start your week strong! Ready for a run?';
       case 2:
         return "Tuesday momentum - let's keep it going!";
       case 3:
-        return "Midweek run to power through!";
+        return 'Midweek run to power through!';
       case 4:
         return "Thursday push - you've got this!";
       case 5:
-        return "TGIF! Celebrate with a run!";
+        return 'TGIF! Celebrate with a run!';
       case 6:
-        return "Weekend warrior time!";
+        return 'Weekend warrior time!';
       case 7:
-        return "Sunday runday! Perfect day for it.";
+        return 'Sunday runday! Perfect day for it.';
       default:
-        return "Time to run!";
+        return 'Time to run!';
     }
   }
 
@@ -906,30 +885,30 @@ class PushNotificationService {
   static const int _weeklySummaryNotifId = 203;
 
   static const List<String> _morningMotivations = [
-    "Rise and run! Every km makes you stronger. 🌅",
+    'Rise and run! Every km makes you stronger. 🌅',
     "Today's run is tomorrow's strength. Lace up! 👟",
-    "Champions train when others sleep. Your turn! 🏆",
+    'Champions train when others sleep. Your turn! 🏆',
     "One run at a time. You've got this! 💪",
     "Make today's run count. Your future self will thank you. 🔥",
-    "Your legs are ready. Your mind just needs to follow. 🧠",
-    "Small steps lead to big victories. Start today! 🌟",
-    "Every runner was once a beginner. Keep going! 🏃",
+    'Your legs are ready. Your mind just needs to follow. 🧠',
+    'Small steps lead to big victories. Start today! 🌟',
+    'Every runner was once a beginner. Keep going! 🏃',
   ];
 
   static const List<String> _eveningReminders = [
     "You haven't run today yet — there's still time! 🌆",
     "The day isn't over. A quick run will feel amazing! 🌙",
-    "Your running shoes are waiting. Even 20 mins counts! ⏱️",
+    'Your running shoes are waiting. Even 20 mins counts! ⏱️',
     "No run today? It's not too late. Get out there! 🌟",
-    "Break your streak? Never! A short run still counts. 🔥",
+    'Break your streak? Never! A short run still counts. 🔥',
     "Your body is asking for a run. Don't let it down! 💪",
   ];
 
   static const List<String> _subscriptionMessages = [
-    "Unlock advanced training plans, voice coaching & more with MajuRun Pro. 🚀",
-    "Go Pro and unlock your full running potential! Personalized plans await. 🏆",
-    "Pro runners use MajuRun Pro. Join them — unlock AI coaching today! 💡",
-    "Your runs deserve pro-level insights. Upgrade to MajuRun Pro! 📊",
+    'Unlock advanced training plans, voice coaching & more with MajuRun Pro. 🚀',
+    'Go Pro and unlock your full running potential! Personalized plans await. 🏆',
+    'Pro runners use MajuRun Pro. Join them — unlock AI coaching today! 💡',
+    'Your runs deserve pro-level insights. Upgrade to MajuRun Pro! 📊',
   ];
 
   /// Schedule a daily morning motivation notification.
@@ -950,15 +929,13 @@ class PushNotificationService {
 
       await _localNotifications.zonedSchedule(
         _motivationNotifId,
-        "Good morning, runner! 🌅",
+        'Good morning, runner! 🌅',
         message,
         scheduled,
         const NotificationDetails(
           android: AndroidNotificationDetails(
             _runReminderChannelId,
             'Run Reminders',
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
             icon: '@mipmap/ic_launcher',
           ),
           iOS: DarwinNotificationDetails(
@@ -1007,7 +984,7 @@ class PushNotificationService {
 
       await _localNotifications.zonedSchedule(
         _noRunReminderNotifId,
-        "Time for a run? 🏃",
+        'Time for a run? 🏃',
         message,
         scheduled,
         const NotificationDetails(
@@ -1052,7 +1029,7 @@ class PushNotificationService {
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
     // Fire next Saturday at 10am
-    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, 10, 0);
+    var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, 10);
     while (scheduled.weekday != DateTime.saturday || scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
@@ -1061,15 +1038,13 @@ class PushNotificationService {
 
     await _localNotifications.zonedSchedule(
       _subscriptionReminderNotifId,
-      "Unlock MajuRun Pro 🚀",
+      'Unlock MajuRun Pro 🚀',
       message,
       scheduled,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _runReminderChannelId,
           'Run Reminders',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
           icon: '@mipmap/ic_launcher',
         ),
         iOS: DarwinNotificationDetails(),
@@ -1101,15 +1076,13 @@ class PushNotificationService {
     int daysUntilSunday = (DateTime.sunday - now.weekday + 7) % 7;
     if (daysUntilSunday == 0 && now.hour >= 20) daysUntilSunday = 7;
     var scheduledDate = tz.TZDateTime(
-      tz.local, now.year, now.month, now.day + daysUntilSunday, 20, 0,
+      tz.local, now.year, now.month, now.day + daysUntilSunday, 20,
     );
 
     const androidDetails = AndroidNotificationDetails(
       'run_reminders',
       'Run Reminders',
       channelDescription: 'Weekly running summary and motivation',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
     );
     const iosDetails = DarwinNotificationDetails(badgeNumber: 1);
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
@@ -1176,7 +1149,7 @@ class PushNotificationService {
   }
 
   int _isoWeekNumber(DateTime date) {
-    final dayOfYear = date.difference(DateTime(date.year, 1, 1)).inDays + 1;
+    final dayOfYear = date.difference(DateTime(date.year)).inDays + 1;
     final weekday = date.weekday;
     return ((dayOfYear - weekday + 10) ~/ 7);
   }
@@ -1231,8 +1204,6 @@ class PushNotificationService {
     const androidDetails = AndroidNotificationDetails(
       _runReminderChannelId,
       'Run Reminders',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
       icon: '@mipmap/ic_launcher',
     );
 
@@ -1265,8 +1236,8 @@ class PushNotificationService {
     debugPrint('📅 scheduleDefaultNotifications() called');
     // Android: request battery optimization exemption so alarms survive Doze
     await requestBatteryOptimizationExemption();
-    await scheduleDailyMotivation(hour: 7, minute: 30);
-    await scheduleNoRunReminder(hour: 19, minute: 0);
+    await scheduleDailyMotivation(minute: 30);
+    await scheduleNoRunReminder();
     try {
       await scheduleWeeklySummary();
     } catch (e) {

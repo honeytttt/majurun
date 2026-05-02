@@ -149,7 +149,7 @@ class WeeklySummaryService {
       totalDurationSeconds: totalDuration,
       totalCalories: totalCalories,
       totalElevationGain: totalElevation,
-      avgPaceSecondsPerKm: avgPace.toDouble(),
+      avgPaceSecondsPerKm: avgPace,
       longestRunKm: longestRun,
       fastestPaceSecondsPerKm: fastestPace == double.infinity ? 0 : fastestPace,
     );

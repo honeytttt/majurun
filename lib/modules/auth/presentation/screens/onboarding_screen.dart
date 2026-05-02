@@ -179,7 +179,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                       ?.copyWith(fontWeight: FontWeight.w800)),
                               const SizedBox(height: 8),
                               Text(
-                                "Tell us a bit about yourself\nso we can personalise your experience.",
+                                'Tell us a bit about yourself\nso we can personalise your experience.',
                                 textAlign: TextAlign.center,
                                 style: text.bodyMedium
                                     ?.copyWith(color: cs.onSurfaceVariant, height: 1.5),

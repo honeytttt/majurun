@@ -72,7 +72,6 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay> with SingleTic
                   color: const Color(0xFF00E676).withValues(alpha: _opacity.value * 0.5),
                   blurRadius: 30,
                   spreadRadius: 10,
-                  offset: const Offset(0, 0),
                 ),
               ],
             ),

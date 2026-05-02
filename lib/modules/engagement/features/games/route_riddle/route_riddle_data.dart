@@ -21,13 +21,13 @@ class RouteRiddleQuestion {
 /// Famous marathon and iconic running routes.
 /// Points are simplified polylines (not full GPS detail).
 final List<RouteRiddleQuestion> kRouteRiddleBank = [
-  RouteRiddleQuestion(
+  const RouteRiddleQuestion(
     name: 'Berlin Marathon',
     city: 'Berlin, Germany',
     actualDistanceKm: 42.195,
     options: [21.1, 42.2, 10.0],
     funFact: 'Berlin is the world record course — Eliud Kipchoge ran 2:01:09 here in 2022.',
-    points: const [
+    points: [
       LatLng(52.5147, 13.3497),
       LatLng(52.5180, 13.3780),
       LatLng(52.5163, 13.4050),
@@ -41,13 +41,13 @@ final List<RouteRiddleQuestion> kRouteRiddleBank = [
       LatLng(52.5147, 13.3497),
     ],
   ),
-  RouteRiddleQuestion(
+  const RouteRiddleQuestion(
     name: 'Boston Marathon',
     city: 'Boston, USA',
     actualDistanceKm: 42.195,
     options: [42.2, 26.2, 50.0],
     funFact: 'The Boston Marathon is the world\'s oldest annual marathon, first run in 1897.',
-    points: const [
+    points: [
       LatLng(42.3094, -71.4997),
       LatLng(42.3199, -71.4550),
       LatLng(42.3311, -71.4103),
@@ -60,13 +60,13 @@ final List<RouteRiddleQuestion> kRouteRiddleBank = [
       LatLng(42.3550, -71.0780),
     ],
   ),
-  RouteRiddleQuestion(
+  const RouteRiddleQuestion(
     name: 'Parkrun 5K',
     city: 'Hyde Park, London',
     actualDistanceKm: 5.0,
     options: [3.0, 5.0, 10.0],
     funFact: 'Parkrun started in 2004 with just 13 runners. Now over 2 million people parkrun weekly worldwide.',
-    points: const [
+    points: [
       LatLng(51.5073, -0.1580),
       LatLng(51.5090, -0.1550),
       LatLng(51.5110, -0.1510),
@@ -77,13 +77,13 @@ final List<RouteRiddleQuestion> kRouteRiddleBank = [
       LatLng(51.5073, -0.1580),
     ],
   ),
-  RouteRiddleQuestion(
+  const RouteRiddleQuestion(
     name: 'Tokyo Marathon',
     city: 'Tokyo, Japan',
     actualDistanceKm: 42.195,
     options: [42.2, 21.1, 30.0],
     funFact: 'Tokyo Marathon is one of the Six World Major Marathons with over 38,000 runners.',
-    points: const [
+    points: [
       LatLng(35.6803, 139.6925),
       LatLng(35.6780, 139.7010),
       LatLng(35.6720, 139.7100),
@@ -96,13 +96,13 @@ final List<RouteRiddleQuestion> kRouteRiddleBank = [
       LatLng(35.6700, 139.7450),
     ],
   ),
-  RouteRiddleQuestion(
+  const RouteRiddleQuestion(
     name: 'Comrades Ultra',
     city: 'KwaZulu-Natal, SA',
     actualDistanceKm: 89.0,
     options: [42.2, 89.0, 60.0],
     funFact: 'Comrades is the world\'s largest and oldest ultramarathon — run since 1921.',
-    points: const [
+    points: [
       LatLng(-29.5920, 30.3790),
       LatLng(-29.5500, 30.3200),
       LatLng(-29.5000, 30.2600),

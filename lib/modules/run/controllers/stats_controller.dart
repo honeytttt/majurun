@@ -24,7 +24,7 @@ class StatsController extends ChangeNotifier {
   double historyDistance = 0.0;
   int runStreak = 0;
   int totalRuns = 0;
-  String totalHistoryTimeStr = "00:00:00";
+  String totalHistoryTimeStr = '00:00:00';
 
   Future<void> refreshHistoryStats() async {
     final stats = await _repository.getStats();

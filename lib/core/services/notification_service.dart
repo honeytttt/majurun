@@ -57,7 +57,6 @@ class NotificationService {
         fromUsername: fromUsername,
         fromUserPhotoUrl: fromUserPhotoUrl,
         message: message,
-        read: false,
         createdAt: DateTime.now(),
         metadata: metadata,
       );

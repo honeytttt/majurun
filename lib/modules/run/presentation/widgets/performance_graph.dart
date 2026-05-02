@@ -16,7 +16,7 @@ class PerformanceGraph extends StatelessWidget {
     if (hrHistory.isEmpty && paceHistory.isEmpty) {
       return const SizedBox(
         height: 200,
-        child: Center(child: Text("No data available yet", style: TextStyle(color: Colors.grey))),
+        child: Center(child: Text('No data available yet', style: TextStyle(color: Colors.grey))),
       );
     }
 
@@ -50,7 +50,6 @@ class PerformanceGraph extends StatelessWidget {
                 ),
               ),
               gridData: FlGridData(
-                show: true,
                 drawVerticalLine: false,
                 getDrawingHorizontalLine: (value) => FlLine(
                   color: Colors.grey.withValues(alpha: 0.1),
@@ -58,9 +57,8 @@ class PerformanceGraph extends StatelessWidget {
                 ),
               ),
               titlesData: FlTitlesData(
-                show: true,
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(),
+                topTitles: const AxisTitles(),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
@@ -93,11 +91,9 @@ class PerformanceGraph extends StatelessWidget {
                   spots: hrHistory.asMap().entries.map((e) =>
                     FlSpot(e.key.toDouble(), e.value.toDouble())).toList(),
                   isCurved: true,
-                  curveSmoothness: 0.35,
                   color: Colors.redAccent,
                   barWidth: 3,
                   isStrokeCapRound: true,
-                  dotData: const FlDotData(show: true),
                   belowBarData: BarAreaData(
                     show: true,
                     color: Colors.redAccent.withValues(alpha: 0.1),
@@ -108,7 +104,6 @@ class PerformanceGraph extends StatelessWidget {
                     FlSpot(e.key.toDouble(), e.value * 10)).toList(),
                   isCurved: true,
                   color: Colors.blueAccent,
-                  barWidth: 2,
                   dashArray: [5, 5],
                   dotData: const FlDotData(show: false),
                 ),
@@ -124,9 +119,9 @@ class PerformanceGraph extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _legendItem("Heart Rate", Colors.redAccent, isDashed: false),
+        _legendItem('Heart Rate', Colors.redAccent, isDashed: false),
         const SizedBox(width: 20),
-        _legendItem("Pace", Colors.blueAccent, isDashed: true),
+        _legendItem('Pace', Colors.blueAccent, isDashed: true),
       ],
     );
   }

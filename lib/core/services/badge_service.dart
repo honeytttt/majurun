@@ -201,7 +201,7 @@ class BadgeService {
       // Get monthly data
       final monthlyKm = (data['monthlyKm'] as num?)?.toDouble() ?? 0.0;
       final monthlyStartDate = (data['monthlyStartDate'] as Timestamp?)?.toDate();
-      final currentMonthStart = DateTime(now.year, now.month, 1);
+      final currentMonthStart = DateTime(now.year, now.month);
 
       // Calculate new values
       double newWeeklyKm;

@@ -19,7 +19,6 @@ class LiveRunMap extends StatelessWidget {
       initialCameraPosition: initialPosition,
       polylines: polylines,
       onMapCreated: onMapCreated,
-      mapType: MapType.normal,
       myLocationEnabled: true,
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,

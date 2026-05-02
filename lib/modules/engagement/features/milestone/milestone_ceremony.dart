@@ -26,7 +26,6 @@ class MilestoneCeremony extends StatefulWidget {
     if (!context.mounted) return;
     await Navigator.of(context).push(PageRouteBuilder(
       opaque: false,
-      barrierDismissible: false,
       pageBuilder: (_, __, ___) => MilestoneCeremony(
         milestoneKm: milestoneKm,
         onDismiss: () => Navigator.of(context).pop(),
