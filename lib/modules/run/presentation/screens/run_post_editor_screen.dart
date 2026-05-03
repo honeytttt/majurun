@@ -272,6 +272,7 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
           badges: widget.badges,
           postId: postId,
           saveFuture: widget.saveFuture,
+          routePoints: widget.routePoints,
         ),
       ),
     );

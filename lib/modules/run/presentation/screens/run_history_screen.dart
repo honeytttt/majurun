@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/manual_run_entry_screen.dart';
 import 'package:majurun/core/services/badge_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/core/services/health_sync_service.dart';
@@ -271,6 +272,16 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
               centerTitle: true,
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.add_rounded, color: Color(0xFF00E676)),
+                  tooltip: 'Log a run manually',
+                  onPressed: () async {
+                    final refreshed = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(builder: (_) => const ManualRunEntryScreen()),
+                    );
+                    if (refreshed ?? false) _loadFirstPage();
+                  },
+                ),
                 IconButton(
                   icon: _isSyncing
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E676)))

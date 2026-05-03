@@ -1053,6 +1053,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             calories: calories,
             planTitle: planTitle,
             saveFuture: saveFuture,
+            routePoints: routePoints.cast<LatLng>(),
           ),
         ),
       );

@@ -1,7 +1,9 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
@@ -38,6 +40,9 @@ class CongratulationsScreen extends StatefulWidget {
   /// When provided, "View Post" is immediately active.
   final String? postId;
 
+  /// Route points used to render the "wiggle" route overlay on the share card.
+  final List<LatLng> routePoints;
+
   const CongratulationsScreen({
     super.key,
     required this.distanceKm,
@@ -49,6 +54,7 @@ class CongratulationsScreen extends StatefulWidget {
     this.badges = const [],
     this.saveFuture,
     this.postId,
+    this.routePoints = const [],
   });
 
   @override
@@ -546,7 +552,16 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
             colors: [Color(0xFF0D0D0D), Color(0xFF1A2A1A)],
           ),
         ),
-        padding: const EdgeInsets.all(32),
+        child: Stack(
+          children: [
+            // Route wiggle — decorative background layer
+            if (widget.routePoints.length >= 2)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _RouteWigglePainter(points: widget.routePoints),
+                ),
+              ),
+            Padding(padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,8 +647,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 style: TextStyle(color: Colors.white38, fontSize: 12)),
           ],
         ),
-      ),
-          // NEW PB sash — shown in top-right corner when a personal best was set
+      ),   // end Padding
+          // PB sash — inside inner Stack, pinned top-right
           if (hasPbs)
             Positioned(
               top: 16,
@@ -658,9 +673,12 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 ),
               ),
             ),
-        ],
-      ),
-    );
+        ],   // end inner Stack children
+      ),     // end inner Stack / Container child
+      ),     // end Container
+    ],       // end outer Stack children
+  ),         // end outer Stack
+);           // end SizedBox
   }
 
   Widget _cardStat(IconData icon, String value, String label) {
@@ -1661,4 +1679,100 @@ class _ShoePickerSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Route wiggle painter ──────────────────────────────────────────────────────
+/// Draws the run route as a stylized path overlay — no Google Maps, safe for
+/// off-screen screenshot capture. Normalises lat/lng to canvas coordinates,
+/// maintains aspect ratio, and draws a glow + line in the brand green.
+class _RouteWigglePainter extends CustomPainter {
+  final List<LatLng> points;
+
+  const _RouteWigglePainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+
+    // Bounding box
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    final latRange = maxLat - minLat;
+    final lngRange = maxLng - minLng;
+    if (latRange == 0 && lngRange == 0) return;
+
+    // Uniform padding so the route never touches the card edge
+    const pad = 40.0;
+    final drawW = size.width - pad * 2;
+    final drawH = size.height - pad * 2;
+
+    // Scale uniformly — preserves route shape
+    final effectiveLngRange = lngRange == 0 ? 1e-9 : lngRange;
+    final effectiveLatRange = latRange == 0 ? 1e-9 : latRange;
+    final scale = min(drawW / effectiveLngRange, drawH / effectiveLatRange);
+
+    final routeW = effectiveLngRange * scale;
+    final routeH = effectiveLatRange * scale;
+    final originX = pad + (drawW - routeW) / 2;
+    final originY = pad + (drawH - routeH) / 2;
+
+    Offset toOffset(LatLng p) => Offset(
+          originX + (p.longitude - minLng) * scale,
+          originY + (maxLat - p.latitude) * scale, // lat increases upward → flip Y
+        );
+
+    // Build path
+    final path = Path()..moveTo(toOffset(points.first).dx, toOffset(points.first).dy);
+    for (var i = 1; i < points.length; i++) {
+      final o = toOffset(points[i]);
+      path.lineTo(o.dx, o.dy);
+    }
+
+    // Soft glow
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF00E676).withValues(alpha: 0.12)
+        ..strokeWidth = 10
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke,
+    );
+
+    // Main line
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF00E676).withValues(alpha: 0.55)
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke,
+    );
+
+    // Start dot
+    canvas.drawCircle(
+      toOffset(points.first),
+      4,
+      Paint()..color = const Color(0xFF00E676).withValues(alpha: 0.7),
+    );
+    // End dot (slightly larger)
+    canvas.drawCircle(
+      toOffset(points.last),
+      5.5,
+      Paint()..color = const Color(0xFF00E676),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteWigglePainter old) => old.points != points;
 }
