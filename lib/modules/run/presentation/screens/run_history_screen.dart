@@ -225,11 +225,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 },
               ),
               ListTile(
-                leading: Image.asset(
-                  'assets/images/strava_logo.png',
-                  width: 24, height: 24,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.directions_run, color: Color(0xFFFC4C02)),
-                ),
+                leading: const Icon(Icons.directions_run, color: Color(0xFFFC4C02)),
                 title: const Text('Strava (with route maps)'),
                 subtitle: const Text('Connect directly to Strava to import runs with GPS maps'),
                 onTap: () {
