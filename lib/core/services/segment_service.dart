@@ -46,6 +46,8 @@ class SegmentService {
   }
 
   /// Fetches the current user's best effort on a segment (null if none).
+  /// Rank is NOT computed here — use [fetchLeaderboard] to get accurate ranks.
+  /// Returns rank: 0 as a sentinel meaning "not computed".
   Future<SegmentEffort?> fetchMyEffort(String segmentId) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return null;
@@ -56,9 +58,7 @@ class SegmentService {
         .doc(uid)
         .get();
     if (!snap.exists) return null;
-    final rank = await _computeRank(
-        segmentId, snap.data()!['bestTimeSeconds'] as int? ?? 0);
-    return SegmentEffort.fromDoc(snap, rank);
+    return SegmentEffort.fromDoc(snap, 0); // rank computed on demand in detail screen
   }
 
   /// Detects which segments were completed in a run and saves/updates efforts.
@@ -178,13 +178,13 @@ class SegmentService {
     final isPersonalBest = !existing.exists || effortSeconds < existingSeconds;
 
     if (!isPersonalBest) {
-      // Not a new best — still report their current standing.
-      final rank = await _computeRank(segment.id, existingSeconds);
+      // Not a new best — skip the expensive count() query.
+      // rank: 0 signals "not computed"; the congrats screen hides the rank label.
       return SegmentEffortResult(
         segmentId: segment.id,
         segmentName: segment.name,
         timeSeconds: existingSeconds,
-        rank: rank,
+        rank: 0,
         isPersonalBest: false,
         isSegmentRecord: false,
       );
@@ -203,9 +203,8 @@ class SegmentService {
     final isSegmentRecord =
         segment.recordSeconds == null || effortSeconds < segment.recordSeconds!;
     await _db.collection('segments').doc(segment.id).update({
-      'effortCount': existing.exists
-          ? FieldValue.increment(0) // count unchanged — same user updated
-          : FieldValue.increment(1),
+      // Only increment when this is a NEW user (existing = false = first effort).
+      if (!existing.exists) 'effortCount': FieldValue.increment(1),
       if (isSegmentRecord) 'recordSeconds': effortSeconds,
       if (isSegmentRecord) 'recordHolderUid': uid,
       if (isSegmentRecord) 'recordHolderName': displayName,
@@ -240,12 +239,24 @@ class SegmentService {
 
   /// Returns the index of the closest point to [target] within [radiusM],
   /// or null if no point qualifies.
+  ///
+  /// Applies a cheap degree-space pre-filter before invoking Haversine,
+  /// eliminating ~99% of points without any trig calls.
   int? _closestPointWithin(
       List<LatLng> points, LatLng target, double radiusM) {
+    // 1 degree ≈ 111 km — convert radius to a loose degree bound.
+    final latDelta = radiusM / 111111.0;
+    final lngDelta = radiusM / (111111.0 * cos(_rad(target.latitude)).abs().clamp(0.01, 1.0));
+
     int? best;
     double bestDist = double.infinity;
     for (int i = 0; i < points.length; i++) {
-      final d = _distanceM(points[i], target);
+      final p = points[i];
+      // Coarse filter: skip if clearly outside the bounding square.
+      if ((p.latitude - target.latitude).abs() > latDelta) continue;
+      if ((p.longitude - target.longitude).abs() > lngDelta) continue;
+      // Fine filter: exact Haversine only for nearby candidates.
+      final d = _distanceM(p, target);
       if (d < radiusM && d < bestDist) {
         bestDist = d;
         best = i;

@@ -1908,7 +1908,8 @@ class _SegmentResultRow extends StatelessWidget {
                     [
                       if (isKom) 'New KOM!',
                       if (isPb && !isKom) 'Personal Best',
-                      'Rank #${result.rank}',
+                      if (result.rank > 0) 'Rank #${result.rank}',
+                      if (result.rank == 0 && !isPb) 'Matched',
                     ].join(' · '),
                     style: TextStyle(
                         color: isKom

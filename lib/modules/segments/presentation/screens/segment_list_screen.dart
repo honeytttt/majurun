@@ -179,23 +179,21 @@ class _SegmentTile extends StatelessWidget {
               ),
             ),
 
-            // Right: my rank / time
+            // Right: my best time (rank shown on detail screen only)
             if (effort != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '#${effort.rank}',
-                    style: const TextStyle(
-                      color: Color(0xFF00E676),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                    ),
-                  ),
+                  const Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF00E676), size: 14),
+                  const SizedBox(width: 4),
                   Text(
                     effort.formattedTime,
                     style: const TextStyle(
-                        color: Colors.white54, fontSize: 11),
+                      color: Color(0xFF00E676),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               )
