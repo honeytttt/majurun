@@ -118,6 +118,7 @@ class PostRepositoryImpl {
   /// Real-time stream for initial page of posts
   Stream<List<AppPost>> getPostStream() {
     _log.d('Fetching posts stream (limit $_pageSize)');
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     return _db
         .collection(FirestoreCollections.posts)
         .orderBy(PostFields.createdAt, descending: true)
@@ -128,7 +129,10 @@ class PostRepositoryImpl {
       final posts = <AppPost>[];
       for (final doc in snapshot.docs) {
         try {
-          posts.add(_mapDocToAppPost(doc));
+          final post = _mapDocToAppPost(doc);
+          // Privacy gate: 'only_me' posts are visible only to their author.
+          if (post.privacy == 'only_me' && post.userId != currentUid) continue;
+          posts.add(post);
         } catch (e) {
           _log.w('Error mapping post ${doc.id}', error: e);
         }
@@ -167,10 +171,13 @@ class PostRepositoryImpl {
           .limit(_pageSize)
           .get();
 
+      final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
       final newPosts = <AppPost>[];
       for (final doc in snapshot.docs) {
         try {
-          newPosts.add(_mapDocToAppPost(doc));
+          final post = _mapDocToAppPost(doc);
+          if (post.privacy == 'only_me' && post.userId != currentUid) continue;
+          newPosts.add(post);
         } catch (e) {
           _log.w('Error mapping post ${doc.id}', error: e);
         }

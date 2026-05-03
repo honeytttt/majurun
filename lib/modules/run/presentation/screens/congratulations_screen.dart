@@ -88,6 +88,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   int? _recapStreak;
   double? _recapTotalKm;
 
+  // ── Ghost Run — vs last similar run (Feature 7) ───────────────────────────
+  String? _ghostPace;      // pace string of previous similar run
+  double? _ghostDistKm;    // distance of previous similar run
+  bool _ghostFaster = false; // true if current run was faster
+
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
     if (km >= 42.195) return AssetUrls.celebrations_videos_celebrate_marathon;
@@ -276,19 +281,65 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      // 1) User stats for recap chips
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       if (!mounted) return;
-      final data = doc.data() ?? {};
+      final userData = userDoc.data() ?? {};
+
+      // 2) Ghost run — most recent previous run within ±20% of today's distance
+      final minDist = widget.distanceKm * 0.8;
+      final maxDist = widget.distanceKm * 1.2;
+      // Fetch the last 5 runs; skip the one just saved (first result)
+      final histSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('training_history')
+          .orderBy('completedAt', descending: true)
+          .limit(6)
+          .get();
+
+      Map<String, dynamic>? ghostData;
+      // Skip the first doc (current run just saved) and find a similar distance
+      for (var i = 1; i < histSnap.docs.length; i++) {
+        final d = histSnap.docs[i].data();
+        final dist = (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        if (dist >= minDist && dist <= maxDist) {
+          ghostData = d;
+          break;
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
-        // Accept either field name — StreakService writes 'currentStreak'
-        _recapStreak = (data['currentStreak'] as int?) ??
-            (data['runStreak'] as int?) ??
+        _recapStreak = (userData['currentStreak'] as int?) ??
+            (userData['runStreak'] as int?) ??
             0;
-        _recapTotalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
+        _recapTotalKm = (userData['totalKm'] as num?)?.toDouble() ?? 0.0;
+
+        if (ghostData != null) {
+          _ghostPace = ghostData['pace'] as String?;
+          _ghostDistKm = (ghostData['distanceKm'] as num?)?.toDouble();
+          // Parse and compare paces (MM:SS format)
+          _ghostFaster = _comparePaces(widget.pace, _ghostPace ?? '');
+        }
       });
     } catch (_) {
-      // Non-critical — recap simply doesn't appear
+      // Non-critical — recap/ghost simply doesn't appear
     }
+  }
+
+  /// Returns true if [currentPace] is faster (lower) than [previousPace].
+  /// Both are in "MM:SS" or "M:SS" format.
+  bool _comparePaces(String currentPace, String previousPace) {
+    int toSeconds(String pace) {
+      final parts = pace.split(':');
+      if (parts.length != 2) return 0;
+      return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    }
+    final cur = toSeconds(currentPace);
+    final prev = toSeconds(previousPace);
+    if (cur == 0 || prev == 0) return false;
+    return cur < prev; // lower seconds = faster pace
   }
 
   // ── Features 1-3: Quick-edit metadata ────────────────────────────────────
@@ -710,6 +761,136 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     );
   }
 
+  // ── Feature 7: Ghost run comparison ──────────────────────────────────────
+
+  Widget _buildGhostComparison() {
+    if (_ghostPace == null || _ghostDistKm == null) return const SizedBox.shrink();
+    final unitPref = context.read<UnitPreferenceService>();
+    final thisDisplay = unitPref.formatDistance(widget.distanceKm);
+    final prevDisplay = unitPref.formatDistance(_ghostDistKm!);
+    final paceLabel = unitPref.paceLabel;
+    final faster = _ghostFaster;
+    final diffColor = faster ? const Color(0xFF00E676) : const Color(0xFFFF6B6B);
+    final diffIcon = faster ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+    final diffText = faster ? 'Faster than last time!' : 'Slower than last time';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1A0D),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: faster
+              ? const Color(0xFF00E676).withValues(alpha: 0.35)
+              : Colors.white.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.compare_arrows_rounded,
+                  color: faster ? const Color(0xFF00E676) : Colors.white54,
+                  size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                'VS YOUR LAST SIMILAR RUN',
+                style: TextStyle(
+                  color: Color(0xFF00E676),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              // This run
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('THIS RUN',
+                        style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    Text(thisDisplay,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
+                    Text('${widget.pace} /$paceLabel',
+                        style: const TextStyle(
+                            color: Color(0xFF00E676), fontSize: 13)),
+                  ],
+                ),
+              ),
+              // Diff indicator
+              Column(
+                children: [
+                  Icon(diffIcon, color: diffColor, size: 22),
+                  Text(
+                    faster ? 'FASTER' : 'SLOWER',
+                    style: TextStyle(
+                        color: diffColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8),
+                  ),
+                ],
+              ),
+              // Last run
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('LAST TIME',
+                        style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    Text(prevDisplay,
+                        style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
+                    Text('$_ghostPace /$paceLabel',
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: diffColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              diffText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: diffColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Features 1-3: Quick-edit metadata card ────────────────────────────────
 
   Widget _buildRunMetadata() {
@@ -954,6 +1135,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 if (_recapStreak != null || _recapTotalKm != null) ...[
                   const SizedBox(height: 20),
                   _buildSmartRecap(),
+                ],
+                // Ghost run — vs last similar run
+                if (_ghostPace != null) ...[
+                  const SizedBox(height: 16),
+                  _buildGhostComparison(),
                 ],
                 // Quick-edit metadata — feeling, surface, privacy
                 const SizedBox(height: 20),
