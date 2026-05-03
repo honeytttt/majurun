@@ -21,6 +21,9 @@ import 'package:majurun/modules/run/presentation/widgets/milestone_badge_sheet.d
 import 'package:majurun/modules/run/presentation/screens/congratulations_screen.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/services/unit_preference_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:majurun/core/models/segment.dart';
+import 'package:majurun/core/services/segment_service.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 
 
@@ -1009,6 +1012,17 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final nav = Navigator.of(context);
 
     // ── Step 3: Background save — static map + Firestore, no dialog ──────────
+    // Segment detection fires concurrently with the save — both are independent.
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final segmentsFuture = uid != null
+        ? SegmentService().detectAndSaveEfforts(
+            uid: uid,
+            routePoints: routePoints.cast<LatLng>(),
+            completedAt: DateTime.now(),
+            durationSeconds: durationSeconds,
+          )
+        : Future.value(<SegmentEffortResult>[]);
+
     // Fire both in background. The save future resolves to ({pbs, badges})
     // and is passed to CongratulationsScreen which shows a pill until done.
     final saveFuture = _runBackgroundSave(
@@ -1053,6 +1067,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             calories: calories,
             planTitle: planTitle,
             saveFuture: saveFuture,
+            segmentsFuture: segmentsFuture,
             routePoints: routePoints.cast<LatLng>(),
           ),
         ),

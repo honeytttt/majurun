@@ -14,7 +14,9 @@ import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dar
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
+import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
+import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/core/services/unit_preference_service.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +45,10 @@ class CongratulationsScreen extends StatefulWidget {
   /// Route points used to render the "wiggle" route overlay on the share card.
   final List<LatLng> routePoints;
 
+  /// Optional future that resolves to segment efforts matched during this run.
+  /// When provided, a "Segments" section is shown once the future resolves.
+  final Future<List<SegmentEffortResult>>? segmentsFuture;
+
   const CongratulationsScreen({
     super.key,
     required this.distanceKm,
@@ -55,6 +61,7 @@ class CongratulationsScreen extends StatefulWidget {
     this.saveFuture,
     this.postId,
     this.routePoints = const [],
+    this.segmentsFuture,
   });
 
   @override
@@ -99,6 +106,9 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   double? _ghostDistKm;    // distance of previous similar run
   bool _ghostFaster = false; // true if current run was faster
 
+  // ── Segment efforts matched during this run ───────────────────────────────
+  List<SegmentEffortResult>? _segmentResults;
+
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
     if (km >= 42.195) return AssetUrls.celebrations_videos_celebrate_marathon;
@@ -142,6 +152,12 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     HapticFeedback.heavyImpact();
     _initVideo();
     _checkMilestone();
+
+    // Wire up segment detection future
+    widget.segmentsFuture?.then((results) {
+      if (!mounted) return;
+      setState(() => _segmentResults = results);
+    }).catchError((_) {});
 
     // Wire up background save future
     if (widget.saveFuture != null) {
@@ -913,6 +929,42 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     );
   }
 
+  // ── Segment achievements ──────────────────────────────────────────────────
+
+  Widget _buildSegmentAchievements() {
+    final results = _segmentResults!;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1A0D),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: const Color(0xFF00E676).withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.route_rounded, color: Color(0xFF00E676), size: 16),
+              SizedBox(width: 8),
+              Text(
+                'SEGMENTS MATCHED',
+                style: TextStyle(
+                    color: Color(0xFF00E676),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...results.map((r) => _SegmentResultRow(result: r)),
+        ],
+      ),
+    );
+  }
+
   // ── Features 1-3: Quick-edit metadata card ────────────────────────────────
 
   Widget _buildRunMetadata() {
@@ -1162,6 +1214,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                 if (_ghostPace != null) ...[
                   const SizedBox(height: 16),
                   _buildGhostComparison(),
+                ],
+                // Segment achievements
+                if (_segmentResults != null && _segmentResults!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildSegmentAchievements(),
                 ],
                 // Quick-edit metadata — feeling, surface, privacy
                 const SizedBox(height: 20),
@@ -1775,4 +1832,106 @@ class _RouteWigglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RouteWigglePainter old) => old.points != points;
+}
+
+// ── Segment result row (used inside CongratulationsScreen) ────────────────
+
+class _SegmentResultRow extends StatelessWidget {
+  final SegmentEffortResult result;
+
+  const _SegmentResultRow({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final isKom = result.isSegmentRecord;
+    final isPb = result.isPersonalBest;
+
+    return GestureDetector(
+      onTap: () {
+        // Navigate to the leaderboard for this segment.
+        // We only have the ID/name — build a minimal Segment shell for the screen.
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SegmentDetailScreen(
+              segment: Segment(
+                id: result.segmentId,
+                name: result.segmentName,
+                description: '',
+                city: '',
+                distanceKm: 0,
+                polyline: const [],
+                boundingBox: const SegmentBoundingBox(
+                    minLat: 0, maxLat: 0, minLng: 0, maxLng: 0),
+                startPoint: const LatLng(0, 0),
+                endPoint: const LatLng(0, 0),
+              ),
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: [
+            // Trophy / PB badge
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isKom
+                    ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                    : const Color(0xFF00E676).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isKom ? Icons.emoji_events_rounded : Icons.route_rounded,
+                color: isKom ? const Color(0xFFFFD700) : const Color(0xFF00E676),
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    result.segmentName,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    [
+                      if (isKom) 'New KOM!',
+                      if (isPb && !isKom) 'Personal Best',
+                      'Rank #${result.rank}',
+                    ].join(' · '),
+                    style: TextStyle(
+                        color: isKom
+                            ? const Color(0xFFFFD700)
+                            : const Color(0xFF00E676),
+                        fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              result.formattedTime,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded,
+                color: Colors.white24, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }

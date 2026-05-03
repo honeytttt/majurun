@@ -2,6 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:majurun/core/models/segment.dart';
+import 'package:majurun/core/services/segment_service.dart';
+import 'package:majurun/modules/segments/presentation/screens/segment_create_screen.dart';
+import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
+import 'package:majurun/modules/segments/presentation/screens/segment_list_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -17,7 +22,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -43,6 +48,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
             Tab(icon: Icon(Icons.people_rounded), text: 'Users'),
             Tab(icon: Icon(Icons.article_rounded), text: 'Posts'),
             Tab(icon: Icon(Icons.terminal_rounded), text: 'Logs'),
+            Tab(icon: Icon(Icons.route_rounded), text: 'Segments'),
           ],
         ),
       ),
@@ -52,6 +58,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           _UsersTab(),
           _PostsTab(),
           _LogsTab(),
+          _SegmentsTab(),
         ],
       ),
     );
@@ -461,6 +468,140 @@ class _LogsTabState extends State<_LogsTab> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────── SEGMENTS TAB ─────────────────────────────────
+
+class _SegmentsTab extends StatefulWidget {
+  const _SegmentsTab();
+
+  @override
+  State<_SegmentsTab> createState() => _SegmentsTabState();
+}
+
+class _SegmentsTabState extends State<_SegmentsTab> {
+  final _service = SegmentService();
+  List<Segment>? _segments;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _segments = null);
+    try {
+      final segs = await _service.fetchAllSegments();
+      if (mounted) setState(() => _segments = segs);
+    } catch (_) {
+      if (mounted) setState(() => _segments = []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF00E676),
+        foregroundColor: Colors.black,
+        tooltip: 'Create segment',
+        onPressed: () async {
+          final created = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const SegmentCreateScreen()),
+          );
+          if (created ?? false) _load();
+        },
+        child: const Icon(Icons.add_rounded),
+      ),
+      body: _segments == null
+          ? const Center(child: CircularProgressIndicator())
+          : _segments!.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.route_rounded,
+                          size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      const Text('No segments yet',
+                          style: TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SegmentListScreen()),
+                        ),
+                        child: const Text('View public list'),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _segments!.length,
+                    itemBuilder: (ctx, i) {
+                      final seg = _segments![i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const Icon(Icons.route_rounded,
+                              color: Color(0xFF00E676)),
+                          title: Text(seg.name),
+                          subtitle: Text(
+                            '${seg.city.isNotEmpty ? '${seg.city} · ' : ''}'
+                            '${seg.distanceKm > 0 ? '${seg.distanceKm.toStringAsFixed(1)} km · ' : ''}'
+                            '${seg.effortCount} efforts',
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: Colors.red),
+                            tooltip: 'Delete segment',
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  title: const Text('Delete segment?'),
+                                  content: Text(
+                                      'This will delete "${seg.name}" and all its efforts. This cannot be undone.'),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(c, false),
+                                        child: const Text('Cancel')),
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(c, true),
+                                        child: const Text('Delete',
+                                            style: TextStyle(
+                                                color: Colors.red))),
+                                  ],
+                                ),
+                              );
+                              if (confirmed ?? false) {
+                                await _service.deleteSegment(seg.id);
+                                _load();
+                              }
+                            },
+                          ),
+                          onTap: () => Navigator.push(
+                            ctx,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    SegmentDetailScreen(segment: seg)),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
     );
   }
 }
