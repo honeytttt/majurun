@@ -143,6 +143,42 @@ class VoiceController extends ChangeNotifier {
   // User's preferred call name (nickname > first name > empty)
   String _userName = '';
 
+  // ── Guided coaching — target pace ───────────────────────────────────────────
+  // 0 = coaching disabled.
+  int _targetPaceSecondsPerKm = 0;
+
+  /// Activate pace coaching with a target in seconds-per-km.
+  /// Call before the run starts (e.g. from RunTrackerScreen).
+  void setTargetPace(int secondsPerKm) {
+    _targetPaceSecondsPerKm = secondsPerKm;
+  }
+
+  void clearTargetPace() {
+    _targetPaceSecondsPerKm = 0;
+  }
+
+  bool get isCoachingActive => _targetPaceSecondsPerKm > 0;
+
+  /// Returns a coaching sentence to append to the km-milestone announcement,
+  /// or null if coaching is off or the pace difference is negligible (≤5s).
+  String? buildPaceComparison(String lastKmPace) {
+    if (_targetPaceSecondsPerKm <= 0) return null;
+    int toSec(String pace) {
+      final parts = pace.split(':');
+      if (parts.length != 2) return 0;
+      return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    }
+    final currentSec = toSec(lastKmPace);
+    if (currentSec <= 0) return null;
+    final diff = currentSec - _targetPaceSecondsPerKm; // positive = slower
+    if (diff.abs() <= 5) return 'Right on target pace!';
+    if (diff > 0) {
+      return '${diff}s per kilometer slower than your target. Kick it up!';
+    } else {
+      return '${diff.abs()}s per kilometer faster than target. Great effort — watch your energy!';
+    }
+  }
+
   /// Call once at run start to personalize voice announcements.
   void setUserName(String name) {
     _userName = name.trim();

@@ -27,6 +27,9 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   late AnimationController _pulseController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // Guided coaching — null means coaching off
+  int? _targetPaceSeconds; // seconds per km
+
   @override
   void initState() {
     super.initState();
@@ -234,7 +237,9 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             ),
             const SizedBox(height: 40),
             _buildGpsStatus(runController),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            _buildCoachingChip(),
+            const SizedBox(height: 10),
             BounceClick(
               onTap: _handleStartRun,
               child: Semantics(
@@ -296,6 +301,156 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     );
   }
 
+  /// Tappable chip that shows the current coaching target pace and opens a picker.
+  Widget _buildCoachingChip() {
+    final isActive = _targetPaceSeconds != null;
+    final label = isActive
+        ? '🎯 Target: ${_targetPaceSeconds! ~/ 60}:${(_targetPaceSeconds! % 60).toString().padLeft(2, '0')} /km'
+        : '🎯 Set target pace (optional)';
+
+    return GestureDetector(
+      onTap: _showPacePicker,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFF2D7A3E).withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? const Color(0xFF2D7A3E).withValues(alpha: 0.6)
+                : Colors.white12,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? const Color(0xFF2D7A3E) : Colors.white38,
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPacePicker() async {
+    int pickMin = _targetPaceSeconds != null ? _targetPaceSeconds! ~/ 60 : 5;
+    int pickSec = _targetPaceSeconds != null ? _targetPaceSeconds! % 60 : 30;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'TARGET PACE',
+                style: TextStyle(
+                  color: Color(0xFF2D7A3E),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'You\'ll hear coaching cues at every km',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _paceSpinner(
+                    value: pickMin,
+                    min: 3, max: 15, label: 'min',
+                    onChanged: (v) => setSheetState(() => pickMin = v),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 32)),
+                  ),
+                  _paceSpinner(
+                    value: pickSec,
+                    min: 0, max: 59, label: 'sec',
+                    onChanged: (v) => setSheetState(() => pickSec = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() => _targetPaceSeconds = null);
+                        Navigator.pop(ctx);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white38,
+                        side: const BorderSide(color: Colors.white12),
+                      ),
+                      child: const Text('Clear'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() => _targetPaceSeconds = pickMin * 60 + pickSec);
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2D7A3E),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Set', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _paceSpinner({
+    required int value,
+    required int min,
+    required int max,
+    required String label,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFF2D7A3E)),
+          onPressed: value < max ? () => onChanged(value + 1) : null,
+        ),
+        Text(
+          value.toString().padLeft(2, '0'),
+          style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+        ),
+        IconButton(
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF2D7A3E)),
+          onPressed: value > min ? () => onChanged(value - 1) : null,
+        ),
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+      ],
+    );
+  }
+
   Widget _buildGpsStatus(RunController runController) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -330,6 +485,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   Future<void> _handleStartRun() async {
     final runController = Provider.of<RunController>(context, listen: false);
+
+    // Apply coaching target pace before warmup so the first km announcement
+    // already knows the target. 0 = coaching off.
+    runController.voiceController.setTargetPace(_targetPaceSeconds ?? 0);
 
     // Start GPS + wakelock + TTS init BEFORE the warmup dialog.
     // This is critical on iOS: GPS must be running before the screen locks

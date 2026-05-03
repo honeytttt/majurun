@@ -120,13 +120,20 @@ class RunController extends ChangeNotifier {
       // before the per-km announcement so the approaching phrase plays first.
       voiceController.checkApproachingMilestone(km.toDouble());
 
+      // Merge split-vs-split comparison with coaching pace comparison.
+      final coachingCmp = voiceController.buildPaceComparison(lastKmPace);
+      final fullComparison = [
+        if (comparison != null && comparison.isNotEmpty) comparison,
+        if (coachingCmp != null) coachingCmp,
+      ].join(' ');
+
       // Default behavior: speak immediately
       voiceController.speakKmMilestone(
         km: km,
         totalTime: totalTime,
         lastKmPace: lastKmPace,
         averagePace: averagePace,
-        comparison: comparison,
+        comparison: fullComparison.isEmpty ? null : fullComparison,
       );
     };
 

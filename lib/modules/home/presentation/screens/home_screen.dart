@@ -40,6 +40,7 @@ import 'package:majurun/modules/engagement/engagement_feed_card.dart';
 import 'package:majurun/modules/engagement/features/games/games_feed_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/streak_hype_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/weekly_recap_card.dart';
+import 'package:majurun/modules/engagement/features/race_countdown/race_countdown_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -818,6 +819,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
               // E2 — Weekly recap card (24 h window after Sunday 20:00)
               const SliverToBoxAdapter(child: WeeklyRecapCard()),
+
+              // Race countdown card — pinned goal with days-to-race + weekly volume
+              const SliverToBoxAdapter(child: RaceCountdownCard()),
 
               // Daily Challenges banner
               SliverToBoxAdapter(
