@@ -69,6 +69,18 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   List<String> _resolvedBadges = const [];
   String? _postId;
 
+  // ── Quick-edit metadata (Features 1-3) ──────────────────────────────────────
+  String? _selectedFeeling;  // 'tough'|'okay'|'good'|'great'|'amazing'
+  String? _selectedSurface;  // 'road'|'trail'|'treadmill'|'track'
+  String _selectedPrivacy = 'everyone';
+  bool _feelingCheckmark = false;
+  bool _surfaceCheckmark = false;
+  bool _privacyCheckmark = false;
+
+  // ── Smart recap (Feature 4) ──────────────────────────────────────────────────
+  int? _recapStreak;
+  double? _recapTotalKm;
+
   String get _celebrationVideoUrl {
     final km = widget.distanceKm;
     if (km >= 42.195) return AssetUrls.celebrations_videos_celebrate_marathon;
@@ -115,6 +127,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         _initVideo();
         // Show challenge completion toasts
         _showChallengeToasts(result.completedChallenges);
+        // Load recap stats from Firestore
+        _fetchRecapData();
       }).catchError((_) {
         if (mounted) setState(() => _syncState = _SyncState.error);
       });
@@ -234,6 +248,119 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         );
       });
     }
+  }
+
+  // ── Feature 4: Smart recap ────────────────────────────────────────────────
+
+  Future<void> _fetchRecapData() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (!mounted) return;
+      final data = doc.data() ?? {};
+      setState(() {
+        // Accept either field name — StreakService writes 'currentStreak'
+        _recapStreak = (data['currentStreak'] as int?) ??
+            (data['runStreak'] as int?) ??
+            0;
+        _recapTotalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
+      });
+    } catch (_) {
+      // Non-critical — recap simply doesn't appear
+    }
+  }
+
+  // ── Features 1-3: Quick-edit metadata ────────────────────────────────────
+
+  /// Updates the post doc (feeling + surface + privacy) and the most recently
+  /// saved training_history doc (feeling + surface only). Fire-and-forget.
+  Future<void> _updateRunMeta({
+    String? feeling,
+    String? surface,
+    String? privacy,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      final postUpdate = <String, dynamic>{
+        if (feeling != null) 'feeling': feeling,
+        if (surface != null) 'surface': surface,
+        if (privacy != null) 'privacy': privacy,
+      };
+      final historyUpdate = <String, dynamic>{
+        if (feeling != null) 'feeling': feeling,
+        if (surface != null) 'surface': surface,
+      };
+
+      final futures = <Future<void>>[];
+
+      // Update post document
+      if (_postId != null && postUpdate.isNotEmpty) {
+        futures.add(
+          FirebaseFirestore.instance
+              .collection('posts')
+              .doc(_postId)
+              .update(postUpdate),
+        );
+      }
+
+      // Update most recent training_history doc
+      if (historyUpdate.isNotEmpty) {
+        futures.add(
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('training_history')
+              .orderBy('completedAt', descending: true)
+              .limit(1)
+              .get()
+              .then((snap) {
+            if (snap.docs.isNotEmpty) {
+              return snap.docs.first.reference.update(historyUpdate);
+            }
+          }),
+        );
+      }
+
+      await Future.wait(futures);
+    } catch (e) {
+      debugPrint('⚠️ Run metadata update failed: $e');
+    }
+  }
+
+  void _onFeelingSelected(String value) {
+    setState(() {
+      _selectedFeeling = value;
+      _feelingCheckmark = true;
+    });
+    _updateRunMeta(feeling: value).ignore();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _feelingCheckmark = false);
+    });
+  }
+
+  void _onSurfaceSelected(String value) {
+    setState(() {
+      _selectedSurface = value;
+      _surfaceCheckmark = true;
+    });
+    _updateRunMeta(surface: value).ignore();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _surfaceCheckmark = false);
+    });
+  }
+
+  void _onPrivacySelected(String value) {
+    setState(() {
+      _selectedPrivacy = value;
+      _privacyCheckmark = true;
+    });
+    _updateRunMeta(privacy: value).ignore();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _privacyCheckmark = false);
+    });
   }
 
   // ── Sharing ────────────────────────────────────────────────────────────────
@@ -477,6 +604,202 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
 
   bool get _hasAchievements => _resolvedPbs.isNotEmpty || _resolvedBadges.isNotEmpty;
 
+  // ── Feature 4: Smart recap widget ─────────────────────────────────────────
+
+  Widget _buildSmartRecap() {
+    final chips = <Widget>[];
+    if ((_recapStreak ?? 0) > 0) {
+      chips.add(_recapChip('🔥 ${_recapStreak!} day streak'));
+    }
+    if ((_recapTotalKm ?? 0) > 0) {
+      chips.add(_recapChip(
+          '📊 ${(_recapTotalKm! ).toStringAsFixed(0)} km all time'));
+    }
+    if (_resolvedPbs.isNotEmpty) chips.add(_recapChip('⚡ New PB!'));
+    if (_resolvedBadges.isNotEmpty) chips.add(_recapChip('🏅 Badge earned!'));
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => chips[i],
+      ),
+    );
+  }
+
+  Widget _recapChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+      ),
+    );
+  }
+
+  // ── Features 1-3: Quick-edit metadata card ────────────────────────────────
+
+  Widget _buildRunMetadata() {
+    final locked = _syncState == _SyncState.syncing && _postId == null;
+
+    Widget card = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (locked)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text(
+                'Saving your run… you can tag it after.',
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+            ),
+          _buildSelectorSection(
+            label: 'HOW DID IT FEEL?',
+            options: const [
+              (value: 'tough',   emoji: '😫', display: 'Tough'),
+              (value: 'okay',    emoji: '😐', display: 'Okay'),
+              (value: 'good',    emoji: '🙂', display: 'Good'),
+              (value: 'great',   emoji: '😄', display: 'Great'),
+              (value: 'amazing', emoji: '🔥', display: 'Amazing'),
+            ],
+            selected: _selectedFeeling,
+            onSelect: locked ? null : _onFeelingSelected,
+            checkmark: _feelingCheckmark,
+          ),
+          const SizedBox(height: 16),
+          _buildSelectorSection(
+            label: 'SURFACE',
+            options: const [
+              (value: 'road',      emoji: '🛣️',  display: 'Road'),
+              (value: 'trail',     emoji: '🌲',  display: 'Trail'),
+              (value: 'treadmill', emoji: '🏃',  display: 'Treadmill'),
+              (value: 'track',     emoji: '🏁',  display: 'Track'),
+            ],
+            selected: _selectedSurface,
+            onSelect: locked ? null : _onSurfaceSelected,
+            checkmark: _surfaceCheckmark,
+          ),
+          const SizedBox(height: 16),
+          _buildSelectorSection(
+            label: 'POST VISIBILITY',
+            options: const [
+              (value: 'everyone',  emoji: '🌍', display: 'Everyone'),
+              (value: 'followers', emoji: '👥', display: 'Followers'),
+              (value: 'only_me',   emoji: '🔒', display: 'Only Me'),
+            ],
+            selected: _selectedPrivacy,
+            onSelect: locked ? null : _onPrivacySelected,
+            checkmark: _privacyCheckmark,
+          ),
+        ],
+      ),
+    );
+
+    if (locked) {
+      card = Opacity(opacity: 0.45, child: card);
+    }
+    return card;
+  }
+
+  Widget _buildSelectorSection({
+    required String label,
+    required List<({String value, String emoji, String display})> options,
+    required String? selected,
+    required void Function(String)? onSelect,
+    required bool checkmark,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF00E676),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options
+              .map((o) => _optionChip(
+                    option: o,
+                    isSelected: selected == o.value,
+                    showCheck: checkmark && selected == o.value,
+                    onTap: onSelect == null ? null : () => onSelect(o.value),
+                  ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _optionChip({
+    required ({String value, String emoji, String display}) option,
+    required bool isSelected,
+    required bool showCheck,
+    required VoidCallback? onTap,
+  }) {
+    final bg = isSelected
+        ? const Color(0xFF00E676).withValues(alpha: 0.15)
+        : Colors.white.withValues(alpha: 0.05);
+    final border = isSelected
+        ? const Color(0xFF00E676).withValues(alpha: 0.6)
+        : Colors.white.withValues(alpha: 0.15);
+    final textColor = isSelected ? const Color(0xFF00E676) : Colors.white70;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(option.emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              option.display,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 13,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            if (showCheck) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check_rounded, size: 13, color: Color(0xFF00E676)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -495,11 +818,17 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                   const SizedBox(height: 32),
                   _buildAchievements(),
                 ],
+                // Smart recap — streak, total km, PB/badge chips
+                if (_recapStreak != null || _recapTotalKm != null) ...[
+                  const SizedBox(height: 20),
+                  _buildSmartRecap(),
+                ],
+                // Quick-edit metadata — feeling, surface, privacy
+                const SizedBox(height: 20),
+                _buildRunMetadata(),
                 // Live cheers overlay — listens to the freshly-created post for
-                // 60 s and animates incoming likes/comments. Self-renders empty
-                // when disabled via Remote Config or when no post is found, so
-                // it's safe to leave unconditionally in the column.
-                const SizedBox(height: 24),
+                // 60 s and animates incoming likes/comments.
+                const SizedBox(height: 20),
                 const LiveCheersOverlay(),
                 const SizedBox(height: 12),
                 _buildSyncPill(),

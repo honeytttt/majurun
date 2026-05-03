@@ -96,6 +96,11 @@ abstract class PostFields {
   static const String type = 'type';
   static const String mapImageUrl = 'mapImageUrl';
   static const String tags = 'tags';
+
+  // Post-run metadata (written via Quick Edit after run is saved)
+  static const String feeling = 'feeling';    // 'tough'|'okay'|'good'|'great'|'amazing'
+  static const String surface = 'surface';    // 'road'|'trail'|'treadmill'|'track'
+  static const String privacy = 'privacy';    // 'everyone'|'followers'|'only_me'
 }
 
 /// Run history document fields
@@ -117,6 +122,10 @@ abstract class RunFields {
   static const String notes = 'notes';
   static const String isRace = 'isRace';
   static const String effortLevel = 'effortLevel';
+
+  // Post-run quick-edit metadata
+  static const String feeling = 'feeling';   // 'tough'|'okay'|'good'|'great'|'amazing'
+  static const String surface = 'surface';   // 'road'|'trail'|'treadmill'|'track'
 }
 
 /// Notification document fields
