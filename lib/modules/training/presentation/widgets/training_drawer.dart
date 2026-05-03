@@ -4,6 +4,8 @@ import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/training/presentation/screens/active_workout_screen.dart';
 import 'package:majurun/core/services/subscription_service.dart';
 import 'package:majurun/core/services/payment_service.dart';
+import 'package:majurun/modules/clubs/presentation/screens/club_list_screen.dart';
+import 'package:majurun/modules/training/presentation/screens/training_plan_browser_screen.dart';
 
 class TrainingDrawer extends StatefulWidget {
   final Function(Widget?)? onSubPageSelected;
@@ -108,6 +110,37 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
                   color: Colors.redAccent,
                   isPro: false,
                   onTap: () => _startPlan(context, 'Morning Burn'),
+                ),
+                _communityTile(
+                  context,
+                  title: 'Browse All Plans',
+                  subtitle: 'See progress & active plan',
+                  icon: Icons.map_rounded,
+                  color: const Color(0xFF2196F3),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TrainingPlanBrowserScreen()),
+                    );
+                  },
+                ),
+                _buildSectionHeader('COMMUNITY'),
+                _communityTile(
+                  context,
+                  title: 'Running Clubs',
+                  subtitle: 'Discover clubs & leaderboards',
+                  icon: Icons.groups_rounded,
+                  color: const Color(0xFF00E676),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ClubListScreen()),
+                    );
+                  },
                 ),
               ],
             ),
@@ -214,6 +247,31 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
           onTap();
         }
       },
+    );
+  }
+
+  Widget _communityTile(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(subtitle,
+          style: const TextStyle(fontSize: 12)),
+      trailing: const Icon(Icons.chevron_right, size: 18),
+      onTap: onTap,
     );
   }
 

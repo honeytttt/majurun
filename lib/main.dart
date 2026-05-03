@@ -200,9 +200,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final crashReporting = serviceLocator.crashReportingService;
     final sentry = serviceLocator.sentryService;
 
+    // Capture the service reference synchronously — avoids BuildContext across async gap
+    final trainingService = context.read<TrainingService>();
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
         UserCountersInitializer.initializeOnFirstLaunch();
+        // Restore active training plan progress from Firestore
+        trainingService.loadProgress().ignore();
         // Initialize notifications + schedule default daily notifications
         PushNotificationService().initialize().then((_) {
           PushNotificationService().scheduleDefaultNotifications();

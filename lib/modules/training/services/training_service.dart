@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:majurun/modules/training/data/training_plans_data.dart';
 
@@ -25,6 +27,7 @@ class TrainingService extends ChangeNotifier {
       _currentDay = 1;
       _isActive = true;
       notifyListeners();
+      _persist().ignore();
       debugPrint('✅ Started plan: ${_activePlan!['title']}');
     } else {
       debugPrint('❌ Plan not found: $planId');
@@ -127,12 +130,59 @@ class TrainingService extends ChangeNotifier {
         debugPrint('🎉 Training plan complete at W$completedWeek D$completedDay! Congratulations!');
       }
       notifyListeners();
+      _persist().ignore();
     } else {
       debugPrint('📝 Completed W$completedWeek D$completedDay, but progress pointer stays at W$_currentWeek D$_currentDay');
       // We don't advance _currentWeek/_currentDay, but we still "completed" the run (stats are saved elsewhere)
     }
   }
   
+  // ── Firestore persistence ──────────────────────────────────────────────────
+
+  /// Loads the active plan progress from Firestore on login / app start.
+  /// Call once after auth resolves (e.g. from main.dart or auth listener).
+  Future<void> loadProgress() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final saved = doc.data()?['activePlan'] as Map<String, dynamic>?;
+      if (saved == null) return;
+      final planId = saved['planId'] as String?;
+      if (planId == null) return;
+      final plan = getTrainingPlanById(planId);
+      if (plan == null) return;
+      _activePlan = plan;
+      _currentWeek = saved['currentWeek'] as int? ?? 1;
+      _currentDay = saved['currentDay'] as int? ?? 1;
+      _isActive = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ TrainingService.loadProgress: $e');
+    }
+  }
+
+  /// Persists active plan progress to `users/{uid}.activePlan`.
+  Future<void> _persist() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      if (_activePlan == null || !_isActive) {
+        await FirebaseFirestore.instance.collection('users').doc(uid)
+            .update({'activePlan': FieldValue.delete()});
+      } else {
+        await FirebaseFirestore.instance.collection('users').doc(uid)
+            .update({'activePlan': {
+              'planId': _activePlan!['planId'],
+              'currentWeek': _currentWeek,
+              'currentDay': _currentDay,
+            }});
+      }
+    } catch (e) {
+      debugPrint('⚠️ TrainingService._persist: $e');
+    }
+  }
+
   // Reset current plan
   void resetPlan() {
     if (_activePlan != null) {
@@ -151,6 +201,7 @@ class TrainingService extends ChangeNotifier {
     _currentDay = 1;
     _isActive = false;
     notifyListeners();
+    _persist().ignore();
     debugPrint('❌ Plan cancelled');
   }
   

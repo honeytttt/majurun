@@ -9,6 +9,7 @@ import 'package:majurun/modules/run/domain/entities/run_post.dart';
 import 'package:majurun/core/services/user_stats_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/daily_challenge_service.dart';
+import 'package:majurun/core/services/club_service.dart';
 
 class StatsController extends ChangeNotifier {
   final RunHistoryRepository _repository;
@@ -136,6 +137,9 @@ class StatsController extends ChangeNotifier {
       lastCompletedChallenges = [];
       debugPrint('⚠️ Challenge progress update failed: $e');
     }
+
+    // Update club weekly km for all clubs the user belongs to
+    ClubService().onRunCompleted(uid, distanceKm).ignore();
 
     // Update local state
     historyDistance += distanceKm;
