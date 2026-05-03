@@ -12,6 +12,8 @@ import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dar
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
+import 'package:majurun/core/services/shoe_tracking_service.dart';
+import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/core/services/unit_preference_service.dart';
 import 'package:provider/provider.dart';
 
@@ -77,6 +79,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   bool _surfaceCheckmark = false;
   bool _privacyCheckmark = false;
 
+  // ── Feature 5: Shoe tracking ─────────────────────────────────────────────────
+  String? _selectedShoeId;
+  String _selectedShoeName = '';
+  bool _shoeMileageRecorded = false;
+
   // ── Smart recap (Feature 4) ──────────────────────────────────────────────────
   int? _recapStreak;
   double? _recapTotalKm;
@@ -106,6 +113,19 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     _resolvedPbs = List.of(widget.pbs);
     _resolvedBadges = List.of(widget.badges);
     _postId = widget.postId;
+
+    // Pre-populate shoe and auto-record mileage on the active shoe.
+    final activeShoe = serviceLocator.shoeTrackingService.activeShoe;
+    if (activeShoe != null && activeShoe.id.isNotEmpty) {
+      _selectedShoeId = activeShoe.id;
+      _selectedShoeName = activeShoe.displayName;
+      // Record run mileage immediately — serviceLocator.onRunCompleted() is
+      // not wired into the free-run flow, so this is the recording point.
+      serviceLocator.shoeTrackingService
+          .recordRun(activeShoe.id, widget.distanceKm)
+          .ignore();
+      _shoeMileageRecorded = true;
+    }
 
     _animController.forward();
     HapticFeedback.heavyImpact();
@@ -273,12 +293,14 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
 
   // ── Features 1-3: Quick-edit metadata ────────────────────────────────────
 
-  /// Updates the post doc (feeling + surface + privacy) and the most recently
-  /// saved training_history doc (feeling + surface only). Fire-and-forget.
+  /// Updates the post doc (feeling + surface + privacy + shoeId) and the most
+  /// recently saved training_history doc (feeling + surface + shoeId only).
+  /// Fire-and-forget — never blocks the UI.
   Future<void> _updateRunMeta({
     String? feeling,
     String? surface,
     String? privacy,
+    String? shoeId,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -288,10 +310,12 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         if (feeling != null) 'feeling': feeling,
         if (surface != null) 'surface': surface,
         if (privacy != null) 'privacy': privacy,
+        if (shoeId != null) 'shoeId': shoeId,
       };
       final historyUpdate = <String, dynamic>{
         if (feeling != null) 'feeling': feeling,
         if (surface != null) 'surface': surface,
+        if (shoeId != null) 'shoeId': shoeId,
       };
 
       final futures = <Future<void>>[];
@@ -361,6 +385,47 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _privacyCheckmark = false);
     });
+  }
+
+  /// Opens a bottom sheet to pick which shoe was worn on this run.
+  Future<void> _showShoePicker() async {
+    final service = serviceLocator.shoeTrackingService;
+    final shoes = service.shoes;
+    if (shoes.isEmpty) {
+      // No shoes added yet — nudge user to the shoe tracker
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Add your shoes in Profile → My Shoes'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    final picked = await showModalBottomSheet<Shoe>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _ShoePickerSheet(shoes: shoes, selectedId: _selectedShoeId),
+    );
+
+    if (picked == null || !mounted) return;
+
+    // Record mileage on the newly selected shoe (once per session)
+    if (!_shoeMileageRecorded) {
+      service.recordRun(picked.id, widget.distanceKm).ignore();
+      _shoeMileageRecorded = true;
+    }
+
+    setState(() {
+      _selectedShoeId = picked.id;
+      _selectedShoeName = picked.displayName;
+    });
+    _updateRunMeta(shoeId: picked.id).ignore();
   }
 
   // ── Sharing ────────────────────────────────────────────────────────────────
@@ -706,6 +771,9 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
             onSelect: locked ? null : _onPrivacySelected,
             checkmark: _privacyCheckmark,
           ),
+          const SizedBox(height: 16),
+          // Shoe tracking
+          _buildShoeRow(locked: locked),
         ],
       ),
     );
@@ -797,6 +865,70 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildShoeRow({required bool locked}) {
+    final hasShoe = _selectedShoeName.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'SHOES WORN',
+          style: TextStyle(
+            color: Color(0xFF00E676),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: locked ? null : _showShoePicker,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: hasShoe
+                  ? const Color(0xFF00E676).withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: hasShoe
+                    ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.directions_run_rounded,
+                  size: 18,
+                  color: hasShoe
+                      ? const Color(0xFF00E676)
+                      : Colors.white38,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    hasShoe ? _selectedShoeName : 'Tap to log your shoes',
+                    style: TextStyle(
+                      color: hasShoe ? const Color(0xFF00E676) : Colors.white38,
+                      fontSize: 13,
+                      fontWeight: hasShoe ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: locked ? Colors.white12 : Colors.white38,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1233,6 +1365,110 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Shoe picker bottom sheet ─────────────────────────────────────────────────
+
+class _ShoePickerSheet extends StatelessWidget {
+  final List<Shoe> shoes;
+  final String? selectedId;
+
+  const _ShoePickerSheet({required this.shoes, required this.selectedId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Which shoes did you wear?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...shoes.map((shoe) {
+            final isSelected = shoe.id == selectedId;
+            final kmDisplay = shoe.totalDistanceKm.toStringAsFixed(0);
+            final pct = (shoe.totalDistanceKm /
+                    ShoeTrackingService.retireThresholdKm *
+                    100)
+                .clamp(0.0, 100.0);
+            return GestureDetector(
+              onTap: () => Navigator.of(context).pop(shoe),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF00E676).withValues(alpha: 0.12)
+                      : const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF00E676).withValues(alpha: 0.6)
+                        : Colors.white12,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      shoe.type.icon,
+                      color: isSelected ? const Color(0xFF00E676) : Colors.white54,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            shoe.displayName,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? const Color(0xFF00E676)
+                                  : Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: LinearProgressIndicator(
+                              value: pct / 100,
+                              minHeight: 3,
+                              backgroundColor: Colors.white12,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                shoe.healthColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$kmDisplay km used',
+                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isSelected)
+                      const Icon(Icons.check_rounded,
+                          color: Color(0xFF00E676), size: 18),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }
