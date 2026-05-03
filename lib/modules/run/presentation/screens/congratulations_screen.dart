@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -1220,6 +1221,9 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                   const SizedBox(height: 16),
                   _buildSegmentAchievements(),
                 ],
+                // Daily motivation / tip card
+                const SizedBox(height: 20),
+                _buildMotivationCard(),
                 // Quick-edit metadata — feeling, surface, privacy
                 const SizedBox(height: 20),
                 _buildRunMetadata(),
@@ -1236,6 +1240,52 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
           ),
         ),
       ),
+    );
+  }
+
+  // ── Post-run motivation card ──────────────────────────────────────────────
+
+  static final _motivationAssets = [
+    ...List.generate(2, (i) => 'assets/29-apr-images/motivation_${i + 1}.svg'),
+    ...List.generate(5, (i) => 'assets/29-apr-images/tip_${i + 1}.svg'),
+  ];
+
+  // Stable random pick per screen instance so it doesn't re-roll on rebuild.
+  late final String _motivationAsset = _motivationAssets[
+      Random().nextInt(_motivationAssets.length)];
+
+  Widget _buildMotivationCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              Icon(Icons.bolt_rounded, color: Color(0xFF00E676), size: 15),
+              SizedBox(width: 6),
+              Text(
+                'KEEP IT UP',
+                style: TextStyle(
+                  color: Color(0xFF00E676),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SvgPicture.asset(
+            _motivationAsset,
+            width: double.infinity,
+            fit: BoxFit.fitWidth,
+            placeholderBuilder: (_) => const SizedBox(height: 160),
+          ),
+        ),
+      ],
     );
   }
 

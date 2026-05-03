@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.1+181
+version: 1.0.1+182
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -39,6 +39,7 @@ dependencies:
   crypto: ^3.0.5
 
   # Media & UI ──────────────────────────────────────────────
+  flutter_svg: ^2.0.10+1
   cached_network_image: ^3.4.0
   image_picker: ^1.1.2
   video_player: ^2.9.1
@@ -136,6 +137,7 @@ flutter:
     - assets/images/
     - assets/workouts/
     - lib/workouts/
+    - assets/29-apr-images/
 
 # Optional: helps with dependency resolution in some cases
 # dependency_overrides:
