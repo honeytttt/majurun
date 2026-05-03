@@ -20,6 +20,12 @@ class PostRepositoryImpl {
   bool _hasMorePosts = true;
   final List<AppPost> _cachedPosts = [];
 
+  // Following set cache — used for 'followers' privacy enforcement.
+  // Static so all PostRepositoryImpl instances share the same cache.
+  // Bust it after follow/unfollow via invalidateFollowingSet().
+  static Set<String> _followingSet = {};
+  static bool _followingSetLoaded = false;
+
   PostRepositoryImpl({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
@@ -34,6 +40,40 @@ class PostRepositoryImpl {
     _lastDocument = null;
     _hasMorePosts = true;
     _cachedPosts.clear();
+  }
+
+  /// Call after follow/unfollow so the 'followers' filter stays accurate.
+  /// Static so any caller can invalidate without a specific instance.
+  static void invalidateFollowingSet() {
+    _followingSetLoaded = false;
+    _followingSet = {};
+  }
+
+  /// Loads the current user's following set once; subsequent calls are no-ops.
+  Future<void> _ensureFollowingSetLoaded() async {
+    if (_followingSetLoaded) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final snap = await _db
+          .collection(FirestoreCollections.users)
+          .doc(uid)
+          .collection(FirestoreCollections.following)
+          .get();
+      _followingSet = snap.docs.map((d) => d.id).toSet();
+      _followingSetLoaded = true;
+    } catch (_) {
+      // Non-critical — on error the 'followers' gate is skipped (show post)
+    }
+  }
+
+  /// Returns true if the current user may see [post] based on its privacy setting.
+  bool _isVisible(AppPost post, String currentUid) {
+    if (post.privacy == 'only_me') return post.userId == currentUid;
+    if (post.privacy == 'followers') {
+      return post.userId == currentUid || _followingSet.contains(post.userId);
+    }
+    return true; // 'everyone' (default)
   }
 
   AppPost _mapDocToAppPost(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -119,19 +159,21 @@ class PostRepositoryImpl {
   Stream<List<AppPost>> getPostStream() {
     _log.d('Fetching posts stream (limit $_pageSize)');
     final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    return _db
-        .collection(FirestoreCollections.posts)
-        .orderBy(PostFields.createdAt, descending: true)
-        .limit(_pageSize)
-        .snapshots()
-        .map((snapshot) {
+    // Load the following set before emitting any events so 'followers' posts
+    // are filtered correctly from the very first snapshot.
+    return Stream.fromFuture(_ensureFollowingSetLoaded()).asyncExpand((_) =>
+      _db
+          .collection(FirestoreCollections.posts)
+          .orderBy(PostFields.createdAt, descending: true)
+          .limit(_pageSize)
+          .snapshots()
+          .map((snapshot) {
       _log.d('Received ${snapshot.docs.length} posts');
       final posts = <AppPost>[];
       for (final doc in snapshot.docs) {
         try {
           final post = _mapDocToAppPost(doc);
-          // Privacy gate: 'only_me' posts are visible only to their author.
-          if (post.privacy == 'only_me' && post.userId != currentUid) continue;
+          if (!_isVisible(post, currentUid)) continue;
           posts.add(post);
         } catch (e) {
           _log.w('Error mapping post ${doc.id}', error: e);
@@ -152,7 +194,7 @@ class PostRepositoryImpl {
       CacheService().cachePosts(posts);
 
       return posts;
-    });
+    }));
   }
 
   /// Load more posts for infinite scroll - cursor-based pagination
@@ -163,6 +205,7 @@ class PostRepositoryImpl {
     }
 
     try {
+      await _ensureFollowingSetLoaded();
       _log.d('Loading more posts after ${_lastDocument!.id}');
       final snapshot = await _db
           .collection(FirestoreCollections.posts)
@@ -176,7 +219,7 @@ class PostRepositoryImpl {
       for (final doc in snapshot.docs) {
         try {
           final post = _mapDocToAppPost(doc);
-          if (post.privacy == 'only_me' && post.userId != currentUid) continue;
+          if (!_isVisible(post, currentUid)) continue;
           newPosts.add(post);
         } catch (e) {
           _log.w('Error mapping post ${doc.id}', error: e);

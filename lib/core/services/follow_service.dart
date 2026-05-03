@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/logging_service.dart';
 import 'package:majurun/core/services/notification_service.dart';
+import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 
 class FollowService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -75,6 +76,8 @@ class FollowService {
         // Don't rethrow - follow was successful, notification is optional
       }
 
+      // Bust the feed's following cache so 'followers' posts appear immediately.
+      PostRepositoryImpl.invalidateFollowingSet();
       _log.i('Followed user: $targetUserId');
     } catch (e) {
       _log.e('Error following user', error: e);
@@ -138,6 +141,8 @@ class FollowService {
         });
       });
 
+      // Bust the feed's following cache so 'followers' posts are hidden immediately.
+      PostRepositoryImpl.invalidateFollowingSet();
       _log.i('Unfollowed user: $targetUserId');
     } catch (e) {
       _log.e('Error unfollowing user', error: e);

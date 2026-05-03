@@ -157,6 +157,10 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       }).catchError((_) {
         if (mounted) setState(() => _syncState = _SyncState.error);
       });
+    } else {
+      // No background save — run was already committed before this screen.
+      // Load recap data (streak, ghost run, etc.) immediately.
+      _fetchRecapData();
     }
   }
 
