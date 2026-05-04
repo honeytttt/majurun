@@ -4,7 +4,7 @@ import 'package:majurun/core/services/voice_settings_service.dart';
 void main() {
   group('VoiceSettings', () {
     test('defaults() should have all major toggles enabled', () {
-      const settings = VoiceSettings.defaults();
+      final settings = VoiceSettings.defaults();
       expect(settings.masterEnabled, isTrue);
       expect(settings.runStartStop, isTrue);
       expect(settings.fullKmUpdates, isTrue);
@@ -19,7 +19,7 @@ void main() {
     });
 
     test('toMap and fromMap should be consistent', () {
-      const original = VoiceSettings(
+      final original = VoiceSettings(
         masterEnabled: false,
         voiceName: 'Alex',
         speechRate: 0.5,
@@ -36,7 +36,7 @@ void main() {
     });
 
     test('copyWith should only update specified fields', () {
-      const original = VoiceSettings.defaults();
+      final original = VoiceSettings.defaults();
       final updated = original.copyWith(masterEnabled: false, coachingVoiceIndex: 3);
       
       expect(updated.masterEnabled, isFalse);

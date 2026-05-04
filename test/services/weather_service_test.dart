@@ -14,6 +14,7 @@ void main() {
         windDirection: 180,
         timestamp: DateTime.now(),
         locationName: 'Test City',
+        visibility: 10000,
       );
 
       expect(weather.safetyRating, 5);
@@ -31,6 +32,7 @@ void main() {
         windDirection: 180,
         timestamp: DateTime.now(),
         locationName: 'Test City',
+        visibility: 10000,
       );
 
       expect(weather.safetyRating, lessThan(5));
@@ -47,6 +49,7 @@ void main() {
         windDirection: 180,
         timestamp: DateTime.now(),
         locationName: 'Test City',
+        visibility: 1000,
       );
 
       expect(weather.safetyRatingText, 'Dangerous');
