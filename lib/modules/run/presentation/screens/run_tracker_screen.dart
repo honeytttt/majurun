@@ -308,28 +308,34 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         ? '🎯 Target: ${_targetPaceSeconds! ~/ 60}:${(_targetPaceSeconds! % 60).toString().padLeft(2, '0')} /km'
         : '🎯 Set target pace (optional)';
 
-    return GestureDetector(
-      onTap: _showPacePicker,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF2D7A3E).withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
+    return Semantics(
+      label: isActive ? 'Current target pace' : 'Set target pace',
+      value: label,
+      hint: 'Double tap to change your target coaching pace',
+      button: true,
+      child: GestureDetector(
+        onTap: _showPacePicker,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF2D7A3E).withValues(alpha: 0.6)
-                : Colors.white12,
+                ? const Color(0xFF2D7A3E).withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isActive
+                  ? const Color(0xFF2D7A3E).withValues(alpha: 0.6)
+                  : Colors.white12,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? const Color(0xFF2D7A3E) : Colors.white38,
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? const Color(0xFF2D7A3E) : Colors.white38,
+              fontSize: 12,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
         ),
       ),

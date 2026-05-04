@@ -4,11 +4,27 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:majurun/core/services/voice_settings_service.dart';
+import 'package:majurun/core/services/audio_coaching_service.dart';
 
-// ... (rest of the constants remain the same)
+// ─────────────────────────────────────────────────────────────────────────────
+// Random motivational phrases to spice up the kilometer milestones.
+// ─────────────────────────────────────────────────────────────────────────────
 const List<String> _kEncouragements = [
   "You're doing amazing! Keep it up!",
-// ... (rest of encouragement phrases)
+  "Looking strong! Stay focused!",
+  "Great pace — you're crushing this!",
+  "Halfway through the next kilometer. Stay steady!",
+  "Focus on your breathing. You've got this!",
+  "Imagine the finish line — it's waiting for you!",
+  "One foot in front of the other. Keep moving!",
+  "Your training is paying off. Feel the power!",
+  "You're faster than you were yesterday!",
+  "Every step is progress. Keep pushing!",
+  "Looking light on your feet! Great form!",
+  "Stay relaxed, stay strong, stay focused!",
+  "You are a runner! Own the road!",
+  "The harder you work, the better it feels. Keep going!",
+  "Don't stop now — you're doing incredible!",
   "Every step counts — you've got this!",
   'Your legs are stronger than you think!',
   'Champions are made on days like this!',
@@ -299,7 +315,15 @@ class VoiceController extends ChangeNotifier {
     }
   }
 
-  String _pickEncouragement() {
+  String _pickEncouragement({double? distanceKm}) {
+    final voice = CoachingVoice.values[_settings.coachingVoiceIndex.clamp(0, CoachingVoice.values.length - 1)];
+    
+    // Use the distance-specific phrase from the coaching profile if distance is provided
+    if (distanceKm != null) {
+      return voice.getMotivationalPhrase(distanceKm);
+    }
+
+    // Otherwise fallback to the random list
     int idx;
     do {
       idx = _random.nextInt(_kEncouragements.length);
@@ -480,7 +504,7 @@ class VoiceController extends ChangeNotifier {
       } else if (km == 5) {
         announcement.write('5K complete! Amazing work!');
       } else {
-        announcement.write(_pickEncouragement());
+        announcement.write(_pickEncouragement(distanceKm: km.toDouble()));
       }
     }
 

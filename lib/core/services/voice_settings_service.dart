@@ -17,6 +17,7 @@ class VoiceSettings {
   final bool hapticFeedback;       // Vibration for milestones
   final String voiceName;          // iOS voice name (e.g. "Samantha", "Alex")
   final double speechRate;         // TTS speech rate (0.3–0.6, default 0.42)
+  final int coachingVoiceIndex;    // Index of CoachingVoice enum (0: motivational, 1: professional, etc.)
 
   const VoiceSettings({
     this.masterEnabled = true,
@@ -32,6 +33,7 @@ class VoiceSettings {
     this.hapticFeedback = true,
     this.voiceName = 'Samantha',
     this.speechRate = 0.42,
+    this.coachingVoiceIndex = 0,
   });
 
   /// All enabled by default
@@ -50,6 +52,7 @@ class VoiceSettings {
     encouragement: false,
     majorMilestones: false,
     hapticFeedback: false,
+    coachingVoiceIndex: 0,
   );
 
   Map<String, dynamic> toMap() => {
@@ -66,6 +69,7 @@ class VoiceSettings {
     'hapticFeedback': hapticFeedback,
     'voiceName': voiceName,
     'speechRate': speechRate,
+    'coachingVoiceIndex': coachingVoiceIndex,
   };
 
   factory VoiceSettings.fromMap(Map<String, dynamic> map) => VoiceSettings(
@@ -82,6 +86,7 @@ class VoiceSettings {
     hapticFeedback: map['hapticFeedback'] ?? true,
     voiceName: map['voiceName'] ?? 'Samantha',
     speechRate: (map['speechRate'] as num?)?.toDouble() ?? 0.42,
+    coachingVoiceIndex: map['coachingVoiceIndex'] ?? 0,
   );
 
   VoiceSettings copyWith({
@@ -98,6 +103,7 @@ class VoiceSettings {
     bool? hapticFeedback,
     String? voiceName,
     double? speechRate,
+    int? coachingVoiceIndex,
   }) => VoiceSettings(
     masterEnabled: masterEnabled ?? this.masterEnabled,
     runStartStop: runStartStop ?? this.runStartStop,
@@ -112,6 +118,7 @@ class VoiceSettings {
     hapticFeedback: hapticFeedback ?? this.hapticFeedback,
     voiceName: voiceName ?? this.voiceName,
     speechRate: speechRate ?? this.speechRate,
+    coachingVoiceIndex: coachingVoiceIndex ?? this.coachingVoiceIndex,
   );
 }
 

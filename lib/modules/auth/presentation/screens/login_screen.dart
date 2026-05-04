@@ -270,46 +270,54 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 28),
 
                             // Email field
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                            Semantics(
+                              label: 'Email Address Input',
+                              hint: 'Enter your email to sign in',
+                              child: TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: 'Email',
+                                  prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty) ? 'Email is required' : null,
                               ),
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty) ? 'Email is required' : null,
                             ),
                             const SizedBox(height: 14),
 
                             // Password field
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _handleEmailSignIn(),
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: Icon(Icons.lock_outline, color: cs.primary),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
+                            Semantics(
+                              label: 'Password Input',
+                              hint: 'Enter your account password',
+                              child: TextFormField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _handleEmailSignIn(),
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  prefixIcon: Icon(Icons.lock_outline, color: cs.primary),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_rounded
+                                          : Icons.visibility_rounded,
+                                    ),
+                                    onPressed: () =>
+                                        setState(() => _obscurePassword = !_obscurePassword),
                                   ),
-                                  onPressed: () =>
-                                      setState(() => _obscurePassword = !_obscurePassword),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                                validator: (v) =>
+                                    (v == null || v.isEmpty) ? 'Password is required' : null,
                               ),
-                              validator: (v) =>
-                                  (v == null || v.isEmpty) ? 'Password is required' : null,
                             ),
 
                             // Forgot password link
@@ -381,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 20),
 
-                            // Social logins — Google + Twitter (X) only
+                            // Social logins — Google + Twitter (X) + Facebook
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -393,12 +401,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ? null
                                       : () => _handleSocialAuth(authRepo.signInWithGoogle),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12),
+                                _SocialButton(
+                                  label: 'Facebook',
+                                  iconWidget: const FaIcon(
+                                    FontAwesomeIcons.facebook,
+                                    size: 18,
+                                    color: Color(0xFF1877F2),
+                                  ),
+                                  onTap: _isLoading
+                                      ? null
+                                      : () {
+                                          _showErrorSnackbar('Facebook login coming soon!');
+                                        },
+                                ),
+                                const SizedBox(width: 12),
                                 _SocialButton(
                                   label: 'Twitter / X',
                                   iconWidget: const FaIcon(
                                     FontAwesomeIcons.xTwitter,
-                                    size: 20,
+                                    size: 18,
                                     color: Colors.black,
                                   ),
                                   onTap: _isLoading

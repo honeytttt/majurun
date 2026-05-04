@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:majurun/core/services/voice_settings_service.dart';
 import 'package:majurun/modules/run/controllers/voice_controller.dart';
+import 'package:majurun/core/services/audio_coaching_service.dart';
 
 class VoiceSettingsScreen extends StatefulWidget {
   const VoiceSettingsScreen({super.key});
@@ -138,6 +139,10 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                 const SizedBox(height: 16),
 
                 // Voice & Speed Section
+                _buildCoachingProfileSection(),
+
+                const SizedBox(height: 8),
+
                 _buildVoiceSection(),
 
                 const SizedBox(height: 8),
@@ -304,6 +309,122 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
     {'name': 'Daniel',   'label': 'Daniel — UK Male'},
     {'name': 'Karen',    'label': 'Karen — Australian Female'},
   ];
+
+  Widget _buildCoachingProfileSection() {
+    final isEnabled = _settings.masterEnabled;
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.5,
+      child: IgnorePointer(
+        ignoring: !isEnabled,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.psychology, color: Colors.orange, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Coaching Profile',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: CoachingVoice.values.map((v) {
+                    final isSelected = _settings.coachingVoiceIndex == v.index;
+                    return InkWell(
+                      onTap: () => _updateSetting((s) => s.copyWith(coachingVoiceIndex: v.index)),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.orange.withValues(alpha: 0.05) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? Colors.orange : Colors.grey[200]!,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Radio<int>(
+                              value: v.index,
+                              groupValue: _settings.coachingVoiceIndex,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  _updateSetting((s) => s.copyWith(coachingVoiceIndex: val));
+                                }
+                              },
+                              activeColor: Colors.orange,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  v.name,
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? Colors.black : Colors.black87,
+                                  ),
+                                ),
+                                Text(
+                                  _getCoachingVoiceDescription(v),
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getCoachingVoiceDescription(CoachingVoice voice) {
+    switch (voice) {
+      case CoachingVoice.motivational:
+        return 'Encouraging and positive feedback';
+      case CoachingVoice.professional:
+        return 'Direct and performance-focused';
+      case CoachingVoice.calm:
+        return 'Steady and relaxing guidance';
+      case CoachingVoice.intense:
+        return 'High-energy and pushy (Drill Sergeant style)';
+    }
+  }
 
   Widget _buildVoiceSection() {
     final isEnabled = _settings.masterEnabled;
