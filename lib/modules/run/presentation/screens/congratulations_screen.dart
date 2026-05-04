@@ -1278,11 +1278,14 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         ),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: SvgPicture.asset(
-            _motivationAsset,
-            width: double.infinity,
-            fit: BoxFit.fitWidth,
-            placeholderBuilder: (_) => const SizedBox(height: 160),
+          child: AspectRatio(
+            aspectRatio: 1.0, // SVGs are 400 × 400
+            child: SvgPicture.asset(
+              _motivationAsset,
+              fit: BoxFit.cover,
+              placeholderBuilder: (_) =>
+                  const ColoredBox(color: Color(0xFF0D0D1A)),
+            ),
           ),
         ),
       ],

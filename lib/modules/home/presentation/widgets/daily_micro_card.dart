@@ -136,17 +136,18 @@ class _DailyMicroCardState extends State<DailyMicroCard> {
                 ],
               ),
             ),
-            // SVG card — clipped to rounded bottom corners
+            // SVG card — fixed height so sliver layout is never ambiguous
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(16)),
-              child: SvgPicture.asset(
-                path,
+              child: SizedBox(
+                height: 320,
                 width: double.infinity,
-                fit: BoxFit.fitWidth,
-                placeholderBuilder: (_) => Container(
-                  height: 200,
-                  color: const Color(0xFF0D0D1A),
+                child: SvgPicture.asset(
+                  path,
+                  fit: BoxFit.cover,
+                  placeholderBuilder: (_) => const ColoredBox(
+                      color: Color(0xFF0D0D1A)),
                 ),
               ),
             ),
@@ -181,11 +182,14 @@ class RunMotivationCard extends StatelessWidget {
             color: const Color(0xFF00E676).withValues(alpha: 0.2)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: SvgPicture.asset(
-        asset,
-        width: double.infinity,
-        fit: BoxFit.fitWidth,
-        placeholderBuilder: (_) => const SizedBox(height: 160),
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: SvgPicture.asset(
+          asset,
+          fit: BoxFit.cover,
+          placeholderBuilder: (_) =>
+              const ColoredBox(color: Color(0xFF0D0D1A)),
+        ),
       ),
     );
   }
