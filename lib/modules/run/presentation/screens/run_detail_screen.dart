@@ -10,6 +10,7 @@ import 'package:majurun/core/utils/map_marker_builder.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/run/presentation/screens/pro_run_summary_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/pro_split_insights.dart';
+import 'package:majurun/modules/run/presentation/widgets/route_replay_widget.dart';
 
 
 class RunDetailScreen extends StatefulWidget {
@@ -414,6 +415,28 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
               ],
             ]),
           ),
+
+          if (hasRoute) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ROUTE REPLAY',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  RouteReplayWidget(routePoints: routePoints),
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: 30),
 

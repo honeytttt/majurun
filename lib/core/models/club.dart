@@ -12,6 +12,8 @@ class Club {
   final int memberCount;
   final String ownerId;
   final DateTime createdAt;
+  /// Sum of all members' km run this week. Updated by ClubService.onRunCompleted.
+  final double? weeklyKmTotal;
 
   const Club({
     required this.id,
@@ -23,6 +25,7 @@ class Club {
     required this.memberCount,
     required this.ownerId,
     required this.createdAt,
+    this.weeklyKmTotal,
   });
 
   factory Club.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -37,6 +40,7 @@ class Club {
       memberCount: d['memberCount'] as int? ?? 0,
       ownerId: d['ownerId'] as String? ?? '',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      weeklyKmTotal: (d['weeklyKmTotal'] as num?)?.toDouble(),
     );
   }
 

@@ -15,6 +15,8 @@ import 'package:majurun/core/services/badge_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/core/services/health_sync_service.dart';
 import 'package:majurun/core/services/strava_sync_service.dart';
+import 'package:majurun/modules/analytics/presentation/screens/analytics_screen.dart';
+import 'package:majurun/modules/races/presentation/screens/virtual_race_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -269,6 +271,22 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
               centerTitle: true,
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.analytics_outlined, color: Colors.white70),
+                  tooltip: 'Analytics',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.emoji_events_outlined, color: Colors.white70),
+                  tooltip: 'Virtual Races',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const VirtualRaceScreen()),
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.route_rounded, color: Colors.white70),
                   tooltip: 'Segments',

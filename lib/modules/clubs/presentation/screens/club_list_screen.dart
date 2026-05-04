@@ -6,6 +6,7 @@ import 'package:majurun/core/services/club_service.dart';
 import 'package:majurun/core/widgets/empty_state_widget.dart';
 import 'package:majurun/modules/clubs/presentation/screens/club_create_screen.dart';
 import 'package:majurun/modules/clubs/presentation/screens/club_detail_screen.dart';
+import 'package:majurun/modules/clubs/presentation/screens/club_challenge_screen.dart';
 
 /// Browse and discover running clubs. Two tabs: Discover (public) + My Clubs.
 class ClubListScreen extends StatefulWidget {
@@ -66,6 +67,14 @@ class _ClubListScreenState extends State<ClubListScreen>
         backgroundColor: const Color(0xFF0D0D1A),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.leaderboard_rounded),
+            tooltip: 'Weekly Club Challenge',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ClubChallengeScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             tooltip: 'Create a club',

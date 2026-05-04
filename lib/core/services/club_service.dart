@@ -251,6 +251,11 @@ class ClubService {
           _db.collection('clubs').doc(clubRef.id).collection('members').doc(uid),
           {'weeklyKm': FieldValue.increment(distanceKm)},
         );
+        // Also increment the club-level weekly total for the challenge leaderboard.
+        batch.update(
+          _db.collection('clubs').doc(clubRef.id),
+          {'weeklyKmTotal': FieldValue.increment(distanceKm)},
+        );
       }
       await batch.commit();
     } catch (e) {

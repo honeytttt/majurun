@@ -42,6 +42,7 @@ import 'package:majurun/modules/home/presentation/widgets/streak_hype_card.dart'
 import 'package:majurun/modules/home/presentation/widgets/weekly_recap_card.dart';
 import 'package:majurun/modules/engagement/features/race_countdown/race_countdown_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/daily_micro_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -814,6 +815,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                     ),
                   ),
                 ),
+
+              // AI Coach — post-run insight card (visible up to 24h after a run)
+              const SliverToBoxAdapter(child: AiCoachingCard()),
 
               // E1 — Streak hype panel (visible when currentStreak > 0)
               const SliverToBoxAdapter(child: StreakHypeCard()),
