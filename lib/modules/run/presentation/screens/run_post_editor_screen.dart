@@ -196,23 +196,42 @@ class _RunPostEditorScreenState extends State<RunPostEditorScreen> {
     final runController = Provider.of<RunController>(context, listen: false);
     String? postId;
     try {
-      postId = await runController.postController.createAutoPost(
-        aiContent: _textController.text.trim().isEmpty
-            ? widget.initialText
-            : _textController.text.trim(),
-        routePoints: widget.routePoints,
-        distance: widget.distanceKm,
-        pace: widget.pace,
-        bpm: widget.avgBpm,
-        durationSeconds: widget.durationSeconds,
-        calories: widget.calories,
-        planTitle: widget.planTitle,
-        mapImageBytes: _includeMap ? widget.mapImageBytes : null,
-        selfieBytes: _includeSelfie ? widget.selfieBytes : null,
-        kmSplits: widget.kmSplits,
-      );
+      // 1. Wait for the background save to complete (gets us the draft/auto-post ID)
+      if (widget.saveFuture != null) {
+        final result = await widget.saveFuture!;
+        postId = result.postId;
+      }
+
+      final content = _textController.text.trim().isEmpty
+          ? widget.initialText
+          : _textController.text.trim();
+
+      if (postId != null) {
+        // 2. Update the existing post that was created in the background
+        await runController.postController.updatePost(
+          postId: postId,
+          content: content,
+          includeMap: _includeMap,
+          includeSelfie: _includeSelfie,
+        );
+      } else {
+        // 3. Fallback: Create a new post if background save didn't yield an ID
+        postId = await runController.postController.createAutoPost(
+          aiContent: content,
+          routePoints: widget.routePoints,
+          distance: widget.distanceKm,
+          pace: widget.pace,
+          bpm: widget.avgBpm,
+          durationSeconds: widget.durationSeconds,
+          calories: widget.calories,
+          planTitle: widget.planTitle,
+          mapImageBytes: _includeMap ? widget.mapImageBytes : null,
+          selfieBytes: _includeSelfie ? widget.selfieBytes : null,
+          kmSplits: widget.kmSplits,
+        );
+      }
     } catch (e) {
-      debugPrint('❌ RunPostEditorScreen: post error $e');
+      debugPrint('❌ RunPostEditorScreen: post/update error $e');
     }
     if (!mounted) return;
     _goToCongrats(postId: postId);

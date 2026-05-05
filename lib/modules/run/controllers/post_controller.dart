@@ -176,6 +176,45 @@ class PostController extends ChangeNotifier {
     }
   }
 
+  /// Updates an existing post's content and visibility of images.
+  Future<void> updatePost({
+    required String postId,
+    required String content,
+    required bool includeMap,
+    required bool includeSelfie,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'content': content,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // To "remove" an image, we set the URL to an empty string. 
+      // PostRepository checks for null/empty to decide what to show in the feed.
+      if (!includeMap) {
+        updates['mapImageUrl'] = '';
+      }
+      if (!includeSelfie) {
+        updates['selfieUrl'] = '';
+      }
+
+      // Re-extract hashtags
+      final extractedTags = RegExp(r'#(\w+)')
+          .allMatches(content)
+          .map((m) => m.group(1)!.toLowerCase())
+          .toSet()
+          .toList();
+      updates['tags'] = extractedTags;
+
+      await _firestore.collection('posts').doc(postId).update(updates);
+      debugPrint('✅ Post updated successfully: $postId');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error updating post: $e');
+      rethrow;
+    }
+  }
+
   // ─── Badge image URLs keyed by the badge name returned from UserStatsService ───
   static const Map<String, String> _badgeImages = {
     '5K':            AssetUrls.plan_covers_badges_badge_5k,

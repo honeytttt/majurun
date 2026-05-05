@@ -1141,33 +1141,33 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     // Wait for map (with cap — already running in background since above)
     mapImageBytes = await mapFuture;
 
-    // Only auto-post when there is no selfie — the selfie path posts via
-    // RunPostEditorScreen, so calling createAutoPost here would create a duplicate.
+    // ALWAYS create a post here (Draft/Auto-post).
+    // This ensures that even if the editor crashes or is closed, the run is posted.
+    // If selfieBytes exists, RunPostEditorScreen will "update" this post instead of creating a new one.
+    final suggestedText = runController.generatePostText(
+      planTitle: planTitle,
+      distance: '${distanceKm.toStringAsFixed(2)} km',
+      duration: runController.stateController.durationString,
+      pace: pace,
+      calories: calories,
+    );
     String? postId;
-    if (selfieBytes == null) {
-      final suggestedText = runController.generatePostText(
-        planTitle: planTitle,
-        distance: '${distanceKm.toStringAsFixed(2)} km',
-        duration: runController.stateController.durationString,
+    try {
+      postId = await runController.postController.createAutoPost(
+        aiContent: suggestedText,
+        routePoints: routePoints.cast(),
+        distance: distanceKm,
         pace: pace,
+        bpm: avgBpm,
+        durationSeconds: durationSeconds,
         calories: calories,
+        planTitle: planTitle,
+        mapImageBytes: mapImageBytes,
+        selfieBytes: selfieBytes,
+        kmSplits: runController.lastRunKmSplits,
       );
-      try {
-        postId = await runController.postController.createAutoPost(
-          aiContent: suggestedText,
-          routePoints: routePoints.cast(),
-          distance: distanceKm,
-          pace: pace,
-          bpm: avgBpm,
-          durationSeconds: durationSeconds,
-          calories: calories,
-          planTitle: planTitle,
-          mapImageBytes: mapImageBytes,
-          kmSplits: runController.lastRunKmSplits,
-        );
-      } catch (e) {
-        debugPrint('❌ Auto-post failed: $e');
-      }
+    } catch (e) {
+      debugPrint('❌ Auto-post failed in background: $e');
     }
 
     return (pbs: pbs, badges: badges, postId: postId, completedChallenges: completedChallenges);

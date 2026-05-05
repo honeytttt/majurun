@@ -11,6 +11,8 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/run/presentation/screens/pro_run_summary_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/pro_split_insights.dart';
 import 'package:majurun/modules/run/presentation/widgets/route_replay_widget.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:provider/provider.dart';
 
 
 class RunDetailScreen extends StatefulWidget {
@@ -26,11 +28,86 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   String _splitDistance = '1km';
   BitmapDescriptor? _startMarker;
   BitmapDescriptor? _endMarker;
+  bool _isPosting = false;
 
   @override
   void initState() {
     super.initState();
     _loadMarkers();
+  }
+
+  Future<void> _postToFeed() async {
+    final runController = Provider.of<RunController>(context, listen: false);
+    
+    setState(() => _isPosting = true);
+
+    try {
+      final distVal = widget.runData['distance'] ?? 0.0;
+      final distanceDouble = (distVal is num) ? distVal.toDouble() : 0.0;
+      final durationSeconds = (widget.runData['durationSeconds'] as num?)?.toInt() ?? 0;
+      final pace = widget.runData['pace'] ?? '0:00';
+      final calories = (widget.runData['calories'] as num?)?.toInt() ?? 0;
+      final planTitle = widget.runData['planTitle']?.toString() ?? 'Run';
+      final avgBpmRaw = widget.runData['avgBpm'] ?? widget.runData['bpm'] ?? 0;
+      final avgBpm = avgBpmRaw is num ? avgBpmRaw.toInt() : 0;
+      
+      final List<LatLng> routePoints = _parseRoutePoints(
+        widget.runData['routePoints'] ?? widget.runData['route'] ?? widget.runData['path'],
+      );
+      
+      final rawSplits = widget.runData['kmSplits'];
+      final List<Map<String, dynamic>> kmSplits = rawSplits is List 
+          ? rawSplits.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+          : [];
+
+      final suggestedText = runController.generatePostText(
+        planTitle: planTitle,
+        distance: '${distanceDouble.toStringAsFixed(2)} km',
+        duration: _formatSeconds(durationSeconds),
+        pace: pace,
+        calories: calories,
+      );
+
+      final postId = await runController.postController.createAutoPost(
+        aiContent: suggestedText,
+        routePoints: routePoints,
+        distance: distanceDouble,
+        pace: pace,
+        bpm: avgBpm,
+        durationSeconds: durationSeconds,
+        calories: calories,
+        planTitle: planTitle,
+        kmSplits: kmSplits,
+        mapImageUrlOverride: widget.runData['mapImageUrl']?.toString(),
+      );
+
+      if (mounted) {
+        if (postId != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Run posted to feed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to post run. Please try again.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error posting from history: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPosting = false);
+    }
   }
 
   Future<void> _loadMarkers() async {
@@ -213,6 +290,14 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          if (widget.runData['userId'] == FirebaseAuth.instance.currentUser?.uid)
+            IconButton(
+              icon: _isPosting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                  : const Icon(Icons.cloud_upload_outlined, color: Colors.black),
+              tooltip: 'Post to Feed',
+              onPressed: _isPosting ? null : _postToFeed,
+            ),
           IconButton(
             icon: const Icon(Icons.analytics_outlined, color: Colors.black),
             tooltip: 'Deep Analysis',
