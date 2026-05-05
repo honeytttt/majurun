@@ -290,7 +290,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          if (widget.runData['userId'] == FirebaseAuth.instance.currentUser?.uid)
+          if (widget.runData['userId'] == null ||
+              widget.runData['userId'] == FirebaseAuth.instance.currentUser?.uid)
             IconButton(
               icon: _isPosting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
