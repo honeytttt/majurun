@@ -724,6 +724,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final streakData = (data['streak'] as Map<String, dynamic>?) ?? {};
         final summary = data['summary'] as WeeklySummary?;
         final currentStreak = streakData['currentStreak'] as int? ?? 0;
+        final longestStreak = streakData['longestStreak'] as int? ?? 0;
         if (summary == null) return const SizedBox.shrink();
 
         return Column(
@@ -751,24 +752,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Icon(Icons.local_fire_department, color: Colors.white, size: 32),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        const Text(
-                          'Current Streak',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Current Streak', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text('$currentStreak Days', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
                         ),
-                        Text(
-                          '$currentStreak Days',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        const SizedBox(width: 24),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Best Streak', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text('$longestStreak Days', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
                         ),
                       ],
                     ),
@@ -778,6 +777,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            // Rest day recommendation after 3+ consecutive run days
+            if (currentStreak >= 3) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.teal.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.self_improvement, color: Colors.teal.shade600, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '$currentStreak days in a row — consider a rest day to recover and prevent injury.',
+                        style: TextStyle(fontSize: 12, color: Colors.teal.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             const SizedBox(height: 20),
 
             // Weekly Activity Bar

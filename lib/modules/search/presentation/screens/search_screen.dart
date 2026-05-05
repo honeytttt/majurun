@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/core/services/follow_service.dart';
 import 'package:majurun/core/services/search_service.dart';
 import 'package:majurun/modules/search/presentation/widgets/search_result_tile.dart';
 import 'package:majurun/modules/search/presentation/widgets/recent_searches_list.dart';
@@ -32,12 +34,15 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   List<String> _recentSearches = [];
   List<SearchResult> _userResults = [];
   List<SearchResult> _postResults = [];
+  List<Map<String, dynamic>> _suggestedUsers = [];
+  bool _loadingSuggestions = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadRecentSearches();
+    _loadSuggestedUsers();
     // Auto-focus the search field
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
@@ -51,6 +56,38 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     _searchFocusNode.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSuggestedUsers() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    setState(() => _loadingSuggestions = true);
+    try {
+      // Get who current user already follows
+      final followingSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('following')
+          .get();
+      final followingIds = followingSnap.docs.map((d) => d.id).toSet()..add(uid);
+
+      // Fetch top users by follower count, exclude already-following
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .orderBy('followersCount', descending: true)
+          .limit(20)
+          .get();
+
+      final suggestions = snap.docs
+          .where((d) => !followingIds.contains(d.id))
+          .take(5)
+          .map((d) => {'id': d.id, ...d.data()})
+          .toList();
+
+      if (mounted) setState(() { _suggestedUsers = suggestions; _loadingSuggestions = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingSuggestions = false);
+    }
   }
 
   Future<void> _loadRecentSearches() async {
@@ -307,12 +344,44 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     }
 
     if (!_hasSearched) {
-      // Show recent searches
-      return RecentSearchesList(
-        searches: _recentSearches,
-        onSearchTap: _onRecentSearchTap,
-        onRemove: _onRemoveRecentSearch,
-        onClearAll: _onClearAllRecentSearches,
+      return ListView(
+        children: [
+          // People You May Know
+          if (_loadingSuggestions)
+            ...List.generate(3, (_) => ShimmerLoader.leaderboardRowSkeleton())
+          else if (_suggestedUsers.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('People You May Know', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
+            ..._suggestedUsers.map((u) {
+              final userId = u['id'] as String;
+              final name = (u['displayName'] ?? u['username'] ?? 'Runner') as String;
+              final avatar = u['photoUrl'] as String?;
+              final followers = (u['followersCount'] as num?)?.toInt() ?? 0;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: (avatar != null && avatar.isNotEmpty) ? NetworkImage(avatar) : null,
+                  child: (avatar == null || avatar.isEmpty) ? const Icon(Icons.person) : null,
+                ),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('$followers followers', style: const TextStyle(fontSize: 12)),
+                trailing: _FollowButton(userId: userId, onFollowed: _loadSuggestedUsers),
+                onTap: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => UserProfileScreen(userId: userId, username: name),
+                )),
+              );
+            }),
+            const Divider(height: 1),
+          ],
+          // Recent searches
+          RecentSearchesList(
+            searches: _recentSearches,
+            onSearchTap: _onRecentSearchTap,
+            onRemove: _onRemoveRecentSearch,
+            onClearAll: _onClearAllRecentSearches,
+          ),
+        ],
       );
     }
 
@@ -375,6 +444,42 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       icon: Icons.search_off_rounded,
       title: message,
       subtitle: 'Try a different search term or check your spelling.',
+    );
+  }
+}
+
+class _FollowButton extends StatefulWidget {
+  final String userId;
+  final VoidCallback onFollowed;
+  const _FollowButton({required this.userId, required this.onFollowed});
+
+  @override
+  State<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends State<_FollowButton> {
+  bool _loading = false;
+  bool _followed = false;
+
+  Future<void> _follow() async {
+    setState(() => _loading = true);
+    try {
+      await FollowService().followUser(widget.userId);
+      if (mounted) setState(() { _followed = true; _loading = false; });
+      widget.onFollowed();
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_followed) return const Text('Following', style: TextStyle(color: Colors.grey, fontSize: 13));
+    return TextButton(
+      onPressed: _loading ? null : _follow,
+      child: _loading
+          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Text('Follow', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -1087,13 +1088,19 @@ class PushNotificationService {
     const iosDetails = DarwinNotificationDetails(badgeNumber: 1);
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    final messages = [
-      'How was your week? Check your stats and plan for next week! 📊',
-      'Another week done! View your run history and set goals for the week ahead. 🎯',
-      'Week wrap-up time! See how far you have come and what is next. 🏃',
-      'Sunday check-in: review your runs, celebrate wins, plan the next chapter. 💪',
-    ];
-    final msg = messages[DateTime.now().millisecond % messages.length];
+    // Try to build a stats-based message; fall back to generic if it fails
+    String msg;
+    try {
+      final summary = await WeeklySummaryService().getCurrentWeekSummary();
+      if (summary.totalRuns > 0) {
+        final dist = summary.totalDistanceKm.toStringAsFixed(1);
+        msg = 'This week: ${summary.totalRuns} run${summary.totalRuns == 1 ? '' : 's'}, $dist km. Keep it up!';
+      } else {
+        msg = 'No runs this week yet — Sunday is the perfect day to start!';
+      }
+    } catch (_) {
+      msg = 'Sunday check-in: review your runs, celebrate wins, plan the next chapter.';
+    }
 
     final weeklyMode = await _resolveScheduleMode();
     await _localNotifications.zonedSchedule(

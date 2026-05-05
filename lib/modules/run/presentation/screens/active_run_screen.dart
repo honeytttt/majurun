@@ -621,11 +621,13 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                 ],
               ),
               const SizedBox(height: 12),
-              // BPM + HR Zone row
+              // BPM + HR Zone + Pace Zone row
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _buildHrZoneStat(runController.currentBpm),
+                  const SizedBox(width: 8),
+                  _buildPaceZoneStat(runController.currentPaceString),
                 ],
               ),
             ],
@@ -728,6 +730,46 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             ),
           ),
       ],
+    );
+  }
+
+  /// Pace zones based on min/km (Easy >6:30, Base 5:30-6:30, Tempo 4:30-5:30, Hard <4:30)
+  static const _paceZoneNames  = ['', 'Easy', 'Base', 'Tempo', 'Hard'];
+  static const _paceZoneColors = [Colors.grey, Colors.blue, Colors.green, Colors.orange, Colors.red];
+
+  int _paceZone(String paceStr) {
+    // paceStr is "MM:SS" or "--:--"
+    final parts = paceStr.split(':');
+    if (parts.length != 2) return 0;
+    final mins = int.tryParse(parts[0]);
+    final secs = int.tryParse(parts[1]);
+    if (mins == null || secs == null || (mins == 0 && secs == 0)) return 0;
+    final totalSecs = mins * 60 + secs;
+    if (totalSecs > 390) return 1; // >6:30 Easy
+    if (totalSecs > 330) return 2; // 5:30–6:30 Base
+    if (totalSecs > 270) return 3; // 4:30–5:30 Tempo
+    return 4;                       // <4:30 Hard
+  }
+
+  Widget _buildPaceZoneStat(String paceStr) {
+    final zone = _paceZone(paceStr);
+    final zoneColor = _paceZoneColors[zone];
+    final zoneName = zone == 0 ? 'No Pace' : _paceZoneNames[zone];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: zoneColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: zoneColor.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.speed_rounded, color: zoneColor, size: 16),
+          const SizedBox(width: 6),
+          Text(zoneName, style: TextStyle(fontSize: 12, color: zoneColor.withValues(alpha: 0.9), fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 

@@ -18,6 +18,7 @@ import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dar
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
 import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
+import 'package:majurun/core/services/celebration_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/core/services/unit_preference_service.dart';
 import 'package:provider/provider.dart';
@@ -173,6 +174,10 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         });
         // Re-init video now that we know if there are PBs/badges
         _initVideo();
+        // Trigger full-screen celebration overlay for new personal bests
+        if (_resolvedPbs.isNotEmpty) {
+          CelebrationService().showPRCelebration(context);
+        }
         // Show challenge completion toasts
         _showChallengeToasts(result.completedChallenges);
         // Load recap stats from Firestore

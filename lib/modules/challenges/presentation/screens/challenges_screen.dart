@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/daily_challenge_service.dart';
+import 'package:majurun/core/services/leaderboard_service.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
 import 'package:majurun/core/widgets/empty_state_widget.dart';
@@ -16,6 +17,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final DailyChallengeService _service = DailyChallengeService();
+  final LeaderboardService _leaderboardService = LeaderboardService();
   String? _userId;
 
   List<Map<String, dynamic>> _dailyChallenges = [];
@@ -27,11 +29,13 @@ class _ChallengesScreenState extends State<ChallengesScreen>
   bool _loadingMonthly = true;
   bool _claimingBonus = false;
   bool _bonusClaimed = false;
+  List<Map<String, dynamic>> _leaderboard = [];
+  bool _loadingLeaderboard = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _userId = FirebaseAuth.instance.currentUser?.uid;
     _loadAll();
   }
@@ -48,6 +52,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
       _loadDaily(),
       _loadWeekly(),
       _loadMonthly(),
+      _loadLeaderboard(),
     ]);
   }
 
@@ -67,6 +72,16 @@ class _ChallengesScreenState extends State<ChallengesScreen>
     setState(() => _loadingMonthly = true);
     final challenges = await _service.getMonthlyChallenges(_userId!);
     if (mounted) setState(() { _monthlyChallenges = challenges; _loadingMonthly = false; });
+  }
+
+  Future<void> _loadLeaderboard() async {
+    setState(() => _loadingLeaderboard = true);
+    try {
+      final entries = await _leaderboardService.getWeeklyLeaderboard();
+      if (mounted) setState(() { _leaderboard = entries; _loadingLeaderboard = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingLeaderboard = false);
+    }
   }
 
   bool get _allDailyComplete =>
@@ -134,6 +149,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
             Tab(text: 'DAILY'),
             Tab(text: 'WEEKLY'),
             Tab(text: 'MONTHLY'),
+            Tab(text: 'LEADERBOARD'),
           ],
         ),
       ),
@@ -143,6 +159,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
           _buildDailyTab(),
           _buildChallengeList(_weeklyChallenges, _loadingWeekly),
           _buildChallengeList(_monthlyChallenges, _loadingMonthly),
+          _buildLeaderboardTab(),
         ],
       ),
     );
@@ -554,6 +571,92 @@ class _ChallengesScreenState extends State<ChallengesScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLeaderboardTab() {
+    if (_loadingLeaderboard) {
+      return ListView.builder(
+        itemCount: 10,
+        itemBuilder: (_, __) => ShimmerLoader.leaderboardRowSkeleton(),
+      );
+    }
+    if (_leaderboard.isEmpty) {
+      return const EmptyStateWidget(
+        icon: Icons.emoji_events_outlined,
+        title: 'No data yet',
+        subtitle: 'Complete runs this week to appear on the leaderboard.',
+      );
+    }
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    return RefreshIndicator(
+      color: const Color(0xFF00E676),
+      backgroundColor: const Color(0xFF1A1A2E),
+      onRefresh: _loadLeaderboard,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        itemCount: _leaderboard.length,
+        itemBuilder: (context, i) {
+          final entry = _leaderboard[i];
+          final isMe = entry['userId'] == currentUid;
+          final rank = i + 1;
+          final name = entry['userName'] as String? ?? 'Runner';
+          final dist = ((entry['distance'] as num?)?.toDouble() ?? 0).toStringAsFixed(1);
+          final avatar = entry['photoUrl'] as String?;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isMe
+                  ? const Color(0xFF00E676).withValues(alpha: 0.12)
+                  : const Color(0xFF1A1A2E),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isMe
+                    ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                    : const Color(0xFF2D2D44),
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : '#$rank',
+                    style: TextStyle(
+                      fontSize: rank <= 3 ? 20 : 14,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFF2D2D44),
+                  backgroundImage: (avatar != null && avatar.isNotEmpty) ? NetworkImage(avatar) : null,
+                  child: (avatar == null || avatar.isEmpty) ? const Icon(Icons.person, size: 18, color: Colors.white54) : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      color: isMe ? const Color(0xFF00E676) : Colors.white,
+                      fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$dist km',
+                  style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

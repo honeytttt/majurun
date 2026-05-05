@@ -11,6 +11,7 @@ import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/run/presentation/screens/pro_run_summary_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/pro_split_insights.dart';
 import 'package:majurun/modules/run/presentation/widgets/route_replay_widget.dart';
+import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:provider/provider.dart';
 
@@ -518,7 +519,27 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  RouteReplayWidget(routePoints: routePoints),
+                  if (PaymentService().isPro)
+                    RouteReplayWidget(routePoints: routePoints)
+                  else
+                    Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, color: Colors.grey, size: 28),
+                            SizedBox(height: 8),
+                            Text('Route Replay is a Pro feature', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

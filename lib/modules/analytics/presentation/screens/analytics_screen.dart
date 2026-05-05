@@ -20,7 +20,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 4, vsync: this);
     _fetchRuns();
   }
 
@@ -77,6 +77,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             Tab(text: 'Pace Trend'),
             Tab(text: 'Distance'),
             Tab(text: 'Heart Rate'),
+            Tab(text: 'Monthly'),
           ],
         ),
       ),
@@ -96,6 +97,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     _PaceTrendTab(runs: _runs!),
                     _DistanceTab(runs: _runs!),
                     _HeartRateTab(runs: _runs!),
+                    _MonthlyReportTab(runs: _runs!),
                   ],
                 ),
     );
@@ -501,6 +503,127 @@ class _HeartRateTab extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Monthly Report ───────────────────────────────────────────────────────────
+
+class _MonthlyReportTab extends StatelessWidget {
+  final List<Map<String, dynamic>> runs;
+  const _MonthlyReportTab({required this.runs});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final thisMonthStart = DateTime(now.year, now.month);
+    final lastMonthStart = DateTime(now.year, now.month - 1);
+
+    DateTime ts(Map<String, dynamic> r) {
+      final v = r['completedAt'];
+      if (v is Timestamp) return v.toDate();
+      if (v is String) return DateTime.tryParse(v) ?? DateTime(2000);
+      return DateTime(2000);
+    }
+
+    final thisMonth = runs.where((r) => !ts(r).isBefore(thisMonthStart)).toList();
+    final lastMonth = runs.where((r) {
+      final d = ts(r);
+      return !d.isBefore(lastMonthStart) && d.isBefore(thisMonthStart);
+    }).toList();
+
+    double totalKm(List<Map<String, dynamic>> list) =>
+        list.fold(0.0, (s, r) => s + ((r['distanceKm'] as num?)?.toDouble() ?? 0.0));
+
+    final thisKm = totalKm(thisMonth);
+    final lastKm = totalKm(lastMonth);
+    final thisCals = thisMonth.fold(0, (s, r) => s + ((r['calories'] as num?)?.toInt() ?? 0));
+
+    Map<String, dynamic>? best;
+    double bestKm = 0;
+    for (final r in thisMonth) {
+      final d = (r['distanceKm'] as num?)?.toDouble() ?? 0.0;
+      if (d > bestKm) { bestKm = d; best = r; }
+    }
+
+    final diff = thisKm - lastKm;
+    final diffStr = '${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(1)}';
+    final monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month - 1];
+
+    Widget stat(String label, String value) => Column(
+      children: [
+        Text(value, style: const TextStyle(color: Color(0xFF00E676), fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+      ],
+    );
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text('$monthName ${now.year}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: const Color(0xFF1A1A2E), borderRadius: BorderRadius.circular(16)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              stat('Runs', '${thisMonth.length}'),
+              stat('Distance', '${thisKm.toStringAsFixed(1)} km'),
+              stat('Calories', '$thisCals kcal'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(color: const Color(0xFF1A1A2E), borderRadius: BorderRadius.circular(16)),
+          child: Row(
+            children: [
+              Icon(diff >= 0 ? Icons.trending_up : Icons.trending_down,
+                  color: diff >= 0 ? Colors.greenAccent : Colors.redAccent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$diffStr km vs last month (${lastKm.toStringAsFixed(1)} km)',
+                  style: TextStyle(
+                      color: diff >= 0 ? Colors.greenAccent : Colors.redAccent,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (best != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: const Color(0xFF1A1A2E), borderRadius: BorderRadius.circular(16)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Best Run This Month',
+                    style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                  '${bestKm.toStringAsFixed(2)} km  ·  ${best['pace'] ?? '--'} /km',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (thisMonth.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: EmptyStateWidget(
+              icon: Icons.calendar_month_outlined,
+              title: 'No runs this month yet',
+              subtitle: 'Complete a run to see your monthly report.',
+            ),
+          ),
+      ],
     );
   }
 }
