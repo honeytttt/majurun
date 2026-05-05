@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
@@ -38,6 +39,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   bool get wantKeepAlive => true;
   late bool _isLiked;
   late int _localLikesCount;
+  String? _myReaction; // emoji the current user reacted with, null = none
   bool _isSaved = false;
   // Static in-memory cache so saved state persists across widget recreations
   // (scroll-off/back, stream-triggered parent rebuilds, etc.)
@@ -109,16 +111,50 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   }
 
   void _toggleLike(BuildContext context, String currentUserId) {
+    HapticFeedback.lightImpact();
     setState(() {
       if (_isLiked) {
         _isLiked = false;
         _localLikesCount--;
+        _myReaction = null;
       } else {
         _isLiked = true;
         _localLikesCount++;
+        _myReaction = '❤️';
       }
     });
     PostRepositoryImpl().toggleLike(widget.post.id, currentUserId);
+  }
+
+  static const _reactionEmojis = ['❤️', '🔥', '💪', '⚡', '🏃'];
+
+  void _showReactionPicker(BuildContext context, String currentUserId) {
+    HapticFeedback.mediumImpact();
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _ReactionPickerOverlay(
+        emojis: _reactionEmojis,
+        current: _myReaction,
+        onSelect: (emoji) {
+          entry.remove();
+          final isSame = _myReaction == emoji;
+          setState(() {
+            if (isSame) {
+              // Remove reaction
+              _myReaction = null;
+              if (_isLiked) { _isLiked = false; _localLikesCount--; }
+            } else {
+              if (!_isLiked) { _isLiked = true; _localLikesCount++; }
+              _myReaction = emoji;
+            }
+          });
+          PostRepositoryImpl().toggleLike(widget.post.id, currentUserId);
+        },
+        onDismiss: () => entry.remove(),
+      ),
+    );
+    overlay.insert(entry);
   }
 
   void _navigateToUserProfile(BuildContext context, bool isOwnPost) {
@@ -278,7 +314,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                   style: const TextStyle(fontSize: 16, height: 1.35, color: Colors.black87),
                   onBodyTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post)),
+                    FadeRoute(page: PostDetailScreen(post: widget.post)),
                   ),
                   onHashtagTap: (tag) => Navigator.push(
                     context,
@@ -313,7 +349,7 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       };
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => RunDetailScreen(runData: runData)),
+                        SlideUpRoute(page: RunDetailScreen(runData: runData)),
                       );
                     } else {
                       // Fallback: open full run history list
@@ -354,19 +390,26 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                   children: [
                     Row(
                       children: [
-                        // Like Button — optimistic state (Phosphor duotone heart)
-                        IconButton(
-                          icon: Icon(
-                            _isLiked
-                                ? PhosphorIconsFill.heart
-                                : PhosphorIconsDuotone.heart,
-                            size: 22,
-                            color: _isLiked ? Colors.red : Colors.grey[700],
-                          ),
-                          onPressed: currentUserId != null
+                        // Like/Reaction Button — tap to like, long-press for emoji picker
+                        GestureDetector(
+                          onTap: currentUserId != null
                               ? () => _toggleLike(context, currentUserId)
                               : () => _showLoginSnack(context),
+                          onLongPress: currentUserId != null
+                              ? () => _showReactionPicker(context, currentUserId)
+                              : null,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                            child: _myReaction != null
+                                ? Text(_myReaction!, style: const TextStyle(fontSize: 20))
+                                : Icon(
+                                    _isLiked ? PhosphorIconsFill.heart : PhosphorIconsDuotone.heart,
+                                    size: 22,
+                                    color: _isLiked ? Colors.red : Colors.grey[700],
+                                  ),
+                          ),
                         ),
+                        const SizedBox(width: 4),
                         Text(
                           '$_localLikesCount',
                           style: TextStyle(
@@ -918,6 +961,73 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Reaction Picker Overlay ──────────────────────────────────────────────────
+
+class _ReactionPickerOverlay extends StatelessWidget {
+  final List<String> emojis;
+  final String? current;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onDismiss;
+
+  const _ReactionPickerOverlay({
+    required this.emojis,
+    required this.current,
+    required this.onSelect,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Transparent dismiss layer
+        Positioned.fill(child: GestureDetector(onTap: onDismiss, behavior: HitTestBehavior.opaque, child: const SizedBox.expand())),
+        // Picker pill — centered at bottom of screen
+        Positioned(
+          bottom: 120,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 4))],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: emojis.map((e) {
+                    final isSelected = e == current;
+                    return GestureDetector(
+                      onTap: () => onSelect(e),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.grey[100] : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          e,
+                          style: TextStyle(fontSize: isSelected ? 28 : 24),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

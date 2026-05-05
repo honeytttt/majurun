@@ -17,6 +17,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
 import 'package:majurun/core/widgets/hashtag_text.dart';
+import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/modules/home/presentation/screens/hashtag_posts_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
 import 'package:majurun/core/services/dm_service.dart';
@@ -169,7 +170,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
             // ── Tappable area: header + content → navigates to PostDetailScreen ──
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post))),
+              onTap: () => Navigator.push(context, FadeRoute(page: PostDetailScreen(post: widget.post))),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -181,7 +182,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                         GestureDetector(
                           onTap: () {
                             if (isOwnPost) return;
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => UserProfileScreen(userId: widget.post.userId, username: widget.post.username)));
+                            Navigator.push(context, SlideUpRoute(page: UserProfileScreen(userId: widget.post.userId, username: widget.post.username)));
                           },
                           child: FutureBuilder<String>(
                             future: _photoUrlFuture,

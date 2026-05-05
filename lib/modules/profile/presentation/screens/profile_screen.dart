@@ -26,6 +26,7 @@ import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/race_predictor_card.dart';
 
 /// Professional Profile Screen - Your Own Profile
@@ -774,6 +775,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   if (currentStreak >= 3)
                     const Icon(Icons.stars, color: Colors.amberAccent, size: 24),
+                  // Streak Freeze button — Pro only
+                  if (PaymentService().isPro && currentStreak > 0) ...[
+                    const SizedBox(width: 8),
+                    _StreakFreezeButton(uid: FirebaseAuth.instance.currentUser?.uid ?? ''),
+                  ],
                 ],
               ),
             ),
@@ -1391,5 +1397,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
+  }
+}
+// ── Streak Freeze Button (Pro) ───────────────────────────────────────────────
+
+class _StreakFreezeButton extends StatefulWidget {
+  final String uid;
+  const _StreakFreezeButton({required this.uid});
+
+  @override
+  State<_StreakFreezeButton> createState() => _StreakFreezeButtonState();
+}
+
+class _StreakFreezeButtonState extends State<_StreakFreezeButton> {
+  bool _loading = false;
+  bool _used = false;
+
+  Future<void> _use() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Use Streak Freeze?'),
+        content: const Text('This will protect your streak for today. You have 1 freeze per week.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Use Freeze', style: TextStyle(color: Colors.blue))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _loading = true);
+    final success = await StreakService().useStreakFreeze(widget.uid);
+    if (!mounted) return;
+    setState(() { _loading = false; _used = success; });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? '🧊 Streak freeze used! Your streak is safe today.' : 'No freeze tokens remaining.'),
+      backgroundColor: success ? Colors.blue : Colors.redAccent,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_used) return const Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 22);
+    return GestureDetector(
+      onTap: _loading ? null : _use,
+      child: _loading
+          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          : const Icon(Icons.ac_unit, color: Colors.white70, size: 22),
+    );
   }
 }

@@ -248,6 +248,50 @@ class StreakService {
     }
   }
 
+  /// Use a streak freeze token to protect the current streak from breaking.
+  /// Pro-only. Grants 1 freeze token per week (stored as `streakFreezeAvailable`).
+  Future<bool> useStreakFreeze(String userId) async {
+    try {
+      final ref = _firestore.collection('users').doc(userId);
+      final doc = await ref.get();
+      final data = doc.data() ?? {};
+      final available = (data['streakFreezeAvailable'] as int?) ?? 0;
+      if (available <= 0) return false;
+
+      final now = DateTime.now();
+      await ref.set({
+        'streakFreezeAvailable': available - 1,
+        'lastFreezeUsedAt': Timestamp.fromDate(now),
+        // Treat today as a run day so streak continues tomorrow
+        'lastRunDate': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      debugPrint('Error using streak freeze: $e');
+      return false;
+    }
+  }
+
+  /// Grant a weekly freeze token to Pro users (call on login / weekly reset).
+  Future<void> refreshWeeklyFreezeToken(String userId) async {
+    try {
+      final ref = _firestore.collection('users').doc(userId);
+      final doc = await ref.get();
+      final data = doc.data() ?? {};
+      final lastGranted = (data['lastFreezeGrantedAt'] as Timestamp?)?.toDate();
+      final now = DateTime.now();
+      // Grant once per calendar week
+      if (lastGranted == null || now.difference(lastGranted).inDays >= 7) {
+        await ref.set({
+          'streakFreezeAvailable': 1,
+          'lastFreezeGrantedAt': Timestamp.fromDate(now),
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error refreshing freeze token: $e');
+    }
+  }
+
   /// Get level title based on level number
   String getLevelTitle(int level) {
     if (level < 5) return 'Beginner Runner';

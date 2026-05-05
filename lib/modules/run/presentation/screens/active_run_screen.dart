@@ -22,6 +22,7 @@ import 'package:majurun/modules/run/presentation/screens/congratulations_screen.
 import 'package:majurun/core/services/wake_lock_service.dart';
 import 'package:majurun/core/services/unit_preference_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/segment_service.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
@@ -57,6 +58,10 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
   // Screenshot controller for the run-share card
   final ScreenshotController _shareCardController = ScreenshotController();
 
+  // Ghost Runner — best previous route for the same approximate distance
+  List<LatLng> _ghostRoutePoints = [];
+  bool _showGhost = false;
+
 
   @override
   void initState() {
@@ -81,6 +86,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     );
 
     _loadAvatarMarker();
+    _loadGhostRoute();
     // Re-assert wakelock — iOS may drop it during TTS/audio session changes
     WakeLockService.enable();
   }
@@ -423,6 +429,18 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                           startCap: Cap.roundCap,
                           endCap: Cap.roundCap,
                         ),
+                        // Ghost runner — semi-transparent white polyline of best previous run
+                        if (_showGhost && _ghostRoutePoints.length > 1)
+                          Polyline(
+                            polylineId: const PolylineId('ghost'),
+                            points: _ghostRoutePoints,
+                            color: Colors.white.withValues(alpha: 0.45),
+                            width: 4,
+                            patterns: [PatternItem.dash(12), PatternItem.gap(6)],
+                            jointType: JointType.round,
+                            startCap: Cap.roundCap,
+                            endCap: Cap.roundCap,
+                          ),
                       },
                       markers: {
                         // Start marker — avatar with orange border
@@ -544,6 +562,52 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
       }
     } catch (e) {
       debugPrint('❌ Avatar marker: $e');
+    }
+  }
+
+  /// Load the user's best previous run route to display as a ghost overlay.
+  /// Queries training_history ordered by distanceKm desc, takes the top result.
+  Future<void> _loadGhostRoute() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('training_history')
+          .orderBy('distanceKm', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return;
+
+      final data = snapshot.docs.first.data();
+      final rawPoints = data['routePoints'] as List<dynamic>?;
+      if (rawPoints == null || rawPoints.isEmpty) return;
+
+      final points = rawPoints
+          .map((p) {
+            if (p is Map) {
+              final lat = (p['lat'] as num?)?.toDouble();
+              final lng = (p['lng'] as num?)?.toDouble();
+              if (lat != null && lng != null) return LatLng(lat, lng);
+            }
+            return null;
+          })
+          .whereType<LatLng>()
+          .toList();
+
+      if (points.length < 2) return;
+
+      if (mounted) {
+        setState(() {
+          _ghostRoutePoints = points;
+          _showGhost = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Ghost runner load error: $e');
     }
   }
 

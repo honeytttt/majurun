@@ -887,19 +887,40 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                                 color: AppTheme.textSecondary,
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Follow other runners to see their posts here.',
+                              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
                             const SizedBox(height: 20),
-                            ElevatedButton.icon(
-                              onPressed: () => HomeScreen.tabNotifier.value = 4,
-                              icon: const Icon(Icons.directions_run, size: 18),
-                              label: const Text('Start Running'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: brandGreen,
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+                                  icon: const Icon(Icons.people_outline, size: 18),
+                                  label: const Text('Discover Runners'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: brandGreen,
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 12),
+                                OutlinedButton.icon(
+                                  onPressed: () => HomeScreen.tabNotifier.value = 4,
+                                  icon: const Icon(Icons.directions_run, size: 18),
+                                  label: const Text('Start Running'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: brandGreen,
+                                    side: BorderSide(color: brandGreen),
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
