@@ -14,7 +14,7 @@ PROJECT_PATH     = File.expand_path('../Runner.xcodeproj', __dir__)
 WATCH_NAME       = 'MajuRunWatch'
 WATCH_BUNDLE_ID  = 'com.majurun.app.watchkitapp'
 WATCH_SOURCE_DIR = 'MajuRunWatch Watch App'   # relative to ios/
-TEAM_ID          = ENV.fetch('TEAM_ID', '')
+TEAM_ID          = ENV.fetch('TEAM_ID', 'RG52X42W22')
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
 
