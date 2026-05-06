@@ -19,6 +19,7 @@ import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
 import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
 import 'package:majurun/core/services/celebration_service.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/core/services/unit_preference_service.dart';
 import 'package:provider/provider.dart';
@@ -177,6 +178,19 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         // Trigger full-screen celebration overlay for new personal bests
         if (_resolvedPbs.isNotEmpty) {
           CelebrationService().showPRCelebration(context);
+          // Fire milestone push notification for each PB
+          for (final pb in _resolvedPbs) {
+            PushNotificationService().showPersonalRecordNotification(
+              recordType: pb,
+              value: '',
+            ).ignore();
+          }
+        }
+        // Fire badge notification for each new badge earned
+        for (final badge in _resolvedBadges) {
+          PushNotificationService().showBadgeEarnedNotification(
+            badgeName: badge,
+          ).ignore();
         }
         // Show challenge completion toasts
         _showChallengeToasts(result.completedChallenges);

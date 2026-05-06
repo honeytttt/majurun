@@ -5,6 +5,9 @@ import 'package:majurun/modules/training/presentation/screens/active_workout_scr
 import 'package:majurun/core/services/subscription_service.dart';
 import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/clubs/presentation/screens/club_list_screen.dart';
+import 'package:majurun/modules/profile/presentation/screens/goals_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/route_discovery_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/running_buddies_screen.dart';
 import 'package:majurun/modules/training/presentation/screens/training_plan_browser_screen.dart';
 
 class TrainingDrawer extends StatefulWidget {
@@ -139,6 +142,51 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
                       context,
                       MaterialPageRoute(
                           builder: (_) => const ClubListScreen()),
+                    );
+                  },
+                ),
+                _communityTile(
+                  context,
+                  title: 'My Goals',
+                  subtitle: 'Weekly & monthly targets',
+                  icon: Icons.flag_rounded,
+                  color: const Color(0xFFFFD700),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const GoalsScreen()),
+                    );
+                  },
+                ),
+                _communityTile(
+                  context,
+                  title: 'Routes',
+                  subtitle: 'My routes, nearby & popular',
+                  icon: Icons.route_rounded,
+                  color: const Color(0xFF29B6F6),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RouteDiscoveryScreen()),
+                    );
+                  },
+                ),
+                _communityTile(
+                  context,
+                  title: 'Running Buddies',
+                  subtitle: 'Find followers at your pace',
+                  icon: Icons.group_rounded,
+                  color: const Color(0xFFAB47BC),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RunningBuddiesScreen()),
                     );
                   },
                 ),

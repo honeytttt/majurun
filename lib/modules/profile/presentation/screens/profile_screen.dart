@@ -24,10 +24,12 @@ import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/goals_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/race_predictor_card.dart';
+import 'package:majurun/modules/profile/presentation/widgets/vo2max_card.dart';
 
 /// Professional Profile Screen - Your Own Profile
 /// Matches UserProfileScreen design with Stats/Posts toggle
@@ -276,6 +278,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   text: 'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
                 ));
               },
+            ),
+          ),
+          // Goals Button
+          Semantics(
+            button: true,
+            label: 'My goals',
+            child: IconButton(
+              icon: const Icon(Icons.flag_rounded, color: Color(0xFFFFD700)),
+              tooltip: 'My Goals',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GoalsScreen()),
+              ),
             ),
           ),
           // Shoe Tracker Button
@@ -973,6 +988,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 4),
           const RacePredictorCard(),
+          const Vo2MaxCard(),
 
           // Badges Section
           const SizedBox(height: 24),

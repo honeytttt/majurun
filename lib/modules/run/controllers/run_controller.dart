@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:majurun/core/services/haptic_service.dart';
 import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
@@ -126,6 +127,9 @@ class RunController extends ChangeNotifier {
         if (comparison != null && comparison.isNotEmpty) comparison,
         if (coachingCmp != null) coachingCmp,
       ].join(' ');
+
+      // Haptic pulse on every km split
+      HapticService().medium().ignore();
 
       // Default behavior: speak immediately
       voiceController.speakKmMilestone(

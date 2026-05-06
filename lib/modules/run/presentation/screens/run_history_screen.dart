@@ -14,6 +14,7 @@ import 'package:majurun/modules/segments/presentation/screens/segment_list_scree
 import 'package:majurun/core/services/badge_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/badge_chip.dart';
 import 'package:majurun/core/services/health_sync_service.dart';
+import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/core/services/strava_sync_service.dart';
 import 'package:majurun/modules/analytics/presentation/screens/analytics_screen.dart';
 import 'package:majurun/modules/races/presentation/screens/virtual_race_screen.dart';
@@ -42,11 +43,42 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   bool _isSyncing = false;
   int _syncDone = 0;
   int _syncTotal = 0;
+  // Auto-sync: only once per session
+  static bool _stravaAutoSyncDone = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFirstPage());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadFirstPage();
+      _autoSyncStravaOnce();
+    });
+  }
+
+  /// Silently syncs Strava in background on first open per session.
+  /// Reloads run list if any new activities were imported.
+  void _autoSyncStravaOnce() {
+    if (_stravaAutoSyncDone) return;
+    _stravaAutoSyncDone = true;
+    final strava = StravaSyncService();
+    if (!strava.isConfigured) return;
+    strava.isConnected().then((connected) {
+      if (!connected || !mounted) return;
+      strava.syncActivities(days: 30).then((result) {
+        if (!mounted) return;
+        if (result.imported > 0) {
+          _loadFirstPage();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Strava: ${result.imported} new run${result.imported == 1 ? '' : 's'} imported'),
+              backgroundColor: const Color(0xFFFC4C02),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      });
+    });
   }
 
   Future<void> _loadFirstPage() async {
@@ -1076,7 +1108,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => RunDetailScreen(runData: run)));
+        Navigator.push(context, SlideUpRoute(page: RunDetailScreen(runData: run)));
       },
       child: Container(
         decoration: BoxDecoration(
