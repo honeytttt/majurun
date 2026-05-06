@@ -217,6 +217,28 @@ jobs:
           sed -i '' "s/MAPS_API_KEY_PLACEHOLDER/${IOS_MAPS_API_KEY}/" ios/Runner/AppDelegate.swift
           echo "Google Maps iOS API key injected"
 
+      - name: Add watchOS target to Xcode project
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          gem install xcodeproj --no-document --quiet
+          ruby ios/scripts/add_watch_target.rb
+
+      - name: Install Watch App Provisioning Profile
+        env:
+          WATCH_PROFILE_BASE64: ${{ secrets.WATCH_PROVISION_PROFILE_BASE64 }}
+        run: |
+          if [ -z "$WATCH_PROFILE_BASE64" ]; then
+            echo "⚠️  WATCH_PROVISION_PROFILE_BASE64 not set — skipping watch profile install"
+            echo "    Watch app will build but not be signed for distribution"
+            exit 0
+          fi
+          PROFILE_PATH=$RUNNER_TEMP/watch_profile.mobileprovision
+          echo -n "$WATCH_PROFILE_BASE64" | base64 --decode > $PROFILE_PATH
+          UUID=$(security cms -D -i $PROFILE_PATH | plutil -extract UUID raw -)
+          cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          echo "Watch provisioning profile installed: $UUID"
+
       - name: Build Flutter iOS (no codesign)
         run: |
           flutter build ios --release --no-codesign \
@@ -266,6 +288,18 @@ jobs:
               codesign --force --sign "Apple Distribution" --keychain "$RUNNER_TEMP/build.keychain-db" "$framework" || true
             done
           fi
+
+          # Sign watch app if embedded
+          find "$APP_PATH/Watch" -name "*.app" -type d 2>/dev/null | while read watchapp; do
+            echo "Signing watch app: $watchapp"
+            # Sign watch app frameworks first
+            find "$watchapp/Frameworks" -name "*.framework" -type d 2>/dev/null | while read fw; do
+              codesign --force --sign "Apple Distribution" --keychain "$RUNNER_TEMP/build.keychain-db" "$fw" || true
+            done
+            codesign --force --sign "Apple Distribution" \
+              --keychain "$RUNNER_TEMP/build.keychain-db" \
+              "$watchapp" || true
+          done
 
           # Sign any app extensions
           find "$APP_PATH/PlugIns" -name "*.appex" -type d 2>/dev/null | while read ext; do
