@@ -1,59 +1,79 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# add_watch_target.rb — Adds the MajuRunWatch watchOS target to Runner.xcodeproj
-# without needing Xcode open. Runs on the macOS CI runner before xcodebuild.
-#
-# Usage: ruby ios/scripts/add_watch_target.rb
-# Idempotent: safe to run on every build (exits early if target already exists).
+# add_watch_target.rb — Adds MajuRunWatch watchOS target to Runner.xcodeproj
+# Idempotent: safe to run on every build.
 
 require 'xcodeproj'
-require 'fileutils'
 
 PROJECT_PATH     = File.expand_path('../Runner.xcodeproj', __dir__)
 WATCH_NAME       = 'MajuRunWatch'
 WATCH_BUNDLE_ID  = 'com.majurun.app.watchkitapp'
-WATCH_SOURCE_DIR = 'MajuRunWatch Watch App'   # relative to ios/
+WATCH_SOURCE_DIR = 'MajuRunWatch Watch App'
 TEAM_ID          = ENV.fetch('TEAM_ID', 'RG52X42W22')
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
 
-# ── Idempotency check ────────────────────────────────────────────────────────
+# ── Idempotency ──────────────────────────────────────────────────────────────
 if project.targets.any? { |t| t.name == WATCH_NAME }
-  puts "✅ Watch target '#{WATCH_NAME}' already exists — nothing to do."
+  puts "✅ '#{WATCH_NAME}' already exists — skipping."
   exit 0
 end
 
 puts "➕ Adding watchOS target '#{WATCH_NAME}'..."
 
-# ── Create watch app target ──────────────────────────────────────────────────
-watch_target = project.new_target(
-  :application,
-  WATCH_NAME,
-  :watchos,
-  '8.0'
-)
+# ── Create target manually (avoid xcodeproj platform bugs) ──────────────────
+watch_target = project.new(Xcodeproj::Project::Object::PBXNativeTarget)
+watch_target.name                   = WATCH_NAME
+watch_target.product_type           = 'com.apple.product-type.application'
+watch_target.product_name           = WATCH_NAME
+watch_target.build_configuration_list = project.add_build_configuration_list_for_target(watch_target)
 
-# ── Build settings ───────────────────────────────────────────────────────────
+# Product reference
+product_ref = project.products_group.new_reference("#{WATCH_NAME}.app")
+product_ref.explicit_file_type      = 'wrapper.application'
+product_ref.include_in_index        = '0'
+product_ref.source_tree             = 'BUILT_PRODUCTS_DIR'
+product_ref.path                    = "#{WATCH_NAME}.app"
+watch_target.product_reference      = product_ref
+
+# Add to project targets
+project.targets << watch_target
+
+# ── Build phases ─────────────────────────────────────────────────────────────
+sources_phase   = project.new(Xcodeproj::Project::Object::PBXSourcesBuildPhase)
+frameworks_phase = project.new(Xcodeproj::Project::Object::PBXFrameworksBuildPhase)
+resources_phase = project.new(Xcodeproj::Project::Object::PBXResourcesBuildPhase)
+
+watch_target.build_phases << sources_phase
+watch_target.build_phases << frameworks_phase
+watch_target.build_phases << resources_phase
+
+# ── Build configurations ─────────────────────────────────────────────────────
+common_settings = {
+  'PRODUCT_NAME'                             => WATCH_NAME,
+  'PRODUCT_BUNDLE_IDENTIFIER'                => WATCH_BUNDLE_ID,
+  'SDKROOT'                                  => 'watchos',
+  'TARGETED_DEVICE_FAMILY'                   => '4',
+  'WATCHOS_DEPLOYMENT_TARGET'                => '8.0',
+  'SWIFT_VERSION'                            => '5.0',
+  'INFOPLIST_FILE'                           => "#{WATCH_SOURCE_DIR}/Info.plist",
+  'CODE_SIGN_STYLE'                          => 'Manual',
+  'DEVELOPMENT_TEAM'                         => TEAM_ID,
+  'MARKETING_VERSION'                        => '$(FLUTTER_BUILD_NAME)',
+  'CURRENT_PROJECT_VERSION'                  => '$(FLUTTER_BUILD_NUMBER)',
+  'ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'    => 'YES',
+  'ENABLE_BITCODE'                           => 'NO',
+  'LD_RUNPATH_SEARCH_PATHS'                  => '$(inherited) @executable_path/Frameworks',
+  'SWIFT_COMPILATION_MODE'                   => 'wholemodule',
+}
+
 watch_target.build_configurations.each do |config|
-  s = config.build_settings
-  s['PRODUCT_BUNDLE_IDENTIFIER']  = WATCH_BUNDLE_ID
-  s['SDKROOT']                    = 'watchos'
-  s['TARGETED_DEVICE_FAMILY']     = '4'
-  s['WATCHOS_DEPLOYMENT_TARGET']  = '8.0'
-  s['SWIFT_VERSION']              = '5.0'
-  s['INFOPLIST_FILE']             = "#{WATCH_SOURCE_DIR}/Info.plist"
-  s['CODE_SIGN_STYLE']            = 'Manual'
-  s['DEVELOPMENT_TEAM']           = TEAM_ID
-  s['MARKETING_VERSION']          = '$(FLUTTER_BUILD_NAME)'
-  s['CURRENT_PROJECT_VERSION']    = '$(FLUTTER_BUILD_NUMBER)'
-  s['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-  s['ENABLE_BITCODE']             = 'NO'
-
+  config.build_settings.merge!(common_settings)
   if config.name == 'Release'
-    s['CODE_SIGN_IDENTITY']       = 'Apple Distribution'
+    config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
   else
-    s['CODE_SIGN_IDENTITY']       = 'Apple Development'
+    config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Development'
   end
 end
 
@@ -64,33 +84,38 @@ watch_group.set_path(WATCH_SOURCE_DIR)
 
 %w[MajuRunWatchApp.swift WatchSessionManager.swift ContentView.swift].each do |f|
   ref = watch_group.new_reference(f)
-  watch_target.source_build_phase.add_file_reference(ref)
+  ref.last_known_file_type = 'sourcecode.swift'
+  build_file = sources_phase.add_file_reference(ref)
+  build_file
 end
 
 watch_group.new_reference('Info.plist')
 
 # ── WatchConnectivity framework ──────────────────────────────────────────────
-fw_group = project['Frameworks'] || project.frameworks_group
+fw_group = project.frameworks_group
 wc_ref   = fw_group.new_reference('WatchConnectivity.framework')
-wc_ref.name         = 'WatchConnectivity.framework'
-wc_ref.path         = 'System/Library/Frameworks/WatchConnectivity.framework'
-wc_ref.source_tree  = 'SDKROOT'
-watch_target.frameworks_build_phase.add_file_reference(wc_ref)
+wc_ref.name        = 'WatchConnectivity.framework'
+wc_ref.path        = 'System/Library/Frameworks/WatchConnectivity.framework'
+wc_ref.source_tree = 'SDKROOT'
+wc_ref.last_known_file_type = 'wrapper.framework'
+frameworks_phase.add_file_reference(wc_ref)
 
 # ── Embed watch content in Runner ────────────────────────────────────────────
 runner_target = project.targets.find { |t| t.name == 'Runner' }
 abort('❌ Runner target not found') unless runner_target
 
-embed_phase = runner_target.new_copy_files_build_phase('Embed Watch Content')
-embed_phase.dst_subfolder_spec = '16'   # Watch application
+embed_phase = project.new(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase)
+embed_phase.name                = 'Embed Watch Content'
+embed_phase.dst_subfolder_spec  = '16'   # Watch application folder
+embed_phase.dst_path            = '$(CONTENTS_FOLDER_PATH)/Watch'
+runner_target.build_phases << embed_phase
 
-# The watch product reference is created by new_target automatically
-watch_product_ref = watch_target.product_reference
-build_file = embed_phase.add_file_reference(watch_product_ref)
-build_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+embed_file = embed_phase.add_file_reference(product_ref)
+embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
 
 # ── Save ─────────────────────────────────────────────────────────────────────
 project.save
-puts "✅ Watch target added and project saved."
+
+puts "✅ Watch target added successfully."
 puts "   Bundle ID : #{WATCH_BUNDLE_ID}"
 puts "   Source dir: ios/#{WATCH_SOURCE_DIR}"
