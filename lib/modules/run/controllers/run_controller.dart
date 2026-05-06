@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:majurun/core/services/haptic_service.dart';
+import 'package:majurun/core/services/watch_sync_service.dart';
 import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
@@ -454,6 +455,7 @@ class RunController extends ChangeNotifier {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _saveCurrentRunState(planTitle);
+      _syncToWatch();
     });
     _startHrPolling();
     debugPrint('🔄 Auto-save started (every 10 seconds), HR polling every 15s');
@@ -465,6 +467,20 @@ class RunController extends ChangeNotifier {
     _hrPollTimer?.cancel();
     _hrPollTimer = null;
     debugPrint('⏹️ Auto-save stopped');
+  }
+
+  /// Push current run state to Apple Watch (no-op if watch not connected).
+  void _syncToWatch() {
+    final paceSecsPerKm = (_paceStringToMinutes(stateController.paceString) * 60).round();
+    WatchSyncService().syncRunData(RunSyncData(
+      distanceMeters: stateController.totalDistance,
+      durationSeconds: stateController.secondsElapsed,
+      currentPaceSecondsPerKm: paceSecsPerKm.toDouble(),
+      heartRate: stateController.currentBpm > 0 ? stateController.currentBpm : null,
+      calories: stateController.totalCalories,
+      isRunning: state == RunState.running,
+      isPaused: state == RunState.paused,
+    )).ignore();
   }
 
   /// Poll HealthKit/Health Connect for the most recent heart rate reading.

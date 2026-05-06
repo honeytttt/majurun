@@ -21,6 +21,10 @@ import AVFoundation
     // Google Maps API key — injected by CI from MAPS_API_KEY secret
     GMSServices.provideAPIKey("MAPS_API_KEY_PLACEHOLDER")
     GeneratedPluginRegistrant.register(with: self)
+    // Register Apple Watch connectivity plugin
+    if let registrar = registrar(forPlugin: "WatchConnectivityPlugin") {
+      WatchConnectivityPlugin.register(with: registrar)
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
