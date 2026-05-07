@@ -64,7 +64,8 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 199** (version 1.0.2+199) — upload rejected (signature bug, fixed in build 200)
+- Last known upload: **build 200** (version 1.0.0+200) — in progress (fixing watch entitlements + icon)
+- **Build number rule**: if a build fails, keep the same build number and retry — only increment AFTER a successful upload
 - **Marketing version is locked at `1.0.0`** — do NOT bump to 1.0.1 or higher without explicit user approval
   - Format: `version: 1.0.0+<build_number>` — only the build number increments each release
   - iOS App Store and Android Play Store both show `1.0.0` to users; the build number is internal only

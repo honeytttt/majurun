@@ -248,6 +248,14 @@ jobs:
           # The watch is NOT a dependency of Runner (would inherit iphoneos SDK from
           # -destination 'generic/platform=iOS' and fail). We build it standalone
           # here and inject it into the archive after Runner is archived.
+
+          # Parse version from pubspec.yaml — xcodebuild doesn't run Flutter's build
+          # system so $(FLUTTER_BUILD_NAME)/$(FLUTTER_BUILD_NUMBER) are never set
+          # unless we pass them explicitly.
+          BUILD_NAME=$(grep "^version:" pubspec.yaml | sed 's/version: //;s/+.*//')
+          BUILD_NUMBER=$(grep "^version:" pubspec.yaml | sed 's/.*+//')
+          echo "Watch build version: $BUILD_NAME ($BUILD_NUMBER)"
+
           WATCHOS_SDK=$(xcodebuild -showsdks | grep "^[[:space:]]*watchOS [0-9]" | grep -v -i simulator | awk '{print $NF}' | tail -1)
           echo "Using watchOS SDK: $WATCHOS_SDK"
 
@@ -257,11 +265,26 @@ jobs:
             -sdk "$WATCHOS_SDK" \
             -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
+            FLUTTER_BUILD_NAME="$BUILD_NAME" \
+            FLUTTER_BUILD_NUMBER="$BUILD_NUMBER" \
             CONFIGURATION_BUILD_DIR=$RUNNER_TEMP/watch_products \
             2>&1 | tail -30
 
           echo "=== Watch build products ==="
           ls -la $RUNNER_TEMP/watch_products/ || true
+
+          # Generate watch icons from the iOS app icon (required by App Store).
+          # CFBundleIconFiles in Info.plist references these by name without extension.
+          WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
+          if [ -n "$WATCH_APP" ]; then
+            echo "Generating watch icons into: $WATCH_APP"
+            for size in 88 100 172 196 216; do
+              sips -z $size $size assets/icon/app_icon.png \
+                --out "$WATCH_APP/AppIcon${size}.png" 2>/dev/null || true
+            done
+            echo "Icons generated:"
+            ls -la "$WATCH_APP"/AppIcon*.png 2>/dev/null || true
+          fi
 
       - name: Build and Sign Archive
         env:
@@ -328,16 +351,30 @@ jobs:
               codesign --force --sign "Apple Distribution" --keychain "$RUNNER_TEMP/build.keychain-db" "$fw" || true
             done
 
-            # Use watch provisioning profile entitlements if available
-            if [ -n "$WATCH_PROFILE_PATH" ] && [ -f "$WATCH_PROFILE_PATH" ]; then
-              WATCH_ENTITLEMENTS=$RUNNER_TEMP/watch_entitlements.plist
-              security cms -D -i "$WATCH_PROFILE_PATH" > $RUNNER_TEMP/watch_profile_decoded.plist
-              /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' $RUNNER_TEMP/watch_profile_decoded.plist > "$WATCH_ENTITLEMENTS"
-              echo "Watch entitlements extracted"
+            # Generate explicit watch entitlements — do NOT rely on profile extraction
+            # which can silently pick up the iOS app's application-identifier instead
+            # of the watch app's (com.majurun.app.watchkitapp).
+            WATCH_ENTITLEMENTS=$RUNNER_TEMP/watch_entitlements.plist
+            cat > "$WATCH_ENTITLEMENTS" << ENTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>application-identifier</key>
+    <string>${TEAM_ID}.com.majurun.app.watchkitapp</string>
+    <key>com.apple.developer.team-identifier</key>
+    <string>${TEAM_ID}</string>
+    <key>com.apple.developer.healthkit</key>
+    <true/>
+</dict>
+</plist>
+ENTEOF
+            echo "Watch entitlements (explicit):"
+            cat "$WATCH_ENTITLEMENTS"
 
+            if [ -n "$WATCH_PROFILE_PATH" ] && [ -f "$WATCH_PROFILE_PATH" ]; then
               # Embed watch provisioning profile inside the watch app
               cp "$WATCH_PROFILE_PATH" "$watchapp/embedded.mobileprovision"
-
               codesign --force --sign "Apple Distribution" \
                 --keychain "$RUNNER_TEMP/build.keychain-db" \
                 --entitlements "$WATCH_ENTITLEMENTS" \
@@ -346,9 +383,13 @@ jobs:
             else
               codesign --force --sign "Apple Distribution" \
                 --keychain "$RUNNER_TEMP/build.keychain-db" \
+                --entitlements "$WATCH_ENTITLEMENTS" \
                 "$watchapp" || true
               echo "Watch app signed without dedicated profile (may fail App Store validation)"
             fi
+
+            echo "Watch entitlements embedded in binary:"
+            codesign -d --entitlements :- "$watchapp" 2>&1 || true
           done
 
           # Sign any app extensions
@@ -453,6 +494,12 @@ jobs:
 
             echo "Verifying Runner.app signature..."
             codesign --verify --deep --verbose=2 "$RUNNER_APP" 2>&1 || true
+
+            # Verify watch entitlements survived Runner.app re-signing
+            echo "Watch bundle entitlements after Runner.app re-sign:"
+            find "$RUNNER_APP/Watch" -name "*.app" -maxdepth 1 -type d | while read watchapp; do
+              codesign -d --entitlements :- "$watchapp" 2>&1 || true
+            done
 
             # Repackage IPA
             cd "$UNZIP_DIR"

@@ -20,9 +20,15 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>UISupportedInterfaceOrientations</key>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconFiles</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
+		<string>AppIcon88</string>
+		<string>AppIcon100</string>
+		<string>AppIcon172</string>
+		<string>AppIcon196</string>
+		<string>AppIcon216</string>
 	</array>
 	<key>WKApplication</key>
 	<true/>
