@@ -375,18 +375,20 @@ jobs:
         run: |
           cd ios
 
-          # xcodebuild matches provisioningProfiles entries by name + platform type.
-          # The watch profile is a watchOS App Store profile, so xcodebuild won't find
-          # it when looking for "iOS App Store" profiles by name. Using the UUID directly
-          # bypasses the platform-type check and references the installed profile file.
-          if [ -n "$WATCH_PROFILE_UUID" ]; then
-            /usr/libexec/PlistBuddy \
-              -c "Set :provisioningProfiles:com.majurun.app.watchkitapp $WATCH_PROFILE_UUID" \
-              ExportOptions.plist 2>/dev/null || \
-            /usr/libexec/PlistBuddy \
-              -c "Add :provisioningProfiles:com.majurun.app.watchkitapp string $WATCH_PROFILE_UUID" \
-              ExportOptions.plist
-            echo "ExportOptions.plist updated with watch profile UUID: $WATCH_PROFILE_UUID"
+          # xcodebuild -exportArchive with method=app-store uses iOS signing rules and
+          # rejects watchOS provisioning profiles, even by UUID. To avoid this, we:
+          # 1. Temporarily remove the watch app from the archive before export
+          # 2. Export the iOS-only IPA (succeeds cleanly)
+          # 3. Unzip the IPA, inject the already-signed watch app, rezip
+          # The watch app was signed with the watch profile in the signing step above.
+
+          ARCHIVE_WATCH="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app/Watch"
+          WATCH_BACKUP="$RUNNER_TEMP/watch_signed_backup"
+
+          if [ -d "$ARCHIVE_WATCH" ]; then
+            echo "Backing up signed watch app before export..."
+            cp -r "$ARCHIVE_WATCH" "$WATCH_BACKUP"
+            rm -rf "$ARCHIVE_WATCH"
           fi
 
           xcodebuild -exportArchive \
@@ -394,8 +396,29 @@ jobs:
             -exportOptionsPlist ExportOptions.plist \
             -exportPath $RUNNER_TEMP/export
 
-          echo "IPA exported successfully"
+          echo "IPA exported (iOS only)"
           ls -la $RUNNER_TEMP/export/
+
+          # Re-inject signed watch app into the exported IPA
+          IPA_PATH=$(find $RUNNER_TEMP/export -name "*.ipa" | head -1)
+          if [ -n "$IPA_PATH" ] && [ -d "$WATCH_BACKUP" ]; then
+            echo "Re-injecting signed watch app into IPA..."
+            UNZIP_DIR="$RUNNER_TEMP/ipa_unzipped"
+            mkdir -p "$UNZIP_DIR"
+            unzip -q "$IPA_PATH" -d "$UNZIP_DIR"
+
+            RUNNER_APP=$(find "$UNZIP_DIR/Payload" -name "Runner.app" -maxdepth 1 -type d | head -1)
+            mkdir -p "$RUNNER_APP/Watch"
+            cp -r "$WATCH_BACKUP"/. "$RUNNER_APP/Watch/"
+
+            # Repackage IPA
+            cd "$UNZIP_DIR"
+            zip -qr "$IPA_PATH" Payload/
+            echo "Watch app injected into IPA successfully"
+            ls -la "$RUNNER_APP/Watch/"
+          else
+            echo "No watch backup found — IPA will not contain watch app"
+          fi
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
