@@ -375,6 +375,20 @@ jobs:
         run: |
           cd ios
 
+          # xcodebuild matches provisioningProfiles entries by name + platform type.
+          # The watch profile is a watchOS App Store profile, so xcodebuild won't find
+          # it when looking for "iOS App Store" profiles by name. Using the UUID directly
+          # bypasses the platform-type check and references the installed profile file.
+          if [ -n "$WATCH_PROFILE_UUID" ]; then
+            /usr/libexec/PlistBuddy \
+              -c "Set :provisioningProfiles:com.majurun.app.watchkitapp $WATCH_PROFILE_UUID" \
+              ExportOptions.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy \
+              -c "Add :provisioningProfiles:com.majurun.app.watchkitapp string $WATCH_PROFILE_UUID" \
+              ExportOptions.plist
+            echo "ExportOptions.plist updated with watch profile UUID: $WATCH_PROFILE_UUID"
+          fi
+
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
