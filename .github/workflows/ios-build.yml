@@ -410,12 +410,54 @@ jobs:
             RUNNER_APP=$(find "$UNZIP_DIR/Payload" -name "Runner.app" -maxdepth 1 -type d | head -1)
             mkdir -p "$RUNNER_APP/Watch"
             cp -r "$WATCH_BACKUP"/. "$RUNNER_APP/Watch/"
+            echo "Watch app files injected:"
+            ls -la "$RUNNER_APP/Watch/"
+
+            # Adding files to Runner.app invalidates its code signature.
+            # Re-sign the watch bundle then re-sign Runner.app to restore a valid signature.
+
+            # Extract Runner.app entitlements from its embedded provisioning profile
+            RUNNER_ENT="$RUNNER_TEMP/runner_resign_entitlements.plist"
+            PROV_PROFILE="$RUNNER_APP/embedded.mobileprovision"
+            if [ -f "$PROV_PROFILE" ]; then
+              security cms -D -i "$PROV_PROFILE" > "$RUNNER_TEMP/runner_prov_decoded.plist"
+              /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$RUNNER_TEMP/runner_prov_decoded.plist" > "$RUNNER_ENT"
+              echo "Runner.app entitlements extracted for re-signing"
+            else
+              echo "WARNING: No embedded.mobileprovision — falling back to archive entitlements"
+              cp "$RUNNER_TEMP/entitlements.plist" "$RUNNER_ENT"
+            fi
+
+            # Re-sign the watch app bundle(s) inside Runner.app/Watch/
+            find "$RUNNER_APP/Watch" -name "*.app" -maxdepth 1 -type d | while read watchapp; do
+              echo "Re-signing watch bundle in IPA: $watchapp"
+              if [ -f "$RUNNER_TEMP/watch_entitlements.plist" ]; then
+                codesign --force --sign "Apple Distribution" \
+                  --keychain "$RUNNER_TEMP/build.keychain-db" \
+                  --entitlements "$RUNNER_TEMP/watch_entitlements.plist" \
+                  "$watchapp"
+              else
+                codesign --force --sign "Apple Distribution" \
+                  --keychain "$RUNNER_TEMP/build.keychain-db" \
+                  "$watchapp"
+              fi
+              echo "Watch bundle re-signed"
+            done
+
+            # Re-sign Runner.app itself (required — adding Watch/ files broke its signature)
+            echo "Re-signing Runner.app after watch injection..."
+            codesign --force --sign "Apple Distribution" \
+              --keychain "$RUNNER_TEMP/build.keychain-db" \
+              --entitlements "$RUNNER_ENT" \
+              "$RUNNER_APP"
+
+            echo "Verifying Runner.app signature..."
+            codesign --verify --deep --verbose=2 "$RUNNER_APP" 2>&1 || true
 
             # Repackage IPA
             cd "$UNZIP_DIR"
             zip -qr "$IPA_PATH" Payload/
             echo "Watch app injected into IPA successfully"
-            ls -la "$RUNNER_APP/Watch/"
           else
             echo "No watch backup found — IPA will not contain watch app"
           fi
@@ -449,14 +491,21 @@ jobs:
           IPA_PATH=$(find $RUNNER_TEMP/export -name "*.ipa" | head -1)
           echo "Uploading IPA: $IPA_PATH"
 
-          # Upload using xcrun altool (still supported in Xcode 26)
-          # --output-format xml gives structured error output on failure
+          # Upload using xcrun altool (still supported in Xcode 26).
+          # NOTE: altool exits 0 even on validation errors — must check the XML output
+          # for product-errors to detect real failures.
+          UPLOAD_LOG="$RUNNER_TEMP/altool_output.xml"
           xcrun altool --upload-app \
             --type ios \
             --file "$IPA_PATH" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
-            --output-format xml
+            --output-format xml | tee "$UPLOAD_LOG"
+
+          if grep -q "product-errors" "$UPLOAD_LOG"; then
+            echo "❌ Upload rejected by App Store Connect — see errors above"
+            exit 1
+          fi
 
           echo "✅ Successfully uploaded to App Store Connect!"
 
