@@ -27,7 +27,17 @@ watch_target = project.new(Xcodeproj::Project::Object::PBXNativeTarget)
 watch_target.name                   = WATCH_NAME
 watch_target.product_type           = 'com.apple.product-type.application'
 watch_target.product_name           = WATCH_NAME
-watch_target.build_configuration_list = project.add_build_configuration_list_for_target(watch_target)
+# Build configuration list (add_build_configuration_list_for_target doesn't exist
+# in the gem — create the XCConfigurationList manually)
+config_list = project.new(Xcodeproj::Project::Object::XCConfigurationList)
+config_list.default_configuration_is_visible = '0'
+config_list.default_configuration_name = 'Release'
+%w[Debug Release].each do |cfg_name|
+  cfg = project.new(Xcodeproj::Project::Object::XCBuildConfiguration)
+  cfg.name = cfg_name
+  config_list.build_configurations << cfg
+end
+watch_target.build_configuration_list = config_list
 
 # Product reference
 product_ref = project.products_group.new_reference("#{WATCH_NAME}.app")
