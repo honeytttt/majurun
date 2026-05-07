@@ -103,14 +103,20 @@ end
 watch_group.new_reference('Info.plist')
 watch_group.new_reference('MajuRunWatch.entitlements')
 
-# ── WatchConnectivity framework ──────────────────────────────────────────────
+# ── Frameworks (WatchKit provides _main entry point; WatchConnectivity for sync)
 fw_group = project.frameworks_group
-wc_ref   = fw_group.new_reference('WatchConnectivity.framework')
-wc_ref.name        = 'WatchConnectivity.framework'
-wc_ref.path        = 'System/Library/Frameworks/WatchConnectivity.framework'
-wc_ref.source_tree = 'SDKROOT'
-wc_ref.last_known_file_type = 'wrapper.framework'
-frameworks_phase.add_file_reference(wc_ref)
+
+[
+  ['WatchKit.framework',          'System/Library/Frameworks/WatchKit.framework'],
+  ['WatchConnectivity.framework', 'System/Library/Frameworks/WatchConnectivity.framework'],
+].each do |name, path|
+  ref = fw_group.new_reference(name)
+  ref.name        = name
+  ref.path        = path
+  ref.source_tree = 'SDKROOT'
+  ref.last_known_file_type = 'wrapper.framework'
+  frameworks_phase.add_file_reference(ref)
+end
 
 # ── Embed watch content in Runner ────────────────────────────────────────────
 runner_target = project.targets.find { |t| t.name == 'Runner' }
