@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:majurun/modules/run/controllers/stats_controller.dart';
 
 /// Watch Sync Service - Sync data between phone and smartwatch
 /// Supports Apple Watch (WatchOS) and Wear OS
@@ -19,6 +21,10 @@ class WatchSyncService extends ChangeNotifier {
 
   // Current run state to sync
   RunSyncData? _currentRunData;
+
+  /// Called when a standalone watch run is received and saved.
+  /// UI can set this to show a snackbar / navigate to the run.
+  void Function(WatchCompletedRun)? onWatchRunReceived;
 
   bool get isWatchConnected => _isWatchConnected;
   bool get isWatchAppInstalled => _isWatchAppInstalled;
@@ -77,6 +83,9 @@ class WatchSyncService extends ChangeNotifier {
           break;
         case 'heart_rate_update':
           _onHeartRateUpdate(event['heartRate'] as int?);
+          break;
+        case 'watch_run_completed':
+          _onWatchRunCompleted(event);
           break;
       }
     }
@@ -210,8 +219,62 @@ class WatchSyncService extends ChangeNotifier {
 
   void _onHeartRateUpdate(int? heartRate) {
     if (heartRate != null) {
-      // Could trigger a callback or notifyListeners
       debugPrint('Heart rate update: $heartRate bpm');
+    }
+  }
+
+  Future<void> _onWatchRunCompleted(Map<dynamic, dynamic> event) async {
+    final durationSeconds = event['durationSeconds'] as int? ?? 0;
+    final distanceMeters = (event['distanceMeters'] as num?)?.toDouble() ?? 0.0;
+    final avgHeartRate = event['avgHeartRate'] as int?;
+    final caloriesVal = event['calories'] as int?;
+
+    if (durationSeconds <= 0 || distanceMeters <= 0) {
+      debugPrint('Watch run ignored: insufficient data');
+      return;
+    }
+
+    final distanceKm = distanceMeters / 1000.0;
+    final paceSecsPerKm = durationSeconds / distanceKm;
+    final paceMin = paceSecsPerKm ~/ 60;
+    final paceSec = paceSecsPerKm.toInt() % 60;
+    final paceString = '$paceMin:${paceSec.toString().padLeft(2, '0')} /km';
+
+    // Convert route [[lat,lon],...] to LatLng list
+    List<LatLng>? routePoints;
+    final rawRoute = event['route'];
+    if (rawRoute is List && rawRoute.isNotEmpty) {
+      routePoints = rawRoute.whereType<List>().map((pt) {
+        final lat = (pt[0] as num).toDouble();
+        final lon = (pt[1] as num).toDouble();
+        return LatLng(lat, lon);
+      }).toList();
+    }
+
+    final run = WatchCompletedRun(
+      distanceKm: distanceKm,
+      durationSeconds: durationSeconds,
+      pace: paceString,
+      avgHeartRate: avgHeartRate,
+      calories: caloriesVal,
+      routePoints: routePoints,
+    );
+
+    try {
+      await StatsController().saveRunHistory(
+        planTitle: 'Watch Run',
+        distanceKm: distanceKm,
+        durationSeconds: durationSeconds,
+        pace: paceString,
+        routePoints: routePoints,
+        avgBpm: avgHeartRate,
+        calories: caloriesVal,
+        extra: {'source': 'apple_watch'},
+      );
+      debugPrint('✅ Watch run saved: ${distanceKm.toStringAsFixed(2)} km');
+      onWatchRunReceived?.call(run);
+    } catch (e) {
+      debugPrint('❌ Failed to save watch run: $e');
     }
   }
 
@@ -303,5 +366,24 @@ class WatchInterval {
     required this.type,
     required this.durationSeconds,
     required this.instruction,
+  });
+}
+
+/// Data for a run recorded entirely on the Apple Watch (no phone).
+class WatchCompletedRun {
+  final double distanceKm;
+  final int durationSeconds;
+  final String pace;
+  final int? avgHeartRate;
+  final int? calories;
+  final List<LatLng>? routePoints;
+
+  const WatchCompletedRun({
+    required this.distanceKm,
+    required this.durationSeconds,
+    required this.pace,
+    this.avgHeartRate,
+    this.calories,
+    this.routePoints,
   });
 }

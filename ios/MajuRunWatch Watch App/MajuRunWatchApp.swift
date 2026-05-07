@@ -8,6 +8,9 @@ struct MajuRunWatchApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(session)
+                .onAppear {
+                    session.requestAuthorization()
+                }
         }
     }
 }

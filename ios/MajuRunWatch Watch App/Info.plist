@@ -28,5 +28,11 @@
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.majurun.app</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>MajuRun reads heart rate and calorie data to display your stats during a run.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>MajuRun saves your workout to Health so your fitness data stays in sync.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MajuRun uses GPS to track your route and distance when running without your phone.</string>
 </dict>
 </plist>

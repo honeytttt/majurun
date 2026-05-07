@@ -27,10 +27,23 @@ struct IdleView: View {
                 .font(.headline)
                 .foregroundColor(.white)
 
-            Text(session.isPhoneReachable ? "Ready" : "Open app on iPhone")
+            Text(session.isPhoneReachable ? "Phone connected" : "No phone")
                 .font(.caption2)
                 .foregroundColor(session.isPhoneReachable ? .green : .gray)
                 .multilineTextAlignment(.center)
+
+            // Start a standalone run directly from the watch
+            Button(action: { session.startStandaloneRun() }) {
+                Text("Start Run")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(Color.green)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.top, 2)
         }
         .padding()
     }
@@ -53,6 +66,12 @@ struct RunView: View {
                     Text(session.isPaused ? "PAUSED" : "RUNNING")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(session.isPaused ? .yellow : .green)
+
+                    if session.isStandaloneMode {
+                        Text("• WATCH")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.orange)
+                    }
                 }
                 .padding(.top, 4)
                 .padding(.bottom, 8)
@@ -103,19 +122,25 @@ struct RunView: View {
                 }
                 .padding(.bottom, 12)
 
-                // Controls
+                // Controls — behaviour differs for standalone vs companion mode
                 HStack(spacing: 12) {
                     // Pause / Resume
                     Button(action: {
                         if session.isPaused {
-                            session.sendResume()
+                            if session.isStandaloneMode {
+                                session.resumeStandaloneRun()
+                            } else {
+                                session.sendResume()
+                            }
                         } else {
-                            session.sendPause()
+                            if session.isStandaloneMode {
+                                session.pauseStandaloneRun()
+                            } else {
+                                session.sendPause()
+                            }
                         }
                     }) {
-                        Image(systemName: session.isPaused
-                              ? "play.fill"
-                              : "pause.fill")
+                        Image(systemName: session.isPaused ? "play.fill" : "pause.fill")
                             .font(.system(size: 22))
                             .foregroundColor(.white)
                             .frame(width: 48, height: 48)
@@ -125,7 +150,13 @@ struct RunView: View {
                     .buttonStyle(PlainButtonStyle())
 
                     // Stop
-                    Button(action: session.sendStop) {
+                    Button(action: {
+                        if session.isStandaloneMode {
+                            session.stopAndFinalizeRun()
+                        } else {
+                            session.sendStop()
+                        }
+                    }) {
                         Image(systemName: "stop.fill")
                             .font(.system(size: 22))
                             .foregroundColor(.white)

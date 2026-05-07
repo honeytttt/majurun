@@ -200,6 +200,24 @@ class WatchConnectivityPlugin: NSObject, FlutterPlugin, WCSessionDelegate {
         replyHandler(["received": true])
     }
 
+    // Queued delivery: fired when phone reconnects after a standalone watch run
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        guard let action = userInfo["action"] as? String,
+              action == "completedWatchRun" else { return }
+
+        DispatchQueue.main.async {
+            var event: [String: Any] = ["type": "watch_run_completed"]
+            if let v = userInfo["startTime"]      { event["startTime"] = v }
+            if let v = userInfo["endTime"]        { event["endTime"] = v }
+            if let v = userInfo["durationSeconds"]{ event["durationSeconds"] = v }
+            if let v = userInfo["distanceMeters"] { event["distanceMeters"] = v }
+            if let v = userInfo["avgHeartRate"]   { event["avgHeartRate"] = v }
+            if let v = userInfo["calories"]       { event["calories"] = v }
+            if let v = userInfo["route"]          { event["route"] = v }
+            self.eventSink?(event)
+        }
+    }
+
     private func handleWatchMessage(_ message: [String: Any]) {
         guard let action = message["action"] as? String else { return }
 

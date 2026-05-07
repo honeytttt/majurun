@@ -58,6 +58,7 @@ common_settings = {
   'WATCHOS_DEPLOYMENT_TARGET'                => '8.0',
   'SWIFT_VERSION'                            => '5.0',
   'INFOPLIST_FILE'                           => "#{WATCH_SOURCE_DIR}/Info.plist",
+  'CODE_SIGN_ENTITLEMENTS'                   => "#{WATCH_SOURCE_DIR}/MajuRunWatch.entitlements",
   'CODE_SIGN_STYLE'                          => 'Manual',
   'DEVELOPMENT_TEAM'                         => TEAM_ID,
   'MARKETING_VERSION'                        => '$(FLUTTER_BUILD_NAME)',
@@ -90,6 +91,7 @@ watch_group.set_path(WATCH_SOURCE_DIR)
 end
 
 watch_group.new_reference('Info.plist')
+watch_group.new_reference('MajuRunWatch.entitlements')
 
 # ── WatchConnectivity framework ──────────────────────────────────────────────
 fw_group = project.frameworks_group
