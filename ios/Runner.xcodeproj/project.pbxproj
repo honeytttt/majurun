@@ -17,6 +17,11 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		CDF074B8A0FA6CAFD2603043 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 842AD2A07AF8A2DECC71B440 /* Pods_Runner.framework */; };
+		AABB00131CF9000F007C1180 /* MajuRunWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000C1CF9000F007C1180 /* MajuRunWatchApp.swift */; };
+		AABB00141CF9000F007C1180 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000D1CF9000F007C1180 /* ContentView.swift */; };
+		AABB00151CF9000F007C1180 /* WatchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000E1CF9000F007C1180 /* WatchSessionManager.swift */; };
+		AABB00161CF9000F007C1180 /* WatchKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AABB00111CF9000F007C1180 /* WatchKit.framework */; };
+		AABB00171CF9000F007C1180 /* MajuRunWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AABB00021CF9000F007C1180 /* MajuRunWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +31,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		AABB00181CF9000F007C1180 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AABB00011CF9000F007C1180;
+			remoteInfo = "MajuRunWatch Watch App";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -38,6 +50,17 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB00061CF9000F007C1180 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AABB00171CF9000F007C1180 /* MajuRunWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -67,6 +90,13 @@
 		D1E1CD6F73E49D83F15ECEEC /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		E93641EA8B5819E2EA8469EB /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		FF366FE6D40CF59914C19535 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+		AABB00021CF9000F007C1180 /* MajuRunWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MajuRunWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABB000C1CF9000F007C1180 /* MajuRunWatchApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MajuRunWatchApp.swift; sourceTree = "<group>"; };
+		AABB000D1CF9000F007C1180 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AABB000E1CF9000F007C1180 /* WatchSessionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WatchSessionManager.swift; sourceTree = "<group>"; };
+		AABB000F1CF9000F007C1180 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AABB00101CF9000F007C1180 /* MajuRunWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MajuRunWatch.entitlements; sourceTree = "<group>"; };
+		AABB00111CF9000F007C1180 /* WatchKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchKit.framework; path = System/Library/Frameworks/WatchKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +113,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				CDF074B8A0FA6CAFD2603043 /* Pods_Runner.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB00051CF9000F007C1180 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABB00161CF9000F007C1180 /* WatchKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,6 +151,7 @@
 			children = (
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
+				AABB000B1CF9000F007C1180 /* MajuRunWatch Watch App */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				E0F3B8A420C05D7F2BB64AAE /* Pods */,
@@ -125,8 +164,21 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				AABB00021CF9000F007C1180 /* MajuRunWatch Watch App.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		AABB000B1CF9000F007C1180 /* MajuRunWatch Watch App */ = {
+			isa = PBXGroup;
+			children = (
+				AABB000C1CF9000F007C1180 /* MajuRunWatchApp.swift */,
+				AABB000D1CF9000F007C1180 /* ContentView.swift */,
+				AABB000E1CF9000F007C1180 /* WatchSessionManager.swift */,
+				AABB000F1CF9000F007C1180 /* Info.plist */,
+				AABB00101CF9000F007C1180 /* MajuRunWatch.entitlements */,
+			);
+			path = "MajuRunWatch Watch App";
 			sourceTree = "<group>";
 		};
 		97C146F01CF9000F007C117D /* Runner */ = {
@@ -150,6 +202,7 @@
 			children = (
 				842AD2A07AF8A2DECC71B440 /* Pods_Runner.framework */,
 				624B03D700CC6BA84C1A997C /* Pods_RunnerTests.framework */,
+				AABB00111CF9000F007C1180 /* WatchKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -199,6 +252,7 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				AABB00061CF9000F007C1180 /* Embed Watch Content */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				2DF715E4182D7036D71F7D6B /* [CP] Embed Pods Frameworks */,
 				9200A29E330AB73717848694 /* [CP] Copy Pods Resources */,
@@ -206,10 +260,28 @@
 			buildRules = (
 			);
 			dependencies = (
+				AABB00191CF9000F007C1180 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AABB00011CF9000F007C1180 /* MajuRunWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABB00071CF9000F007C1180 /* Build configuration list for PBXNativeTarget "MajuRunWatch Watch App" */;
+			buildPhases = (
+				AABB00031CF9000F007C1180 /* Sources */,
+				AABB00051CF9000F007C1180 /* Frameworks */,
+				AABB00041CF9000F007C1180 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "MajuRunWatch Watch App";
+			productName = "MajuRunWatch Watch App";
+			productReference = AABB00021CF9000F007C1180 /* MajuRunWatch Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -230,6 +302,9 @@
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
 					};
+					AABB00011CF9000F007C1180 = {
+						CreatedOnToolsVersion = 14.0;
+					};
 				};
 			};
 			buildConfigurationList = 97C146E91CF9000F007C117D /* Build configuration list for PBXProject "Runner" */;
@@ -247,6 +322,7 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				AABB00011CF9000F007C1180 /* MajuRunWatch Watch App */,
 			);
 		};
 /* End PBXProject section */
@@ -267,6 +343,13 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB00041CF9000F007C1180 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,6 +486,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AABB00031CF9000F007C1180 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABB00131CF9000F007C1180 /* MajuRunWatchApp.swift in Sources */,
+				AABB00141CF9000F007C1180 /* ContentView.swift in Sources */,
+				AABB00151CF9000F007C1180 /* WatchSessionManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -410,6 +503,11 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		AABB00191CF9000F007C1180 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AABB00011CF9000F007C1180 /* MajuRunWatch Watch App */;
+			targetProxy = AABB00181CF9000F007C1180 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -716,6 +814,75 @@
 			};
 			name = Release;
 		};
+		AABB00081CF9000F007C1180 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "MajuRunWatch Watch App/MajuRunWatch.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RG52X42W22;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = "MajuRunWatch Watch App/Info.plist";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.majurun.app.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 7.0;
+			};
+			name = Debug;
+		};
+		AABB00091CF9000F007C1180 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "MajuRunWatch Watch App/MajuRunWatch.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RG52X42W22;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = "MajuRunWatch Watch App/Info.plist";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.majurun.app.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_MODE = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 7.0;
+			};
+			name = Release;
+		};
+		AABB000A1CF9000F007C1180 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "MajuRunWatch Watch App/MajuRunWatch.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RG52X42W22;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = "MajuRunWatch Watch App/Info.plist";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.majurun.app.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 7.0;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -745,6 +912,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AABB00071CF9000F007C1180 /* Build configuration list for PBXNativeTarget "MajuRunWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABB00081CF9000F007C1180 /* Debug */,
+				AABB00091CF9000F007C1180 /* Release */,
+				AABB000A1CF9000F007C1180 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

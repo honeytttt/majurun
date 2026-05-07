@@ -12,6 +12,8 @@
     <dict>
         <key>com.majurun.app</key>
         <string>MajuRun Distribution</string>
+        <key>com.majurun.app.watchkitapp</key>
+        <string>MajuRun Watch Distribution</string>
     </dict>
 </dict>
 </plist>

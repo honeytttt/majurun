@@ -188,18 +188,29 @@ jobs:
       - name: Install Provisioning Profile
         env:
           PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          WATCH_PROFILE_BASE64: ${{ secrets.WATCH_PROVISION_PROFILE_BASE64 }}
         run: |
-          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
-
-          echo -n "$PROFILE_BASE64" | base64 --decode > $PROFILE_PATH
-
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
 
-          # Get UUID from profile
+          # Install iOS (Runner) provisioning profile
+          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+          echo -n "$PROFILE_BASE64" | base64 --decode > $PROFILE_PATH
           UUID=$(security cms -D -i $PROFILE_PATH | plutil -extract UUID raw -)
           cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          echo "iOS provisioning profile installed: $UUID"
 
-          echo "Provisioning profile installed: $UUID"
+          # Install watchOS provisioning profile (if provided)
+          if [ -n "$WATCH_PROFILE_BASE64" ]; then
+            WATCH_PROFILE_PATH=$RUNNER_TEMP/watch_profile.mobileprovision
+            echo -n "$WATCH_PROFILE_BASE64" | base64 --decode > $WATCH_PROFILE_PATH
+            WATCH_UUID=$(security cms -D -i $WATCH_PROFILE_PATH | plutil -extract UUID raw -)
+            cp $WATCH_PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$WATCH_UUID.mobileprovision
+            echo "watchOS provisioning profile installed: $WATCH_UUID"
+            echo "WATCH_PROFILE_PATH=$WATCH_PROFILE_PATH" >> $GITHUB_ENV
+            echo "WATCH_PROFILE_UUID=$WATCH_UUID" >> $GITHUB_ENV
+          else
+            echo "No watch provisioning profile provided — watch app will be built but not properly signed for App Store"
+          fi
 
       - name: Update iOS project settings
         run: |
@@ -217,10 +228,11 @@ jobs:
           sed -i '' "s/MAPS_API_KEY_PLACEHOLDER/${IOS_MAPS_API_KEY}/" ios/Runner/AppDelegate.swift
           echo "Google Maps iOS API key injected"
 
-      # NOTE: watchOS target is NOT added in CI — xcodeproj gem cannot reliably
-      # configure a watchOS target for Xcode 26 without Mac/Xcode GUI access.
-      # Watch source files are in ios/MajuRunWatch Watch App/ and will be wired
-      # into the Xcode project manually when Mac access is available.
+      # NOTE: watchOS target is wired directly into project.pbxproj.
+      # Watch app (com.majurun.app.watchkitapp) is embedded in Runner via
+      # "Embed Watch Content" build phase. For App Store submission, add:
+      #   WATCH_PROVISION_PROFILE_BASE64 — base64-encoded watchOS distribution profile
+      # Without this secret the watch app builds but won't pass App Store validation.
 
       - name: Build Flutter iOS (no codesign)
         run: |
@@ -279,9 +291,28 @@ jobs:
             find "$watchapp/Frameworks" -name "*.framework" -type d 2>/dev/null | while read fw; do
               codesign --force --sign "Apple Distribution" --keychain "$RUNNER_TEMP/build.keychain-db" "$fw" || true
             done
-            codesign --force --sign "Apple Distribution" \
-              --keychain "$RUNNER_TEMP/build.keychain-db" \
-              "$watchapp" || true
+
+            # Use watch provisioning profile entitlements if available
+            if [ -n "$WATCH_PROFILE_PATH" ] && [ -f "$WATCH_PROFILE_PATH" ]; then
+              WATCH_ENTITLEMENTS=$RUNNER_TEMP/watch_entitlements.plist
+              security cms -D -i "$WATCH_PROFILE_PATH" > $RUNNER_TEMP/watch_profile_decoded.plist
+              /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' $RUNNER_TEMP/watch_profile_decoded.plist > "$WATCH_ENTITLEMENTS"
+              echo "Watch entitlements extracted"
+
+              # Embed watch provisioning profile inside the watch app
+              cp "$WATCH_PROFILE_PATH" "$watchapp/embedded.mobileprovision"
+
+              codesign --force --sign "Apple Distribution" \
+                --keychain "$RUNNER_TEMP/build.keychain-db" \
+                --entitlements "$WATCH_ENTITLEMENTS" \
+                "$watchapp"
+              echo "Watch app signed with dedicated profile"
+            else
+              codesign --force --sign "Apple Distribution" \
+                --keychain "$RUNNER_TEMP/build.keychain-db" \
+                "$watchapp" || true
+              echo "Watch app signed without dedicated profile (may fail App Store validation)"
+            fi
           done
 
           # Sign any app extensions
