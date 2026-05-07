@@ -355,20 +355,12 @@ jobs:
             # which can silently pick up the iOS app's application-identifier instead
             # of the watch app's (com.majurun.app.watchkitapp).
             WATCH_ENTITLEMENTS=$RUNNER_TEMP/watch_entitlements.plist
-            cat > "$WATCH_ENTITLEMENTS" << ENTEOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>application-identifier</key>
-    <string>${TEAM_ID}.com.majurun.app.watchkitapp</string>
-    <key>com.apple.developer.team-identifier</key>
-    <string>${TEAM_ID}</string>
-    <key>com.apple.developer.healthkit</key>
-    <true/>
-</dict>
-</plist>
-ENTEOF
+            rm -f "$WATCH_ENTITLEMENTS"
+            /usr/libexec/PlistBuddy \
+              -c "Add :application-identifier string ${TEAM_ID}.com.majurun.app.watchkitapp" \
+              -c "Add :com.apple.developer.team-identifier string ${TEAM_ID}" \
+              -c "Add :com.apple.developer.healthkit bool true" \
+              "$WATCH_ENTITLEMENTS"
             echo "Watch entitlements (explicit):"
             cat "$WATCH_ENTITLEMENTS"
 
