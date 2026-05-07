@@ -17,6 +17,7 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		CDF074B8A0FA6CAFD2603043 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 842AD2A07AF8A2DECC71B440 /* Pods_Runner.framework */; };
+		AABB001A1CF9000F007C1180 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AABB001B1CF9000F007C1180 /* Assets.xcassets */; };
 		AABB00131CF9000F007C1180 /* MajuRunWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000C1CF9000F007C1180 /* MajuRunWatchApp.swift */; };
 		AABB00141CF9000F007C1180 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000D1CF9000F007C1180 /* ContentView.swift */; };
 		AABB00151CF9000F007C1180 /* WatchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000E1CF9000F007C1180 /* WatchSessionManager.swift */; };
@@ -94,6 +95,7 @@
 		AABB000D1CF9000F007C1180 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AABB000E1CF9000F007C1180 /* WatchSessionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WatchSessionManager.swift; sourceTree = "<group>"; };
 		AABB000F1CF9000F007C1180 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AABB001B1CF9000F007C1180 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AABB00101CF9000F007C1180 /* MajuRunWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MajuRunWatch.entitlements; sourceTree = "<group>"; };
 		AABB00111CF9000F007C1180 /* WatchKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchKit.framework; path = System/Library/Frameworks/WatchKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -174,6 +176,7 @@
 				AABB000D1CF9000F007C1180 /* ContentView.swift */,
 				AABB000E1CF9000F007C1180 /* WatchSessionManager.swift */,
 				AABB000F1CF9000F007C1180 /* Info.plist */,
+				AABB001B1CF9000F007C1180 /* Assets.xcassets */,
 				AABB00101CF9000F007C1180 /* MajuRunWatch.entitlements */,
 			);
 			path = "MajuRunWatch Watch App";
@@ -347,6 +350,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AABB001A1CF9000F007C1180 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

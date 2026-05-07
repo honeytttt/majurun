@@ -273,18 +273,17 @@ jobs:
           echo "=== Watch build products ==="
           ls -la $RUNNER_TEMP/watch_products/ || true
 
-          # Generate watch icons from the iOS app icon (required by App Store).
-          # CFBundleIconFiles in Info.plist references these by name without extension.
-          WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
-          if [ -n "$WATCH_APP" ]; then
-            echo "Generating watch icons into: $WATCH_APP"
-            for size in 88 100 172 196 216; do
-              sips -z $size $size assets/icon/app_icon.png \
-                --out "$WATCH_APP/AppIcon${size}.png" 2>/dev/null || true
-            done
-            echo "Icons generated:"
-            ls -la "$WATCH_APP"/AppIcon*.png 2>/dev/null || true
-          fi
+          # Generate watch icons and compile the asset catalog.
+          # The asset catalog (Assets.xcassets/AppIcon.appiconset) is in source but
+          # the PNG files are generated at CI time from the iOS app icon using sips.
+          WATCH_ASSETS="ios/MajuRunWatch Watch App/Assets.xcassets/AppIcon.appiconset"
+          for entry in "88:icon-88.png" "100:icon-100.png" "172:icon-172.png" "196:icon-196.png" "216:icon-216.png" "1024:icon-1024.png"; do
+            size="${entry%%:*}"
+            file="${entry##*:}"
+            sips -z $size $size assets/icon/app_icon.png --out "$WATCH_ASSETS/$file" 2>/dev/null || true
+          done
+          echo "Watch icon PNGs generated:"
+          ls -la "$WATCH_ASSETS/"
 
       - name: Build and Sign Archive
         env:
@@ -351,18 +350,21 @@ jobs:
               codesign --force --sign "Apple Distribution" --keychain "$RUNNER_TEMP/build.keychain-db" "$fw" || true
             done
 
-            # Generate explicit watch entitlements — do NOT rely on profile extraction
-            # which can silently pick up the iOS app's application-identifier instead
-            # of the watch app's (com.majurun.app.watchkitapp).
+            # Extract entitlements from the watch provisioning profile.
+            # This guarantees the application-identifier exactly matches what
+            # the profile allows — hardcoding it caused a mismatch when the
+            # profile bundle ID differed from what we expected.
             WATCH_ENTITLEMENTS=$RUNNER_TEMP/watch_entitlements.plist
-            rm -f "$WATCH_ENTITLEMENTS"
-            /usr/libexec/PlistBuddy \
-              -c "Add :application-identifier string ${TEAM_ID}.com.majurun.app.watchkitapp" \
-              -c "Add :com.apple.developer.team-identifier string ${TEAM_ID}" \
-              -c "Add :com.apple.developer.healthkit bool true" \
-              "$WATCH_ENTITLEMENTS"
-            echo "Watch entitlements (explicit):"
-            cat "$WATCH_ENTITLEMENTS"
+            if [ -n "$WATCH_PROFILE_PATH" ] && [ -f "$WATCH_PROFILE_PATH" ]; then
+              security cms -D -i "$WATCH_PROFILE_PATH" > $RUNNER_TEMP/watch_profile_decoded.plist
+              /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' \
+                $RUNNER_TEMP/watch_profile_decoded.plist > "$WATCH_ENTITLEMENTS"
+              echo "Watch entitlements extracted from profile:"
+              cat "$WATCH_ENTITLEMENTS"
+            else
+              echo "ERROR: WATCH_PROFILE_PATH not set — cannot sign watch app"
+              exit 1
+            fi
 
             if [ -n "$WATCH_PROFILE_PATH" ] && [ -f "$WATCH_PROFILE_PATH" ]; then
               # Embed watch provisioning profile inside the watch app
