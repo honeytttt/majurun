@@ -1,3 +1,4 @@
+#if os(watchOS)
 import SwiftUI
 
 struct ContentView: View {
@@ -192,3 +193,4 @@ struct StatCell: View {
         .frame(maxWidth: .infinity)
     }
 }
+#endif

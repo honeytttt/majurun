@@ -1,19 +1,22 @@
+#if os(watchOS)
 import Foundation
 import WatchConnectivity
-import HealthKit
 import CoreLocation
 
 /// Manages phone↔watch sync AND standalone run recording on the watch.
 ///
-/// Companion mode: phone sends `syncRunData` every 10 s → view updates live.
-/// Standalone mode: user taps "Start Run" → GPS + HKWorkoutSession record locally
+/// Companion mode : phone sends `syncRunData` every 10 s → views update live.
+/// Standalone mode: user taps "Start Run" → GPS tracks distance + route locally
 ///                  → on stop, payload sent via transferUserInfo (queued, delivered
-///                    when iPhone reconnects).
+///                    when iPhone reconnects even hours later).
+///
+/// HealthKit is intentionally omitted — Xcode 26 SDK moved HKLiveWorkoutBuilder
+/// to watchOS 12.0+. GPS-only gives accurate distance, pace, and route.
 class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLocationManagerDelegate {
 
     static let shared = WatchSessionManager()
 
-    // ─── Published run state (used by both modes) ──────────────────────────
+    // ─── Published run state (both modes share these) ──────────────────────
     @Published var isRunning: Bool = false
     @Published var isPaused: Bool = false
     @Published var distanceKm: Double = 0
@@ -25,11 +28,6 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
 
     /// True when the watch is recording its own run (no phone needed).
     @Published var isStandaloneMode: Bool = false
-
-    // ─── HealthKit ────────────────────────────────────────────────────────
-    private let healthStore = HKHealthStore()
-    private var workoutSession: HKWorkoutSession?
-    private var workoutBuilder: HKLiveWorkoutBuilder?
 
     // ─── GPS ──────────────────────────────────────────────────────────────
     private let locationManager = CLLocationManager()
@@ -47,25 +45,17 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 5          // only update every 5 m
+        locationManager.distanceFilter = 5          // update every 5 m
         if WCSession.isSupported() {
             WCSession.default.delegate = self
             WCSession.default.activate()
         }
     }
 
-    // ─── HealthKit + Location authorization ───────────────────────────────
+    // ─── Location authorization ────────────────────────────────────────────
 
     func requestAuthorization() {
         locationManager.requestWhenInUseAuthorization()
-        guard HKHealthStore.isHealthDataAvailable() else { return }
-        let share: Set<HKSampleType> = [HKObjectType.workoutType()]
-        let read: Set<HKObjectType> = [
-            HKObjectType.quantityType(forIdentifier: .heartRate)!,
-            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-        ]
-        healthStore.requestAuthorization(toShare: share, read: read) { _, _ in }
     }
 
     // ─── Standalone run: start ────────────────────────────────────────────
@@ -90,31 +80,9 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         isPaused = false
 
         locationManager.startUpdatingLocation()
-        startHKSession()
 
         standaloneTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tickTimer()
-        }
-    }
-
-    private func startHKSession() {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
-        let config = HKWorkoutConfiguration()
-        config.activityType = .running
-        config.locationType = .outdoor
-        do {
-            let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
-            let builder = session.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(
-                healthStore: healthStore,
-                workoutConfiguration: config
-            )
-            workoutSession = session
-            workoutBuilder = builder
-            session.startActivity(with: standaloneStartDate ?? Date())
-            builder.beginCollection(withStart: standaloneStartDate ?? Date()) { _, _ in }
-        } catch {
-            // Simulator or no HealthKit — GPS-only mode, still works fine.
         }
     }
 
@@ -123,28 +91,12 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
     private func tickTimer() {
         guard isStandaloneMode, isRunning, !isPaused,
               let start = standaloneStartDate else { return }
-
         let elapsed = Date().timeIntervalSince(start) - standalonePausedDuration
         durationSeconds = Int(elapsed)
 
-        // Pace
-        if standaloneDistanceMeters > 0 {
+        if standaloneDistanceMeters > 0 && durationSeconds > 0 {
             let paceSecsPerKm = Double(durationSeconds) / (standaloneDistanceMeters / 1000)
             paceString = Self.formatPace(paceSecsPerKm)
-        }
-
-        // HR from HealthKit live builder
-        if let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate),
-           let stats = workoutBuilder?.statistics(for: hrType),
-           let qty = stats.mostRecentQuantity() {
-            heartRate = Int(qty.doubleValue(for: HKUnit(from: "count/min")))
-        }
-
-        // Calories from HealthKit live builder
-        if let calType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-           let stats = workoutBuilder?.statistics(for: calType),
-           let qty = stats.sumQuantity() {
-            calories = Int(qty.doubleValue(for: .kilocalorie()))
         }
     }
 
@@ -155,7 +107,6 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         isPaused = true
         standalonePauseStart = Date()
         locationManager.stopUpdatingLocation()
-        workoutSession?.pause()
     }
 
     func resumeStandaloneRun() {
@@ -166,7 +117,6 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         standalonePauseStart = nil
         isPaused = false
         locationManager.startUpdatingLocation()
-        workoutSession?.resume()
     }
 
     // ─── Standalone run: stop + send to phone ────────────────────────────
@@ -184,42 +134,25 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
 
         let finalDuration = durationSeconds
         let finalDistance = standaloneDistanceMeters
-        let finalHR = heartRate
-        let finalCalories = calories
         let startTs = standaloneStartDate?.timeIntervalSince1970 ?? Date().timeIntervalSince1970
         let endTs = Date().timeIntervalSince1970
         let route: [[Double]] = standaloneRoutePoints.map {
             [$0.coordinate.latitude, $0.coordinate.longitude]
         }
 
-        // Finalise HealthKit workout (saves to Health app)
-        let endDate = Date()
-        if let session = workoutSession, let builder = workoutBuilder {
-            session.end()
-            builder.endCollection(withEnd: endDate) { _, _ in
-                builder.finishWorkout { _, _ in }
-            }
-            workoutSession = nil
-            workoutBuilder = nil
-        }
+        distanceKm = 0; durationSeconds = 0; paceString = "--:--"
+        heartRate = 0; calories = 0
 
-        // Reset display
-        distanceKm = 0
-        durationSeconds = 0
-        paceString = "--:--"
-        heartRate = 0
-        calories = 0
-
-        // transferUserInfo is queued — delivered even when iPhone is not
-        // currently reachable (phone reconnects → iOS fires didReceiveUserInfo).
+        // transferUserInfo queues the payload — iPhone receives it when it
+        // next connects, even if that's hours after the run finishes.
         let payload: [String: Any] = [
             "action": "completedWatchRun",
             "startTime": startTs,
             "endTime": endTs,
             "durationSeconds": finalDuration,
             "distanceMeters": finalDistance,
-            "avgHeartRate": finalHR,
-            "calories": finalCalories,
+            "avgHeartRate": 0,
+            "calories": 0,
             "route": route
         ]
         WCSession.default.transferUserInfo(payload)
@@ -242,8 +175,7 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
 
     // ─── Receive messages from phone ──────────────────────────────────────
 
-    func session(_ session: WCSession,
-                 didReceiveMessage message: [String: Any]) {
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         handleMessage(message)
     }
 
@@ -259,7 +191,6 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         DispatchQueue.main.async {
             switch action {
             case "syncRunData":
-                // Ignore phone sync when watch is recording its own run
                 guard !self.isStandaloneMode else { return }
                 let distM = message["distance"] as? Double ?? 0
                 self.distanceKm      = distM / 1000
@@ -272,9 +203,7 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
                 self.paceString = paceRaw > 0 ? Self.formatPace(paceRaw) : "--:--"
 
             case "startRun":
-                if !self.isStandaloneMode {
-                    self.isRunning = true; self.isPaused = false
-                }
+                if !self.isStandaloneMode { self.isRunning = true; self.isPaused = false }
 
             case "stopRun":
                 if !self.isStandaloneMode {
@@ -290,9 +219,9 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
 
     // ─── Send control commands to phone ───────────────────────────────────
 
-    func sendPause()  { send(["action": "runPaused"])   }
-    func sendResume() { send(["action": "runResumed"])  }
-    func sendStop()   { send(["action": "runStopped"])  }
+    func sendPause()  { send(["action": "runPaused"])  }
+    func sendResume() { send(["action": "runResumed"]) }
+    func sendStop()   { send(["action": "runStopped"]) }
 
     private func send(_ message: [String: Any]) {
         guard WCSession.default.isReachable else { return }
@@ -301,7 +230,7 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         }
     }
 
-    // ─── WCSessionDelegate boilerplate ────────────────────────────────────
+    // ─── WCSessionDelegate ────────────────────────────────────────────────
 
     func session(_ session: WCSession,
                  activationDidCompleteWith state: WCSessionActivationState,
@@ -329,3 +258,4 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
             : String(format: "%02d:%02d", m, s)
     }
 }
+#endif
