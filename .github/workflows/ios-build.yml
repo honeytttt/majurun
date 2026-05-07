@@ -236,17 +236,32 @@ jobs:
 
       - name: Build Flutter iOS (no codesign)
         run: |
-          # flutter build ios writes dart-defines to Generated.xcconfig before invoking
-          # xcodebuild. If it fails (e.g. watch target SDK mismatch during the xcodebuild
-          # sub-call), Generated.xcconfig is already written — so we ignore the exit code.
-          # The xcodebuild archive step re-runs xcode_backend.sh and handles the actual
-          # compilation; it uses per-target SDKROOT so watch builds with watchos SDK.
           flutter build ios --release --no-codesign \
             --dart-define=ENVIRONMENT=production \
             --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
             --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
-            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }} \
-            || echo "flutter build ios failed (likely watch SDK mismatch) — continuing to xcodebuild archive"
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
+
+      - name: Build Watch App (watchOS SDK)
+        run: |
+          # Build watch target separately using the watchOS SDK.
+          # The watch is NOT a dependency of Runner (would inherit iphoneos SDK from
+          # -destination 'generic/platform=iOS' and fail). We build it standalone
+          # here and inject it into the archive after Runner is archived.
+          WATCHOS_SDK=$(xcodebuild -showsdks | grep "^[[:space:]]*watchOS [0-9]" | grep -v -i simulator | awk '{print $NF}' | tail -1)
+          echo "Using watchOS SDK: $WATCHOS_SDK"
+
+          xcodebuild build \
+            -project ios/Runner.xcodeproj \
+            -target "MajuRunWatch Watch App" \
+            -sdk "$WATCHOS_SDK" \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR=$RUNNER_TEMP/watch_products \
+            2>&1 | tail -30
+
+          echo "=== Watch build products ==="
+          ls -la $RUNNER_TEMP/watch_products/ || true
 
       - name: Build and Sign Archive
         env:
@@ -280,6 +295,19 @@ jobs:
 
           echo "=== Archive created without signing ==="
           ls -la $RUNNER_TEMP/Runner.xcarchive/Products/Applications/ || true
+
+          # Inject pre-built watch app into the archive before signing
+          APP_PRODUCTS="$RUNNER_TEMP/Runner.xcarchive/Products/Applications"
+          WATCH_APP_SRC=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
+          if [ -n "$WATCH_APP_SRC" ]; then
+            echo "Injecting watch app: $WATCH_APP_SRC"
+            mkdir -p "$APP_PRODUCTS/Runner.app/Watch"
+            cp -r "$WATCH_APP_SRC" "$APP_PRODUCTS/Runner.app/Watch/"
+            echo "Watch app injected successfully"
+            ls -la "$APP_PRODUCTS/Runner.app/Watch/"
+          else
+            echo "WARNING: Watch app not found — skipping watch injection"
+          fi
 
           # Now sign the app manually
           APP_PATH="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app"

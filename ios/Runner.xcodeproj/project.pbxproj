@@ -58,7 +58,6 @@
 			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
 			dstSubfolderSpec = 16;
 			files = (
-				AABB00171CF9000F007C1180 /* MajuRunWatch Watch App.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -259,7 +258,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				AABB00191CF9000F007C1180 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
