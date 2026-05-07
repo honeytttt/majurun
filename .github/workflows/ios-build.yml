@@ -236,11 +236,17 @@ jobs:
 
       - name: Build Flutter iOS (no codesign)
         run: |
+          # flutter build ios writes dart-defines to Generated.xcconfig before invoking
+          # xcodebuild. If it fails (e.g. watch target SDK mismatch during the xcodebuild
+          # sub-call), Generated.xcconfig is already written — so we ignore the exit code.
+          # The xcodebuild archive step re-runs xcode_backend.sh and handles the actual
+          # compilation; it uses per-target SDKROOT so watch builds with watchos SDK.
           flutter build ios --release --no-codesign \
             --dart-define=ENVIRONMENT=production \
             --dart-define=CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
             --dart-define=CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
-            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=${{ secrets.CLOUDINARY_UPLOAD_PRESET }} \
+            || echo "flutter build ios failed (likely watch SDK mismatch) — continuing to xcodebuild archive"
 
       - name: Build and Sign Archive
         env:
@@ -260,11 +266,13 @@ jobs:
           echo "Entitlements extracted to: $ENTITLEMENTS_FILE"
           cat "$ENTITLEMENTS_FILE"
 
-          # Build archive without codesign first
+          # Build archive without codesign first.
+          # Do NOT pass -sdk iphoneos — that would override every target's SDKROOT
+          # including the watch target. Use -destination only so each target's
+          # own SDKROOT is respected (Runner=iphoneos, Watch=watchos).
           xcodebuild archive \
             -workspace Runner.xcworkspace \
             -scheme Runner \
-            -sdk iphoneos \
             -configuration Release \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -destination 'generic/platform=iOS' \
