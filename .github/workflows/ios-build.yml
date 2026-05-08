@@ -280,17 +280,12 @@ jobs:
             echo "Found Xcode 26 template: $XCODE_TEMPLATE"
             cat "$XCODE_TEMPLATE"
             cp "$XCODE_TEMPLATE" "$WATCH_ASSETS/Contents.json"
-            # Inject our icon filename into every image entry that lacks one
-            python3 -c "
-import json, sys
-with open('$WATCH_ASSETS/Contents.json') as f:
-    d = json.load(f)
-for img in d.get('images', []):
-    img.setdefault('filename', 'icon-1024.png')
-with open('$WATCH_ASSETS/Contents.json', 'w') as f:
-    json.dump(d, f, indent=2)
-print('Template updated with icon filename')
-"
+            # Inject our icon filename into every image entry that lacks one.
+            # jq is pre-installed on GitHub macOS runners.
+            CFILE="$WATCH_ASSETS/Contents.json"
+            jq '.images |= map(if has("filename") then . else . + {"filename": "icon-1024.png"} end)' \
+              "$CFILE" > /tmp/contents_patched.json && mv /tmp/contents_patched.json "$CFILE"
+            echo "Template updated with icon filename"
             echo "=== Updated Contents.json ==="
             cat "$WATCH_ASSETS/Contents.json"
           else
