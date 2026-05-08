@@ -256,15 +256,16 @@ jobs:
           BUILD_NUMBER=$(grep "^version:" pubspec.yaml | sed 's/.*+//')
           echo "Watch build version: $BUILD_NAME ($BUILD_NUMBER)"
 
-          # Generate watch icons BEFORE building so xcodebuild compiles them
+          # Generate watch icon BEFORE building so xcodebuild compiles it
           # into Assets.car when it processes the asset catalog.
+          # Contents.json uses single-image universal format — only 1024x1024 is needed.
           WATCH_ASSETS="ios/MajuRunWatch Watch App/Assets.xcassets/AppIcon.appiconset"
-          for entry in "88:icon-88.png" "100:icon-100.png" "172:icon-172.png" "196:icon-196.png" "216:icon-216.png" "1024:icon-1024.png"; do
-            size="${entry%%:*}"
-            file="${entry##*:}"
-            sips -z $size $size assets/icon/app_icon.png --out "$WATCH_ASSETS/$file" 2>/dev/null || true
-          done
-          echo "Watch icon PNGs generated:"
+          sips -z 1024 1024 assets/icon/app_icon.png --out "$WATCH_ASSETS/icon-1024.png" 2>/dev/null || true
+          # Strip alpha channel — App Store rejects transparent watch icons.
+          # JPEG round-trip flattens transparency to white.
+          sips -s format jpeg "$WATCH_ASSETS/icon-1024.png" --out /tmp/icon_flat.jpg 2>/dev/null || true
+          sips -s format png /tmp/icon_flat.jpg --out "$WATCH_ASSETS/icon-1024.png" 2>/dev/null || true
+          echo "Watch icon generated (alpha stripped):"
           ls -la "$WATCH_ASSETS/"
 
           WATCHOS_SDK=$(xcodebuild -showsdks | grep "^[[:space:]]*watchOS [0-9]" | grep -v -i simulator | awk '{print $NF}' | tail -1)
@@ -313,6 +314,13 @@ jobs:
             /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" \
             "$WATCH_APP/Info.plist"
           echo "CFBundleIconName in Info.plist: $(plutil -extract CFBundleIconName raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
+
+          # Apple's old-style validator also checks CFBundleIconFiles — add it if missing
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIconFiles" "$WATCH_APP/Info.plist" 2>/dev/null || {
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles array" "$WATCH_APP/Info.plist"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon" "$WATCH_APP/Info.plist"
+          }
+          echo "CFBundleIconFiles in Info.plist: $(plutil -extract CFBundleIconFiles raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
 
       - name: Build and Sign Archive
         env:
