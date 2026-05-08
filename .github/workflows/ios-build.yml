@@ -308,6 +308,14 @@ jobs:
           echo "=== After actool — bundle contents ==="
           ls -la "$WATCH_APP/" | grep -E "\.car|\.png|Info" || true
 
+          # Check if actool produced a valid Assets.car
+          if [ -f "$WATCH_APP/Assets.car" ]; then
+            echo "Assets.car size: $(wc -c < "$WATCH_APP/Assets.car") bytes"
+            xcrun assetutil --info "$WATCH_APP/Assets.car" 2>&1 | head -30 || true
+          else
+            echo "WARNING: Assets.car NOT produced by actool"
+          fi
+
           # Ensure CFBundleIconName is in the processed Info.plist
           # (xcodebuild may strip keys it expects actool to provide)
           /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" \
@@ -316,11 +324,12 @@ jobs:
             "$WATCH_APP/Info.plist"
           echo "CFBundleIconName in Info.plist: $(plutil -extract CFBundleIconName raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
 
-          # Apple's old-style validator also checks CFBundleIconFiles — add it if missing
-          /usr/libexec/PlistBuddy -c "Print :CFBundleIconFiles" "$WATCH_APP/Info.plist" 2>/dev/null || {
-            /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles array" "$WATCH_APP/Info.plist"
-            /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon" "$WATCH_APP/Info.plist"
-          }
+          # Replace CFBundleIconFiles entirely with a single "AppIcon" entry.
+          # The old 5-entry array (AppIcon88, AppIcon100, etc.) references files
+          # that don't exist — Apple's validator rejects that.
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFiles" "$WATCH_APP/Info.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles array" "$WATCH_APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon" "$WATCH_APP/Info.plist"
           echo "CFBundleIconFiles in Info.plist: $(plutil -extract CFBundleIconFiles raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
 
       - name: Build and Sign Archive
@@ -533,6 +542,18 @@ jobs:
             echo "Watch bundle entitlements after Runner.app re-sign:"
             find "$RUNNER_APP/Watch" -name "*.app" -maxdepth 1 -type d | while read watchapp; do
               codesign -d --entitlements :- "$watchapp" 2>&1 || true
+            done
+
+            # Diagnostic: verify Info.plist is correct in the final IPA
+            echo "=== DIAGNOSTIC: Watch Info.plist in final IPA ==="
+            find "$RUNNER_APP/Watch" -name "*.app" -maxdepth 1 -type d | while read watchapp; do
+              echo "Watch bundle: $watchapp"
+              plutil -p "$watchapp/Info.plist" 2>&1 | grep -E "CFBundleIcon|CFBundleVersion|CFBundleShort" || true
+              if [ -f "$watchapp/Assets.car" ]; then
+                echo "Assets.car present: $(wc -c < "$watchapp/Assets.car") bytes"
+              else
+                echo "WARNING: Assets.car missing from watch bundle in IPA"
+              fi
             done
 
             # Repackage IPA
