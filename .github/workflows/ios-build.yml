@@ -312,11 +312,16 @@ jobs:
           WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
           ls -la "$WATCH_APP/" || true
 
-          # Xcode 26 actool introduced a [2d] appearance dimension for watchOS 26
-          # Liquid Glass icons. Our Contents.json (universal/watchos/2x) is "unassigned"
-          # in Xcode 26 actool, so it never produces Assets.car.
-          # Fix: use Xcode 16.4 actool which doesn't require the [2d] dimension.
-          echo "=== Compiling asset catalog with Xcode 16 actool ==="
+          # Search for any watchOS icon template in Xcode to understand the correct format
+          echo "=== Searching for Xcode watchOS icon templates ==="
+          find /Applications/Xcode_16.4.0.app -name "Contents.json" 2>/dev/null \
+            | xargs grep -l '"watchos"\|"watch-marketing"\|"watch"' 2>/dev/null \
+            | head -5 | while read f; do
+              echo "--- Template: $f ---"
+              cat "$f"
+            done || true
+
+          echo "=== Compiling asset catalog with actool ==="
           XCODE16=$(ls /Applications 2>/dev/null | grep "^Xcode_16" | sort -V | tail -1)
           if [ -n "$XCODE16" ]; then
             ACTOOL16="/Applications/$XCODE16/Contents/Developer/usr/bin/actool"
