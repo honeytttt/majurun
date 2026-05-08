@@ -262,7 +262,11 @@ jobs:
           # Assets.car (watch-marketing 1024x1024) is compiled by xcodebuild below.
           WATCH_ASSETS="ios/MajuRunWatch Watch App/Assets.xcassets/AppIcon.appiconset"
           SOURCE="assets/icon/app_icon.png"
-          for size in 88 100 172 196 216 1024; do
+          # Generate all sizes referenced by Contents.json (old-format watch idiom with role+subtype).
+          # Sizes: 58=companionSettings@2x, 80=38mm notif/launcher@2x, 87=companionSettings@3x,
+          #        88=40/41/42mm launcher/notif@2x, 100=44mm@2x, 102=45mm@2x, 108=49mm@2x,
+          #        172=38mm quickLook@2x, 196=42mm@2x, 216=44mm@2x, 234=45mm@2x, 258=49mm@2x
+          for size in 58 80 87 88 100 102 108 172 196 216 234 258 1024; do
             sips -z $size $size "$SOURCE" --out "$WATCH_ASSETS/icon-${size}.png" 2>/dev/null || true
             # Strip alpha channel — App Store rejects transparent watch icons.
             sips -s format jpeg "$WATCH_ASSETS/icon-${size}.png" --out /tmp/icon_flat.jpg 2>/dev/null || true
@@ -287,7 +291,7 @@ jobs:
             FLUTTER_BUILD_NUMBER="$BUILD_NUMBER" \
             WATCHOS_DEPLOYMENT_TARGET=10.0 \
             CONFIGURATION_BUILD_DIR=$RUNNER_TEMP/watch_products \
-            2>&1 | grep -E "CompileAssetCatalog|actool|error:|Assets\.car|CFBundle" | head -30 || true
+            2>&1 | grep -E "CompileAssetCatalog|actool|error:|Assets\.car|CFBundle|unassigned|warning" | head -40 || true
 
           WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
           echo "Watch app bundle: $WATCH_APP"
