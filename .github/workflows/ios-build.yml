@@ -279,6 +279,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             FLUTTER_BUILD_NAME="$BUILD_NAME" \
             FLUTTER_BUILD_NUMBER="$BUILD_NUMBER" \
+            WATCHOS_DEPLOYMENT_TARGET=10.0 \
             CONFIGURATION_BUILD_DIR=$RUNNER_TEMP/watch_products \
             2>&1 | grep -E "CompileAssetCatalog|actool|error:|Assets\.car|CFBundle" | head -20 || true
 
@@ -298,7 +299,7 @@ jobs:
             --compress-pngs \
             --enable-on-demand-resources NO \
             --target-device watch \
-            --minimum-deployment-target 7.0 \
+            --minimum-deployment-target 10.0 \
             --platform watchos \
             --product-type com.apple.product-type.application \
             --compile "$WATCH_APP" \
@@ -350,7 +351,9 @@ jobs:
             -configuration Release \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -50
+            CODE_SIGNING_ALLOWED=NO \
+            WATCHOS_DEPLOYMENT_TARGET=10.0 \
+            2>&1 | tail -50
 
           echo "=== Archive created without signing ==="
           ls -la $RUNNER_TEMP/Runner.xcarchive/Products/Applications/ || true
