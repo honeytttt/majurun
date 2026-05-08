@@ -24,7 +24,11 @@
 	<string>AppIcon</string>
 	<key>CFBundleIconFiles</key>
 	<array>
-		<string>AppIcon</string>
+		<string>AppIcon88</string>
+		<string>AppIcon100</string>
+		<string>AppIcon172</string>
+		<string>AppIcon196</string>
+		<string>AppIcon216</string>
 	</array>
 	<key>WKApplication</key>
 	<true/>

@@ -256,46 +256,27 @@ jobs:
           BUILD_NUMBER=$(grep "^version:" pubspec.yaml | sed 's/.*+//')
           echo "Watch build version: $BUILD_NAME ($BUILD_NUMBER)"
 
-          # Generate watch icon PNG (alpha-stripped) before building.
+          # Generate all required watchOS icon sizes (alpha-stripped).
+          # CFBundleIconFiles references AppIcon88, AppIcon100, AppIcon172, AppIcon196, AppIcon216.
+          # These are the old-format watch icon sizes that altool's validator checks.
+          # Assets.car (watch-marketing 1024x1024) is compiled by xcodebuild below.
           WATCH_ASSETS="ios/MajuRunWatch Watch App/Assets.xcassets/AppIcon.appiconset"
-          sips -z 1024 1024 assets/icon/app_icon.png --out "$WATCH_ASSETS/icon-1024.png" 2>/dev/null || true
-          # Strip alpha channel — App Store rejects transparent watch icons.
-          sips -s format jpeg "$WATCH_ASSETS/icon-1024.png" --out /tmp/icon_flat.jpg 2>/dev/null || true
-          sips -s format png /tmp/icon_flat.jpg --out "$WATCH_ASSETS/icon-1024.png" 2>/dev/null || true
-          echo "Watch icon generated (alpha stripped):"
+          SOURCE="assets/icon/app_icon.png"
+          for size in 88 100 172 196 216 1024; do
+            sips -z $size $size "$SOURCE" --out "$WATCH_ASSETS/icon-${size}.png" 2>/dev/null || true
+            # Strip alpha channel — App Store rejects transparent watch icons.
+            sips -s format jpeg "$WATCH_ASSETS/icon-${size}.png" --out /tmp/icon_flat.jpg 2>/dev/null || true
+            sips -s format png /tmp/icon_flat.jpg --out "$WATCH_ASSETS/icon-${size}.png" 2>/dev/null || true
+          done
+          echo "Watch icons generated (alpha stripped):"
           ls -la "$WATCH_ASSETS/"
-
-          # Xcode 26 actool requires a new "[2d]" appearance dimension that our
-          # hand-crafted Contents.json doesn't satisfy. Let Xcode tell us the right
-          # format by reading its own project template, then inject our icon filename.
-          echo "=== Reading Xcode 26 watchOS icon template ==="
-          XCODE_TEMPLATE=$(find /Applications/Xcode_26.3.app \
-            -path "*/watchOS*/*.xctemplate/*/AppIcon.appiconset/Contents.json" 2>/dev/null | head -1)
-          if [ -z "$XCODE_TEMPLATE" ]; then
-            XCODE_TEMPLATE=$(find /Applications/Xcode_26.3.app \
-              -path "*watchos*AppIcon*Contents.json" 2>/dev/null \
-              ! -path "*simulator*" | head -1)
-          fi
-          if [ -n "$XCODE_TEMPLATE" ]; then
-            echo "Found Xcode 26 template: $XCODE_TEMPLATE"
-            cat "$XCODE_TEMPLATE"
-            cp "$XCODE_TEMPLATE" "$WATCH_ASSETS/Contents.json"
-            # Inject our icon filename into every image entry that lacks one.
-            # jq is pre-installed on GitHub macOS runners.
-            CFILE="$WATCH_ASSETS/Contents.json"
-            jq '.images |= map(if has("filename") then . else . + {"filename": "icon-1024.png"} end)' \
-              "$CFILE" > /tmp/contents_patched.json && mv /tmp/contents_patched.json "$CFILE"
-            echo "Template updated with icon filename"
-            echo "=== Updated Contents.json ==="
-            cat "$WATCH_ASSETS/Contents.json"
-          else
-            echo "WARNING: Xcode 26 template not found — using committed Contents.json"
-            cat "$WATCH_ASSETS/Contents.json"
-          fi
 
           WATCHOS_SDK=$(xcodebuild -showsdks | grep "^[[:space:]]*watchOS [0-9]" | grep -v -i simulator | awk '{print $NF}' | tail -1)
           echo "Using watchOS SDK: $WATCHOS_SDK"
 
+          # xcodebuild's CompileAssetCatalog phase runs actool internally and
+          # produces Assets.car from the committed Contents.json (watch-marketing 1024x1024).
+          # We do NOT run actool separately — it would overwrite the correct Assets.car.
           xcodebuild build \
             -project ios/Runner.xcodeproj \
             -target "MajuRunWatch Watch App" \
@@ -306,61 +287,29 @@ jobs:
             FLUTTER_BUILD_NUMBER="$BUILD_NUMBER" \
             WATCHOS_DEPLOYMENT_TARGET=10.0 \
             CONFIGURATION_BUILD_DIR=$RUNNER_TEMP/watch_products \
-            2>&1 | grep -E "CompileAssetCatalog|actool|error:|Assets\.car|CFBundle" | head -20 || true
+            2>&1 | grep -E "CompileAssetCatalog|actool|error:|Assets\.car|CFBundle" | head -30 || true
 
-          echo "=== Watch app bundle contents ==="
           WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
-          ls -la "$WATCH_APP/" || true
+          echo "Watch app bundle: $WATCH_APP"
 
-          # Search for any watchOS icon template in Xcode to understand the correct format
-          echo "=== Searching for Xcode watchOS icon templates ==="
-          find /Applications/Xcode_16.4.0.app -name "Contents.json" 2>/dev/null \
-            | xargs grep -l '"watchos"\|"watch-marketing"\|"watch"' 2>/dev/null \
-            | head -5 | while read f; do
-              echo "--- Template: $f ---"
-              cat "$f"
-            done || true
-
-          echo "=== Compiling asset catalog with actool ==="
-          XCODE16=$(ls /Applications 2>/dev/null | grep "^Xcode_16" | sort -V | tail -1)
-          if [ -n "$XCODE16" ]; then
-            ACTOOL16="/Applications/$XCODE16/Contents/Developer/usr/bin/actool"
-            echo "Using actool from: $ACTOOL16"
-          else
-            ACTOOL16="$(xcrun -f actool)"
-            echo "Xcode 16 not found, falling back to: $ACTOOL16"
-          fi
-          "$ACTOOL16" \
-            --output-format human-readable-text \
-            --notices \
-            --warnings \
-            --output-partial-info-plist "$RUNNER_TEMP/actool_partial.plist" \
-            --app-icon AppIcon \
-            --compress-pngs \
-            --enable-on-demand-resources NO \
-            --target-device watch \
-            --minimum-deployment-target 10.0 \
-            --platform watchos \
-            --product-type com.apple.product-type.application \
-            --compile "$WATCH_APP" \
-            "ios/MajuRunWatch Watch App/Assets.xcassets" 2>&1 || true
-
-          echo "=== After actool — bundle contents ==="
-          ls -la "$WATCH_APP/" | grep -E "\.car|\.png|Info" || true
-
-          # Check if actool produced a valid Assets.car
+          # Check Assets.car produced by xcodebuild
           if [ -f "$WATCH_APP/Assets.car" ]; then
             echo "Assets.car size: $(wc -c < "$WATCH_APP/Assets.car") bytes"
-            xcrun assetutil --info "$WATCH_APP/Assets.car" 2>&1 | head -30 || true
+            xcrun assetutil --info "$WATCH_APP/Assets.car" 2>&1 || true
           else
-            echo "WARNING: Assets.car NOT produced by actool"
+            echo "WARNING: Assets.car NOT found after xcodebuild"
           fi
 
-          # Copy the icon PNG directly into the bundle root.
-          # CFBundleIconFiles = ["AppIcon"] looks for AppIcon.png in the bundle root.
-          # This satisfies Apple's "Missing Icons" check even if Assets.car is absent.
-          cp "$WATCH_ASSETS/icon-1024.png" "$WATCH_APP/AppIcon.png" 2>/dev/null || true
-          echo "AppIcon.png in bundle: $(ls -la "$WATCH_APP/AppIcon.png" 2>/dev/null || echo MISSING)"
+          # Copy size-specific icon PNGs to the bundle root.
+          # altool's CFBundleIconFiles validator checks for these exact filenames.
+          # Info.plist CFBundleIconFiles = [AppIcon88, AppIcon100, AppIcon172, AppIcon196, AppIcon216]
+          cp "$WATCH_ASSETS/icon-88.png"  "$WATCH_APP/AppIcon88.png"  2>/dev/null || true
+          cp "$WATCH_ASSETS/icon-100.png" "$WATCH_APP/AppIcon100.png" 2>/dev/null || true
+          cp "$WATCH_ASSETS/icon-172.png" "$WATCH_APP/AppIcon172.png" 2>/dev/null || true
+          cp "$WATCH_ASSETS/icon-196.png" "$WATCH_APP/AppIcon196.png" 2>/dev/null || true
+          cp "$WATCH_ASSETS/icon-216.png" "$WATCH_APP/AppIcon216.png" 2>/dev/null || true
+          echo "Icon files in bundle root:"
+          ls -la "$WATCH_APP/"AppIcon*.png 2>/dev/null || echo "WARNING: no AppIcon*.png files"
 
           # Ensure CFBundleIconName is in the processed Info.plist
           # (xcodebuild may strip keys it expects actool to provide)
@@ -368,15 +317,22 @@ jobs:
             "$WATCH_APP/Info.plist" 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" \
             "$WATCH_APP/Info.plist"
-          echo "CFBundleIconName in Info.plist: $(plutil -extract CFBundleIconName raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
+          echo "CFBundleIconName: $(plutil -extract CFBundleIconName raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
 
-          # Replace CFBundleIconFiles entirely with a single "AppIcon" entry.
-          # The old 5-entry array (AppIcon88, AppIcon100, etc.) references files
-          # that don't exist — Apple's validator rejects that.
+          # Ensure CFBundleIconFiles lists the actual size-specific filenames.
+          # xcodebuild may strip these (expects actool to populate them), so we force-set them.
           /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFiles" "$WATCH_APP/Info.plist" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles array" "$WATCH_APP/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon" "$WATCH_APP/Info.plist"
-          echo "CFBundleIconFiles in Info.plist: $(plutil -extract CFBundleIconFiles raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon88"  "$WATCH_APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:1 string AppIcon100" "$WATCH_APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:2 string AppIcon172" "$WATCH_APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:3 string AppIcon196" "$WATCH_APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:4 string AppIcon216" "$WATCH_APP/Info.plist"
+          echo "CFBundleIconFiles set:"
+          plutil -extract CFBundleIconFiles raw "$WATCH_APP/Info.plist" 2>/dev/null || true
+
+          echo "=== Final watch bundle root ==="
+          ls -la "$WATCH_APP/" || true
 
       - name: Build and Sign Archive
         env:
@@ -590,22 +546,23 @@ jobs:
               codesign -d --entitlements :- "$watchapp" 2>&1 || true
             done
 
-            # Diagnostic: verify Info.plist is correct in the final IPA
-            echo "=== DIAGNOSTIC: Watch Info.plist in final IPA ==="
+            # Diagnostic: verify watch bundle contents in the final IPA
+            echo "=== DIAGNOSTIC: Watch bundle in final IPA ==="
             find "$RUNNER_APP/Watch" -name "*.app" -maxdepth 1 -type d | while read watchapp; do
               echo "Watch bundle: $watchapp"
-              plutil -p "$watchapp/Info.plist" 2>&1 | grep -E "CFBundleIcon|CFBundleVersion|CFBundleShort" || true
+              echo "--- Info.plist (all CFBundleIcon* keys) ---"
+              plutil -p "$watchapp/Info.plist" 2>&1 | grep -A5 "CFBundleIcon" || echo "No CFBundleIcon keys found"
+              echo "--- Assets.car ---"
               if [ -f "$watchapp/Assets.car" ]; then
                 echo "Assets.car present: $(wc -c < "$watchapp/Assets.car") bytes"
+                xcrun assetutil --info "$watchapp/Assets.car" 2>&1 || true
               else
-                echo "WARNING: Assets.car missing from watch bundle in IPA"
+                echo "WARNING: Assets.car missing"
               fi
-              if [ -f "$watchapp/AppIcon.png" ]; then
-                echo "AppIcon.png present: $(wc -c < "$watchapp/AppIcon.png") bytes"
-              else
-                echo "WARNING: AppIcon.png missing from watch bundle in IPA"
-              fi
-              echo "Root files: $(ls "$watchapp/" | grep -v '\.lproj\|Frameworks\|PlugIns' | head -20)"
+              echo "--- Icon PNG files in bundle root ---"
+              ls -la "$watchapp/"AppIcon*.png 2>/dev/null || echo "WARNING: no AppIcon*.png files in bundle root"
+              echo "--- All files in bundle root (not dirs) ---"
+              find "$watchapp" -maxdepth 1 -not -type d | sort || true
             done
 
             # Repackage IPA
