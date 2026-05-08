@@ -312,10 +312,20 @@ jobs:
           WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
           ls -la "$WATCH_APP/" || true
 
-          # xcodebuild sometimes silently skips asset catalog compilation in
-          # standalone builds. Run actool explicitly to guarantee Assets.car exists.
-          echo "=== Compiling asset catalog with actool ==="
-          xcrun actool \
+          # Xcode 26 actool introduced a [2d] appearance dimension for watchOS 26
+          # Liquid Glass icons. Our Contents.json (universal/watchos/2x) is "unassigned"
+          # in Xcode 26 actool, so it never produces Assets.car.
+          # Fix: use Xcode 16.4 actool which doesn't require the [2d] dimension.
+          echo "=== Compiling asset catalog with Xcode 16 actool ==="
+          XCODE16=$(ls /Applications 2>/dev/null | grep "^Xcode_16" | sort -V | tail -1)
+          if [ -n "$XCODE16" ]; then
+            ACTOOL16="/Applications/$XCODE16/Contents/Developer/usr/bin/actool"
+            echo "Using actool from: $ACTOOL16"
+          else
+            ACTOOL16="$(xcrun -f actool)"
+            echo "Xcode 16 not found, falling back to: $ACTOOL16"
+          fi
+          "$ACTOOL16" \
             --output-format human-readable-text \
             --notices \
             --warnings \
@@ -585,6 +595,12 @@ jobs:
               else
                 echo "WARNING: Assets.car missing from watch bundle in IPA"
               fi
+              if [ -f "$watchapp/AppIcon.png" ]; then
+                echo "AppIcon.png present: $(wc -c < "$watchapp/AppIcon.png") bytes"
+              else
+                echo "WARNING: AppIcon.png missing from watch bundle in IPA"
+              fi
+              echo "Root files: $(ls "$watchapp/" | grep -v '\.lproj\|Frameworks\|PlugIns' | head -20)"
             done
 
             # Repackage IPA
