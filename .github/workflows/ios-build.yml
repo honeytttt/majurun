@@ -279,10 +279,40 @@ jobs:
             FLUTTER_BUILD_NAME="$BUILD_NAME" \
             FLUTTER_BUILD_NUMBER="$BUILD_NUMBER" \
             CONFIGURATION_BUILD_DIR=$RUNNER_TEMP/watch_products \
-            2>&1 | tail -30
+            2>&1 | grep -E "CompileAssetCatalog|actool|error:|Assets\.car|CFBundle" | head -20 || true
 
-          echo "=== Watch build products ==="
-          ls -la $RUNNER_TEMP/watch_products/ || true
+          echo "=== Watch app bundle contents ==="
+          WATCH_APP=$(find $RUNNER_TEMP/watch_products -name "*.app" -maxdepth 1 | head -1)
+          ls -la "$WATCH_APP/" || true
+
+          # xcodebuild sometimes silently skips asset catalog compilation in
+          # standalone builds. Run actool explicitly to guarantee Assets.car exists.
+          echo "=== Compiling asset catalog with actool ==="
+          xcrun actool \
+            --output-format human-readable-text \
+            --notices \
+            --warnings \
+            --output-partial-info-plist "$RUNNER_TEMP/actool_partial.plist" \
+            --app-icon AppIcon \
+            --compress-pngs \
+            --enable-on-demand-resources NO \
+            --target-device watch \
+            --minimum-deployment-target 7.0 \
+            --platform watchos \
+            --product-type com.apple.product-type.application \
+            --compile "$WATCH_APP" \
+            "ios/MajuRunWatch Watch App/Assets.xcassets" 2>&1 || true
+
+          echo "=== After actool — bundle contents ==="
+          ls -la "$WATCH_APP/" | grep -E "\.car|\.png|Info" || true
+
+          # Ensure CFBundleIconName is in the processed Info.plist
+          # (xcodebuild may strip keys it expects actool to provide)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" \
+            "$WATCH_APP/Info.plist" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" \
+            "$WATCH_APP/Info.plist"
+          echo "CFBundleIconName in Info.plist: $(plutil -extract CFBundleIconName raw "$WATCH_APP/Info.plist" 2>/dev/null || echo MISSING)"
 
       - name: Build and Sign Archive
         env:
