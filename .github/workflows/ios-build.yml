@@ -256,6 +256,17 @@ jobs:
           BUILD_NUMBER=$(grep "^version:" pubspec.yaml | sed 's/.*+//')
           echo "Watch build version: $BUILD_NAME ($BUILD_NUMBER)"
 
+          # Generate watch icons BEFORE building so xcodebuild compiles them
+          # into Assets.car when it processes the asset catalog.
+          WATCH_ASSETS="ios/MajuRunWatch Watch App/Assets.xcassets/AppIcon.appiconset"
+          for entry in "88:icon-88.png" "100:icon-100.png" "172:icon-172.png" "196:icon-196.png" "216:icon-216.png" "1024:icon-1024.png"; do
+            size="${entry%%:*}"
+            file="${entry##*:}"
+            sips -z $size $size assets/icon/app_icon.png --out "$WATCH_ASSETS/$file" 2>/dev/null || true
+          done
+          echo "Watch icon PNGs generated:"
+          ls -la "$WATCH_ASSETS/"
+
           WATCHOS_SDK=$(xcodebuild -showsdks | grep "^[[:space:]]*watchOS [0-9]" | grep -v -i simulator | awk '{print $NF}' | tail -1)
           echo "Using watchOS SDK: $WATCHOS_SDK"
 
@@ -272,18 +283,6 @@ jobs:
 
           echo "=== Watch build products ==="
           ls -la $RUNNER_TEMP/watch_products/ || true
-
-          # Generate watch icons and compile the asset catalog.
-          # The asset catalog (Assets.xcassets/AppIcon.appiconset) is in source but
-          # the PNG files are generated at CI time from the iOS app icon using sips.
-          WATCH_ASSETS="ios/MajuRunWatch Watch App/Assets.xcassets/AppIcon.appiconset"
-          for entry in "88:icon-88.png" "100:icon-100.png" "172:icon-172.png" "196:icon-196.png" "216:icon-216.png" "1024:icon-1024.png"; do
-            size="${entry%%:*}"
-            file="${entry##*:}"
-            sips -z $size $size assets/icon/app_icon.png --out "$WATCH_ASSETS/$file" 2>/dev/null || true
-          done
-          echo "Watch icon PNGs generated:"
-          ls -la "$WATCH_ASSETS/"
 
       - name: Build and Sign Archive
         env:
