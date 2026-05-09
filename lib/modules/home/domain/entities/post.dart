@@ -170,10 +170,11 @@ class AppPost extends Equatable {
   static List<PostMedia> _parseMedia(dynamic value) {
     if (value == null || value is! List) return [];
     return value.map((item) {
-      if (item is! Map<String, dynamic>) return null;
-      final typeStr = (item['type'] as String?)?.toLowerCase() ?? 'image';
+      if (item is! Map) return null;
+      final map = Map<String, dynamic>.from(item);
+      final typeStr = (map['type'] as String?)?.toLowerCase() ?? 'image';
       return PostMedia(
-        url: item['url'] as String? ?? '',
+        url: map['url'] as String? ?? '',
         type: MediaType.values.firstWhere(
           (e) => e.name == typeStr,
           orElse: () => MediaType.image,
@@ -191,22 +192,24 @@ class AppPost extends Equatable {
     if (value == null) return null;
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
     return null;
   }
 
   static List<AppComment> _parseComments(dynamic value) {
     if (value == null || value is! List) return [];
     return value.map((item) {
-      if (item is! Map<String, dynamic>) return null;
+      if (item is! Map) return null;
+      final map = Map<String, dynamic>.from(item);
       return AppComment(
-        id: item['id'] as String? ?? '',
-        userId: item['userId'] as String? ?? '',
-        username: item['username'] as String? ?? 'Unknown',
-        text: item['text'] as String? ?? '',
-        media: _parseMedia(item['media']),
-        createdAt: _parseDateTime(item['createdAt']) ?? DateTime.now(),
-        likes: _parseStringList(item['likes']),
-        replies: _parseComments(item['replies']),
+        id: map['id'] as String? ?? '',
+        userId: map['userId'] as String? ?? '',
+        username: map['username'] as String? ?? 'Unknown',
+        text: map['text'] as String? ?? '',
+        media: _parseMedia(map['media']),
+        createdAt: _parseDateTime(map['createdAt']) ?? DateTime.now(),
+        likes: _parseStringList(map['likes']),
+        replies: _parseComments(map['replies']),
       );
     }).whereType<AppComment>().toList();
   }
