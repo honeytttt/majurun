@@ -22,6 +22,9 @@ class WatchSyncService extends ChangeNotifier {
   // Current run state to sync
   RunSyncData? _currentRunData;
 
+  /// True while the watch has an active standalone run in progress.
+  bool _watchRunActive = false;
+
   /// Called when a standalone watch run is received and saved.
   /// UI can set this to show a snackbar / navigate to the run.
   void Function(WatchCompletedRun)? onWatchRunReceived;
@@ -30,6 +33,9 @@ class WatchSyncService extends ChangeNotifier {
   bool get isWatchAppInstalled => _isWatchAppInstalled;
   WatchPlatform? get watchPlatform => _watchPlatform;
   RunSyncData? get currentRunData => _currentRunData;
+
+  /// Whether the watch has an active standalone run in progress.
+  bool get watchRunActive => _watchRunActive;
 
   /// Initialize watch connection
   Future<void> initialize() async {
@@ -198,7 +204,8 @@ class WatchSyncService extends ChangeNotifier {
   // Event handlers for watch-initiated events
   void _onWatchRunStarted() {
     debugPrint('Run started from watch');
-    // Notify the app to sync state
+    _watchRunActive = true;
+    notifyListeners();
   }
 
   void _onWatchRunPaused() {
@@ -211,10 +218,8 @@ class WatchSyncService extends ChangeNotifier {
 
   void _onWatchRunStopped(Map<dynamic, dynamic> event) {
     debugPrint('Run stopped from watch');
-    // Get final run data from watch
-    final distance = event['distance'] as double?;
-    final duration = event['duration'] as int?;
-    debugPrint('Watch run: ${distance}m in ${duration}s');
+    _watchRunActive = false;
+    notifyListeners();
   }
 
   void _onHeartRateUpdate(int? heartRate) {
@@ -272,6 +277,8 @@ class WatchSyncService extends ChangeNotifier {
         extra: {'source': 'apple_watch'},
       );
       debugPrint('✅ Watch run saved: ${distanceKm.toStringAsFixed(2)} km');
+      _watchRunActive = false;
+      notifyListeners();
       onWatchRunReceived?.call(run);
     } catch (e) {
       debugPrint('❌ Failed to save watch run: $e');
