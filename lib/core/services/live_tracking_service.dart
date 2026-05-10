@@ -202,7 +202,8 @@ class LiveTrackingService {
       if (doc.exists) {
         final contacts = doc.data()?['contacts'] as List<dynamic>? ?? [];
         _emergencyContacts = contacts
-            .map((c) => EmergencyContact.fromMap(c as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((c) => EmergencyContact.fromMap(Map<String, dynamic>.from(c)))
             .toList();
       }
     } catch (e) {
@@ -327,9 +328,9 @@ class LiveTrackingData {
       duration: data['duration'] ?? 0,
       currentPace: data['currentPace'] ?? '',
       currentSpeed: (data['currentSpeed'] as num?)?.toDouble() ?? 0,
-      route: routeData.map((r) {
-        final point = r as Map<String, dynamic>;
-        return LatLng(point['lat'], point['lng']);
+      route: routeData.whereType<Map>().map((r) {
+        final point = Map<String, dynamic>.from(r);
+        return LatLng((point['lat'] as num).toDouble(), (point['lng'] as num).toDouble());
       }).toList(),
       sosTriggered: data['sosTriggered'] ?? false,
     );

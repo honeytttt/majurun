@@ -114,7 +114,7 @@ class PostLimitService {
       if (media == null || media.isEmpty) {
         textCount++;
       } else {
-        final hasVideo = media.any((m) => (m as Map<String, dynamic>)['type'] == 'video');
+        final hasVideo = media.any((m) => m is Map && m['type'] == 'video');
         if (hasVideo) {
           videoCount++;
         } else {

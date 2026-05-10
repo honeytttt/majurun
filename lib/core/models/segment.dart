@@ -40,9 +40,9 @@ class Segment {
 
   factory Segment.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
-    final startMap = d['startPoint'] as Map<String, dynamic>? ?? {};
-    final endMap = d['endPoint'] as Map<String, dynamic>? ?? {};
-    final bbMap = d['boundingBox'] as Map<String, dynamic>? ?? {};
+    final startMap = d['startPoint'] is Map ? Map<String, dynamic>.from(d['startPoint'] as Map) : <String, dynamic>{};
+    final endMap = d['endPoint'] is Map ? Map<String, dynamic>.from(d['endPoint'] as Map) : <String, dynamic>{};
+    final bbMap = d['boundingBox'] is Map ? Map<String, dynamic>.from(d['boundingBox'] as Map) : <String, dynamic>{};
     final rawPoly = d['polyline'] as List<dynamic>? ?? [];
 
     return Segment(
@@ -52,7 +52,7 @@ class Segment {
       city: d['city'] as String? ?? '',
       distanceKm: (d['distanceKm'] as num?)?.toDouble() ?? 0,
       polyline: rawPoly.map((p) {
-        final m = p as Map<String, dynamic>;
+        final m = Map<String, dynamic>.from(p as Map);
         return LatLng(
           (m['lat'] as num).toDouble(),
           (m['lng'] as num).toDouble(),
