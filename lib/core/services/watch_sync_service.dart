@@ -53,7 +53,9 @@ class WatchSyncService extends ChangeNotifier {
                 : null;
       }
 
-      // Listen for watch events
+      // Listen for watch events — cancel any prior subscription first so a
+      // second initialize() call (e.g. hot restart in dev) doesn't double-fire.
+      await _eventSubscription?.cancel();
       _eventSubscription = _eventChannel.receiveBroadcastStream().listen(
         _handleWatchEvent,
         onError: (error) => debugPrint('Watch event error: $error'),

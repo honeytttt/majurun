@@ -34,7 +34,9 @@ class Message {
       type: _parseType(data['type'] as String?),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       readAt: (data['readAt'] as Timestamp?)?.toDate(),
-      metadata: data['metadata'] as Map<String, dynamic>?,
+      metadata: data['metadata'] is Map
+          ? Map<String, dynamic>.from(data['metadata'] as Map)
+          : null,
     );
   }
 

@@ -514,6 +514,10 @@ class RunController extends ChangeNotifier {
         points.sort((a, b) => b.dateFrom.compareTo(a.dateFrom));
         final value = points.first.value;
         final bpm = value is NumericHealthValue ? value.numericValue.toInt() : 0;
+        // Guard: if stopAutoSave() ran while we were awaiting, the timer
+        // was cancelled and set to null — don't call notifyListeners on a
+        // potentially-disposed controller.
+        if (_hrPollTimer == null) return;
         if (bpm > 0 && bpm != stateController.currentBpm) {
           stateController.currentBpm = bpm;
           debugPrint('💓 HR updated: $bpm BPM');
