@@ -43,6 +43,8 @@ import 'package:majurun/modules/home/presentation/widgets/weekly_recap_card.dart
 import 'package:majurun/modules/engagement/features/race_countdown/race_countdown_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/daily_micro_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart';
+import 'package:majurun/modules/puzzle/presentation/widgets/daily_puzzle_card.dart';
+import 'package:majurun/modules/puzzle/presentation/widgets/daily_trivia_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -838,6 +840,12 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
               // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
               const SliverToBoxAdapter(child: GamesFeedCard()),
+
+              // Daily Run Path game (number-connection) with streak tracking
+              const SliverToBoxAdapter(child: DailyPuzzleCard()),
+
+              // Daily running trivia quiz with streak tracking
+              const SliverToBoxAdapter(child: DailyTriviaCard()),
 
               // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
               const SliverToBoxAdapter(child: DailyMicroCard()),

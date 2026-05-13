@@ -1254,6 +1254,7 @@ class PushNotificationService {
     // so users can find them in the bell screen even if they swiped away the
     // phone notification without tapping it.
     await _catchUpDailyInAppNotifications();
+    await _catchUpPuzzleInAppNotification();
     debugPrint('✅ Default notifications (re)scheduled');
   }
 
@@ -1310,6 +1311,44 @@ class PushNotificationService {
       }
     } catch (e) {
       debugPrint('⚠️ _catchUpDailyInAppNotifications error: $e');
+    }
+  }
+
+  /// Writes the daily puzzle in-app notification at 20:00 each evening.
+  /// Includes the user's current puzzle streak so it feels personal.
+  /// Uses SharedPreferences to write exactly once per calendar day.
+  Future<void> _catchUpPuzzleInAppNotification() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      final dateKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      const puzzleHour = 20;
+      final puzzleFired = now.hour >= puzzleHour;
+      final puzzleWrittenKey = 'inapp_puzzle_$dateKey';
+
+      if (puzzleFired && prefs.getBool(puzzleWrittenKey) != true) {
+        // Read puzzle streak from SharedPrefs for offline speed
+        final streak = prefs.getInt('puzzle_current_streak') ?? 0;
+        final lastDate = prefs.getString('puzzle_last_played_date') ?? '';
+        // Only nudge if not already played today
+        if (lastDate != dateKey) {
+          final streakMsg = streak > 0
+              ? '🔥 $streak-day streak on the line — keep it going!'
+              : 'Start your puzzle streak today!';
+          await _writeInAppNotification(
+            title: "Today's Puzzle is Ready! 🧩",
+            body: streakMsg,
+            type: 'puzzle',
+          );
+          await prefs.setBool(puzzleWrittenKey, true);
+          debugPrint('📬 Puzzle notification written to in-app inbox');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ _catchUpPuzzleInAppNotification error: $e');
     }
   }
 

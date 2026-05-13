@@ -52,7 +52,6 @@ class VoiceSettings {
     encouragement: false,
     majorMilestones: false,
     hapticFeedback: false,
-    coachingVoiceIndex: 0,
   );
 
   Map<String, dynamic> toMap() => {

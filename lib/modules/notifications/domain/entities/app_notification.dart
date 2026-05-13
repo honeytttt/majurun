@@ -8,6 +8,7 @@ enum NotificationType {
   comment,
   post, // When a subscribed user posts
   reminder, // Daily motivation / evening run reminder from MajuRun
+  puzzle, // Daily puzzle notification
 }
 
 class AppNotification {
@@ -79,6 +80,8 @@ class AppNotification {
         return NotificationType.post;
       case 'reminder':
         return NotificationType.reminder;
+      case 'puzzle':
+        return NotificationType.puzzle;
       default:
         return NotificationType.follow;
     }
