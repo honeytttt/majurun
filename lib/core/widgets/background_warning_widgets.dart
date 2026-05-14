@@ -14,17 +14,38 @@ class BackgroundWarningOverlay extends StatefulWidget {
   State<BackgroundWarningOverlay> createState() => _BackgroundWarningOverlayState();
 }
 
-class _BackgroundWarningOverlayState extends State<BackgroundWarningOverlay> {
-  final bool _showWarning = false;
+class _BackgroundWarningOverlayState extends State<BackgroundWarningOverlay>
+    with WidgetsBindingObserver {
+  bool _showWarning = false;
   Timer? _hideTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.isRunActive) return;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _showAndAutoHide();
+    }
+  }
+
+  void _showAndAutoHide() {
+    if (!mounted) return;
+    setState(() => _showWarning = true);
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showWarning = false);
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     super.dispose();
   }

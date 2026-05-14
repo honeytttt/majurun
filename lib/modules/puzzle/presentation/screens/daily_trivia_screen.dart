@@ -18,7 +18,8 @@ class _DailyTriviaScreenState extends State<DailyTriviaScreen>
     with SingleTickerProviderStateMixin {
   final _service = DailyTriviaService();
 
-  late final List<PuzzleQuestion> _questions;
+  List<PuzzleQuestion> _questions = const [];
+  bool _loadError = false;
   int _currentIndex = 0;
   int? _selectedOption;
   bool _answered = false;
@@ -37,7 +38,12 @@ class _DailyTriviaScreenState extends State<DailyTriviaScreen>
   @override
   void initState() {
     super.initState();
-    _questions = _service.getTodaysQuestions();
+    try {
+      _questions = _service.getTodaysQuestions();
+    } catch (e) {
+      _loadError = true;
+      debugPrint('⚠️ DailyTriviaScreen: failed to load questions: $e');
+    }
     _slideCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -80,6 +86,26 @@ class _DailyTriviaScreenState extends State<DailyTriviaScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_loadError || _questions.isEmpty) {
+      return Scaffold(
+        backgroundColor: _dark,
+        appBar: AppBar(
+          backgroundColor: _dark,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: const Center(
+          child: Text(
+            'No trivia available today.\nCheck back tomorrow!',
+            style: TextStyle(color: Colors.white70),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: _dark,
       appBar: AppBar(

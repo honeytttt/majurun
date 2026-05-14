@@ -19,21 +19,35 @@ import 'package:majurun/core/services/subscription_service.dart';
 ///   4. Weekly training ratio recommendation (easy / threshold / interval)
 ///
 /// Free users see a locked teaser card with an upgrade prompt.
-class ProSplitInsights extends StatelessWidget {
+class ProSplitInsights extends StatefulWidget {
   /// The full runData map from Firestore (same object passed to RunDetailScreen).
   final Map<String, dynamic> runData;
 
   const ProSplitInsights({super.key, required this.runData});
 
   @override
+  State<ProSplitInsights> createState() => _ProSplitInsightsState();
+}
+
+class _ProSplitInsightsState extends State<ProSplitInsights> {
+  // Stored once in initState — prevents a new Firestore listener on every rebuild.
+  late final Stream<bool> _proStatusStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _proStatusStream = SubscriptionService().streamProStatus();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (!RemoteConfigService().isAdvancedSplitsEnabled) return const SizedBox.shrink();
 
-    final rawSplits = runData['kmSplits'];
+    final rawSplits = widget.runData['kmSplits'];
     if (rawSplits is! List || rawSplits.isEmpty) return const SizedBox.shrink();
 
     return StreamBuilder<bool>(
-      stream: SubscriptionService().streamProStatus(),
+      stream: _proStatusStream,
       builder: (context, snap) {
         final isPro = snap.data ?? false;
         if (!isPro) return const _ProTeaser();
