@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +49,26 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
   late AnimationController _winCtrl;
   late Animation<double> _winScale;
 
+  // ── Solve timer ───────────────────────────────────────────────────────────
+  Timer? _timer;
+  int _elapsedSeconds = 0;
+  bool _timerStarted = false;
+  int? _solveSeconds; // final recorded time on win
+
+  void _startTimerIfNeeded() {
+    if (_timerStarted) return;
+    _timerStarted = true;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_solved && mounted) setState(() => _elapsedSeconds++);
+    });
+  }
+
+  String _formatTime(int secs) {
+    final m = secs ~/ 60;
+    final s = secs % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +82,7 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
 
   @override
   void dispose() {
+    _timer?.cancel();
     _winCtrl.dispose();
     super.dispose();
   }
@@ -102,6 +124,7 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
 
   void _onPanStart(Offset pos, double cellSize) {
     if (_solved) return;
+    _startTimerIfNeeded();
     final cell = _cellAt(pos, cellSize);
     if (cell == null) return;
 
@@ -169,6 +192,8 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
   }
 
   Future<void> _onSolved() async {
+    _timer?.cancel();
+    _solveSeconds = _elapsedSeconds;
     HapticFeedback.heavyImpact();
     await Future.delayed(const Duration(milliseconds: 100));
     HapticFeedback.heavyImpact();
@@ -180,9 +205,12 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
 
   void _reset() {
     HapticFeedback.selectionClick();
+    _timer?.cancel();
     setState(() {
       _path.clear();
       _drawing = false;
+      _elapsedSeconds = 0;
+      _timerStarted = false;
     });
   }
 
@@ -227,6 +255,22 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
         ),
         centerTitle: true,
         actions: [
+          // Live stopwatch — only shown after first touch
+          if (_timerStarted && !_solved)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(
+                child: Text(
+                  _formatTime(_elapsedSeconds),
+                  style: const TextStyle(
+                    color: _green,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white54),
             tooltip: 'Reset',
@@ -382,6 +426,17 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
                 fontWeight: FontWeight.w800,
               ),
             ),
+            if (_solveSeconds != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Solved in ${_formatTime(_solveSeconds!)}',
+                style: const TextStyle(
+                  color: _green,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             if (stats != null) ...[
               const SizedBox(height: 12),
               Row(

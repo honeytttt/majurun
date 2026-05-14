@@ -45,6 +45,7 @@ import 'package:majurun/modules/home/presentation/widgets/daily_micro_card.dart'
 import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart';
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_puzzle_card.dart';
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_trivia_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/pro_upgrade_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -849,6 +850,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
               // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
               const SliverToBoxAdapter(child: DailyMicroCard()),
+
+              // Pro upgrade banner — shown once per session for free users; hidden for Pro
+              const SliverToBoxAdapter(child: ProUpgradeBanner()),
 
               displayPosts.isEmpty
                   ? SliverFillRemaining(

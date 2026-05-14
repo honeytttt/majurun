@@ -1123,19 +1123,34 @@ class PushNotificationService {
   }
 
   /// Writes the weekly summary notification to the in-app inbox if Sunday 20:00
-  /// has already passed in the current week and hasn't been written yet.
+  /// has already passed and hasn't been written yet.
+  ///
+  /// Fire window: Sunday 20:00 → Monday 19:59 (24-hour catch-up).
+  /// On Monday the dedup key looks back to Sunday's ISO week so it never
+  /// double-fires with a Sunday write.
   Future<void> _catchUpWeeklyInAppNotification() async {
     try {
       final userId = _auth.currentUser?.uid;
       if (userId == null) return;
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
-      // ISO week number as key so it resets each Monday
-      final isoWeek = _isoWeekNumber(now);
-      final weekKey = 'inapp_weekly_${now.year}_$isoWeek';
-      final sundayPassed = now.weekday == DateTime.sunday && now.hour >= 20 ||
-          now.weekday != DateTime.sunday;
-      if (sundayPassed && prefs.getBool(weekKey) != true) {
+
+      // Only fire within the Sunday-20:00 → Monday-19:59 window.
+      // The previous bug used `now.weekday != DateTime.sunday` which is true
+      // on Mon–Sat, writing a stale notification at the start of every new week.
+      final isSundayEvening = now.weekday == DateTime.sunday && now.hour >= 20;
+      final isMondayCatchup = now.weekday == DateTime.monday && now.hour < 20;
+      if (!isSundayEvening && !isMondayCatchup) return;
+
+      // On Monday catch-up, reference the previous day (Sunday) for the ISO
+      // week key so the write lands in the same dedup bucket as a Sunday write.
+      final keyDate = isMondayCatchup
+          ? now.subtract(const Duration(days: 1))
+          : now;
+      final isoWeek = _isoWeekNumber(keyDate);
+      final weekKey = 'inapp_weekly_${keyDate.year}_$isoWeek';
+
+      if (prefs.getBool(weekKey) != true) {
         final messages = [
           'How was your week? Check your stats and plan for next week! 📊',
           'Another week done! View your run history and set goals for the week ahead. 🎯',

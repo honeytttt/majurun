@@ -424,12 +424,14 @@ class RunStateController extends ChangeNotifier {
       return;
     }
 
-    // Half kilometer milestones
+    // Half kilometer milestones (0.5, 1.5, 2.5 …)
+    // No distance-window guard: a window of ±50 m causes announcements to be
+    // silently skipped whenever a GPS update jumps over the narrow band,
+    // leaving a full extra km of silence. Instead, fire as soon as the
+    // distance crosses the threshold — it may fire a few metres late on a
+    // slow GPS, but it will never be swallowed entirely.
     final roundedHalfKm = (distanceKm * 2).floor() / 2.0;
-    if (roundedHalfKm > _lastAnnouncedHalfKm &&
-        (roundedHalfKm % 1.0 == 0.5) &&
-        distanceKm >= roundedHalfKm - 0.05 &&
-        distanceKm <= roundedHalfKm + 0.05) {
+    if (roundedHalfKm > _lastAnnouncedHalfKm && roundedHalfKm % 1.0 == 0.5) {
       debugPrint('🔔 Half-km milestone: ${roundedHalfKm.toStringAsFixed(1)}km');
       _handleHalfKmMilestone(roundedHalfKm);
       _lastAnnouncedHalfKm = roundedHalfKm;
@@ -438,6 +440,10 @@ class RunStateController extends ChangeNotifier {
 
   void _handleKmMilestone(int km) {
     debugPrint('🎯 Milestone: ${km}km completed!');
+    // Keep half-km tracker in sync so the next 0.5 check starts from the
+    // correct baseline (e.g. after km 2 fires, _lastAnnouncedHalfKm = 2.0
+    // so it won't re-fire for 1.5 which is already behind us).
+    _lastAnnouncedHalfKm = km.toDouble();
 
     // Calculate this km split
     final thisKmTime = _secondsElapsed - _lastKmTime;

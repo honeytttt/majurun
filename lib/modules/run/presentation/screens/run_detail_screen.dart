@@ -257,6 +257,15 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
     final String? weatherLocation = widget.runData['location']?.toString();
     final bool hasWeather = weatherTemp != null && weatherCondition != null;
 
+    // Estimated strides — industry standard ~170 spm = 85 strides/min for
+    // recreational runners. Only shown for runs > 500 m and > 60 s.
+    final double distKm = (widget.runData['distanceKm'] as num?)?.toDouble() ??
+        (widget.runData['distance'] as num?)?.toDouble() ?? 0.0;
+    final int durSecs =
+        (widget.runData['durationSeconds'] as num?)?.toInt() ?? 0;
+    final int estimatedStrides =
+        (distKm >= 0.5 && durSecs >= 60) ? (durSecs * 85 ~/ 60) : 0;
+
     final String? mapImageUrlRaw = widget.runData['mapImageUrl']?.toString();
     final bool hasMapImage = mapImageUrlRaw != null && mapImageUrlRaw.isNotEmpty;
 
@@ -424,8 +433,31 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                         value: '${elevGain.toStringAsFixed(0)}m',
                         accentColor: Colors.purple,
                       ),
+                    if (!hasElevation && estimatedStrides > 0)
+                      UnifiedMetricTile(
+                        icon: Icons.directions_walk,
+                        label: 'STRIDES',
+                        value: estimatedStrides.toString(),
+                        accentColor: Colors.teal,
+                      ),
                   ],
                 ),
+                if (hasElevation && estimatedStrides > 0) ...[
+                  const SizedBox(height: 12),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      UnifiedMetricTile(
+                        icon: Icons.directions_walk,
+                        label: 'STRIDES',
+                        value: estimatedStrides.toString(),
+                        accentColor: Colors.teal,
+                      ),
+                    ],
+                  ),
+                ],
                 if (hasMovingTime) ...[
                   const SizedBox(height: 12),
                   const Divider(color: Colors.white24, height: 1),

@@ -654,6 +654,17 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                     '${widget.calories}', 'KCAL'),
               ],
             ),
+            if (widget.distanceKm >= 0.5) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _cardStat(Icons.directions_walk_outlined,
+                      // ~540 strides/km (90 strides/min at 6:00/km)
+                      (widget.distanceKm * 540).round().toString(), 'STRIDES'),
+                ],
+              ),
+            ],
 
             // PBs / badges strip
             if (hasPbs || hasBadges) ...[
