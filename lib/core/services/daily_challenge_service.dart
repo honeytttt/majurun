@@ -307,7 +307,10 @@ class DailyChallengeService {
     try {
       final now = DateTime.now();
       final weekStart = now.subtract(Duration(days: now.weekday - 1));
-      final weekStr = '${weekStart.year}-W${(weekStart.day ~/ 7 + 1).toString().padLeft(2, '0')}';
+      // Use the Monday date as the week key — unique per calendar week and
+      // stable throughout the week (day ~/ 7 was neither of these).
+      final weekStr =
+          '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
 
       final userChallengeDoc = await _firestore
           .collection('users')
@@ -391,6 +394,7 @@ class DailyChallengeService {
 
   /// Auto-update challenge progress after a run.
   /// Returns the names of challenges that were newly completed this run.
+  /// All progress updates are fired concurrently via Future.wait.
   Future<List<String>> updateChallengesAfterRun({
     required String userId,
     required double distanceKm,
@@ -399,51 +403,51 @@ class DailyChallengeService {
     final newlyCompleted = <String>[];
     try {
       final dailyChallenges = await getDailyChallenges(userId);
+
+      // Build update futures concurrently — determine progress and completion
+      // before firing any writes so all writes can run in parallel.
+      final futures = <Future<void>>[];
       for (final challenge in dailyChallenges) {
-        // Skip already-completed challenges — don't count them again.
         if (challenge['completed'] == true) continue;
 
-        final wasIncomplete = challenge['completed'] != true;
-
         if (challenge['type'] == 'distance') {
-          final currentProgress = (challenge['progress'] as num?)?.toDouble() ?? 0.0;
-          await updateChallengeProgress(
-            userId: userId,
-            challengeId: challenge['id'],
-            progress: currentProgress + distanceKm,
-          );
+          final currentProgress =
+              (challenge['progress'] as num?)?.toDouble() ?? 0.0;
+          final newProgress = currentProgress + distanceKm;
           final target = (challenge['target'] as num).toDouble();
-          if (wasIncomplete && (currentProgress + distanceKm) >= target) {
+          if (newProgress >= target) {
             newlyCompleted.add(challenge['name'] as String);
           }
-        }
-
-        if (challenge['type'] == 'morning_run' && startTime.hour < 9) {
-          await updateChallengeProgress(
+          futures.add(updateChallengeProgress(
+            userId: userId,
+            challengeId: challenge['id'],
+            progress: newProgress,
+          ));
+        } else if (challenge['type'] == 'morning_run' && startTime.hour < 9) {
+          newlyCompleted.add(challenge['name'] as String);
+          futures.add(updateChallengeProgress(
             userId: userId,
             challengeId: challenge['id'],
             progress: 1.0,
-          );
-          if (wasIncomplete) newlyCompleted.add(challenge['name'] as String);
-        }
-        if (challenge['type'] == 'evening_run' && startTime.hour >= 17) {
-          await updateChallengeProgress(
+          ));
+        } else if (challenge['type'] == 'evening_run' && startTime.hour >= 17) {
+          newlyCompleted.add(challenge['name'] as String);
+          futures.add(updateChallengeProgress(
             userId: userId,
             challengeId: challenge['id'],
             progress: 1.0,
-          );
-          if (wasIncomplete) newlyCompleted.add(challenge['name'] as String);
-        }
-        if (challenge['type'] == 'any_run') {
-          await updateChallengeProgress(
+          ));
+        } else if (challenge['type'] == 'any_run') {
+          newlyCompleted.add(challenge['name'] as String);
+          futures.add(updateChallengeProgress(
             userId: userId,
             challengeId: challenge['id'],
             progress: 1.0,
-          );
-          if (wasIncomplete) newlyCompleted.add(challenge['name'] as String);
+          ));
         }
       }
 
+      await Future.wait(futures);
       debugPrint('Challenges updated after run: ${distanceKm}km — completed: $newlyCompleted');
     } catch (e) {
       debugPrint('Error updating challenges after run: $e');

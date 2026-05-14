@@ -37,27 +37,9 @@ import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
 import 'core/services/offline_sync_service.dart';
 import 'core/services/watch_sync_service.dart';
-import 'package:audio_session/audio_session.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
-
-Future<void> _configureAudioSession() async {
-  final session = await AudioSession.instance;
-  await session.configure(const AudioSessionConfiguration(
-    // iOS: playback + duckOthers — music lowers while TTS speaks, restores after.
-    // NOT ambient: ambient silences TTS when screen locks (breaks run announcements).
-    avAudioSessionCategory: AVAudioSessionCategory.playback,
-    avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
-    avAudioSessionMode: AVAudioSessionMode.defaultMode,
-    // Android: request transient focus with ducking so music lowers, not pauses.
-    androidAudioAttributes: AndroidAudioAttributes(
-      contentType: AndroidAudioContentType.music,
-      usage: AndroidAudioUsage.assistanceNavigationGuidance,
-    ),
-    androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
-  ));
-}
 
 Future<void> main() async {
   // Wrap entire app initialization with Sentry for comprehensive error tracking
@@ -90,10 +72,10 @@ Future<void> main() async {
       }
     }
 
-    // Configure audio session: TTS ducks music while speaking, restores after.
-    // audio_session manages setActive(true/false) lifecycle properly — this is
-    // what was missing in previous builds (music never restored after ducking).
-    await _configureAudioSession();
+    // Audio session is configured once inside VoiceController._initTts() with
+    // the correct gainTransientMayDuck + spokenAudio settings.  Configuring it
+    // here a second time would overwrite those settings with wrong values
+    // (defaultMode + music contentType) and break TTS ducking.
 
     // Initialize local cache service for offline mode
     await CacheService().initialize();
@@ -192,6 +174,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _setupWatchRunCallback() {
+    // Inject the shared StatsController so watch-originated runs refresh the
+    // run history UI without needing a full reload.
+    WatchSyncService().setStatsController(
+      context.read<RunController>().statsController,
+    );
+
     WatchSyncService().onWatchRunReceived = (run) {
       final distStr = run.distanceKm.toStringAsFixed(2);
       final s = run.durationSeconds;

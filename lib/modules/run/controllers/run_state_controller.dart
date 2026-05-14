@@ -639,7 +639,10 @@ class RunStateController extends ChangeNotifier {
   void dispose() {
     debugPrint('🗑️ Disposing RunStateController');
     _timer?.cancel();
-    _locationService.dispose();
+    // dispose() is now async — fire-and-forget is safe here because the
+    // controller is being torn down; we just need stopTracking to complete
+    // before the stream controller closes, which the async dispose ensures.
+    _locationService.dispose().ignore();
     super.dispose();
   }
 }

@@ -70,7 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _streakFuture = uid.isEmpty
         ? Future.value(streakFallback)
         : Future.wait([
-            StreakService().updateStreak(uid),
+            // Read-only: do NOT call updateStreak here — opening the profile
+            // screen is not a run completion event and calling updateStreak
+            // writes to Firestore on every view, potentially resetting a
+            // broken streak to 1 before the user has actually run again.
+            StreakService().getStreakStatus(uid),
             WeeklySummaryService().getCurrentWeekSummary(),
           ]).then((results) => <String, dynamic>{
             'streak': results[0] as Map<String, dynamic>,
@@ -1350,7 +1354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             ElevatedButton(
-              onPressed: () => _signOut(context),
+              onPressed: _signOut,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red[700],
                 foregroundColor: Colors.white,
@@ -1371,39 +1375,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Sign Out Function
-  Future<void> _signOut(BuildContext context) async {
+  // Uses the State's own `context` so it remains valid after the confirmation
+  // dialog is popped.  Do NOT pass a BuildContext parameter here — the dialog's
+  // context is unmounted the moment Navigator.pop() is called on it.
+  Future<void> _signOut() async {
+    // Close the confirmation dialog (State context is still mounted)
+    if (mounted) Navigator.pop(context);
+    if (!mounted) return;
+
+    // Show loading indicator using the State's context
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      ),
+    );
+
     try {
-      // Close dialog
-      Navigator.pop(context);
-      
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF00E676),
-          ),
-        ),
-      );
-      
-      // Sign out from Firebase (AuthWrapper will navigate to LoginScreen automatically)
+      // Sign out from Firebase (AuthWrapper routes to LoginScreen automatically)
       await FirebaseAuth.instance.signOut();
 
-      // Close loading dialog
-      if (context.mounted) {
-        Navigator.pop(context);
-        // AuthWrapper detects auth state change and routes to LoginScreen — no manual navigation needed
-      }
-      
+      if (mounted) Navigator.pop(context);
       debugPrint('✅ User signed out successfully');
     } catch (e) {
       debugPrint('❌ Sign out error: $e');
-      
-      if (context.mounted) {
-        // Close loading dialog if still open
+      if (mounted) {
         Navigator.pop(context);
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error signing out: $e'),

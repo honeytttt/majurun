@@ -48,6 +48,11 @@ abstract class FirestoreCollections {
   static const String userNotificationSettings = 'userNotificationSettings';
   static const String userPrivacy = 'userPrivacy';
 
+  // Clubs & races
+  static const String clubs = 'clubs';
+  static const String races = 'races';
+  static const String entries = 'entries';
+
   // Misc
   static const String comments = 'comments';
   static const String routeRatings = 'routeRatings';
@@ -55,6 +60,46 @@ abstract class FirestoreCollections {
   static const String contactMessages = 'contactMessages';
   static const String items = 'items';
   static const String attempts = 'attempts';
+  static const String savedPosts = 'savedPosts';
+  static const String efforts = 'efforts';
+  static const String members = 'members';
+}
+
+/// Convenience path builders — produce slash-separated Firestore paths.
+/// Use these wherever a path string is needed to avoid typos and make
+/// refactoring a single-file change.
+abstract class FirestorePaths {
+  // Top-level document paths
+  static String user(String uid)      => '${FirestoreCollections.users}/$uid';
+  static String post(String postId)   => '${FirestoreCollections.posts}/$postId';
+
+  // User subcollection paths
+  static String userFollowers(String uid)          => '${user(uid)}/${FirestoreCollections.followers}';
+  static String userFollowing(String uid)          => '${user(uid)}/${FirestoreCollections.following}';
+  static String userTrainingHistory(String uid)    => '${user(uid)}/${FirestoreCollections.trainingHistory}';
+  static String userDailyChallenges(String uid)    => '${user(uid)}/${FirestoreCollections.dailyChallenges}';
+  static String userWeeklyChallenges(String uid)   => '${user(uid)}/${FirestoreCollections.weeklyChallenges}';
+  static String userMonthlyChallenges(String uid)  => '${user(uid)}/${FirestoreCollections.monthlyChallenges}';
+  static String userSavedPosts(String uid)         => '${user(uid)}/${FirestoreCollections.savedPosts}';
+  static String userClubs(String uid)              => '${user(uid)}/${FirestoreCollections.clubs}';
+  static String userNotifications(String uid)      => '${FirestoreCollections.notifications}/$uid/${FirestoreCollections.items}';
+  static String userSettings(String uid)           => '${user(uid)}/${FirestoreCollections.settings}';
+
+  // Club paths
+  static String clubMembers(String clubId) => '${FirestoreCollections.clubs}/$clubId/${FirestoreCollections.members}';
+
+  // Race paths
+  static String raceEntries(String raceId) => '${FirestoreCollections.races}/$raceId/${FirestoreCollections.entries}';
+
+  // Segment paths
+  static String segmentEfforts(String segmentId) => '${FirestoreCollections.segments}/$segmentId/${FirestoreCollections.efforts}';
+
+  /// Deterministic conversation ID for a DM thread between two users.
+  /// Sorting ensures uid1_uid2 and uid2_uid1 resolve to the same document.
+  static String conversationId(String uid1, String uid2) {
+    final sorted = [uid1, uid2]..sort();
+    return '${sorted[0]}_${sorted[1]}';
+  }
 }
 
 /// User document fields

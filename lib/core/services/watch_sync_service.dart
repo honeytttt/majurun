@@ -25,6 +25,12 @@ class WatchSyncService extends ChangeNotifier {
   /// True while the watch has an active standalone run in progress.
   bool _watchRunActive = false;
 
+  /// Injected by the app shell so that watch-originated runs are saved through
+  /// the same StatsController instance that drives the UI, ensuring the run
+  /// history list refreshes without a full reload.
+  /// Set via [setStatsController] immediately after initialization.
+  StatsController? _statsController;
+
   /// Called when a standalone watch run is received and saved.
   /// UI can set this to show a snackbar / navigate to the run.
   void Function(WatchCompletedRun)? onWatchRunReceived;
@@ -36,6 +42,12 @@ class WatchSyncService extends ChangeNotifier {
 
   /// Whether the watch has an active standalone run in progress.
   bool get watchRunActive => _watchRunActive;
+
+  /// Call this once from the app shell (after providers are ready) to inject
+  /// the shared [StatsController] so watch runs trigger a UI refresh.
+  void setStatsController(StatsController controller) {
+    _statsController = controller;
+  }
 
   /// Initialize watch connection
   Future<void> initialize() async {
@@ -268,7 +280,10 @@ class WatchSyncService extends ChangeNotifier {
     );
 
     try {
-      await StatsController().saveRunHistory(
+      // Use the injected shared instance so the run history UI refreshes;
+      // fall back to a local instance only if injection hasn't happened yet.
+      final controller = _statsController ?? StatsController();
+      await controller.saveRunHistory(
         planTitle: 'Watch Run',
         distanceKm: distanceKm,
         durationSeconds: durationSeconds,

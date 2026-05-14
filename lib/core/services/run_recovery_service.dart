@@ -37,17 +37,32 @@ class RunRecoveryService {
     return prefs.getBool(_isRunningKey) ?? false;
   }
 
-  // Get the saved run data
+  // Runs older than this are considered unrecoverable (app reinstall, stale state).
+  static const Duration _maxRecoveryAge = Duration(hours: 24);
+
+  // Get the saved run data — returns null and auto-clears if data is stale.
   static Future<Map<String, dynamic>?> getRecoverableRun() async {
     final prefs = await SharedPreferences.getInstance();
     final dataString = prefs.getString(_activeRunKey);
-    
+
     if (dataString == null) return null;
-    
+
     try {
-      return jsonDecode(dataString) as Map<String, dynamic>;
+      final data = jsonDecode(dataString) as Map<String, dynamic>;
+
+      // Auto-expire runs saved more than 24 hours ago so a crash during run A
+      // does not keep surfacing a stale recovery prompt days or reinstalls later.
+      final age = timeSinceLastSave(data);
+      if (age != null && age > _maxRecoveryAge) {
+        debugPrint('RunRecovery: stale data (${age.inHours}h old) — auto-clearing');
+        await clearRecoverableRun();
+        return null;
+      }
+
+      return data;
     } catch (e) {
       debugPrint('Error recovering run: $e');
+      await clearRecoverableRun(); // corrupt data — discard
       return null;
     }
   }

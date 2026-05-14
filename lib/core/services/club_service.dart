@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:majurun/core/models/club.dart';
+import 'package:majurun/core/services/cache_service.dart';
 
 /// Manages running clubs.
 ///
@@ -22,14 +23,26 @@ class ClubService {
   // ── Queries ───────────────────────────────────────────────────────────────
 
   /// Fetches all public clubs (up to 50), ordered by member count.
+  /// Returns cached clubs immediately, then refreshes from Firestore.
   Future<List<Club>> fetchPublicClubs() async {
-    final snap = await _db
-        .collection('clubs')
-        .where('isPrivate', isEqualTo: false)
-        .orderBy('memberCount', descending: true)
-        .limit(50)
-        .get();
-    return snap.docs.map((d) => Club.fromDoc(d)).toList();
+    final cache = CacheService();
+    try {
+      final snap = await _db
+          .collection('clubs')
+          .where('isPrivate', isEqualTo: false)
+          .orderBy('memberCount', descending: true)
+          .limit(50)
+          .get();
+      final clubs = snap.docs.map((d) => Club.fromDoc(d)).toList();
+      await cache.cacheClubs(clubs.map((c) => c.toCacheMap()).toList());
+      return clubs;
+    } catch (e) {
+      debugPrint('⚠️ ClubService.fetchPublicClubs: $e — serving from cache');
+      return cache
+          .getCachedClubs()
+          .map(Club.fromCacheMap)
+          .toList();
+    }
   }
 
   /// Fetches clubs the current user belongs to.
@@ -96,8 +109,8 @@ class ClubService {
     // Fetch user profile for display name + photo.
     final userDoc = await _db.collection('users').doc(uid).get();
     final userData = userDoc.data() ?? {};
-    final displayName = userData['name'] as String? ?? 'Runner';
-    final photoUrl = userData['avatarUrl'] as String? ?? '';
+    final displayName = userData['displayName'] as String? ?? userData['name'] as String? ?? 'Runner';
+    final photoUrl = userData['photoUrl'] as String? ?? userData['avatarUrl'] as String? ?? '';
 
     final clubRef = _db.collection('clubs').doc();
     final batch = _db.batch();
@@ -141,8 +154,8 @@ class ClubService {
 
     final userDoc = await _db.collection('users').doc(uid).get();
     final userData = userDoc.data() ?? {};
-    final displayName = userData['name'] as String? ?? 'Runner';
-    final photoUrl = userData['avatarUrl'] as String? ?? '';
+    final displayName = userData['displayName'] as String? ?? userData['name'] as String? ?? 'Runner';
+    final photoUrl = userData['photoUrl'] as String? ?? userData['avatarUrl'] as String? ?? '';
 
     // Weekly km from last 7 days.
     final cutoff = Timestamp.fromDate(
@@ -213,25 +226,31 @@ class ClubService {
       throw Exception('Only the owner can delete this club.');
     }
 
-    // Remove member docs (batch up to 50).
-    final memberSnap = await _db
-        .collection('clubs')
-        .doc(clubId)
-        .collection('members')
-        .limit(50)
-        .get();
-    final batch = _db.batch();
-    for (final m in memberSnap.docs) {
-      final memberId = m.data()['userId'] as String? ?? m.id;
-      batch.delete(m.reference);
-      batch.delete(_db
-          .collection('users')
-          .doc(memberId)
+    // Delete ALL member docs in paginated batches so clubs with > 50 members
+    // don't orphan leftover docs.  Each batch also removes the reverse-index
+    // entry from users/{memberId}/clubs/{clubId}.
+    while (true) {
+      final memberSnap = await _db
           .collection('clubs')
-          .doc(clubId));
+          .doc(clubId)
+          .collection('members')
+          .limit(400) // well under Firestore batch limit of 500
+          .get();
+      if (memberSnap.docs.isEmpty) break;
+
+      final batch = _db.batch();
+      for (final m in memberSnap.docs) {
+        final memberId = m.data()['userId'] as String? ?? m.id;
+        batch.delete(m.reference);
+        batch.delete(
+          _db.collection('users').doc(memberId).collection('clubs').doc(clubId),
+        );
+      }
+      await batch.commit();
+
+      if (memberSnap.docs.length < 400) break; // last page
     }
-    batch.delete(_db.collection('clubs').doc(clubId));
-    await batch.commit();
+    await _db.collection('clubs').doc(clubId).delete();
   }
 
   /// Called after a user completes a run. Updates weeklyKm for all clubs

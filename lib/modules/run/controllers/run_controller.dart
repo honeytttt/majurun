@@ -671,14 +671,14 @@ class RunController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> stopRun(
-    BuildContext context, {
+  // Callers must invoke setUICallbacks() (or setUiContext()) before calling
+  // stopRun — do NOT pass a BuildContext here because this method runs after
+  // async gaps and the context may be stale / unmounted by that point.
+  Future<void> stopRun({
     String planTitle = 'Free Run',
     Uint8List? mapImageBytes,
   }) async {
     try {
-      setUiContext(context);
-
       debugPrint('🎬 RunController: Stopping run');
       debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
 
@@ -851,8 +851,11 @@ class RunController extends ChangeNotifier {
   /// Posts a weekly recap summary on Monday, at most once per calendar week.
   Future<void> _maybePostWeeklyRecap(String uid) async {
     final now = DateTime.now();
-    // ISO week number: a simple but consistent key per week
-    final weekKey = '${now.year}_${now.month}_${(now.day / 7).ceil()}';
+    // Anchor to Monday of the current week so the key is unique per calendar
+    // week and never changes mid-week.  (now.weekday is 1=Mon…7=Sun.)
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final weekKey =
+        '${monday.year}_${monday.month.toString().padLeft(2, '0')}_${monday.day.toString().padLeft(2, '0')}';
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
     final userSnap = await userRef.get();
     if ((userSnap.data()?['lastWeeklyRecap'] as String?) == weekKey) return;

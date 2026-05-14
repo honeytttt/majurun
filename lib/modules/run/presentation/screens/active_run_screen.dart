@@ -1117,6 +1117,10 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     if (!mounted) return;
     final nav = Navigator.of(context);
 
+    // Register UI callbacks NOW (synchronous, before any async gap) so the
+    // controller can show snackbars even after this screen is replaced.
+    runController.setUiContext(context);
+
     // ── Step 3: Background save — static map + Firestore, no dialog ──────────
     // Segment detection fires concurrently with the save — both are independent.
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -1235,10 +1239,9 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final mapFuture = _fetchStaticMap(routePoints.cast());
 
     // stopRun writes Firestore history, computes PBs/badges.
-    await runController.stopRun(
-      // ignore: use_build_context_synchronously
-      context,
-    );
+    // Context callbacks were set synchronously in _handleStopRun before this
+    // future was launched — no BuildContext stored across async gaps here.
+    await runController.stopRun();
 
     final pbs               = List<String>.from(runController.lastRunPbs);
     final badges            = List<String>.from(runController.lastRunBadges);

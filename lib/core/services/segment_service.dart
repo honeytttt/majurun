@@ -139,19 +139,25 @@ class SegmentService {
 
   /// Deletes a segment and all its efforts (admin only).
   Future<void> deleteSegment(String segmentId) async {
-    // Delete efforts subcollection first (batch of 50).
-    final effortSnap = await _db
-        .collection('segments')
-        .doc(segmentId)
-        .collection('efforts')
-        .limit(50)
-        .get();
-    final batch = _db.batch();
-    for (final d in effortSnap.docs) {
-      batch.delete(d.reference);
+    // Delete ALL effort docs in paginated batches — no .limit(50) truncation.
+    while (true) {
+      final effortSnap = await _db
+          .collection('segments')
+          .doc(segmentId)
+          .collection('efforts')
+          .limit(400)
+          .get();
+      if (effortSnap.docs.isEmpty) break;
+
+      final batch = _db.batch();
+      for (final d in effortSnap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+
+      if (effortSnap.docs.length < 400) break; // last page
     }
-    batch.delete(_db.collection('segments').doc(segmentId));
-    await batch.commit();
+    await _db.collection('segments').doc(segmentId).delete();
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

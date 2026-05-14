@@ -12,10 +12,22 @@ class OfflineDatabaseService {
 
   Database? _database;
   bool _initialized = false;
+  // Completer prevents a race where two concurrent awaits on [database] both
+  // call _initDatabase() before _database is assigned.
+  Completer<Database>? _initCompleter;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDatabase();
+    if (_initCompleter != null) return _initCompleter!.future;
+    _initCompleter = Completer<Database>();
+    try {
+      _database = await _initDatabase();
+      _initCompleter!.complete(_database!);
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
+    }
     return _database!;
   }
 

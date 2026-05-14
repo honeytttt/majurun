@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:majurun/core/models/virtual_race.dart';
+import 'package:majurun/core/services/cache_service.dart';
 
 class VirtualRaceService {
   final FirebaseFirestore _db;
@@ -14,17 +15,27 @@ class VirtualRaceService {
   String? get _uid => _auth.currentUser?.uid;
 
   /// Fetches active races (endDate > now), ordered by endDate ascending.
+  /// Falls back to Hive cache when offline.
   Future<List<VirtualRace>> fetchActiveRaces() async {
-    final now = Timestamp.now();
-    final snap = await _db
-        .collection('races')
-        .where('endDate', isGreaterThan: now)
-        .orderBy('endDate')
-        .limit(10)
-        .get();
-    return snap.docs
-        .map((d) => VirtualRace.fromDoc(d))
-        .toList();
+    final cache = CacheService();
+    try {
+      final now = Timestamp.now();
+      final snap = await _db
+          .collection('races')
+          .where('endDate', isGreaterThan: now)
+          .orderBy('endDate')
+          .limit(10)
+          .get();
+      final races = snap.docs.map((d) => VirtualRace.fromDoc(d)).toList();
+      await cache.cacheRaces(races.map((r) => r.toCacheMap()).toList());
+      return races;
+    } catch (e) {
+      debugPrint('⚠️ VirtualRaceService.fetchActiveRaces: $e — serving from cache');
+      return cache
+          .getCachedRaces()
+          .map(VirtualRace.fromCacheMap)
+          .toList();
+    }
   }
 
   /// Fetches leaderboard for a race, ordered by bestTimeSeconds ascending.
@@ -51,6 +62,8 @@ class VirtualRaceService {
   }
 
   /// Registers the current user for a race.
+  /// Wrapped in a transaction so a retry or double-tap never inflates
+  /// participantCount — the count is only incremented on first registration.
   Future<void> registerForRace(String raceId) async {
     final uid = _uid;
     if (uid == null) return;
@@ -61,22 +74,25 @@ class VirtualRaceService {
         userData['displayName'] as String? ?? userData['name'] as String? ?? 'Runner';
     final photoUrl = userData['photoUrl'] as String? ?? '';
 
-    await _db
-        .collection('races')
-        .doc(raceId)
-        .collection('entries')
-        .doc(uid)
-        .set({
-      'userId': uid,
-      'displayName': displayName,
-      'photoUrl': photoUrl,
-      'bestTimeSeconds': 0,
-      'achievedAt': FieldValue.serverTimestamp(),
-      'registeredAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final entryRef =
+        _db.collection('races').doc(raceId).collection('entries').doc(uid);
+    final raceRef = _db.collection('races').doc(raceId);
 
-    await _db.collection('races').doc(raceId).update({
-      'participantCount': FieldValue.increment(1),
+    await _db.runTransaction((tx) async {
+      final existing = await tx.get(entryRef);
+      if (existing.exists) return; // already registered — do not double-count
+
+      tx.set(entryRef, {
+        'userId': uid,
+        'displayName': displayName,
+        'photoUrl': photoUrl,
+        'bestTimeSeconds': 0,
+        'achievedAt': FieldValue.serverTimestamp(),
+        'registeredAt': FieldValue.serverTimestamp(),
+      });
+      tx.update(raceRef, {
+        'participantCount': FieldValue.increment(1),
+      });
     });
   }
 

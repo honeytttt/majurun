@@ -41,6 +41,37 @@ class VirtualRace {
     );
   }
 
+  /// Serialises to a Hive-safe map (no Firestore types).
+  Map<String, dynamic> toCacheMap() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'distanceKm': distanceKm,
+        'startDate': startDate.millisecondsSinceEpoch,
+        'endDate': endDate.millisecondsSinceEpoch,
+        'isActive': isActive,
+        'participantCount': participantCount,
+      };
+
+  factory VirtualRace.fromCacheMap(Map<String, dynamic> m) {
+    final startDate = DateTime.fromMillisecondsSinceEpoch(
+      m['startDate'] as int? ?? 0,
+    );
+    final endDate = DateTime.fromMillisecondsSinceEpoch(
+      m['endDate'] as int? ?? 0,
+    );
+    return VirtualRace(
+      id: m['id'] as String? ?? '',
+      name: m['name'] as String? ?? 'Race',
+      description: m['description'] as String? ?? '',
+      distanceKm: (m['distanceKm'] as num?)?.toDouble() ?? 5.0,
+      startDate: startDate,
+      endDate: endDate,
+      isActive: endDate.isAfter(DateTime.now()),
+      participantCount: m['participantCount'] as int? ?? 0,
+    );
+  }
+
   int get daysRemaining {
     final diff = endDate.difference(DateTime.now()).inDays;
     return diff < 0 ? 0 : diff;

@@ -135,6 +135,10 @@ class UserStatsService {
       debugPrint('❌ UserStatsService.addRun: Transaction failed: $e');
       // Fallback: try direct update without transaction
       try {
+        // Do NOT touch bestPaceSecPerKm here — we cannot compare without
+        // reading the doc, and an unconditional write would overwrite a better
+        // (lower) value with a worse one.  The transaction already handles PBs
+        // correctly; this fallback only preserves the running counters/badges.
         await userRef.set({
           'workoutsCount': FieldValue.increment(1),
           'totalKm': FieldValue.increment(distanceKm),
@@ -144,7 +148,6 @@ class UserStatsService {
           'badge10k': FieldValue.increment(inc10k),
           'badgeHalf': FieldValue.increment(incHalf),
           'badgeFull': FieldValue.increment(incFull),
-          'bestPaceSecPerKm': paceSecPerKm,
         }, SetOptions(merge: true));
         debugPrint('✅ UserStatsService.addRun: Fallback update succeeded');
       } catch (e2) {

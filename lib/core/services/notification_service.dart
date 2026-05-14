@@ -286,7 +286,9 @@ class NotificationService {
     }
   }
 
-  /// Notify all subscribers when a user posts
+  /// Notify all subscribers when a user posts.
+  /// Uses Firestore batch writes (chunks of 400) instead of sequential awaits
+  /// so 50 subscribers = 1 round-trip instead of 50.
   Future<void> notifySubscribersOfPost({
     required String posterUserId,
     required String posterUsername,
@@ -295,15 +297,32 @@ class NotificationService {
   }) async {
     try {
       final subscribers = await getSubscribers(posterUserId);
+      if (subscribers.isEmpty) return;
 
-      for (final subscriberId in subscribers) {
-        await createPostNotification(
-          targetUserId: subscriberId,
-          posterUserId: posterUserId,
-          posterUsername: posterUsername,
-          posterPhotoUrl: posterPhotoUrl,
-          postId: postId,
-        );
+      final now = DateTime.now();
+      const chunkSize = 400; // well under Firestore batch limit of 500
+
+      for (int i = 0; i < subscribers.length; i += chunkSize) {
+        final chunk =
+            subscribers.sublist(i, (i + chunkSize).clamp(0, subscribers.length));
+        final batch = _firestore.batch();
+
+        for (final subscriberId in chunk) {
+          final docRef = _notificationsRef(subscriberId).doc();
+          final notification = AppNotification(
+            id: '',
+            type: NotificationType.post,
+            fromUserId: posterUserId,
+            fromUsername: posterUsername,
+            fromUserPhotoUrl: posterPhotoUrl,
+            message: '$posterUsername shared a new post',
+            createdAt: now,
+            metadata: {'postId': postId},
+          );
+          batch.set(docRef, notification.toMap());
+        }
+
+        await batch.commit();
       }
 
       _log.i('Notified ${subscribers.length} subscribers of new post');

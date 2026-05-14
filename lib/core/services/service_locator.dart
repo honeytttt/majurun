@@ -216,10 +216,10 @@ class ServiceLocator {
   }
 
   /// Dispose all services
-  void dispose() {
+  Future<void> dispose() async {
     _authSubscription?.cancel();
     _authSubscription = null;
-    backgroundLocationService.dispose();
+    await backgroundLocationService.dispose();
     intervalTrainingService.dispose();
     audioCoachingService.dispose();
     pushNotificationService.dispose();

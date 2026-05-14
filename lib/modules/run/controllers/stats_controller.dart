@@ -364,33 +364,35 @@ class StatsController extends ChangeNotifier {
     }
   }
 
-  /// Like/Unlike a post
+  /// Like/Unlike a post — wrapped in a Firestore transaction so concurrent
+  /// taps from different users never lose a like or corrupt likeCount.
   Future<void> toggleLike(String postId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
     final postRef = _firestore.collection('posts').doc(postId);
-    final postDoc = await postRef.get();
-    
-    if (!postDoc.exists) return;
 
-    final likes = List<String>.from(postDoc.data()?['likes'] ?? []);
-    
-    if (likes.contains(uid)) {
-      // Unlike
-      await postRef.update({
-        'likes': FieldValue.arrayRemove([uid]),
-        'likeCount': FieldValue.increment(-1),
-      });
-      debugPrint('👎 Unliked post: $postId');
-    } else {
-      // Like
-      await postRef.update({
-        'likes': FieldValue.arrayUnion([uid]),
-        'likeCount': FieldValue.increment(1),
-      });
-      debugPrint('👍 Liked post: $postId');
-    }
+    await _firestore.runTransaction((tx) async {
+      final postDoc = await tx.get(postRef);
+      if (!postDoc.exists) return;
+
+      final likes = List<String>.from(postDoc.data()?['likes'] ?? []);
+      final alreadyLiked = likes.contains(uid);
+
+      if (alreadyLiked) {
+        tx.update(postRef, {
+          'likes': FieldValue.arrayRemove([uid]),
+          'likeCount': FieldValue.increment(-1),
+        });
+        debugPrint('👎 Unliked post: $postId');
+      } else {
+        tx.update(postRef, {
+          'likes': FieldValue.arrayUnion([uid]),
+          'likeCount': FieldValue.increment(1),
+        });
+        debugPrint('👍 Liked post: $postId');
+      }
+    });
   }
 
   /// Write in-app notification docs for each follower when a new badge is earned.
