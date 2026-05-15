@@ -263,11 +263,11 @@ class WatchSyncService extends ChangeNotifier {
     List<LatLng>? routePoints;
     final rawRoute = event['route'];
     if (rawRoute is List && rawRoute.isNotEmpty) {
-      routePoints = rawRoute.whereType<List>().map((pt) {
-        final lat = (pt[0] as num).toDouble();
-        final lon = (pt[1] as num).toDouble();
-        return LatLng(lat, lon);
-      }).toList();
+      routePoints = rawRoute
+          .whereType<List>()
+          .where((pt) => pt.length >= 2)
+          .map((pt) => LatLng((pt[0] as num).toDouble(), (pt[1] as num).toDouble()))
+          .toList();
     }
 
     final run = WatchCompletedRun(

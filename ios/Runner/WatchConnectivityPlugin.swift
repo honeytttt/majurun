@@ -183,8 +183,8 @@ class WatchConnectivityPlugin: NSObject, FlutterPlugin, WCSessionDelegate {
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
-        DispatchQueue.main.async {
-            self.eventSink?([
+        DispatchQueue.main.async { [weak self] in
+            self?.eventSink?([
                 "type": "connection_changed",
                 "connected": session.isReachable
             ])
@@ -205,7 +205,7 @@ class WatchConnectivityPlugin: NSObject, FlutterPlugin, WCSessionDelegate {
         guard let action = userInfo["action"] as? String,
               action == "completedWatchRun" else { return }
 
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
             var event: [String: Any] = ["type": "watch_run_completed"]
             if let v = userInfo["startTime"]      { event["startTime"] = v }
             if let v = userInfo["endTime"]        { event["endTime"] = v }
@@ -214,32 +214,28 @@ class WatchConnectivityPlugin: NSObject, FlutterPlugin, WCSessionDelegate {
             if let v = userInfo["avgHeartRate"]   { event["avgHeartRate"] = v }
             if let v = userInfo["calories"]       { event["calories"] = v }
             if let v = userInfo["route"]          { event["route"] = v }
-            self.eventSink?(event)
+            self?.eventSink?(event)
         }
     }
 
     private func handleWatchMessage(_ message: [String: Any]) {
         guard let action = message["action"] as? String else { return }
 
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
             switch action {
             case "runStarted":
-                self.eventSink?(["type": "run_started"])
+                self?.eventSink?(["type": "run_started"])
             case "runPaused":
-                self.eventSink?(["type": "run_paused"])
+                self?.eventSink?(["type": "run_paused"])
             case "runResumed":
-                self.eventSink?(["type": "run_resumed"])
+                self?.eventSink?(["type": "run_resumed"])
             case "runStopped":
                 var event: [String: Any] = ["type": "run_stopped"]
-                if let distance = message["distance"] {
-                    event["distance"] = distance
-                }
-                if let duration = message["duration"] {
-                    event["duration"] = duration
-                }
-                self.eventSink?(event)
+                if let distance = message["distance"] { event["distance"] = distance }
+                if let duration = message["duration"] { event["duration"] = duration }
+                self?.eventSink?(event)
             case "heartRateUpdate":
-                self.eventSink?([
+                self?.eventSink?([
                     "type": "heart_rate_update",
                     "heartRate": message["heartRate"] ?? 0
                 ])

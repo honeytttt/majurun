@@ -18,13 +18,13 @@ import 'user_avatar_impl.dart'
 /// )
 /// ```
 
-class UserAvatar extends StatelessWidget {
+class UserAvatar extends StatefulWidget {
   final String userId;
   final double radius;
   final bool showBorder;
   final Color borderColor;
   final double borderWidth;
-  
+
   const UserAvatar({
     super.key,
     required this.userId,
@@ -35,17 +35,31 @@ class UserAvatar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (userId.isEmpty) return _buildFallback();
+  State<UserAvatar> createState() => _UserAvatarState();
+}
 
-    // Use .get() not .snapshots() — avatars don't need a permanent live listener.
-    // snapshots() keeps a Firestore connection open per avatar in the feed,
-    // which multiplies quickly (20 posts = 20 open connections).
+class _UserAvatarState extends State<UserAvatar> {
+  // Cache the Future so parent rebuilds don't re-issue Firestore reads.
+  // Each rebuild of a StatelessWidget would open a new .get() — in a feed
+  // with 20 posts that means 20 reads per scroll frame.
+  late final Future<DocumentSnapshot> _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.userId.isEmpty) return;
+    _userFuture = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.userId)
+        .get();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.userId.isEmpty) return _buildFallback();
+
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get(),
+      future: _userFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoading();
@@ -60,48 +74,42 @@ class UserAvatar extends StatelessWidget {
         if (photoUrl.isEmpty || !photoUrl.trim().startsWith('http')) {
           return _buildFallback();
         }
-        // Apply Cloudinary thumbnail optimization — serve small image for avatars
         final optimizedUrl = CloudinaryService.thumbnailUrl(
           photoUrl.trim(),
-          size: (radius * 2).toInt(),
+          size: (widget.radius * 2).toInt(),
         );
         return _buildImageAvatar(optimizedUrl);
       },
     );
   }
 
-  /// Build avatar with platform-specific rendering
   Widget _buildImageAvatar(String imageUrl) {
     final avatar = buildUserAvatar(
       photoUrl: imageUrl,
-      radius: radius,
+      radius: widget.radius,
     );
-    
-    // Add border if requested
-    if (showBorder) {
+    if (widget.showBorder) {
       return Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: borderColor,
-            width: borderWidth,
+            color: widget.borderColor,
+            width: widget.borderWidth,
           ),
         ),
         child: avatar,
       );
     }
-    
     return avatar;
   }
-  
-  /// Loading state
+
   Widget _buildLoading() {
     return CircleAvatar(
-      radius: radius,
+      radius: widget.radius,
       backgroundColor: Colors.grey.shade200,
       child: SizedBox(
-        width: radius * 0.6,
-        height: radius * 0.6,
+        width: widget.radius * 0.6,
+        height: widget.radius * 0.6,
         child: const CircularProgressIndicator(
           strokeWidth: 2,
           color: Color(0xFF00E676),
@@ -109,15 +117,14 @@ class UserAvatar extends StatelessWidget {
       ),
     );
   }
-  
-  /// Fallback icon when no image available
+
   Widget _buildFallback() {
     return CircleAvatar(
-      radius: radius,
+      radius: widget.radius,
       backgroundColor: Colors.grey.shade200,
       child: Icon(
         Icons.person,
-        size: radius * 0.8,
+        size: widget.radius * 0.8,
         color: Colors.grey.shade600,
       ),
     );
