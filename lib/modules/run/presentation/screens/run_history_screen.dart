@@ -46,11 +46,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   // Auto-sync: only once per session
   static bool _stravaAutoSyncDone = false;
 
+  // DB-sourced stats — independent of the paginated _runs list
+  final Map<String, double> _dbMonthlyTotals = {}; // 'YYYY-MM' → km from Firestore
+  final Set<String> _fetchingMonthlyKeys = {};       // prevents duplicate in-flight queries
+  double? _yearTotalKm;
+  int? _yearRunCount;
+  double? _yearAvgKmPerActiveMonth;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _loadFirstPage();
+      await Future.wait([_loadFirstPage(), _fetchYearStats()]);
       _autoSyncStravaOnce();
     });
   }
@@ -93,6 +100,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       _lastRunDate = page.isNotEmpty ? page.last['date'] as DateTime? : null;
       _initialLoading = false;
     });
+    _fetchMonthlyTotals(_extractMonthKeys(page));
   }
 
   Future<void> _loadMoreRuns() async {
@@ -107,6 +115,95 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       _lastRunDate = page.isNotEmpty ? page.last['date'] as DateTime? : _lastRunDate;
       _isLoadingMore = false;
     });
+    _fetchMonthlyTotals(_extractMonthKeys(page));
+  }
+
+  Set<String> _extractMonthKeys(List<Map<String, dynamic>> runs) {
+    return runs.map((r) {
+      final d = _parseDate(r['date']);
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}';
+    }).toSet();
+  }
+
+  /// Fetches monthly km totals directly from Firestore for each key in [keys].
+  /// Results are stored in [_dbMonthlyTotals] and trigger a rebuild.
+  /// Only fetches keys not already in-flight or completed.
+  Future<void> _fetchMonthlyTotals(Set<String> keys) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final toFetch = keys
+        .where((k) => !_dbMonthlyTotals.containsKey(k) && !_fetchingMonthlyKeys.contains(k))
+        .toList();
+    if (toFetch.isEmpty) return;
+    for (final k in toFetch) { _fetchingMonthlyKeys.add(k); }
+
+    await Future.wait(toFetch.map((key) async {
+      final parts = key.split('-');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final start = Timestamp.fromDate(DateTime(year, month));
+      final end = Timestamp.fromDate(DateTime(year, month + 1));
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('runs')
+            .where('userId', isEqualTo: uid)
+            .where('date', isGreaterThanOrEqualTo: start)
+            .where('date', isLessThan: end)
+            .get();
+        double total = 0.0;
+        for (final doc in snap.docs) {
+          final d = doc.data();
+          // Support both field names used across run types
+          total += (d['distanceKm'] as num?)?.toDouble() ??
+                   (d['distance'] as num?)?.toDouble() ?? 0.0;
+        }
+        if (mounted) setState(() => _dbMonthlyTotals[key] = total);
+      } catch (e) {
+        debugPrint('monthly total fetch error for $key: $e');
+        _fetchingMonthlyKeys.remove(key);
+      }
+    }));
+  }
+
+  /// Fetches this year's total km, run count, and avg km per active month from Firestore.
+  Future<void> _fetchYearStats() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final year = DateTime.now().year;
+    final start = Timestamp.fromDate(DateTime(year));
+    final end = Timestamp.fromDate(DateTime(year + 1));
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('runs')
+          .where('userId', isEqualTo: uid)
+          .where('date', isGreaterThanOrEqualTo: start)
+          .where('date', isLessThan: end)
+          .get();
+      double totalKm = 0.0;
+      final Set<String> activeMonths = {};
+      for (final doc in snap.docs) {
+        final d = doc.data();
+        totalKm += (d['distanceKm'] as num?)?.toDouble() ??
+                   (d['distance'] as num?)?.toDouble() ?? 0.0;
+        final rawDate = d['date'];
+        DateTime? dt;
+        if (rawDate is Timestamp) {
+          dt = rawDate.toDate();
+        } else if (rawDate is String) {
+          dt = DateTime.tryParse(rawDate);
+        }
+        if (dt != null) activeMonths.add('${dt.year}-${dt.month}');
+      }
+      if (!mounted) return;
+      setState(() {
+        _yearTotalKm = totalKm;
+        _yearRunCount = snap.docs.length;
+        _yearAvgKmPerActiveMonth =
+            activeMonths.isEmpty ? 0.0 : totalKm / activeMonths.length;
+      });
+    } catch (e) {
+      debugPrint('year stats fetch error: $e');
+    }
   }
 
   Future<void> _refreshHistory() async {
@@ -475,7 +572,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
     for (final key in sortedKeys) {
       final monthRuns = groupedRuns[key]!;
-      final totalKm = monthlyTotals[key] ?? 0.0;
+      // Prefer DB total (accurate, full month) — fall back to screen total while query is in-flight
+      final totalKm = _dbMonthlyTotals[key] ?? monthlyTotals[key] ?? 0.0;
+      final isDbTotal = _dbMonthlyTotals.containsKey(key);
       final date = _parseDate(monthRuns.first['date']);
       final monthName = DateFormat('MMM').format(date).toUpperCase();
       final year = date.year;
@@ -483,7 +582,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       // Month header
       slivers.add(
         SliverToBoxAdapter(
-          child: _buildMonthHeader(monthName, year, totalKm),
+          child: _buildMonthHeader(monthName, year, totalKm, isDbTotal: isDbTotal),
         ),
       );
 
@@ -507,7 +606,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return slivers;
   }
 
-  Widget _buildMonthHeader(String month, int year, double totalKm) {
+  Widget _buildMonthHeader(String month, int year, double totalKm, {bool isDbTotal = false}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       margin: const EdgeInsets.only(top: 8),
@@ -564,7 +663,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.directions_run, size: 14, color: Colors.white),
+                if (!isDbTotal)
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white70),
+                  )
+                else
+                  const Icon(Icons.directions_run, size: 14, color: Colors.white),
                 const SizedBox(width: 6),
                 Text(
                   '${totalKm.toStringAsFixed(1)} KM',
@@ -775,11 +881,112 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          _buildYearStatsCard(),
+          const SizedBox(height: 12),
           _buildPersonalBests(records),
           // Badges Section
           _buildBadgesSection(),
         ],
       ),
+    );
+  }
+
+  Widget _buildYearStatsCard() {
+    final year = DateTime.now().year;
+    final loading = _yearTotalKm == null;
+    final totalKm = _yearTotalKm ?? 0.0;
+    final runCount = _yearRunCount ?? 0;
+    final avgKm = _yearAvgKmPerActiveMonth ?? 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade50, Colors.teal.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 14, color: Colors.teal.shade700),
+              const SizedBox(width: 6),
+              Text(
+                '$year AT A GLANCE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              if (loading)
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.teal.shade400,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildYearStatCell(
+                  loading ? '--' : '${totalKm.toStringAsFixed(0)} km',
+                  'Year Total',
+                  Icons.route,
+                  Colors.teal,
+                ),
+              ),
+              Container(width: 1, height: 44, color: Colors.teal.withValues(alpha: 0.2)),
+              Expanded(
+                child: _buildYearStatCell(
+                  loading ? '--' : '${avgKm.toStringAsFixed(1)} km',
+                  'Avg / Month',
+                  Icons.show_chart,
+                  Colors.teal.shade700,
+                ),
+              ),
+              Container(width: 1, height: 44, color: Colors.teal.withValues(alpha: 0.2)),
+              Expanded(
+                child: _buildYearStatCell(
+                  loading ? '--' : '$runCount',
+                  'Year Runs',
+                  Icons.check_circle_outline,
+                  Colors.teal,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildYearStatCell(String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 9, color: Colors.teal.shade600, fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 
