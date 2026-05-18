@@ -145,17 +145,15 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       final end = Timestamp.fromDate(DateTime(year, month + 1));
       try {
         final snap = await FirebaseFirestore.instance
-            .collection('runs')
-            .where('userId', isEqualTo: uid)
-            .where('date', isGreaterThanOrEqualTo: start)
-            .where('date', isLessThan: end)
+            .collection('users')
+            .doc(uid)
+            .collection('training_history')
+            .where('completedAt', isGreaterThanOrEqualTo: start)
+            .where('completedAt', isLessThan: end)
             .get();
         double total = 0.0;
         for (final doc in snap.docs) {
-          final d = doc.data();
-          // Support both field names used across run types
-          total += (d['distanceKm'] as num?)?.toDouble() ??
-                   (d['distance'] as num?)?.toDouble() ?? 0.0;
+          total += (doc.data()['distanceKm'] as num?)?.toDouble() ?? 0.0;
         }
         if (mounted) setState(() => _dbMonthlyTotals[key] = total);
       } catch (e) {
@@ -174,18 +172,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final end = Timestamp.fromDate(DateTime(year + 1));
     try {
       final snap = await FirebaseFirestore.instance
-          .collection('runs')
-          .where('userId', isEqualTo: uid)
-          .where('date', isGreaterThanOrEqualTo: start)
-          .where('date', isLessThan: end)
+          .collection('users')
+          .doc(uid)
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: start)
+          .where('completedAt', isLessThan: end)
           .get();
       double totalKm = 0.0;
       final Set<String> activeMonths = {};
       for (final doc in snap.docs) {
         final d = doc.data();
-        totalKm += (d['distanceKm'] as num?)?.toDouble() ??
-                   (d['distance'] as num?)?.toDouble() ?? 0.0;
-        final rawDate = d['date'];
+        totalKm += (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        final rawDate = d['completedAt'];
         DateTime? dt;
         if (rawDate is Timestamp) {
           dt = rawDate.toDate();
