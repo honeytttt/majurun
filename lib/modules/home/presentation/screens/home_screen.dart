@@ -68,7 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userBio = 'Loading...';
   String _profileImageUrl = '';
   String _email = '';
-  bool _isAdmin = false;
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
@@ -76,21 +75,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
-    _checkAdminClaim();
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
     // Post today's motivational + education cards (first user of the day triggers it).
     DailyContentService.maybePostDailyContent().catchError(
       (e) => debugPrint('⚠️ DailyContentService: $e'),
     );
-  }
-
-  Future<void> _checkAdminClaim() async {
-    try {
-      final result = await FirebaseAuth.instance.currentUser?.getIdTokenResult();
-      final isAdmin = result?.claims?['admin'] == true ||
-          result?.claims?['email'] == 'majurun.app@gmail.com';
-      if (mounted) setState(() => _isAdmin = isAdmin);
-    } catch (_) {}
   }
 
   void _onTabNotifier() {
