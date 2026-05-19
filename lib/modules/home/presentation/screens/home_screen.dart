@@ -435,6 +435,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   int _challengesDone = 0;
   int _challengesTotal = 0;
 
+  bool _isAdmin = false;
+
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && !user.emailVerified && !_bannerDismissed;
@@ -469,12 +471,22 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
     _loadBlockedUsers();
     _loadChallengeSummary();
+    _checkAdminClaim();
     
     // Load cached posts for instant startup
     final cached = CacheService().getCachedPosts();
     if (cached.isNotEmpty) {
       _allPosts.addAll(cached);
     }
+  }
+
+  Future<void> _checkAdminClaim() async {
+    try {
+      final result = await FirebaseAuth.instance.currentUser?.getIdTokenResult();
+      final isAdmin = result?.claims?['admin'] == true ||
+          result?.claims?['email'] == 'majurun.app@gmail.com';
+      if (mounted) setState(() => _isAdmin = isAdmin);
+    } catch (_) {}
   }
 
   Future<void> _loadBlockedUsers() async {
