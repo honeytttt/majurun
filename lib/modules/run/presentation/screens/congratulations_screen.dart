@@ -5,7 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:screenshot/screenshot.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
@@ -196,6 +198,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         _showChallengeToasts(result.completedChallenges);
         // Load recap stats from Firestore
         _fetchRecapData();
+        // Ask for a native App Store / Play Store review on meaningful runs
+        // (first badge or PB earned). Throttled to once per 60 days via prefs.
+        if (result.pbs.isNotEmpty || result.badges.isNotEmpty) {
+          _maybeRequestReview();
+        }
       }).catchError((_) {
         if (mounted) setState(() => _syncState = _SyncState.error);
       });
@@ -203,6 +210,30 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       // No background save — run was already committed before this screen.
       // Load recap data (streak, ghost run, etc.) immediately.
       _fetchRecapData();
+    }
+  }
+
+  /// Request a native App Store / Play Store review — at most once per 60 days
+  /// and only on builds where the store flow is available.
+  Future<void> _maybeRequestReview() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastMs = prefs.getInt('last_review_request_ms') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const cooldownMs = 60 * 24 * 60 * 60 * 1000; // 60 days
+      if (now - lastMs < cooldownMs) return;
+
+      final inAppReview = InAppReview.instance;
+      if (!await inAppReview.isAvailable()) return;
+
+      // Small delay so the save-complete animation plays first
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      await inAppReview.requestReview();
+      await prefs.setInt('last_review_request_ms', now);
+    } catch (_) {
+      // Non-critical — review prompt is purely additive
     }
   }
 

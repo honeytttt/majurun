@@ -14,7 +14,6 @@ import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
-import 'package:majurun/core/services/weather_service.dart';
 import 'package:majurun/core/services/service_locator.dart';
 import 'package:majurun/modules/run/controllers/post_controller.dart';
 
@@ -602,7 +601,7 @@ class RunController extends ChangeNotifier {
       try {
         final pos = stateController.lastPosition;
         if (pos != null) {
-          final weatherService = WeatherService();
+          final weatherService = serviceLocator.weatherService;
           // Ensure API key is set from RemoteConfig or Secret
           final apiKey = serviceLocator.remoteConfigService.getString('openweather_api_key');
           if (apiKey.isNotEmpty) {

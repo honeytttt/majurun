@@ -92,9 +92,9 @@ class GoalsService extends ChangeNotifier {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(periodStart))
-          .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(periodEnd))
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(periodStart))
+          .where('completedAt', isLessThanOrEqualTo: Timestamp.fromDate(periodEnd))
           .limit(200) // Max runs per goal period
           .get();
 
@@ -202,8 +202,8 @@ class GoalsService extends ChangeNotifier {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(fourWeeksAgo))
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fourWeeksAgo))
           .limit(100) // Max runs for suggestions
           .get();
 

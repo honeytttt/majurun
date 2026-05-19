@@ -222,16 +222,16 @@ class AchievementService extends ChangeNotifier {
       final runs = await _firestore
           .collection('users')
           .doc(userId)
-          .collection('runHistory')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(saturday))
-          .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(sunday.add(const Duration(days: 1))))
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(saturday))
+          .where('completedAt', isLessThanOrEqualTo: Timestamp.fromDate(sunday.add(const Duration(days: 1))))
           .get();
 
       bool hasSaturday = false;
       bool hasSunday = false;
 
       for (final doc in runs.docs) {
-        final timestamp = (doc.data()['timestamp'] as Timestamp).toDate();
+        final timestamp = (doc.data()['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
         if (timestamp.weekday == 6) hasSaturday = true;
         if (timestamp.weekday == 7) hasSunday = true;
       }
