@@ -150,6 +150,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       // not wired into the free-run flow, so this is the recording point.
       serviceLocator.shoeTrackingService
           .recordRun(activeShoe.id, widget.distanceKm)
+          .then((_) => _maybeShowShoeMilestoneAlert(activeShoe))
           .ignore();
       _shoeMileageRecorded = true;
     }
@@ -238,6 +239,40 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     } catch (_) {
       // Non-critical — review prompt is purely additive
     }
+  }
+
+  void _maybeShowShoeMilestoneAlert(Shoe shoe) {
+    if (!mounted) return;
+    const warnKm = ShoeTrackingService.warningThresholdKm;   // 500
+    const retireKm = ShoeTrackingService.retireThresholdKm;  // 800
+    final prev = shoe.totalDistanceKm;
+    final now = prev + widget.distanceKm;
+
+    final bool crossedRetire = prev < retireKm && now >= retireKm;
+    final bool crossedWarn   = !crossedRetire && prev < warnKm && now >= warnKm;
+
+    if (!crossedRetire && !crossedWarn) return;
+
+    final isRetire = crossedRetire;
+    final color = isRetire ? Colors.red.shade700 : Colors.orange.shade700;
+    final msg = isRetire
+        ? '${shoe.displayName} hit ${retireKm.toInt()} km — time to retire! 👟'
+        : '${shoe.displayName} hit ${warnKm.toInt()} km — consider replacing soon! 👟';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: color,
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: 'View shoes',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
   }
 
   Future<void> _maybeShowMonthlyMilestone() async {
