@@ -16,6 +16,7 @@ import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/core/services/strava_sync_service.dart';
 import 'package:majurun/modules/analytics/presentation/screens/analytics_screen.dart';
 import 'package:majurun/modules/races/presentation/screens/virtual_race_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/personal_records_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -831,7 +832,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           const SizedBox(height: 12),
           _buildStreakCalendar(),
           const SizedBox(height: 12),
-          _buildPersonalBests(records),
+          _buildPersonalBests(records, runs),
           // Badges Section
           _buildBadgesSection(),
         ],
@@ -1161,47 +1162,54 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return names[month - 1];
   }
 
-  Widget _buildPersonalBests(Map<String, String> records) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade50, Colors.indigo.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+  Widget _buildPersonalBests(Map<String, String> records, List<Map<String, dynamic>> runs) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PersonalRecordsScreen(runs: runs)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade600),
-              const SizedBox(width: 6),
-              Text(
-                'PERSONAL BESTS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo.shade600,
-                  letterSpacing: 0.5,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  'PERSONAL BESTS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade600,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _buildPBCell('5K', records['best5k'] ?? '--:--', records['best5kDate'] ?? '', Colors.green)),
-              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
-              Expanded(child: _buildPBCell('10K', records['best10k'] ?? '--:--', records['best10kDate'] ?? '', Colors.blue)),
-              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
-              Expanded(child: _buildPBCell('Half', records['bestHalf'] ?? '--:--', records['bestHalfDate'] ?? '', Colors.orange)),
-            ],
-          ),
-        ],
+                const Spacer(),
+                Icon(Icons.chevron_right, size: 16, color: Colors.indigo.shade400),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _buildPBCell('5K', records['best5k'] ?? '--:--', records['best5kDate'] ?? '', Colors.green)),
+                Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+                Expanded(child: _buildPBCell('10K', records['best10k'] ?? '--:--', records['best10kDate'] ?? '', Colors.blue)),
+                Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+                Expanded(child: _buildPBCell('Half', records['bestHalf'] ?? '--:--', records['bestHalfDate'] ?? '', Colors.orange)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
