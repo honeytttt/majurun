@@ -9,7 +9,7 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/goals-visual-rings` (build 216+) — branch from here for new work.
+**Current base branch:** `feature/production-polish-219` (build 219) — branch from here for new work.
 
 ### CI — actions/checkout updated (done in build 216)
 - ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files
@@ -63,8 +63,8 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 212** (version 1.0.2+212) — deep audit production fixes
-- **Release in progress: build 218** (version 1.0.2+218) — feature batch: heatmap, PR wall, profile stats, goal rings, shoe alerts
+- Last known upload: **build 218** (version 1.0.2+218) — feature batch + production hardening
+- **Release in progress: build 219** (version 1.0.0+219) — production polish: feature intro, what's new badge, motivational empty state, streak freeze tooltip
 - **Build number rule**: if a build fails, keep the same build number and retry — only increment AFTER a successful upload
 - **Marketing version is `1.0.2`** for TestFlight builds — do NOT bump to 1.0.3 or higher without explicit user approval
   - Format: `version: 1.0.2+<build_number>` — only the build number increments each release
