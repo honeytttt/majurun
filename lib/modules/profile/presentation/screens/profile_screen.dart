@@ -365,10 +365,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final longestRunKm = (data['longestRunKm'] as num?)?.toDouble() ?? 0.0;
           final bestPaceSecPerKm = (data['bestPaceSecPerKm'] as num?)?.toInt();
           
-          debugPrint('📊 ProfileScreen Stats:');
-          debugPrint('   totalKm from Firestore: $totalKm');
-          debugPrint('   bestPaceSecPerKm from Firestore: $bestPaceSecPerKm');
-          
           String bestPace = '--:--';
           if (bestPaceSecPerKm != null && bestPaceSecPerKm > 0) {
             final minutes = bestPaceSecPerKm ~/ 60;
