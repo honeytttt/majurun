@@ -425,7 +425,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   onTap: _isLoading
                                       ? null
-                                      : () => _handleSocialAuth(authRepo.signInWithTwitter),
+                                      : () {
+                                          _showErrorSnackbar('X / Twitter login coming soon!');
+                                        },
                                 ),
                               ],
                             ),
