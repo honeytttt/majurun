@@ -51,6 +51,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   double? _yearTotalKm;
   int? _yearRunCount;
   double? _yearAvgKmPerActiveMonth;
+  // 'YYYY-MM-DD' → km that day — drives the heatmap calendar
+  final Map<String, double> _heatmapData = {};
 
   @override
   void initState() {
@@ -184,9 +186,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           .get();
       double totalKm = 0.0;
       final Set<String> activeMonths = {};
+      final Map<String, double> heatmap = {};
       for (final doc in snap.docs) {
         final d = doc.data();
-        totalKm += (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        final km = (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        totalKm += km;
         final rawDate = d['completedAt'];
         DateTime? dt;
         if (rawDate is Timestamp) {
@@ -194,7 +198,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         } else if (rawDate is String) {
           dt = DateTime.tryParse(rawDate);
         }
-        if (dt != null) activeMonths.add('${dt.year}-${dt.month}');
+        if (dt != null) {
+          activeMonths.add('${dt.year}-${dt.month}');
+          final dayKey =
+              '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+          heatmap[dayKey] = (heatmap[dayKey] ?? 0.0) + km;
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -202,6 +211,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         _yearRunCount = snap.docs.length;
         _yearAvgKmPerActiveMonth =
             activeMonths.isEmpty ? 0.0 : totalKm / activeMonths.length;
+        _heatmapData
+          ..clear()
+          ..addAll(heatmap);
       });
     } catch (e) {
       debugPrint('year stats fetch error: $e');
@@ -817,6 +829,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           const SizedBox(height: 12),
           _buildYearStatsCard(),
           const SizedBox(height: 12),
+          _buildStreakCalendar(),
+          const SizedBox(height: 12),
           _buildPersonalBests(records),
           // Badges Section
           _buildBadgesSection(),
@@ -922,6 +936,229 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         ),
       ],
     );
+  }
+
+  // ── Streak heatmap calendar ───────────────────────────────────────────────
+
+  Widget _buildStreakCalendar() {
+    const weeks = 18;
+    const gap = 2.0;
+    const dayLabels = ['M', '', 'W', '', 'F', '', ''];
+
+    final today = DateTime.now();
+    // Align to this week's Monday
+    final thisMonday = today.subtract(Duration(days: today.weekday - 1));
+    // Go back (weeks-1) more weeks so the rightmost column = this week
+    final gridStart = DateTime(
+      thisMonday.year, thisMonday.month, thisMonday.day,
+    ).subtract(const Duration(days: (weeks - 1) * 7));
+
+    // Current streak — count consecutive days going back from today
+    int streak = 0;
+    var check = DateTime(today.year, today.month, today.day);
+    while (true) {
+      final k = '${check.year}-${check.month.toString().padLeft(2, '0')}-${check.day.toString().padLeft(2, '0')}';
+      if ((_heatmapData[k] ?? 0) > 0) {
+        streak++;
+        check = check.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department, size: 14, color: Color(0xFFFF6D00)),
+              const SizedBox(width: 6),
+              Text(
+                'ACTIVITY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const Spacer(),
+              if (streak > 0) ...[
+                Text(
+                  '$streak',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF00E676),
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'day streak',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Month labels + grid
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cellSize =
+                  (constraints.maxWidth - 16 - (weeks - 1) * gap) / weeks;
+
+              // Build month label row
+              final monthLabels = <Widget>[const SizedBox(width: 16)];
+              String? lastMonth;
+              for (int w = 0; w < weeks; w++) {
+                final colDate = gridStart.add(Duration(days: w * 7));
+                final monthStr = _shortMonth(colDate.month);
+                if (monthStr != lastMonth) {
+                  monthLabels.add(
+                    SizedBox(
+                      width: cellSize + (w > 0 ? gap : 0),
+                      child: Text(
+                        monthStr,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                  lastMonth = monthStr;
+                } else {
+                  monthLabels.add(SizedBox(width: cellSize + (w > 0 ? gap : 0)));
+                }
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Month labels
+                  Row(children: monthLabels),
+                  const SizedBox(height: 3),
+                  // Day rows
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Day-of-week labels column
+                      Column(
+                        children: List.generate(7, (dow) => Padding(
+                          padding: EdgeInsets.only(bottom: dow < 6 ? gap : 0),
+                          child: SizedBox(
+                            width: 12,
+                            height: cellSize,
+                            child: Center(
+                              child: Text(
+                                dayLabels[dow],
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )),
+                      ),
+                      const SizedBox(width: 4),
+                      // Week columns
+                      Expanded(
+                        child: Row(
+                          children: List.generate(weeks, (w) => Padding(
+                            padding: EdgeInsets.only(left: w > 0 ? gap : 0),
+                            child: Column(
+                              children: List.generate(7, (dow) {
+                                final date = gridStart.add(Duration(days: w * 7 + dow));
+                                return Padding(
+                                  padding: EdgeInsets.only(bottom: dow < 6 ? gap : 0),
+                                  child: _buildHeatmapCell(date, cellSize, today),
+                                );
+                              }),
+                            ),
+                          )),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Less', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.3))),
+              const SizedBox(width: 4),
+              for (final alpha in [0.12, 0.3, 0.55, 0.8, 1.0])
+                Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.only(left: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E676).withValues(alpha: alpha),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Text('More', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.3))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeatmapCell(DateTime date, double size, DateTime today) {
+    final isFuture = date.isAfter(today);
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final km = _heatmapData[key] ?? 0.0;
+
+    Color color;
+    if (isFuture) {
+      color = Colors.transparent;
+    } else if (km == 0) {
+      color = const Color(0xFF1E1E1E);
+    } else if (km < 3) {
+      color = const Color(0xFF00E676).withValues(alpha: 0.25);
+    } else if (km < 6) {
+      color = const Color(0xFF00E676).withValues(alpha: 0.5);
+    } else if (km < 10) {
+      color = const Color(0xFF00E676).withValues(alpha: 0.75);
+    } else {
+      color = const Color(0xFF00E676);
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  String _shortMonth(int month) {
+    const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return names[month - 1];
   }
 
   Widget _buildPersonalBests(Map<String, String> records) {
