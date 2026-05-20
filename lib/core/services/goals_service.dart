@@ -133,6 +133,7 @@ class GoalsService extends ChangeNotifier {
         currentValue: currentValue,
         targetValue: goal.targetValue,
         percentComplete: (currentValue / goal.targetValue * 100).clamp(0, 100),
+        expectedProgress: (expectedProgress / goal.targetValue * 100).clamp(0, 100),
         isOnTrack: currentValue >= expectedProgress,
         daysRemaining: periodEnd.difference(now).inDays,
         runCount: runCount,
@@ -412,6 +413,7 @@ class GoalProgress {
   final double currentValue;
   final double targetValue;
   final double percentComplete;
+  final double expectedProgress;
   final bool isOnTrack;
   final int daysRemaining;
   final int runCount;
@@ -423,6 +425,7 @@ class GoalProgress {
     required this.currentValue,
     required this.targetValue,
     required this.percentComplete,
+    required this.expectedProgress,
     required this.isOnTrack,
     required this.daysRemaining,
     required this.runCount,
