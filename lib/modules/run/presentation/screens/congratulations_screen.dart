@@ -17,6 +17,7 @@ import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dar
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
+import 'package:majurun/modules/run/presentation/widgets/monthly_milestone_sheet.dart';
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
 import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
@@ -198,6 +199,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         _showChallengeToasts(result.completedChallenges);
         // Load recap stats from Firestore
         _fetchRecapData();
+        // Check if a monthly km milestone was just crossed — show achievement screen
+        _maybeShowMonthlyMilestone();
         // Ask for a native App Store / Play Store review on meaningful runs
         // (first badge or PB earned). Throttled to once per 60 days via prefs.
         if (result.pbs.isNotEmpty || result.badges.isNotEmpty) {
@@ -235,6 +238,32 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     } catch (_) {
       // Non-critical — review prompt is purely additive
     }
+  }
+
+  Future<void> _maybeShowMonthlyMilestone() async {
+    try {
+      // Check weekly first, then monthly — show at most one per run
+      final weekly = await MonthlyMilestoneSheet.checkWeekly(runDistanceKm: widget.distanceKm);
+      final monthly = await MonthlyMilestoneSheet.checkMonthly(runDistanceKm: widget.distanceKm);
+
+      final milestone = weekly ?? monthly;
+      final period = weekly != null ? MilestonePeriod.weekly : MilestonePeriod.monthly;
+
+      if (milestone != null && mounted) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => MonthlyMilestoneSheet(
+              milestoneKm: milestone,
+              period: period,
+              onDismiss: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkMilestone() async {
