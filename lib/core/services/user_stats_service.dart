@@ -180,12 +180,15 @@ class UserStatsService {
       int totalSeconds = 0;
       int totalCalories = 0;
       int totalRuns = snapshot.docs.length;
+      double longestRunKm = 0;
 
       for (final doc in snapshot.docs) {
         final d = doc.data();
-        totalKm       += (d['distanceKm']    as num?)?.toDouble() ?? 0.0;
+        final km = (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        totalKm       += km;
         totalSeconds  += (d['durationSeconds'] as num?)?.toInt()  ?? 0;
         totalCalories += (d['calories']       as num?)?.toInt()   ?? 0;
+        if (km > longestRunKm) longestRunKm = km;
       }
 
       // Overwrite denormalized counters with ground-truth values from history.
@@ -194,6 +197,7 @@ class UserStatsService {
         'workoutsCount':    totalRuns,
         'totalRunSeconds':  totalSeconds,
         'totalCalories':    totalCalories,
+        'longestRunKm':     longestRunKm,
       }, SetOptions(merge: true));
 
       debugPrint('✅ UserStatsService: Recalculated — ${totalKm.toStringAsFixed(2)} km, $totalRuns runs, ${totalSeconds}s, $totalCalories kcal');
