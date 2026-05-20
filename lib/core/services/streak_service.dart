@@ -273,6 +273,8 @@ class StreakService {
   }
 
   /// Grant a weekly freeze token to Pro users (call on login / weekly reset).
+  /// Anchors to the Monday of each calendar week so the grant window is
+  /// deterministic — a 7-day rolling gap can fire on different weekdays.
   Future<void> refreshWeeklyFreezeToken(String userId) async {
     try {
       final ref = _firestore.collection('users').doc(userId);
@@ -280,8 +282,23 @@ class StreakService {
       final data = doc.data() ?? {};
       final lastGranted = (data['lastFreezeGrantedAt'] as Timestamp?)?.toDate();
       final now = DateTime.now();
-      // Grant once per calendar week
-      if (lastGranted == null || now.difference(lastGranted).inDays >= 7) {
+
+      // Monday 00:00:00 of the current week
+      final todayMon = now.subtract(Duration(days: now.weekday - 1));
+      final thisWeekStart =
+          DateTime(todayMon.year, todayMon.month, todayMon.day);
+
+      bool shouldGrant = lastGranted == null;
+      if (!shouldGrant) {
+        // Monday 00:00:00 of the week the token was last granted
+        final grantedMon =
+            lastGranted.subtract(Duration(days: lastGranted.weekday - 1));
+        final grantedWeekStart =
+            DateTime(grantedMon.year, grantedMon.month, grantedMon.day);
+        shouldGrant = grantedWeekStart.isBefore(thisWeekStart);
+      }
+
+      if (shouldGrant) {
         await ref.set({
           'streakFreezeAvailable': 1,
           'lastFreezeGrantedAt': Timestamp.fromDate(now),

@@ -91,9 +91,9 @@ class ChallengesService extends ChangeNotifier {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(challenge.startDate))
-          .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(challenge.endDate))
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(challenge.startDate))
+          .where('completedAt', isLessThanOrEqualTo: Timestamp.fromDate(challenge.endDate))
           .limit(500) // Max runs per challenge period
           .get();
 
@@ -159,10 +159,10 @@ class ChallengesService extends ChangeNotifier {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-          .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(end))
-          .orderBy('timestamp')
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('completedAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
+          .orderBy('completedAt')
           .limit(500) // Limit for streak calculation
           .get();
 
@@ -170,7 +170,7 @@ class ChallengesService extends ChangeNotifier {
 
       Set<String> runDates = {};
       for (final doc in snapshot.docs) {
-        final ts = (doc.data()['timestamp'] as Timestamp?)?.toDate();
+        final ts = (doc.data()['completedAt'] as Timestamp?)?.toDate();
         if (ts != null) {
           runDates.add('${ts.year}-${ts.month}-${ts.day}');
         }

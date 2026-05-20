@@ -13,20 +13,41 @@ class SubscriptionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Admin email - has all pro features + admin access
+  // Legacy admin email — transitional fallback only.
+  // Authoritative admin source: Firebase Custom Claim `admin: true`.
+  // To grant admin: firebase.auth().setCustomUserClaims(uid, { admin: true })
+  // TODO: remove email fallback once all admin accounts have the custom claim.
   static const String adminEmail = 'majurun.app@gmail.com';
 
-  /// Check if current user is admin
+  /// Synchronous admin check (email only — use [isAdminAsync] where possible).
   bool isAdmin() {
-    final email = _auth.currentUser?.email;
-    return email == adminEmail;
+    return _auth.currentUser?.email == adminEmail;
   }
 
-  /// Check if user ID is admin
+  /// Async admin check — prefers Custom Claim, falls back to email.
+  /// Use this wherever an async call is acceptable (profile load, purchase flow).
+  Future<bool> isAdminAsync() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      final token = await user.getIdTokenResult();
+      if (token.claims?['admin'] == true) return true;
+    } catch (e) {
+      debugPrint('Admin claim check error: $e');
+    }
+    return user.email == adminEmail; // fallback
+  }
+
+  /// Check if a given user ID is admin (async, checks Custom Claim first).
   Future<bool> isUserAdmin(String userId) async {
     try {
+      // Prefer Custom Claim on the current user if IDs match
+      if (_auth.currentUser?.uid == userId) {
+        return isAdminAsync();
+      }
       final doc = await _firestore.collection('users').doc(userId).get();
       if (doc.exists) {
+        // Custom claim is not readable from Firestore, fall back to email field
         final email = doc.data()?['email'] as String?;
         return email == adminEmail;
       }
@@ -115,8 +136,16 @@ class SubscriptionService {
     });
   }
 
-  /// Upgrade user to pro (for testing/admin purposes)
+  /// DEBUG / ADMIN ONLY — writes isPro directly to Firestore.
+  /// NEVER call this in production code or from any purchase flow.
+  /// The only trusted writer of isPro in production is the verifySubscription
+  /// Cloud Function.  Any client-side write can be replayed by any user.
   Future<void> upgradeToProMonth(String userId) async {
+    assert(
+      kDebugMode,
+      'upgradeToProMonth must not be called in release builds — '
+      'use the verifySubscription Cloud Function instead.',
+    );
     final expiry = DateTime.now().add(const Duration(days: 30));
     await _firestore.collection('users').doc(userId).update({
       'isPro': true,
@@ -124,11 +153,16 @@ class SubscriptionService {
       'subscriptionType': 'monthly',
       'subscribedAt': FieldValue.serverTimestamp(),
     });
-    debugPrint('User $userId upgraded to Pro (Monthly)');
+    debugPrint('User $userId upgraded to Pro (Monthly) [DEBUG ONLY]');
   }
 
-  /// Upgrade user to pro yearly
+  /// DEBUG / ADMIN ONLY — see [upgradeToProMonth] warning.
   Future<void> upgradeToProYear(String userId) async {
+    assert(
+      kDebugMode,
+      'upgradeToProYear must not be called in release builds — '
+      'use the verifySubscription Cloud Function instead.',
+    );
     final expiry = DateTime.now().add(const Duration(days: 365));
     await _firestore.collection('users').doc(userId).update({
       'isPro': true,
@@ -136,7 +170,7 @@ class SubscriptionService {
       'subscriptionType': 'yearly',
       'subscribedAt': FieldValue.serverTimestamp(),
     });
-    debugPrint('User $userId upgraded to Pro (Yearly)');
+    debugPrint('User $userId upgraded to Pro (Yearly) [DEBUG ONLY]');
   }
 
   /// Downgrade user to free

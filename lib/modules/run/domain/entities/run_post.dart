@@ -23,7 +23,11 @@ class RunPost {
       id: doc.id,
       content: data['content'] ?? '',
       videoUrl: data['videoUrl'],
-      timestamp: ts is Timestamp ? ts.toDate() : DateTime.now(),
+      timestamp: ts is Timestamp
+          ? ts.toDate()
+          : ts is String
+              ? DateTime.tryParse(ts) ?? DateTime.now()
+              : DateTime.now(),
     );
   }
 }

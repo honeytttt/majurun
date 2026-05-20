@@ -123,9 +123,41 @@ class LiveTrackingService {
     }
   }
 
+  /// Marks the session document with a TTL timestamp so a Cloud Function (or
+  /// the next [_purgeExpiredSessions] call) can delete it after 24 hours.
+  /// GPS route data must not accumulate indefinitely in Firestore.
   void _scheduleSessionCleanup(String sessionId) {
-    // In production, use Cloud Functions for this
-    // For now, just mark for deletion
+    final expiresAt = DateTime.now().add(const Duration(hours: 24));
+    _firestore.collection('liveTracking').doc(sessionId).update({
+      'expiresAt': Timestamp.fromDate(expiresAt),
+    }).ignore();
+    // Also trigger a client-side sweep for any sessions past their TTL.
+    _purgeExpiredSessions().ignore();
+  }
+
+  /// Deletes liveTracking sessions that are past their 24-hour TTL.
+  /// Runs client-side as a best-effort cleanup; a Cloud Function TTL trigger
+  /// provides the authoritative server-side cleanup.
+  Future<void> _purgeExpiredSessions() async {
+    if (_userId == null) return;
+    try {
+      final expired = await _firestore
+          .collection('liveTracking')
+          .where('userId', isEqualTo: _userId)
+          .where('isActive', isEqualTo: false)
+          .where('expiresAt', isLessThan: Timestamp.now())
+          .limit(20)
+          .get();
+      if (expired.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in expired.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      debugPrint('🧹 LiveTracking: purged ${expired.docs.length} expired session(s)');
+    } catch (e) {
+      debugPrint('⚠️ LiveTracking: purge failed: $e');
+    }
   }
 
   /// Generate shareable link for live tracking
@@ -161,8 +193,13 @@ class LiveTrackingService {
     await SharePlus.instance.share(ShareParams(text: message));
   }
 
-  /// Watch a live session (for viewers)
+  /// Watch a live session (for viewers).
+  /// Returns an empty stream if the caller is not authenticated.
   Stream<LiveTrackingData?> watchSession(String sessionId) {
+    if (_auth.currentUser == null) {
+      debugPrint('⚠️ LiveTracking: unauthenticated watchSession rejected');
+      return const Stream.empty();
+    }
     return _firestore
         .collection('liveTracking')
         .doc(sessionId)
@@ -202,7 +239,8 @@ class LiveTrackingService {
       if (doc.exists) {
         final contacts = doc.data()?['contacts'] as List<dynamic>? ?? [];
         _emergencyContacts = contacts
-            .map((c) => EmergencyContact.fromMap(c as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((c) => EmergencyContact.fromMap(Map<String, dynamic>.from(c)))
             .toList();
       }
     } catch (e) {
@@ -327,9 +365,9 @@ class LiveTrackingData {
       duration: data['duration'] ?? 0,
       currentPace: data['currentPace'] ?? '',
       currentSpeed: (data['currentSpeed'] as num?)?.toDouble() ?? 0,
-      route: routeData.map((r) {
-        final point = r as Map<String, dynamic>;
-        return LatLng(point['lat'], point['lng']);
+      route: routeData.whereType<Map>().map((r) {
+        final point = Map<String, dynamic>.from(r);
+        return LatLng((point['lat'] as num).toDouble(), (point['lng'] as num).toDouble());
       }).toList(),
       sosTriggered: data['sosTriggered'] ?? false,
     );

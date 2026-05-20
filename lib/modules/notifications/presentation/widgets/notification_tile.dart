@@ -183,6 +183,7 @@ class NotificationTile extends StatelessWidget {
         return 'shared a new post';
       case NotificationType.badge:
       case NotificationType.reminder:
+      case NotificationType.puzzle:
         return '';
     }
   }
@@ -219,6 +220,10 @@ class NotificationTile extends StatelessWidget {
       case NotificationType.reminder:
         icon = Icons.directions_run_rounded;
         color = Colors.orange;
+        break;
+      case NotificationType.puzzle:
+        icon = Icons.extension_rounded;
+        color = const Color(0xFF00E676);
         break;
     }
 

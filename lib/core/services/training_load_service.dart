@@ -170,7 +170,7 @@ class TrainingLoadService {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
+          .collection('training_history')
           .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(weekStartDate))
           .get();
 
@@ -199,7 +199,7 @@ class TrainingLoadService {
       final prevWeekSnapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
+          .collection('training_history')
           .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(prevWeekStart))
           .where('completedAt', isLessThan: Timestamp.fromDate(weekStartDate))
           .get();
@@ -272,7 +272,7 @@ class TrainingLoadService {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
+          .collection('training_history')
           .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(sixWeeksAgo))
           .orderBy('completedAt')
           .get();

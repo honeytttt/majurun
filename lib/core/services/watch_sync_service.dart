@@ -22,6 +22,15 @@ class WatchSyncService extends ChangeNotifier {
   // Current run state to sync
   RunSyncData? _currentRunData;
 
+  /// True while the watch has an active standalone run in progress.
+  bool _watchRunActive = false;
+
+  /// Injected by the app shell so that watch-originated runs are saved through
+  /// the same StatsController instance that drives the UI, ensuring the run
+  /// history list refreshes without a full reload.
+  /// Set via [setStatsController] immediately after initialization.
+  StatsController? _statsController;
+
   /// Called when a standalone watch run is received and saved.
   /// UI can set this to show a snackbar / navigate to the run.
   void Function(WatchCompletedRun)? onWatchRunReceived;
@@ -30,6 +39,15 @@ class WatchSyncService extends ChangeNotifier {
   bool get isWatchAppInstalled => _isWatchAppInstalled;
   WatchPlatform? get watchPlatform => _watchPlatform;
   RunSyncData? get currentRunData => _currentRunData;
+
+  /// Whether the watch has an active standalone run in progress.
+  bool get watchRunActive => _watchRunActive;
+
+  /// Call this once from the app shell (after providers are ready) to inject
+  /// the shared [StatsController] so watch runs trigger a UI refresh.
+  void setStatsController(StatsController controller) {
+    _statsController = controller;
+  }
 
   /// Initialize watch connection
   Future<void> initialize() async {
@@ -47,7 +65,9 @@ class WatchSyncService extends ChangeNotifier {
                 : null;
       }
 
-      // Listen for watch events
+      // Listen for watch events — cancel any prior subscription first so a
+      // second initialize() call (e.g. hot restart in dev) doesn't double-fire.
+      await _eventSubscription?.cancel();
       _eventSubscription = _eventChannel.receiveBroadcastStream().listen(
         _handleWatchEvent,
         onError: (error) => debugPrint('Watch event error: $error'),
@@ -198,7 +218,8 @@ class WatchSyncService extends ChangeNotifier {
   // Event handlers for watch-initiated events
   void _onWatchRunStarted() {
     debugPrint('Run started from watch');
-    // Notify the app to sync state
+    _watchRunActive = true;
+    notifyListeners();
   }
 
   void _onWatchRunPaused() {
@@ -211,10 +232,8 @@ class WatchSyncService extends ChangeNotifier {
 
   void _onWatchRunStopped(Map<dynamic, dynamic> event) {
     debugPrint('Run stopped from watch');
-    // Get final run data from watch
-    final distance = event['distance'] as double?;
-    final duration = event['duration'] as int?;
-    debugPrint('Watch run: ${distance}m in ${duration}s');
+    _watchRunActive = false;
+    notifyListeners();
   }
 
   void _onHeartRateUpdate(int? heartRate) {
@@ -244,11 +263,11 @@ class WatchSyncService extends ChangeNotifier {
     List<LatLng>? routePoints;
     final rawRoute = event['route'];
     if (rawRoute is List && rawRoute.isNotEmpty) {
-      routePoints = rawRoute.whereType<List>().map((pt) {
-        final lat = (pt[0] as num).toDouble();
-        final lon = (pt[1] as num).toDouble();
-        return LatLng(lat, lon);
-      }).toList();
+      routePoints = rawRoute
+          .whereType<List>()
+          .where((pt) => pt.length >= 2)
+          .map((pt) => LatLng((pt[0] as num).toDouble(), (pt[1] as num).toDouble()))
+          .toList();
     }
 
     final run = WatchCompletedRun(
@@ -261,7 +280,10 @@ class WatchSyncService extends ChangeNotifier {
     );
 
     try {
-      await StatsController().saveRunHistory(
+      // Use the injected shared instance so the run history UI refreshes;
+      // fall back to a local instance only if injection hasn't happened yet.
+      final controller = _statsController ?? StatsController();
+      await controller.saveRunHistory(
         planTitle: 'Watch Run',
         distanceKm: distanceKm,
         durationSeconds: durationSeconds,
@@ -272,6 +294,8 @@ class WatchSyncService extends ChangeNotifier {
         extra: {'source': 'apple_watch'},
       );
       debugPrint('✅ Watch run saved: ${distanceKm.toStringAsFixed(2)} km');
+      _watchRunActive = false;
+      notifyListeners();
       onWatchRunReceived?.call(run);
     } catch (e) {
       debugPrint('❌ Failed to save watch run: $e');

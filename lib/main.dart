@@ -36,27 +36,10 @@ import 'modules/engagement/engagement_service.dart';
 import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
 import 'core/services/offline_sync_service.dart';
-import 'package:audio_session/audio_session.dart';
+import 'core/services/watch_sync_service.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
-
-Future<void> _configureAudioSession() async {
-  final session = await AudioSession.instance;
-  await session.configure(const AudioSessionConfiguration(
-    // iOS: playback + duckOthers — music lowers while TTS speaks, restores after.
-    // NOT ambient: ambient silences TTS when screen locks (breaks run announcements).
-    avAudioSessionCategory: AVAudioSessionCategory.playback,
-    avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
-    avAudioSessionMode: AVAudioSessionMode.defaultMode,
-    // Android: request transient focus with ducking so music lowers, not pauses.
-    androidAudioAttributes: AndroidAudioAttributes(
-      contentType: AndroidAudioContentType.music,
-      usage: AndroidAudioUsage.assistanceNavigationGuidance,
-    ),
-    androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
-  ));
-}
 
 Future<void> main() async {
   // Wrap entire app initialization with Sentry for comprehensive error tracking
@@ -89,10 +72,10 @@ Future<void> main() async {
       }
     }
 
-    // Configure audio session: TTS ducks music while speaking, restores after.
-    // audio_session manages setActive(true/false) lifecycle properly — this is
-    // what was missing in previous builds (music never restored after ducking).
-    await _configureAudioSession();
+    // Audio session is configured once inside VoiceController._initTts() with
+    // the correct gainTransientMayDuck + spokenAudio settings.  Configuring it
+    // here a second time would overwrite those settings with wrong values
+    // (defaultMode + music contentType) and break TTS ducking.
 
     // Initialize local cache service for offline mode
     await CacheService().initialize();
@@ -132,6 +115,11 @@ Future<void> main() async {
     // Initialize ServiceLocator (handles all core services)
     await serviceLocator.initialize();
 
+    // Initialize watch sync — sets up event channel for standalone Apple Watch
+    // runs. Runs recorded on the watch while phone was away are delivered here
+    // as soon as the phone reconnects; the service saves them to Firestore.
+    WatchSyncService().initialize().ignore();
+
     // Get service instances from ServiceLocator
     final crashReporting = serviceLocator.crashReportingService;
     final analytics = serviceLocator.analyticsService;
@@ -156,12 +144,16 @@ Future<void> main() async {
           ChangeNotifierProvider<UnitPreferenceService>(create: (_) => UnitPreferenceService()),
           Provider<AnalyticsService>.value(value: analytics),
           Provider<CrashReportingService>.value(value: crashReporting),
+          // Exposes watchRunActive so UI can show a banner when watch is running
+          ChangeNotifierProvider<WatchSyncService>.value(value: WatchSyncService()),
         ],
         child: const MyApp(),
       ),
     );
   });
 }
+
+final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -178,6 +170,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _setupAuthListener();
+    _setupWatchRunCallback();
+  }
+
+  void _setupWatchRunCallback() {
+    // Inject the shared StatsController so watch-originated runs refresh the
+    // run history UI without needing a full reload.
+    WatchSyncService().setStatsController(
+      context.read<RunController>().statsController,
+    );
+
+    WatchSyncService().onWatchRunReceived = (run) {
+      final distStr = run.distanceKm.toStringAsFixed(2);
+      final s = run.durationSeconds;
+      final h = s ~/ 3600;
+      final m = (s % 3600) ~/ 60;
+      final sec = s % 60;
+      final dur = h > 0
+          ? '$h:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}'
+          : '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Watch run saved — $distStr km in $dur'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    };
   }
 
   @override
@@ -242,6 +260,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Majurun',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       // Use premium dark theme for professional look
       theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,

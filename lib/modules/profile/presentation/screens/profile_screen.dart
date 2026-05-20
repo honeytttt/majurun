@@ -70,7 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _streakFuture = uid.isEmpty
         ? Future.value(streakFallback)
         : Future.wait([
-            StreakService().updateStreak(uid),
+            // Read-only: do NOT call updateStreak here — opening the profile
+            // screen is not a run completion event and calling updateStreak
+            // writes to Firestore on every view, potentially resetting a
+            // broken streak to 1 before the user has actually run again.
+            StreakService().getStreakStatus(uid),
             WeeklySummaryService().getCurrentWeekSummary(),
           ]).then((results) => <String, dynamic>{
             'streak': results[0] as Map<String, dynamic>,
@@ -358,11 +362,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           
           // Run stats
           final totalKm = (data['totalKm'] as num?)?.toDouble() ?? 0.0;
+          final longestRunKm = (data['longestRunKm'] as num?)?.toDouble() ?? 0.0;
           final bestPaceSecPerKm = (data['bestPaceSecPerKm'] as num?)?.toInt();
-          
-          debugPrint('📊 ProfileScreen Stats:');
-          debugPrint('   totalKm from Firestore: $totalKm');
-          debugPrint('   bestPaceSecPerKm from Firestore: $bestPaceSecPerKm');
           
           String bestPace = '--:--';
           if (bestPaceSecPerKm != null && bestPaceSecPerKm > 0) {
@@ -403,6 +404,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       location: location,
                       nickname: nickname,
                       createdAt: createdAt,
+                      totalKm: totalKm,
+                      totalRuns: totalRuns,
+                      longestRunKm: longestRunKm,
                     ),
                   ),
 
@@ -450,6 +454,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String nickname = '',
     String phoneNumber = '',
     DateTime? createdAt,
+    double totalKm = 0,
+    int totalRuns = 0,
+    double longestRunKm = 0,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -600,8 +607,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           
-          const SizedBox(height: 20),
-          
+          const SizedBox(height: 16),
+
+          // Run stats strip — always visible
+          _buildRunStatsStrip(totalKm: totalKm, totalRuns: totalRuns, longestRunKm: longestRunKm),
+
+          const SizedBox(height: 16),
+
           // Posts/Stats Toggle Buttons (Posts first, Stats second)
           Row(
             children: [
@@ -650,6 +662,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRunStatsStrip({
+    required double totalKm,
+    required int totalRuns,
+    required double longestRunKm,
+  }) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _streakFuture,
+      builder: (context, snap) {
+        final streakData = (snap.data?['streak'] as Map<String, dynamic>?) ?? {};
+        final streak = (streakData['currentStreak'] as int?) ?? 0;
+
+        final cells = [
+          _StripCell(
+            value: totalKm >= 1000
+                ? '${(totalKm / 1000).toStringAsFixed(1)}k'
+                : totalKm.toStringAsFixed(1),
+            label: 'km total',
+            icon: Icons.directions_run_rounded,
+            color: const Color(0xFF00E676),
+          ),
+          _StripCell(
+            value: totalRuns.toString(),
+            label: 'runs',
+            icon: Icons.check_circle_outline,
+            color: const Color(0xFF40C4FF),
+          ),
+          _StripCell(
+            value: longestRunKm > 0 ? '${longestRunKm.toStringAsFixed(1)} km' : '--',
+            label: 'longest',
+            icon: Icons.straighten,
+            color: const Color(0xFFFF9100),
+          ),
+          _StripCell(
+            value: streak.toString(),
+            label: streak == 1 ? 'day streak' : 'day streak',
+            icon: Icons.local_fire_department,
+            color: const Color(0xFFFF4081),
+          ),
+        ];
+
+        return Row(
+          children: cells.map((c) {
+            return Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                margin: EdgeInsets.only(right: c == cells.last ? 0 : 8),
+                decoration: BoxDecoration(
+                  color: c.color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: c.color.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  children: [
+                    Icon(c.icon, size: 16, color: c.color),
+                    const SizedBox(height: 4),
+                    Text(
+                      c.value,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: c.color,
+                      ),
+                    ),
+                    Text(
+                      c.label,
+                      style: const TextStyle(fontSize: 9, color: Colors.black54, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -1350,7 +1439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             ElevatedButton(
-              onPressed: () => _signOut(context),
+              onPressed: _signOut,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red[700],
                 foregroundColor: Colors.white,
@@ -1371,39 +1460,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Sign Out Function
-  Future<void> _signOut(BuildContext context) async {
+  // Uses the State's own `context` so it remains valid after the confirmation
+  // dialog is popped.  Do NOT pass a BuildContext parameter here — the dialog's
+  // context is unmounted the moment Navigator.pop() is called on it.
+  Future<void> _signOut() async {
+    // Close the confirmation dialog (State context is still mounted)
+    if (mounted) Navigator.pop(context);
+    if (!mounted) return;
+
+    // Show loading indicator using the State's context
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      ),
+    );
+
     try {
-      // Close dialog
-      Navigator.pop(context);
-      
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF00E676),
-          ),
-        ),
-      );
-      
-      // Sign out from Firebase (AuthWrapper will navigate to LoginScreen automatically)
+      // Sign out from Firebase (AuthWrapper routes to LoginScreen automatically)
       await FirebaseAuth.instance.signOut();
 
-      // Close loading dialog
-      if (context.mounted) {
-        Navigator.pop(context);
-        // AuthWrapper detects auth state change and routes to LoginScreen — no manual navigation needed
-      }
-      
+      if (mounted) Navigator.pop(context);
       debugPrint('✅ User signed out successfully');
     } catch (e) {
       debugPrint('❌ Sign out error: $e');
-      
-      if (context.mounted) {
-        // Close loading dialog if still open
+      if (mounted) {
         Navigator.pop(context);
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error signing out: $e'),
@@ -1462,4 +1545,12 @@ class _StreakFreezeButtonState extends State<_StreakFreezeButton> {
           : const Icon(Icons.ac_unit, color: Colors.white70, size: 22),
     );
   }
+}
+
+class _StripCell {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _StripCell({required this.value, required this.label, required this.icon, required this.color});
 }

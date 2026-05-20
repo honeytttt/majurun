@@ -54,6 +54,35 @@ class Club {
         'ownerId': ownerId,
         'createdAt': FieldValue.serverTimestamp(),
       };
+
+  /// Serialises to a Hive-safe map (no Firestore types).
+  Map<String, dynamic> toCacheMap() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'city': city,
+        'photoUrl': photoUrl,
+        'isPrivate': isPrivate,
+        'memberCount': memberCount,
+        'ownerId': ownerId,
+        'createdAt': createdAt.millisecondsSinceEpoch,
+        if (weeklyKmTotal != null) 'weeklyKmTotal': weeklyKmTotal,
+      };
+
+  factory Club.fromCacheMap(Map<String, dynamic> m) => Club(
+        id: m['id'] as String? ?? '',
+        name: m['name'] as String? ?? '',
+        description: m['description'] as String? ?? '',
+        city: m['city'] as String? ?? '',
+        photoUrl: m['photoUrl'] as String? ?? '',
+        isPrivate: m['isPrivate'] as bool? ?? false,
+        memberCount: m['memberCount'] as int? ?? 0,
+        ownerId: m['ownerId'] as String? ?? '',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          m['createdAt'] as int? ?? 0,
+        ),
+        weeklyKmTotal: (m['weeklyKmTotal'] as num?)?.toDouble(),
+      );
 }
 
 /// A member of a running club.

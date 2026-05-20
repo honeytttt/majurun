@@ -221,7 +221,7 @@ class FirestoreRunHistoryImpl implements RunHistoryRepository {
       try {
         final pointsData = data['routePoints'] as List<dynamic>;
         routePoints = pointsData.map((point) {
-          final pointMap = point as Map<String, dynamic>;
+          final pointMap = Map<String, dynamic>.from(point as Map);
           // Saved with 'lat'/'lng' keys (run_controller.dart line ~434)
           final lat = (pointMap['lat'] ?? pointMap['latitude']) as num?;
           final lng = (pointMap['lng'] ?? pointMap['longitude']) as num?;

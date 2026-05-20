@@ -101,7 +101,7 @@ class _CommentSheetState extends State<CommentSheet> {
   }
 
   // FIXED: Restored missing _submitComment method
-  void _submitComment() async {
+  Future<void> _submitComment() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || (_controller.text.trim().isEmpty && selectedMediaBytes == null)) return;
 

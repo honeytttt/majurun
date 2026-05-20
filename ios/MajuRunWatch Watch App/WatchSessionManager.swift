@@ -2,6 +2,8 @@
 import Foundation
 import WatchConnectivity
 import CoreLocation
+import WatchKit
+import SwiftUI
 
 /// Manages phone↔watch sync AND standalone run recording on the watch.
 ///
@@ -41,6 +43,23 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
     private var standalonePausedDuration: TimeInterval = 0
     private var standalonePauseStart: Date?
 
+    // ─── Haptics ──────────────────────────────────────────────────────────
+    /// Last whole-km milestone at which a haptic was fired (both modes).
+    private var lastHapticKm: Int = 0
+
+    // ─── Heart rate zone colour ───────────────────────────────────────────
+    /// Zone colour based on absolute BPM (no age required).
+    var heartRateColor: Color {
+        switch heartRate {
+        case 0:       return .gray
+        case ..<120:  return .blue    // Zone 1 — easy / warm-up
+        case 120..<140: return .green  // Zone 2 — aerobic base
+        case 140..<160: return .yellow // Zone 3 — tempo
+        case 160..<175: return .orange // Zone 4 — threshold
+        default:      return .red     // Zone 5 — max effort
+        }
+    }
+
     private override init() {
         super.init()
         locationManager.delegate = self
@@ -78,8 +97,14 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         calories = 0
         isRunning = true
         isPaused = false
+        lastHapticKm = 0
 
         locationManager.startUpdatingLocation()
+        WKInterfaceDevice.current().play(.start)
+
+        // Notify phone that a watch-initiated run has started (best-effort).
+        // Phone will reflect this in the WatchSyncService watchRunActive flag.
+        send(["action": "runStarted"])
 
         standaloneTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tickTimer()
@@ -107,6 +132,7 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         isPaused = true
         standalonePauseStart = Date()
         locationManager.stopUpdatingLocation()
+        WKInterfaceDevice.current().play(.stop)
     }
 
     func resumeStandaloneRun() {
@@ -117,6 +143,7 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
         standalonePauseStart = nil
         isPaused = false
         locationManager.startUpdatingLocation()
+        WKInterfaceDevice.current().play(.start)
     }
 
     // ─── Standalone run: stop + send to phone ────────────────────────────
@@ -142,6 +169,11 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
 
         distanceKm = 0; durationSeconds = 0; paceString = "--:--"
         heartRate = 0; calories = 0
+
+        WKInterfaceDevice.current().play(.success)
+
+        // Notify phone that the watch run has ended (best-effort).
+        send(["action": "runStopped"])
 
         // transferUserInfo queues the payload — iPhone receives it when it
         // next connects, even if that's hours after the run finishes.
@@ -170,6 +202,13 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
             }
             lastLocation = loc
             standaloneRoutePoints.append(loc)
+
+            // Haptic at every whole-km milestone (standalone mode)
+            let currentKm = Int(distanceKm)
+            if currentKm > lastHapticKm && distanceKm >= 1.0 {
+                WKInterfaceDevice.current().play(.notification)
+                lastHapticKm = currentKm
+            }
         }
     }
 
@@ -202,14 +241,29 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate, CLLoca
                 let paceRaw = message["pace"] as? Double ?? 0
                 self.paceString = paceRaw > 0 ? Self.formatPace(paceRaw) : "--:--"
 
+                // Companion-mode km milestone haptic
+                if self.isRunning && !self.isPaused {
+                    let currentKm = Int(self.distanceKm)
+                    if currentKm > self.lastHapticKm && self.distanceKm >= 1.0 {
+                        WKInterfaceDevice.current().play(.notification)
+                        self.lastHapticKm = currentKm
+                    }
+                }
+
             case "startRun":
-                if !self.isStandaloneMode { self.isRunning = true; self.isPaused = false }
+                if !self.isStandaloneMode {
+                    self.isRunning = true; self.isPaused = false
+                    self.lastHapticKm = 0
+                    WKInterfaceDevice.current().play(.start)
+                }
 
             case "stopRun":
                 if !self.isStandaloneMode {
                     self.isRunning = false; self.isPaused = false
                     self.distanceKm = 0; self.durationSeconds = 0
                     self.paceString = "--:--"; self.heartRate = 0; self.calories = 0
+                    self.lastHapticKm = 0
+                    WKInterfaceDevice.current().play(.success)
                 }
 
             default: break

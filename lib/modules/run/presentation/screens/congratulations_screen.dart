@@ -5,7 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:screenshot/screenshot.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
@@ -15,6 +17,7 @@ import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dar
 import 'package:majurun/modules/engagement/features/milestone/milestone_service.dart';
 import 'package:majurun/modules/engagement/features/milestone/milestone_ceremony.dart';
 import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dart';
+import 'package:majurun/modules/run/presentation/widgets/monthly_milestone_sheet.dart';
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
 import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
@@ -147,6 +150,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       // not wired into the free-run flow, so this is the recording point.
       serviceLocator.shoeTrackingService
           .recordRun(activeShoe.id, widget.distanceKm)
+          .then((_) => _maybeShowShoeMilestoneAlert(activeShoe))
           .ignore();
       _shoeMileageRecorded = true;
     }
@@ -196,6 +200,13 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         _showChallengeToasts(result.completedChallenges);
         // Load recap stats from Firestore
         _fetchRecapData();
+        // Check if a monthly km milestone was just crossed — show achievement screen
+        _maybeShowMonthlyMilestone();
+        // Ask for a native App Store / Play Store review on meaningful runs
+        // (first badge or PB earned). Throttled to once per 60 days via prefs.
+        if (result.pbs.isNotEmpty || result.badges.isNotEmpty) {
+          _maybeRequestReview();
+        }
       }).catchError((_) {
         if (mounted) setState(() => _syncState = _SyncState.error);
       });
@@ -204,6 +215,90 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       // Load recap data (streak, ghost run, etc.) immediately.
       _fetchRecapData();
     }
+  }
+
+  /// Request a native App Store / Play Store review — at most once per 60 days
+  /// and only on builds where the store flow is available.
+  Future<void> _maybeRequestReview() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastMs = prefs.getInt('last_review_request_ms') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const cooldownMs = 60 * 24 * 60 * 60 * 1000; // 60 days
+      if (now - lastMs < cooldownMs) return;
+
+      final inAppReview = InAppReview.instance;
+      if (!await inAppReview.isAvailable()) return;
+
+      // Small delay so the save-complete animation plays first
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      await inAppReview.requestReview();
+      await prefs.setInt('last_review_request_ms', now);
+    } catch (_) {
+      // Non-critical — review prompt is purely additive
+    }
+  }
+
+  void _maybeShowShoeMilestoneAlert(Shoe shoe) {
+    if (!mounted) return;
+    const warnKm = ShoeTrackingService.warningThresholdKm;   // 500
+    const retireKm = ShoeTrackingService.retireThresholdKm;  // 800
+    final prev = shoe.totalDistanceKm;
+    final now = prev + widget.distanceKm;
+
+    final bool crossedRetire = prev < retireKm && now >= retireKm;
+    final bool crossedWarn   = !crossedRetire && prev < warnKm && now >= warnKm;
+
+    if (!crossedRetire && !crossedWarn) return;
+
+    final isRetire = crossedRetire;
+    final color = isRetire ? Colors.red.shade700 : Colors.orange.shade700;
+    final msg = isRetire
+        ? '${shoe.displayName} hit ${retireKm.toInt()} km — time to retire! 👟'
+        : '${shoe.displayName} hit ${warnKm.toInt()} km — consider replacing soon! 👟';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: color,
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: 'View shoes',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
+  Future<void> _maybeShowMonthlyMilestone() async {
+    try {
+      // Check weekly first, then monthly — show at most one per run
+      final weekly = await MonthlyMilestoneSheet.checkWeekly(runDistanceKm: widget.distanceKm);
+      final monthly = await MonthlyMilestoneSheet.checkMonthly(runDistanceKm: widget.distanceKm);
+
+      final milestone = weekly ?? monthly;
+      final period = weekly != null ? MilestonePeriod.weekly : MilestonePeriod.monthly;
+
+      if (milestone != null && mounted) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => MonthlyMilestoneSheet(
+              milestoneKm: milestone,
+              period: period,
+              onDismiss: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkMilestone() async {
@@ -654,6 +749,17 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                     '${widget.calories}', 'KCAL'),
               ],
             ),
+            if (widget.distanceKm >= 0.5) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _cardStat(Icons.directions_walk_outlined,
+                      // ~540 strides/km (90 strides/min at 6:00/km)
+                      (widget.distanceKm * 540).round().toString(), 'STRIDES'),
+                ],
+              ),
+            ],
 
             // PBs / badges strip
             if (hasPbs || hasBadges) ...[

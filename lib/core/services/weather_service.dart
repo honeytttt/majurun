@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -149,42 +150,19 @@ class WeatherService extends ChangeNotifier {
     return 'Great conditions for running!';
   }
 
-  /// Calculate feels-like temperature considering wind chill and heat index
+  /// Calculate feels-like temperature considering wind chill and heat index.
   double calculateFeelsLike(double temp, double humidity, double windSpeed) {
     if (temp < 10 && windSpeed > 5) {
-      // Wind chill formula
-      return 13.12 + 0.6215 * temp - 11.37 * pow(windSpeed, 0.16) + 0.3965 * temp * pow(windSpeed, 0.16);
+      // Windchill formula (Environment Canada / Météo-France standard)
+      final w = math.pow(windSpeed, 0.16);
+      return 13.12 + 0.6215 * temp - 11.37 * w + 0.3965 * temp * w;
     } else if (temp > 26 && humidity > 40) {
-      // Heat index formula (simplified)
-      return temp + 0.33 * (humidity / 100 * 6.105 * exp(17.27 * temp / (237.7 + temp))) - 4;
+      // Heat index (simplified Steadman)
+      return temp +
+          0.33 * (humidity / 100 * 6.105 * math.exp(17.27 * temp / (237.7 + temp))) -
+          4;
     }
     return temp;
-  }
-
-  double pow(double base, double exponent) {
-    return _pow(base, exponent);
-  }
-
-  static double _pow(double base, double exponent) {
-    double result = 1;
-    for (int i = 0; i < exponent.floor(); i++) {
-      result *= base;
-    }
-    return result;
-  }
-
-  double exp(double x) {
-    return _exp(x);
-  }
-
-  static double _exp(double x) {
-    double result = 1;
-    double term = 1;
-    for (int i = 1; i <= 20; i++) {
-      term *= x / i;
-      result += term;
-    }
-    return result;
   }
 }
 

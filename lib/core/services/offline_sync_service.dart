@@ -71,7 +71,7 @@ class OfflineSyncService {
       'planTitle': 'Offline Run',
       'distanceKm': distanceKm,
       'durationSeconds': run.durationSeconds,
-      'pace': "$paceMin'$paceSec\"",
+      'pace': '$paceMin:$paceSec', // colon format — consistent with all other services
       'completedAt': Timestamp.fromDate(run.endTime ?? run.createdAt),
       'syncedFromOffline': true,
     };

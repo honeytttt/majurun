@@ -512,8 +512,11 @@ class BackgroundLocationService {
     debugPrint('⏹️ Location tracking stopped');
   }
 
-  void dispose() {
-    stopTracking();
+  Future<void> dispose() async {
+    // await stopTracking() before closing the controller — stopTracking() is
+    // async and may enqueue final events; closing the controller first would
+    // cause those events to arrive on a closed stream → unhandled exception.
+    await stopTracking();
     _positionController.close();
   }
 

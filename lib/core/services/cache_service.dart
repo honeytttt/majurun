@@ -8,8 +8,10 @@ class CacheService {
   factory CacheService() => _instance;
   CacheService._internal();
 
-  static const String _postsBoxName = 'cached_posts';
-  static const String _statsBoxName = 'user_stats';
+  static const String _postsBoxName  = 'cached_posts';
+  static const String _statsBoxName  = 'user_stats';
+  static const String _clubsBoxName  = 'cached_clubs';
+  static const String _racesBoxName  = 'cached_races';
 
   Future<void> initialize() async {
     await Hive.initFlutter();
@@ -19,6 +21,8 @@ class CacheService {
     
     await Hive.openBox(_postsBoxName);
     await Hive.openBox(_statsBoxName);
+    await Hive.openBox(_clubsBoxName);
+    await Hive.openBox(_racesBoxName);
     debugPrint('📦 CacheService initialized');
   }
 
@@ -57,8 +61,42 @@ class CacheService {
     return data != null ? Map<String, dynamic>.from(data as Map) : null;
   }
 
+  // ── Clubs ─────────────────────────────────────────────────────────────────
+
+  /// Cache the public clubs list (stored as JSON maps for simplicity).
+  Future<void> cacheClubs(List<Map<String, dynamic>> clubs) async {
+    await Hive.box(_clubsBoxName).put('public_clubs', clubs);
+  }
+
+  /// Retrieve cached public clubs. Returns an empty list when nothing is cached.
+  List<Map<String, dynamic>> getCachedClubs() {
+    final raw = Hive.box(_clubsBoxName).get('public_clubs');
+    if (raw == null) return [];
+    return (raw as List<dynamic>)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  // ── Races ──────────────────────────────────────────────────────────────────
+
+  /// Cache the active races list.
+  Future<void> cacheRaces(List<Map<String, dynamic>> races) async {
+    await Hive.box(_racesBoxName).put('active_races', races);
+  }
+
+  /// Retrieve cached active races. Returns an empty list when nothing is cached.
+  List<Map<String, dynamic>> getCachedRaces() {
+    final raw = Hive.box(_racesBoxName).get('active_races');
+    if (raw == null) return [];
+    return (raw as List<dynamic>)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
   Future<void> clearCache() async {
     await Hive.box(_postsBoxName).clear();
     await Hive.box(_statsBoxName).clear();
+    await Hive.box(_clubsBoxName).clear();
+    await Hive.box(_racesBoxName).clear();
   }
 }

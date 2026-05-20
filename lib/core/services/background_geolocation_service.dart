@@ -95,7 +95,7 @@ class BackgroundGeolocationService extends ChangeNotifier {
       await _firestore
           .collection('users')
           .doc(userId)
-          .collection('runHistory')
+          .collection('training_history')
           .doc(runId)
           .update({
         'routePoints': routePoints,

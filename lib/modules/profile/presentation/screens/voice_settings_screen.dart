@@ -354,7 +354,14 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
+                child: RadioGroup<int>(
+                  groupValue: _settings.coachingVoiceIndex,
+                  onChanged: (val) {
+                    if (val != null) {
+                      _updateSetting((s) => s.copyWith(coachingVoiceIndex: val));
+                    }
+                  },
+                  child: Column(
                   children: CoachingVoice.values.map((v) {
                     final isSelected = _settings.coachingVoiceIndex == v.index;
                     return InkWell(
@@ -374,12 +381,6 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                           children: [
                             Radio<int>(
                               value: v.index,
-                              groupValue: _settings.coachingVoiceIndex,
-                              onChanged: (val) {
-                                if (val != null) {
-                                  _updateSetting((s) => s.copyWith(coachingVoiceIndex: val));
-                                }
-                              },
                               activeColor: Colors.orange,
                             ),
                             const SizedBox(width: 8),
@@ -404,6 +405,7 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
                       ),
                     );
                   }).toList(),
+                ),
                 ),
               ),
             ],

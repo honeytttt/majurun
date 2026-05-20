@@ -43,6 +43,9 @@ import 'package:majurun/modules/home/presentation/widgets/weekly_recap_card.dart
 import 'package:majurun/modules/engagement/features/race_countdown/race_countdown_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/daily_micro_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart';
+import 'package:majurun/modules/puzzle/presentation/widgets/daily_puzzle_card.dart';
+import 'package:majurun/modules/puzzle/presentation/widgets/daily_trivia_card.dart';
+import 'package:majurun/modules/home/presentation/widgets/pro_upgrade_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -421,6 +424,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   int _challengesDone = 0;
   int _challengesTotal = 0;
 
+  bool _isAdmin = false;
+
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && !user.emailVerified && !_bannerDismissed;
@@ -455,12 +460,22 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     HomeFeedContent.refreshTrigger.addListener(_onRefreshTrigger);
     _loadBlockedUsers();
     _loadChallengeSummary();
+    _checkAdminClaim();
     
     // Load cached posts for instant startup
     final cached = CacheService().getCachedPosts();
     if (cached.isNotEmpty) {
       _allPosts.addAll(cached);
     }
+  }
+
+  Future<void> _checkAdminClaim() async {
+    try {
+      final result = await FirebaseAuth.instance.currentUser?.getIdTokenResult();
+      final isAdmin = result?.claims?['admin'] == true ||
+          result?.claims?['email'] == 'majurun.app@gmail.com';
+      if (mounted) setState(() => _isAdmin = isAdmin);
+    } catch (_) {}
   }
 
   Future<void> _loadBlockedUsers() async {
@@ -681,7 +696,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   child: _buildBranding(brandGreen),
                 ),
                 actions: <Widget>[
-                  if (FirebaseAuth.instance.currentUser?.email == 'majurun.app@gmail.com')
+                  if (_isAdmin)
                     Container(
                       width: 44,
                       height: 44,
@@ -839,8 +854,17 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
               const SliverToBoxAdapter(child: GamesFeedCard()),
 
+              // Daily Run Path game (number-connection) with streak tracking
+              const SliverToBoxAdapter(child: DailyPuzzleCard()),
+
+              // Daily running trivia quiz with streak tracking
+              const SliverToBoxAdapter(child: DailyTriviaCard()),
+
               // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
               const SliverToBoxAdapter(child: DailyMicroCard()),
+
+              // Pro upgrade banner — shown once per session for free users; hidden for Pro
+              const SliverToBoxAdapter(child: ProUpgradeBanner()),
 
               displayPosts.isEmpty
                   ? SliverFillRemaining(

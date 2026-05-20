@@ -192,6 +192,26 @@ class FollowService {
     }
   }
 
+  /// Batch-fetch user profiles for a list of IDs using whereIn (max 30 per
+  /// query) instead of one Firestore read per user.
+  Future<Map<String, Map<String, dynamic>>> _fetchUserProfiles(
+    List<String> ids,
+  ) async {
+    final profiles = <String, Map<String, dynamic>>{};
+    const chunkSize = 30; // Firestore whereIn limit
+    for (int i = 0; i < ids.length; i += chunkSize) {
+      final chunk = ids.sublist(i, (i + chunkSize).clamp(0, ids.length));
+      final snap = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snap.docs) {
+        profiles[doc.id] = doc.data();
+      }
+    }
+    return profiles;
+  }
+
   /// Stream of followers
   Stream<List<Map<String, dynamic>>> getFollowersStream(String userId) {
     return _firestore
@@ -201,21 +221,24 @@ class FollowService {
         .orderBy('followedAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-      final followers = <Map<String, dynamic>>[];
-      for (final doc in snapshot.docs) {
-        final followerId = doc.data()['userId'] as String;
-        final userDoc =
-            await _firestore.collection('users').doc(followerId).get();
-        if (userDoc.exists) {
-          followers.add({
-            'id': followerId,
-            'name': userDoc.data()?['displayName'] ?? 'Unknown',
-            'photoUrl': userDoc.data()?['photoUrl'] ?? '',
-            'followedAt': doc.data()['followedAt'],
-          });
-        }
-      }
-      return followers;
+      if (snapshot.docs.isEmpty) return [];
+      final ids = snapshot.docs
+          .map((d) => d.data()['userId'] as String? ?? d.id)
+          .toList();
+      final followedAt = {
+        for (final d in snapshot.docs)
+          (d.data()['userId'] as String? ?? d.id): d.data()['followedAt'],
+      };
+      final profiles = await _fetchUserProfiles(ids);
+      return ids
+          .where(profiles.containsKey)
+          .map((id) => {
+                'id': id,
+                'name': profiles[id]?['displayName'] ?? 'Unknown',
+                'photoUrl': profiles[id]?['photoUrl'] ?? '',
+                'followedAt': followedAt[id],
+              })
+          .toList();
     });
   }
 
@@ -228,21 +251,24 @@ class FollowService {
         .orderBy('followedAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-      final following = <Map<String, dynamic>>[];
-      for (final doc in snapshot.docs) {
-        final followingId = doc.data()['userId'] as String;
-        final userDoc =
-            await _firestore.collection('users').doc(followingId).get();
-        if (userDoc.exists) {
-          following.add({
-            'id': followingId,
-            'name': userDoc.data()?['displayName'] ?? 'Unknown',
-            'photoUrl': userDoc.data()?['photoUrl'] ?? '',
-            'followedAt': doc.data()['followedAt'],
-          });
-        }
-      }
-      return following;
+      if (snapshot.docs.isEmpty) return [];
+      final ids = snapshot.docs
+          .map((d) => d.data()['userId'] as String? ?? d.id)
+          .toList();
+      final followedAt = {
+        for (final d in snapshot.docs)
+          (d.data()['userId'] as String? ?? d.id): d.data()['followedAt'],
+      };
+      final profiles = await _fetchUserProfiles(ids);
+      return ids
+          .where(profiles.containsKey)
+          .map((id) => {
+                'id': id,
+                'name': profiles[id]?['displayName'] ?? 'Unknown',
+                'photoUrl': profiles[id]?['photoUrl'] ?? '',
+                'followedAt': followedAt[id],
+              })
+          .toList();
     });
   }
 

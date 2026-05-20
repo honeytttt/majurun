@@ -27,6 +27,8 @@ class WeeklyRecapCard extends StatefulWidget {
 
 class _WeeklyRecapCardState extends State<WeeklyRecapCard> {
   bool _dismissed = false;
+  // Stored once — prevents a new Firestore listener on every rebuild.
+  final Stream<bool> _proStatusStream = SubscriptionService().streamProStatus();
 
   /// Returns the most recent Sunday at 20:00 local time (start of the 24 h
   /// window in which the card is visible).
@@ -66,7 +68,7 @@ class _WeeklyRecapCardState extends State<WeeklyRecapCard> {
         if (recap.totalRuns == 0) return const SizedBox.shrink();
 
         return StreamBuilder<bool>(
-          stream: SubscriptionService().streamProStatus(),
+          stream: _proStatusStream,
           builder: (context, proSnap) {
             final isPro = proSnap.data ?? false;
             return _RecapCardBody(

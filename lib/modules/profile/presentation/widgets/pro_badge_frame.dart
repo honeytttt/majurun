@@ -16,7 +16,7 @@ import 'package:majurun/core/services/subscription_service.dart';
 ///
 /// Reads Pro status via [SubscriptionService.streamProStatus]. Free-tier
 /// users see the child unwrapped — no performance cost.
-class ProBadgeFrame extends StatelessWidget {
+class ProBadgeFrame extends StatefulWidget {
   final Widget child;
 
   /// Outer diameter of the frame (ring + child). The ring occupies
@@ -35,13 +35,28 @@ class ProBadgeFrame extends StatelessWidget {
   });
 
   @override
+  State<ProBadgeFrame> createState() => _ProBadgeFrameState();
+}
+
+class _ProBadgeFrameState extends State<ProBadgeFrame> {
+  // Stored once — prevents a new Firestore listener on every rebuild.
+  late final Stream<bool> _proStatusStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _proStatusStream = SubscriptionService().streamProStatus();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<bool>(
-      stream: SubscriptionService().streamProStatus(),
+      stream: _proStatusStream,
       builder: (context, snap) {
         final isPro = snap.data ?? false;
-        if (!isPro) return child;
-        return _ProRingWidget(size: size, ringWidth: ringWidth, child: child);
+        if (!isPro) return widget.child;
+        return _ProRingWidget(
+            size: widget.size, ringWidth: widget.ringWidth, child: widget.child);
       },
     );
   }

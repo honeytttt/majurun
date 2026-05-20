@@ -32,7 +32,7 @@ class WeeklySummaryService {
       final thisWeekSnapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
+          .collection('training_history')
           .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(weekStartDate))
           .where('completedAt', isLessThan: Timestamp.fromDate(weekEnd))
           .orderBy('completedAt')
@@ -43,7 +43,7 @@ class WeeklySummaryService {
       final prevWeekSnapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
+          .collection('training_history')
           .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(prevWeekStart))
           .where('completedAt', isLessThan: Timestamp.fromDate(weekStartDate))
           .get();
@@ -162,7 +162,7 @@ class WeeklySummaryService {
       final snapshot = await _firestore
           .collection('users')
           .doc(_userId)
-          .collection('runHistory')
+          .collection('training_history')
           .get();
 
       return _calculateWeekStats(snapshot.docs);
@@ -371,7 +371,7 @@ class WeeklySummaryService {
         final snapshot = await _firestore
             .collection('users')
             .doc(_userId)
-            .collection('runHistory')
+            .collection('training_history')
             .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
             .where('completedAt', isLessThan: Timestamp.fromDate(dayEnd))
             .limit(1)

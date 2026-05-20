@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:majurun/core/constants/firestore_paths.dart';
 import 'package:majurun/modules/dm/domain/entities/conversation.dart';
 import 'package:majurun/modules/dm/domain/entities/message.dart';
 import 'package:majurun/modules/dm/domain/entities/user_privacy.dart';
@@ -51,7 +52,12 @@ class DmService {
         });
   }
 
-  /// Get or create a conversation between two users
+  /// Get or create a conversation between two users.
+  ///
+  /// Uses a deterministic document ID derived from sorted UIDs so the lookup
+  /// is a single O(1) `get()` instead of a full `arrayContains` query scan.
+  /// Existing conversations created with auto-IDs are still accessible via
+  /// [getConversationsStream] — this only affects new thread creation.
   Future<String?> getOrCreateConversation({
     required String currentUserId,
     required String otherUserId,
@@ -61,46 +67,29 @@ class DmService {
     String? otherUserPhoto,
   }) async {
     try {
-      // Check if conversation already exists
-      final querySnapshot = await _firestore
-          .collection('conversations')
-          .where('participants', arrayContains: currentUserId)
-          .get();
+      final convId = FirestorePaths.conversationId(currentUserId, otherUserId);
+      final convRef = _firestore.collection('conversations').doc(convId);
 
-      for (var doc in querySnapshot.docs) {
-        final participants = List<String>.from(doc['participants'] ?? []);
-        if (participants.contains(otherUserId)) {
-          return doc.id;
-        }
-      }
+      final existing = await convRef.get();
+      if (existing.exists) return convId;
 
-      // Create new conversation
-      final conversationRef = _firestore.collection('conversations').doc();
-      
-      final participantNames = {
-        currentUserId: currentUserName,
-        otherUserId: otherUserName,
-      };
-      
-      final participantPhotos = {
-        if (currentUserPhoto != null) currentUserId: currentUserPhoto,
-        if (otherUserPhoto != null) otherUserId: otherUserPhoto,
-      };
-
-      await conversationRef.set({
+      await convRef.set({
         'participants': [currentUserId, otherUserId],
         'lastMessage': '',
         'lastMessageTime': FieldValue.serverTimestamp(),
-        'unreadCount': {
-          currentUserId: 0,
-          otherUserId: 0,
+        'unreadCount': {currentUserId: 0, otherUserId: 0},
+        'participantNames': {
+          currentUserId: currentUserName,
+          otherUserId: otherUserName,
         },
-        'participantNames': participantNames,
-        'participantPhotos': participantPhotos,
+        'participantPhotos': {
+          if (currentUserPhoto != null) currentUserId: currentUserPhoto,
+          if (otherUserPhoto != null) otherUserId: otherUserPhoto,
+        },
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      return conversationRef.id;
+      return convId;
     } catch (e) {
       log('❌ Error creating conversation: $e');
       return null;

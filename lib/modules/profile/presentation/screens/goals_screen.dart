@@ -463,6 +463,7 @@ class _GoalCard extends StatelessWidget {
     final target = goal.targetValue;
     final daysLeft = progress?.daysRemaining ?? 0;
     final onTrack = progress?.isOnTrack ?? false;
+    final expectedPct = progress?.expectedProgress ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -470,111 +471,148 @@ class _GoalCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _ringColor.withValues(alpha: 0.15),
+          width: 1,
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Progress ring
-          SizedBox(
-            width: 72,
-            height: 72,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CustomPaint(
-                  size: const Size(72, 72),
-                  painter: _RingPainter(
-                    progress: pct / 100,
-                    ringColor: _ringColor,
-                  ),
-                ),
-                Text(
-                  '${pct.toInt()}%',
-                  style: TextStyle(
-                    color: _ringColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title row
-                Row(
-                  children: [
-                    Text(
-                      '${goal.period.name} ${goal.type.name}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: onDelete,
-                      child: const Icon(Icons.close,
-                          color: Colors.white24, size: 18),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                // Current / target
-                Text(
-                  '${goal.type.formatValue(current)} / ${goal.type.formatValue(target)}',
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (pct / 100).clamp(0.0, 1.0),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation(_ringColor),
-                    minHeight: 5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Status row
-                Row(
-                  children: [
-                    if (pct >= 100)
-                      const _StatusBadge(
-                          label: 'Completed', color: _green)
-                    else if (onTrack)
-                      const _StatusBadge(
-                          label: 'On track', color: _green)
-                    else
-                      const _StatusBadge(
-                          label: 'Behind', color: _orange),
-                    const Spacer(),
-                    if (daysLeft > 0)
-                      Text(
-                        '$daysLeft day${daysLeft == 1 ? '' : 's'} left',
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 11,
+          Row(
+            children: [
+              // Animated progress ring
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: (pct / 100).clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (_, value, __) => SizedBox(
+                  width: 96,
+                  height: 96,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: const Size(96, 96),
+                        painter: _RingPainter(
+                          progress: value,
+                          ringColor: _ringColor,
+                          expectedProgress: (expectedPct / 100).clamp(0.0, 1.0),
                         ),
                       ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${(value * 100).toInt()}%',
+                            style: TextStyle(
+                              color: _ringColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              height: 1.0,
+                            ),
+                          ),
+                          if (pct >= 100)
+                            const Icon(Icons.check, color: Color(0xFF00E676), size: 12),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${_capitalize(goal.period.name)} ${goal.type.name}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: onDelete,
+                          child: const Icon(Icons.close, color: Colors.white24, size: 18),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Big progress number
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: goal.type.formatValue(current),
+                            style: TextStyle(
+                              color: _ringColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ' / ${goal.type.formatValue(target)}',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Status + days
+                    Row(
+                      children: [
+                        if (pct >= 100)
+                          const _StatusBadge(label: 'Completed ✓', color: _green)
+                        else if (onTrack)
+                          const _StatusBadge(label: 'On track', color: _green)
+                        else
+                          const _StatusBadge(label: 'Behind', color: _orange),
+                        const Spacer(),
+                        if (daysLeft > 0)
+                          Text(
+                            '$daysLeft d left',
+                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: (pct / 100).clamp(0.0, 1.0)),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (_, value, __) => LinearProgressIndicator(
+                value: value,
+                backgroundColor: Colors.white.withValues(alpha: 0.07),
+                valueColor: AlwaysStoppedAnimation(_ringColor),
+                minHeight: 6,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -607,13 +645,18 @@ class _StatusBadge extends StatelessWidget {
 class _RingPainter extends CustomPainter {
   final double progress;
   final Color ringColor;
+  final double expectedProgress;
 
-  const _RingPainter({required this.progress, required this.ringColor});
+  const _RingPainter({
+    required this.progress,
+    required this.ringColor,
+    this.expectedProgress = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 5;
+    final radius = math.min(size.width, size.height) / 2 - 6;
 
     // Track
     canvas.drawCircle(
@@ -622,7 +665,7 @@ class _RingPainter extends CustomPainter {
       Paint()
         ..color = Colors.white.withValues(alpha: 0.08)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 6
+        ..strokeWidth = 8
         ..strokeCap = StrokeCap.round,
     );
 
@@ -636,7 +679,28 @@ class _RingPainter extends CustomPainter {
         Paint()
           ..color = ringColor
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
+          ..strokeWidth = 8
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    // Expected-progress tick mark (white dash on the track)
+    if (expectedProgress > 0 && expectedProgress < 1.0) {
+      final angle = -math.pi / 2 + 2 * math.pi * expectedProgress;
+      final outer = Offset(
+        center.dx + (radius + 4) * math.cos(angle),
+        center.dy + (radius + 4) * math.sin(angle),
+      );
+      final inner = Offset(
+        center.dx + (radius - 4) * math.cos(angle),
+        center.dy + (radius - 4) * math.sin(angle),
+      );
+      canvas.drawLine(
+        inner,
+        outer,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5)
+          ..strokeWidth = 2
           ..strokeCap = StrokeCap.round,
       );
     }
@@ -644,5 +708,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RingPainter old) =>
-      old.progress != progress || old.ringColor != ringColor;
+      old.progress != progress ||
+      old.ringColor != ringColor ||
+      old.expectedProgress != expectedProgress;
 }

@@ -1,11 +1,9 @@
-import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
 import 'package:majurun/core/widgets/empty_state_widget.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
@@ -18,6 +16,7 @@ import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/core/services/strava_sync_service.dart';
 import 'package:majurun/modules/analytics/presentation/screens/analytics_screen.dart';
 import 'package:majurun/modules/races/presentation/screens/virtual_race_screen.dart';
+import 'package:majurun/modules/run/presentation/screens/personal_records_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -46,11 +45,21 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   // Auto-sync: only once per session
   static bool _stravaAutoSyncDone = false;
 
+  // DB-sourced stats — independent of the paginated _runs list
+  final Map<String, double> _dbMonthlyTotals = {};    // 'YYYY-MM' → km from Firestore
+  final Map<String, int> _dbMonthlyCalories = {};     // 'YYYY-MM' → calories from Firestore
+  final Set<String> _fetchingMonthlyKeys = {};        // prevents duplicate in-flight queries
+  double? _yearTotalKm;
+  int? _yearRunCount;
+  double? _yearAvgKmPerActiveMonth;
+  // 'YYYY-MM-DD' → km that day — drives the heatmap calendar
+  final Map<String, double> _heatmapData = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _loadFirstPage();
+      await Future.wait([_loadFirstPage(), _fetchYearStats()]);
       _autoSyncStravaOnce();
     });
   }
@@ -93,6 +102,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       _lastRunDate = page.isNotEmpty ? page.last['date'] as DateTime? : null;
       _initialLoading = false;
     });
+    _fetchMonthlyTotals(_extractMonthKeys(page));
   }
 
   Future<void> _loadMoreRuns() async {
@@ -107,6 +117,108 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       _lastRunDate = page.isNotEmpty ? page.last['date'] as DateTime? : _lastRunDate;
       _isLoadingMore = false;
     });
+    _fetchMonthlyTotals(_extractMonthKeys(page));
+  }
+
+  Set<String> _extractMonthKeys(List<Map<String, dynamic>> runs) {
+    return runs.map((r) {
+      final d = _parseDate(r['date']);
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}';
+    }).toSet();
+  }
+
+  /// Fetches monthly km totals directly from Firestore for each key in [keys].
+  /// Results are stored in [_dbMonthlyTotals] and trigger a rebuild.
+  /// Only fetches keys not already in-flight or completed.
+  Future<void> _fetchMonthlyTotals(Set<String> keys) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final toFetch = keys
+        .where((k) => !_dbMonthlyTotals.containsKey(k) && !_fetchingMonthlyKeys.contains(k))
+        .toList();
+    if (toFetch.isEmpty) return;
+    for (final k in toFetch) { _fetchingMonthlyKeys.add(k); }
+
+    await Future.wait(toFetch.map((key) async {
+      final parts = key.split('-');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final start = Timestamp.fromDate(DateTime(year, month));
+      final end = Timestamp.fromDate(DateTime(year, month + 1));
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('training_history')
+            .where('completedAt', isGreaterThanOrEqualTo: start)
+            .where('completedAt', isLessThan: end)
+            .get();
+        double total = 0.0;
+        int cals = 0;
+        for (final doc in snap.docs) {
+          total += (doc.data()['distanceKm'] as num?)?.toDouble() ?? 0.0;
+          cals += (doc.data()['calories'] as num?)?.toInt() ?? 0;
+        }
+        if (mounted) setState(() {
+          _dbMonthlyTotals[key] = total;
+          _dbMonthlyCalories[key] = cals;
+        });
+      } catch (e) {
+        debugPrint('monthly total fetch error for $key: $e');
+        _fetchingMonthlyKeys.remove(key);
+      }
+    }));
+  }
+
+  /// Fetches this year's total km, run count, and avg km per active month from Firestore.
+  Future<void> _fetchYearStats() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final year = DateTime.now().year;
+    final start = Timestamp.fromDate(DateTime(year));
+    final end = Timestamp.fromDate(DateTime(year + 1));
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('training_history')
+          .where('completedAt', isGreaterThanOrEqualTo: start)
+          .where('completedAt', isLessThan: end)
+          .get();
+      double totalKm = 0.0;
+      final Set<String> activeMonths = {};
+      final Map<String, double> heatmap = {};
+      for (final doc in snap.docs) {
+        final d = doc.data();
+        final km = (d['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        totalKm += km;
+        final rawDate = d['completedAt'];
+        DateTime? dt;
+        if (rawDate is Timestamp) {
+          dt = rawDate.toDate();
+        } else if (rawDate is String) {
+          dt = DateTime.tryParse(rawDate);
+        }
+        if (dt != null) {
+          activeMonths.add('${dt.year}-${dt.month}');
+          final dayKey =
+              '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+          heatmap[dayKey] = (heatmap[dayKey] ?? 0.0) + km;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _yearTotalKm = totalKm;
+        _yearRunCount = snap.docs.length;
+        _yearAvgKmPerActiveMonth =
+            activeMonths.isEmpty ? 0.0 : totalKm / activeMonths.length;
+        _heatmapData
+          ..clear()
+          ..addAll(heatmap);
+      });
+    } catch (e) {
+      debugPrint('year stats fetch error: $e');
+    }
   }
 
   Future<void> _refreshHistory() async {
@@ -389,13 +501,21 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
             SliverToBoxAdapter(
               child: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: const Row(
+                color: const Color(0xFF0D0D0D),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: Row(
                   children: [
-                    Icon(Icons.history, size: 16, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('RECENT SESSIONS', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
+                    Icon(Icons.history_rounded, size: 14, color: Colors.white.withValues(alpha: 0.35)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MY RUNS',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -475,7 +595,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
     for (final key in sortedKeys) {
       final monthRuns = groupedRuns[key]!;
-      final totalKm = monthlyTotals[key] ?? 0.0;
+      // Prefer DB total (accurate, full month) — fall back to screen total while query is in-flight
+      final totalKm = _dbMonthlyTotals[key] ?? monthlyTotals[key] ?? 0.0;
+      final isDbTotal = _dbMonthlyTotals.containsKey(key);
       final date = _parseDate(monthRuns.first['date']);
       final monthName = DateFormat('MMM').format(date).toUpperCase();
       final year = date.year;
@@ -483,22 +605,26 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       // Month header
       slivers.add(
         SliverToBoxAdapter(
-          child: _buildMonthHeader(monthName, year, totalKm),
+          child: _buildMonthHeader(monthName, year, totalKm, isDbTotal: isDbTotal),
         ),
       );
 
-      // Runs for this month
+      // Runs for this month — flat rows with thin dividers
       slivers.add(
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildRunCard(context, monthRuns[index]),
-              ),
-              childCount: monthRuns.length,
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => Column(
+              children: [
+                _buildRunCard(context, monthRuns[index]),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.white.withValues(alpha: 0.06),
+                  indent: 56,
+                ),
+              ],
             ),
+            childCount: monthRuns.length,
           ),
         ),
       );
@@ -507,79 +633,107 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return slivers;
   }
 
-  Widget _buildMonthHeader(String month, int year, double totalKm) {
+  Widget _buildMonthHeader(String month, int year, double totalKm, {bool isDbTotal = false}) {
+    final calories = _dbMonthlyCalories['$year-${month.length == 3 ? _monthNumFromName(month) : month.padLeft(2, '0')}'] ?? 0;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300),
-        ),
-      ),
+      color: const Color(0xFF0D0D0D),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade500,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.calendar_month, size: 16, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    month,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  Text(
-                    year.toString(),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade400, Colors.blue.shade600],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
+          // Month + year
+          RichText(
+            text: TextSpan(
               children: [
-                const Icon(Icons.directions_run, size: 14, color: Colors.white),
-                const SizedBox(width: 6),
-                Text(
-                  '${totalKm.toStringAsFixed(1)} KM',
+                TextSpan(
+                  text: '$month ',
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                     color: Colors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                TextSpan(
+                  text: year.toString(),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    letterSpacing: 0.3,
                   ),
                 ),
               ],
             ),
           ),
+          const Spacer(),
+          // Stats — show spinner until Firestore total arrives
+          if (!isDbTotal)
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF00E676)),
+            )
+          else ...[
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: totalKm.toStringAsFixed(0),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF00E676),
+                    ),
+                  ),
+                  const TextSpan(
+                    text: ' km',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF00E676),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (calories > 0) ...[
+              const SizedBox(width: 14),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: calories.toString(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF00E676),
+                      ),
+                    ),
+                    const TextSpan(
+                      text: ' Cal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF00E676),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
+  }
+
+  // Converts 3-letter month name to zero-padded number string for map key lookup
+  String _monthNumFromName(String name) {
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    final idx = months.indexOf(name.toUpperCase());
+    return idx >= 0 ? (idx + 1).toString().padLeft(2, '0') : '01';
   }
 
   // ---------------- helpers ----------------
@@ -595,36 +749,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return 'IMPORTED';
   }
 
-  bool _isTrainingRun(Map<String, dynamic> run) {
-    final type = run['type']?.toString().toLowerCase();
-    if (type == 'training') return true;
-    if (run['week'] != null && run['day'] != null) return true;
-    final weekDay = run['weekDay']?.toString().toLowerCase();
-    if (weekDay != null && weekDay.contains('week') && weekDay.contains('day')) return true;
-    return false;
-  }
-
-  String _weekDayLabel(Map<String, dynamic> run) {
-    final week = run['week'];
-    final day = run['day'];
-    if (week != null && day != null) return 'Wk $week • Day $day';
-    final weekDay = run['weekDay']?.toString();
-    if (weekDay != null && weekDay.isNotEmpty) {
-      return weekDay.replaceAll('Week', 'Wk').replaceAll(',', ' •');
-    }
-    return '';
-  }
-
-  bool? _completedFlag(Map<String, dynamic> run) {
-    final v = run['completed'];
-    if (v is bool) return v;
-    if (v is String) {
-      if (v.toLowerCase() == 'true') return true;
-      if (v.toLowerCase() == 'false') return false;
-    }
-    return null;
-  }
-
   DateTime _parseDate(dynamic raw) {
     if (raw is DateTime) return raw;
     if (raw is Timestamp) return raw.toDate();
@@ -634,77 +758,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     }
     return DateTime.now();
   }
-
-  String _weatherEmoji(String condition) {
-    switch (condition.toLowerCase()) {
-      case 'clear':        return '☀️';
-      case 'clouds':       return '☁️';
-      case 'rain':         return '🌧️';
-      case 'drizzle':      return '🌦️';
-      case 'thunderstorm': return '⛈️';
-      case 'snow':         return '❄️';
-      case 'fog':          return '🌫️';
-      default:             return '🌡️';
-    }
-  }
-
-  // Robust parsing for points: LatLng, GeoPoint, Map(lat/lng), Map(latitude/longitude)
-  List<LatLng> _extractLatLngList(dynamic raw) {
-    if (raw == null) return <LatLng>[];
-    if (raw is List<LatLng>) return raw;
-    if (raw is List) {
-      final out = <LatLng>[];
-      for (final p in raw) {
-        if (p is LatLng) {
-          out.add(p);
-        } else if (p is GeoPoint) {
-          out.add(LatLng(p.latitude, p.longitude));
-        } else if (p is Map) {
-          final lat = (p['lat'] ?? p['latitude']);
-          final lng = (p['lng'] ?? p['longitude']);
-          if (lat is num && lng is num) out.add(LatLng(lat.toDouble(), lng.toDouble()));
-        }
-      }
-      return out;
-    }
-    return <LatLng>[];
-  }
-
-  // ✅ Preview-only sanitization: removes GPS jump spikes + downsample for web/static map URL size.
-  List<LatLng> _sanitizeAndDownsample(List<LatLng> points, {double maxJumpMeters = 120, int maxPoints = 1000}) {
-    if (points.length < 2) return points;
-
-    final filtered = <LatLng>[points.first];
-    for (int i = 1; i < points.length; i++) {
-      final d = _haversineMeters(filtered.last, points[i]);
-      if (d <= maxJumpMeters) filtered.add(points[i]);
-    }
-
-    if (filtered.length <= maxPoints) return filtered;
-
-    final step = (filtered.length / maxPoints).ceil();
-    final out = <LatLng>[];
-    for (int i = 0; i < filtered.length; i += step) {
-      out.add(filtered[i]);
-    }
-    if (out.last != filtered.last) out.add(filtered.last);
-    return out;
-  }
-
-  double _haversineMeters(LatLng a, LatLng b) {
-    const r = 6371000.0;
-    final dLat = _degToRad(b.latitude - a.latitude);
-    final dLng = _degToRad(b.longitude - a.longitude);
-    final la1 = _degToRad(a.latitude);
-    final la2 = _degToRad(b.latitude);
-
-    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(la1) * math.cos(la2) * math.sin(dLng / 2) * math.sin(dLng / 2);
-
-    return 2 * r * math.asin(math.min(1, math.sqrt(h)));
-  }
-
-  double _degToRad(double deg) => deg * (math.pi / 180);
 
   // ---------------- summary (kept) ----------------
   Widget _buildSummaryHeader(List<Map<String, dynamic>> runs) {
@@ -775,7 +828,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildPersonalBests(records),
+          _buildYearStatsCard(),
+          const SizedBox(height: 12),
+          _buildStreakCalendar(),
+          const SizedBox(height: 12),
+          _buildPersonalBests(records, runs),
           // Badges Section
           _buildBadgesSection(),
         ],
@@ -783,47 +840,376 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     );
   }
 
-  Widget _buildPersonalBests(Map<String, String> records) {
+  Widget _buildYearStatsCard() {
+    final year = DateTime.now().year;
+    final loading = _yearTotalKm == null;
+    final totalKm = _yearTotalKm ?? 0.0;
+    final runCount = _yearRunCount ?? 0;
+    final avgKm = _yearAvgKmPerActiveMonth ?? 0.0;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+          colors: [Colors.teal.shade50, Colors.teal.shade100],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade600),
+              Icon(Icons.calendar_today, size: 14, color: Colors.teal.shade700),
               const SizedBox(width: 6),
               Text(
-                'PERSONAL BESTS',
+                '$year AT A GLANCE',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Colors.indigo.shade600,
+                  color: Colors.teal.shade700,
                   letterSpacing: 0.5,
                 ),
               ),
+              const Spacer(),
+              if (loading)
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.teal.shade400,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _buildPBCell('5K', records['best5k'] ?? '--:--', records['best5kDate'] ?? '', Colors.green)),
-              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
-              Expanded(child: _buildPBCell('10K', records['best10k'] ?? '--:--', records['best10kDate'] ?? '', Colors.blue)),
-              Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
-              Expanded(child: _buildPBCell('Half', records['bestHalf'] ?? '--:--', records['bestHalfDate'] ?? '', Colors.orange)),
+              Expanded(
+                child: _buildYearStatCell(
+                  loading ? '--' : '${totalKm.toStringAsFixed(0)} km',
+                  'Year Total',
+                  Icons.route,
+                  Colors.teal,
+                ),
+              ),
+              Container(width: 1, height: 44, color: Colors.teal.withValues(alpha: 0.2)),
+              Expanded(
+                child: _buildYearStatCell(
+                  loading ? '--' : '${avgKm.toStringAsFixed(1)} km',
+                  'Avg / Month',
+                  Icons.show_chart,
+                  Colors.teal.shade700,
+                ),
+              ),
+              Container(width: 1, height: 44, color: Colors.teal.withValues(alpha: 0.2)),
+              Expanded(
+                child: _buildYearStatCell(
+                  loading ? '--' : '$runCount',
+                  'Year Runs',
+                  Icons.check_circle_outline,
+                  Colors.teal,
+                ),
+              ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildYearStatCell(String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 9, color: Colors.teal.shade600, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+
+  // ── Streak heatmap calendar ───────────────────────────────────────────────
+
+  Widget _buildStreakCalendar() {
+    const weeks = 18;
+    const gap = 2.0;
+    const dayLabels = ['M', '', 'W', '', 'F', '', ''];
+
+    final today = DateTime.now();
+    // Align to this week's Monday
+    final thisMonday = today.subtract(Duration(days: today.weekday - 1));
+    // Go back (weeks-1) more weeks so the rightmost column = this week
+    final gridStart = DateTime(
+      thisMonday.year, thisMonday.month, thisMonday.day,
+    ).subtract(const Duration(days: (weeks - 1) * 7));
+
+    // Current streak — count consecutive days going back from today
+    int streak = 0;
+    var check = DateTime(today.year, today.month, today.day);
+    while (true) {
+      final k = '${check.year}-${check.month.toString().padLeft(2, '0')}-${check.day.toString().padLeft(2, '0')}';
+      if ((_heatmapData[k] ?? 0) > 0) {
+        streak++;
+        check = check.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department, size: 14, color: Color(0xFFFF6D00)),
+              const SizedBox(width: 6),
+              Text(
+                'ACTIVITY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const Spacer(),
+              if (streak > 0) ...[
+                Text(
+                  '$streak',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF00E676),
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'day streak',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Month labels + grid
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cellSize =
+                  (constraints.maxWidth - 16 - (weeks - 1) * gap) / weeks;
+
+              // Build month label row
+              final monthLabels = <Widget>[const SizedBox(width: 16)];
+              String? lastMonth;
+              for (int w = 0; w < weeks; w++) {
+                final colDate = gridStart.add(Duration(days: w * 7));
+                final monthStr = _shortMonth(colDate.month);
+                if (monthStr != lastMonth) {
+                  monthLabels.add(
+                    SizedBox(
+                      width: cellSize + (w > 0 ? gap : 0),
+                      child: Text(
+                        monthStr,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                  lastMonth = monthStr;
+                } else {
+                  monthLabels.add(SizedBox(width: cellSize + (w > 0 ? gap : 0)));
+                }
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Month labels
+                  Row(children: monthLabels),
+                  const SizedBox(height: 3),
+                  // Day rows
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Day-of-week labels column
+                      Column(
+                        children: List.generate(7, (dow) => Padding(
+                          padding: EdgeInsets.only(bottom: dow < 6 ? gap : 0),
+                          child: SizedBox(
+                            width: 12,
+                            height: cellSize,
+                            child: Center(
+                              child: Text(
+                                dayLabels[dow],
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )),
+                      ),
+                      const SizedBox(width: 4),
+                      // Week columns
+                      Expanded(
+                        child: Row(
+                          children: List.generate(weeks, (w) => Padding(
+                            padding: EdgeInsets.only(left: w > 0 ? gap : 0),
+                            child: Column(
+                              children: List.generate(7, (dow) {
+                                final date = gridStart.add(Duration(days: w * 7 + dow));
+                                return Padding(
+                                  padding: EdgeInsets.only(bottom: dow < 6 ? gap : 0),
+                                  child: _buildHeatmapCell(date, cellSize, today),
+                                );
+                              }),
+                            ),
+                          )),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Less', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.3))),
+              const SizedBox(width: 4),
+              for (final alpha in [0.12, 0.3, 0.55, 0.8, 1.0])
+                Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.only(left: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E676).withValues(alpha: alpha),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Text('More', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.3))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeatmapCell(DateTime date, double size, DateTime today) {
+    final isFuture = date.isAfter(today);
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final km = _heatmapData[key] ?? 0.0;
+
+    Color color;
+    if (isFuture) {
+      color = Colors.transparent;
+    } else if (km == 0) {
+      color = const Color(0xFF1E1E1E);
+    } else if (km < 3) {
+      color = const Color(0xFF00E676).withValues(alpha: 0.25);
+    } else if (km < 6) {
+      color = const Color(0xFF00E676).withValues(alpha: 0.5);
+    } else if (km < 10) {
+      color = const Color(0xFF00E676).withValues(alpha: 0.75);
+    } else {
+      color = const Color(0xFF00E676);
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  String _shortMonth(int month) {
+    const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return names[month - 1];
+  }
+
+  Widget _buildPersonalBests(Map<String, String> records, List<Map<String, dynamic>> runs) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PersonalRecordsScreen(runs: runs)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.emoji_events, size: 14, color: Colors.indigo.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  'PERSONAL BESTS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, size: 16, color: Colors.indigo.shade400),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _buildPBCell('5K', records['best5k'] ?? '--:--', records['best5kDate'] ?? '', Colors.green)),
+                Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+                Expanded(child: _buildPBCell('10K', records['best10k'] ?? '--:--', records['best10kDate'] ?? '', Colors.blue)),
+                Container(width: 1, height: 44, color: Colors.indigo.withValues(alpha: 0.2)),
+                Expanded(child: _buildPBCell('Half', records['bestHalf'] ?? '--:--', records['bestHalfDate'] ?? '', Colors.orange)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1074,314 +1460,92 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final distanceVal = run['distance'] ?? 0.0;
     final distance = (distanceVal is num) ? distanceVal.toDouble() : 0.0;
 
-    final startTime = DateFormat('HH:mm').format(date);
-    final endTime = DateFormat('HH:mm').format(date.add(Duration(seconds: durationSeconds)));
-
     final pace = run['pace'] ?? '0:00';
 
-    final caloriesVal = run['calories'] ?? 0;
-    final calories = (caloriesVal is num) ? caloriesVal.toInt() : 0;
+    final hours = durationSeconds ~/ 3600;
+    final minutes = (durationSeconds % 3600) ~/ 60;
+    final seconds = durationSeconds % 60;
+    final timeString = hours > 0
+        ? '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')} hrs'
+        : '$minutes:${seconds.toString().padLeft(2, '0')} min';
 
-    final avgBpmRaw = run['avgBpm'] ?? run['bpm'] ?? 0;
-    final avgBpm = (avgBpmRaw is num) ? avgBpmRaw.toInt() : 0;
+    final dateString =
+        '${date.month.toString().padLeft(2, '0')}/${date.day}';
 
-    final isTraining = _isTrainingRun(run);
-    final isProRun = !isTraining && (run['planTitle'] != 'Free Run');
     final isExternal = run['isExternal'] == true;
     final externalSource = run['source']?.toString() ?? '';
 
-    final status = _completedFlag(run);
-    final weekDayLabel = _weekDayLabel(run);
-    final statusLabel = status == null ? null : (status ? 'Completed' : 'In Progress');
-
-    // We still keep mapImageUrl for non-web fallback or legacy, but on Web we prefer route
-    final mapImageUrl = (run['mapImageUrl'] ?? '').toString();
-    final hasMapImage = mapImageUrl.isNotEmpty;
-
-    final raw = _extractLatLngList(run['routePoints']);
-    final routePoints = _sanitizeAndDownsample(raw);
-    final hasRoute = routePoints.length >= 2;
-
-    final minutes = durationSeconds ~/ 60;
-    final seconds = durationSeconds % 60;
-    final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
-
     return GestureDetector(
-      onTap: () {
-        Navigator.push(context, SlideUpRoute(page: RunDetailScreen(runData: run)));
-      },
+      onTap: () => Navigator.push(context, SlideUpRoute(page: RunDetailScreen(runData: run))),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 2)),
-          ],
-        ),
-        child: Column(
+        color: const Color(0xFF0D0D0D),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isExternal
-                            ? [Colors.purple.shade400, Colors.purple.shade600]
-                            : isTraining
-                                ? [Colors.green.shade400, Colors.green.shade700]
-                                : isProRun
-                                    ? [Colors.blue.shade400, Colors.blue.shade600]
-                                    : [Colors.grey.shade700, Colors.grey.shade900],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          date.day.toString(),
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text(DateFormat('MMM').format(date), style: const TextStyle(color: Colors.white, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              "${DateFormat('EEE').format(date)} • $startTime–$endTime",
-                              style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            const Spacer(),
-                            if (isExternal)
-                              _badge(label: _getSourceLabel(externalSource), icon: Icons.cloud_download, colors: [Colors.purple.shade400, Colors.purple.shade600])
-                            else if (isTraining)
-                              _badge(label: 'SESSION', icon: Icons.fitness_center, colors: [Colors.green.shade400, Colors.green.shade700])
-                            else if (isProRun)
-                              _badge(label: 'PRO', icon: Icons.auto_awesome, colors: [Colors.blue.shade400, Colors.blue.shade600]),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${distance.toStringAsFixed(1)} km',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-                        ),
-
-                        // ✅ FIX: correct OR condition (was broken by newline in your file) [1](https://necms-my.sharepoint.com/personal/hanumaiah_ta_nec_com_sg/Documents/Microsoft%20Copilot%20Chat%20Files/run_history_screen.dart)
-                        if (isTraining && (weekDayLabel.isNotEmpty || statusLabel != null)) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              if (weekDayLabel.isNotEmpty) _chip(text: weekDayLabel, icon: Icons.calendar_today, color: Colors.green),
-                              if (statusLabel != null)
-                                _chip(
-                                  text: statusLabel,
-                                  icon: statusLabel == 'Completed' ? Icons.check_circle : Icons.timelapse,
-                                  color: statusLabel == 'Completed' ? Colors.green : Colors.orange,
-                                ),
-                            ],
-                          ),
-                        ],
-
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _historyStat('Time', timeString, Icons.timer_outlined, Colors.blue),
-                            const SizedBox(width: 15),
-                            _historyStat('Pace', '$pace /km', Icons.speed, Colors.green),
-                            const SizedBox(width: 15),
-                            _historyStat('Cals', '$calories', Icons.whatshot, Colors.orange),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.favorite, size: 14, color: Colors.red.shade400),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Avg HR: $avgBpm',
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                            ),
-                            // Weather chip — shown when weather was recorded
-                            if (run['temp'] != null && run['condition'] != null) ...[
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE3F2FD),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _weatherEmoji(run['condition'].toString()),
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      '${(run['temp'] as num).round()}°C',
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF1565C0)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
-                ],
+            // Running icon
+            const Icon(Icons.directions_run_rounded, color: Color(0xFF00E676), size: 22),
+            const SizedBox(width: 14),
+            // Distance — primary data point, bold green
+            Text(
+              '${distance.toStringAsFixed(2)} km',
+              style: const TextStyle(
+                color: Color(0xFF00E676),
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
               ),
             ),
-
-            // Show route map only for runs recorded in-app (external runs have no GPS data)
-            if (hasRoute)
-              _buildRoutePreviewSmart(routePoints)
-            else if (hasMapImage)
-              _buildNetworkPreview(mapImageUrl)
-            else if (isExternal)
-              _buildExternalRunBanner(externalSource)
-            else
-              _noRoutePlaceholder(),
+            const SizedBox(width: 14),
+            // Date
+            Text(
+              dateString,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.65),
+                fontSize: 14,
+              ),
+            ),
+            const Spacer(),
+            // Duration
+            Text(
+              timeString,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.65),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Pace
+            Text(
+              '$pace min/km',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.65),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Source badge for external runs
+            if (isExternal) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _getSourceLabel(externalSource),
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: Colors.purpleAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.25), size: 18),
           ],
         ),
       ),
-    );
-  }
-
-  // Web: Static map image (tiles); Mobile: GoogleMap (original behavior)
-  // Interactive map for all platforms
-  Widget _buildRoutePreviewSmart(List<LatLng> routePoints) {
-    return _buildMiniRouteMap(routePoints);
-  }
-
-  /// Compact banner shown for health-synced runs — no empty map box.
-  Widget _buildExternalRunBanner(String source) {
-    final label = source.isNotEmpty ? source : 'External App';
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.purple.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.purple.shade100),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.sync, size: 14, color: Colors.purple.shade400),
-          const SizedBox(width: 6),
-          Text(
-            'Synced from $label · Route not available',
-            style: TextStyle(fontSize: 11, color: Colors.purple.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _noRoutePlaceholder() {
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.map_outlined, color: Colors.grey.shade300, size: 32),
-            const SizedBox(height: 8),
-            Text('No map preview', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------- UI atoms ----------------
-  Widget _badge({required String label, required IconData icon, required List<Color> colors}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 10, color: Colors.white),
-          const SizedBox(width: 3),
-          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip({required String text, required IconData icon, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNetworkPreview(String url) {
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.network(url, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _noRoutePlaceholder()),
-    );
-  }
-
-  Widget _historyStat(String label, String value, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-            Text(label, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
-          ],
-        ),
-      ],
     );
   }
 
@@ -1399,82 +1563,6 @@ Built with MajuRun 💪
     SharePlus.instance.share(ShareParams(text: message));
   }
 
-  // ---------------- existing mini map (mobile only) ----------------
-  // Uses liteModeEnabled=true so each card renders a static bitmap instead
-  // of spinning up a full native map view — prevents OOM when scrolling history.
-  Widget _buildMiniRouteMap(List<LatLng> routePoints) {
-    final bounds = _calculateBounds(routePoints);
-    final center = LatLng(
-      (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
-      (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
-    );
-    final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
-    final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
-    final maxSpan = math.max(latSpan, lngSpan);
-    // For a 120px container: zoom = log2(153 / maxSpan), clamped
-    final double zoom = maxSpan > 0
-        ? (math.log(153 / maxSpan) / math.ln2).clamp(10.0, 17.0)
-        : 13.0;
-
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: GoogleMap(
-        initialCameraPosition: CameraPosition(target: center, zoom: zoom),
-        liteModeEnabled: true,
-        polylines: {
-          Polyline(
-            polylineId: const PolylineId('route'),
-            points: routePoints,
-            color: const Color(0xFFFC4C02),
-            width: 4,
-            jointType: JointType.round,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-        },
-        markers: {
-          Marker(
-            markerId: const MarkerId('start'),
-            position: routePoints.first,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          ),
-          Marker(
-            markerId: const MarkerId('end'),
-            position: routePoints.last,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          ),
-        },
-        zoomControlsEnabled: false,
-        zoomGesturesEnabled: false,
-        scrollGesturesEnabled: false,
-        mapToolbarEnabled: false,
-        rotateGesturesEnabled: false,
-        tiltGesturesEnabled: false,
-        myLocationButtonEnabled: false,
-      ),
-    );
-  }
-
-  LatLngBounds _calculateBounds(List<LatLng> points) {
-    double south = points.first.latitude;
-    double north = points.first.latitude;
-    double west = points.first.longitude;
-    double east = points.first.longitude;
-
-    for (final point in points) {
-      if (point.latitude < south) south = point.latitude;
-      if (point.latitude > north) north = point.latitude;
-      if (point.longitude < west) west = point.longitude;
-      if (point.longitude > east) east = point.longitude;
-    }
-    return LatLngBounds(southwest: LatLng(south, west), northeast: LatLng(north, east));
-  }
 
   // ---------------- stat widgets (kept) ----------------
   Widget _buildStatWhite(String label, String value) {

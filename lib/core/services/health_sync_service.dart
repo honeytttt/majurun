@@ -71,9 +71,14 @@ class HealthSyncService {
     int skipped = 0;
 
     try {
-      // 1. Check/Request Permissions
-      bool requested = await _health.requestAuthorization(types);
-      if (!requested) {
+      // 1. Check permissions — only prompt if not already granted.
+      // Calling requestAuthorization() on every sync can trigger the system
+      // permission sheet unexpectedly even after the user already approved.
+      bool hasPerms = await _health.hasPermissions(types) ?? false;
+      if (!hasPerms) {
+        hasPerms = await _health.requestAuthorization(types);
+      }
+      if (!hasPerms) {
         if (!silent) debugPrint('Health permissions denied by user.');
         return HealthSyncResult(imported: 0, skipped: 0, error: 'Permissions denied');
       }

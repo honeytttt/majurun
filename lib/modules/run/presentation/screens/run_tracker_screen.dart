@@ -538,111 +538,24 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Widget _buildStatsGrid(BuildContext context) {
+    // Use in-memory getters from StatsController — loaded once on startup,
+    // no Firestore read on every GPS update (which was the previous bug).
     return Consumer<RunController>(
       builder: (context, runController, _) {
-        return FutureBuilder<Map<String, dynamic>>(
-          future: _calculateStats(runController),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            final stats = snapshot.data ?? {
-              'totalKm': 0.0,
-              'totalTime': '0:00',
-              'streak': 0,
-              'runs': 0,
-            };
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _smallStat('TOTAL KM', (stats['totalKm'] as double).toStringAsFixed(1)),
-                  _smallStat('TIME', stats['totalTime'] as String),
-                  _smallStat('STREAK', "${stats['streak']}D"),
-                  _smallStat('RUNS', "${stats['runs']}"),
-                ],
-              ),
-            );
-          },
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _smallStat('TOTAL KM', runController.historyDistance.toStringAsFixed(1)),
+              _smallStat('TIME', runController.totalHistoryTimeStr),
+              _smallStat('STREAK', '${runController.runStreak}D'),
+              _smallStat('RUNS', '${runController.totalRuns}'),
+            ],
+          ),
         );
       },
     );
-  }
-
-  Future<Map<String, dynamic>> _calculateStats(RunController runController) async {
-    try {
-      // Get run history from controller
-      final runs = await runController.getRunHistory();
-      
-      if (runs.isEmpty) {
-        return {
-          'totalKm': 0.0,
-          'totalTime': '0:00',
-          'streak': 0,
-          'runs': 0,
-        };
-      }
-
-      // Calculate total distance
-      double totalKm = 0.0;
-      int totalSeconds = 0;
-
-      for (final run in runs) {
-        totalKm += (run['distance'] ?? 0.0) as double;
-        totalSeconds += (run['durationSeconds'] ?? 0) as int;
-      }
-
-      // Format total time
-      final hours = totalSeconds ~/ 3600;
-      final minutes = (totalSeconds % 3600) ~/ 60;
-      final seconds = totalSeconds % 60;
-      
-      String totalTime;
-      if (hours > 0) {
-        totalTime = "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
-      } else {
-        totalTime = "$minutes:${seconds.toString().padLeft(2, '0')}";
-      }
-
-      // Calculate streak (simplified - just check if there's a recent run)
-      final now = DateTime.now();
-      int streak = 0;
-      
-      // Sort runs by date
-      final sortedRuns = runs..sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
-      
-      for (int i = 0; i < sortedRuns.length; i++) {
-        final runDate = sortedRuns[i]['date'] as DateTime;
-        final daysDiff = now.difference(runDate).inDays;
-        
-        if (daysDiff <= i + 1) {
-          streak = i + 1;
-        } else {
-          break;
-        }
-      }
-
-      return {
-        'totalKm': totalKm,
-        'totalTime': totalTime,
-        'streak': streak,
-        'runs': runs.length,
-      };
-    } catch (e) {
-      debugPrint('❌ Error calculating stats: $e');
-      return {
-        'totalKm': 0.0,
-        'totalTime': '0:00',
-        'streak': 0,
-        'runs': 0,
-      };
-    }
   }
 
   Widget _smallStat(String label, String value) {

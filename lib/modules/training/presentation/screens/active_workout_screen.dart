@@ -213,7 +213,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
     });
   }
 
-  void _beginMainSession() async {
+  Future<void> _beginMainSession() async {
     if (!mounted) return;
 
     // ✅ Start GPS tracking when the actual session begins (after warmup)
@@ -546,7 +546,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
     }
   }
 
-  void _completeWorkout() async {
+  Future<void> _completeWorkout() async {
     _timer?.cancel();
     _pauseTimer?.cancel();
     _autoSaveTimer?.cancel();

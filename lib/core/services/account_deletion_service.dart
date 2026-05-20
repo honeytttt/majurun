@@ -21,18 +21,16 @@ class AccountDeletionService {
         return false;
       }
 
-      // Re-authenticate if password provided (required for some operations)
+      // Re-authenticate if password provided — a supplied password means the
+      // caller explicitly wants credential verification before deletion.  If
+      // re-auth fails (wrong password, network error, etc.) we must NOT
+      // continue — let the exception propagate so the UI can handle it.
       if (reauthPassword != null && user.email != null) {
-        try {
-          final credential = EmailAuthProvider.credential(
-            email: user.email!,
-            password: reauthPassword,
-          );
-          await user.reauthenticateWithCredential(credential);
-        } catch (e) {
-          debugPrint('AccountDeletion: Re-authentication failed: $e');
-          // Continue anyway - some providers don't need re-auth
-        }
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: reauthPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
       }
 
       // Delete user data from Firestore (in order of dependencies)
@@ -130,7 +128,47 @@ class AccountDeletionService {
           .collection('users').doc(userId).collection('savedPosts').get();
       refs.addAll(savedPostsSnap.docs.map((d) => d.reference));
 
-      // 8. User document itself
+      // 8. Training history (run records)
+      final trainingSnap = await _firestore
+          .collection('users').doc(userId).collection('training_history').get();
+      refs.addAll(trainingSnap.docs.map((d) => d.reference));
+
+      // 9. Weekly challenges
+      final weeklySnap = await _firestore
+          .collection('users').doc(userId).collection('weeklyChallenges').get();
+      refs.addAll(weeklySnap.docs.map((d) => d.reference));
+
+      // 10. Monthly challenges
+      final monthlySnap = await _firestore
+          .collection('users').doc(userId).collection('monthlyChallenges').get();
+      refs.addAll(monthlySnap.docs.map((d) => d.reference));
+
+      // 11. Club memberships
+      final clubsSnap = await _firestore
+          .collection('users').doc(userId).collection('clubs').get();
+      refs.addAll(clubsSnap.docs.map((d) => d.reference));
+
+      // 12. User notification settings
+      refs.add(
+        _firestore.collection('users').doc(userId)
+            .collection('settings').doc('notifications'),
+      );
+
+      // 13. Live tracking sessions (GPS data — privacy sensitive)
+      final liveSnap = await _firestore
+          .collection('liveTracking')
+          .where('userId', isEqualTo: userId)
+          .get();
+      refs.addAll(liveSnap.docs.map((d) => d.reference));
+
+      // 14. SOS alerts (location data — privacy sensitive)
+      final sosSnap = await _firestore
+          .collection('sosAlerts')
+          .where('userId', isEqualTo: userId)
+          .get();
+      refs.addAll(sosSnap.docs.map((d) => d.reference));
+
+      // 15. User document itself
       refs.add(_firestore.collection('users').doc(userId));
 
       // Commit in safe chunks (Firestore batch limit = 500)

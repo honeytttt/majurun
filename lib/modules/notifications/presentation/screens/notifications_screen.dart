@@ -179,7 +179,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _navigateToPost(notification);
         break;
       case NotificationType.reminder:
-        // Daily reminders have no specific destination — just mark as read.
+      case NotificationType.puzzle:
+        // Reminders and puzzle notifications have no specific destination.
         break;
     }
   }

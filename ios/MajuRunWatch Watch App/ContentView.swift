@@ -111,7 +111,7 @@ struct RunView: View {
                     StatCell(
                         value: session.heartRate > 0 ? "\(session.heartRate)" : "--",
                         label: "BPM",
-                        color: session.heartRate > 0 ? .red : .gray
+                        color: session.heartRateColor
                     )
                     Divider()
                         .frame(height: 32)

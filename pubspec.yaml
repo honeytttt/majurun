@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.2+202
+version: 1.0.2+218
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -59,6 +59,7 @@ dependencies:
   permission_handler: ^11.3.1
 
   # Sharing & utils ─────────────────────────────────────────
+  in_app_review: ^2.0.9            # native App Store / Play Store rating prompt
   share_plus: ^12.0.0
   url_launcher: ^6.3.0
   timeago: ^3.7.0
