@@ -64,6 +64,7 @@ await session.setActive(true);
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
 - Last known upload: **build 212** (version 1.0.2+212) — deep audit production fixes
+- **Release in progress: build 218** (version 1.0.2+218) — feature batch: heatmap, PR wall, profile stats, goal rings, shoe alerts
 - **Build number rule**: if a build fails, keep the same build number and retry — only increment AFTER a successful upload
 - **Marketing version is `1.0.2`** for TestFlight builds — do NOT bump to 1.0.3 or higher without explicit user approval
   - Format: `version: 1.0.2+<build_number>` — only the build number increments each release
