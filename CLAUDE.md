@@ -9,11 +9,10 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/e1-streak-hype-p1-pro-badge-frames` (build 164+) — branch from here for new work.
+**Current base branch:** `feature/goals-visual-rings` (build 216+) — branch from here for new work.
 
-### Pending CI task (do on next build commit)
-- Bump `actions/checkout@v4` → `actions/checkout@v5` in **both** `.github/workflows/ios-build.yml` and `.github/workflows/android-build.yml`
-- Node.js 20 actions deprecated June 2 2026 — must be done before then or builds will warn/break
+### CI — actions/checkout updated (done in build 216)
+- ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files
 
 ### iOS CI — Xcode version rule (enforced from build 159)
 - Runner: **`macos-15`** (fast queue — Xcode 26 is pre-installed on it)
@@ -64,7 +63,7 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 202** (version 1.0.2+202) — with watch app
+- Last known upload: **build 212** (version 1.0.2+212) — deep audit production fixes
 - **Build number rule**: if a build fails, keep the same build number and retry — only increment AFTER a successful upload
 - **Marketing version is `1.0.2`** for TestFlight builds — do NOT bump to 1.0.3 or higher without explicit user approval
   - Format: `version: 1.0.2+<build_number>` — only the build number increments each release
