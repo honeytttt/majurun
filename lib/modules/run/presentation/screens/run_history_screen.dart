@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
-import 'package:majurun/core/widgets/empty_state_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
@@ -529,12 +528,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 ),
               )
             else if (runs.isEmpty)
-              const SliverFillRemaining(
-                child: EmptyStateWidget(
-                  icon: Icons.directions_run_rounded,
-                  title: 'No sessions yet',
-                  subtitle: 'Lace up and complete your first run — it will appear here.',
-                ),
+              SliverFillRemaining(
+                child: _buildFirstRunCard(),
               )
             else
               ..._buildGroupedRunsList(context, runs),
@@ -559,6 +554,73 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
 
             const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFirstRunCard() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF00E676).withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: const Icon(
+                Icons.directions_run_rounded,
+                size: 56,
+                color: Color(0xFF00E676),
+              ),
+            ),
+            const SizedBox(height: 28),
+            const Text(
+              'Your journey starts here',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Complete your first run and watch your personal records, heatmap, and stats come to life.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 14,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: const Text(
+                'Start your first run',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00E676),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                elevation: 0,
+              ),
+            ),
           ],
         ),
       ),

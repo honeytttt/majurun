@@ -46,6 +46,8 @@ import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart'
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_puzzle_card.dart';
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_trivia_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/pro_upgrade_banner.dart';
+import 'package:majurun/modules/onboarding/feature_intro_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userBio = 'Loading...';
   String _profileImageUrl = '';
   String _email = '';
+  bool _showWhatsNewBadge = false;
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
 
@@ -80,6 +83,26 @@ class _HomeScreenState extends State<HomeScreen> {
     DailyContentService.maybePostDailyContent().catchError(
       (e) => debugPrint('⚠️ DailyContentService: $e'),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkFeatureIntro();
+      _loadWhatsNewBadge();
+    });
+  }
+
+  Future<void> _checkFeatureIntro() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('feature_intro_seen_v1') == true) return;
+    await prefs.setBool('feature_intro_seen_v1', true);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FeatureIntroScreen()),
+    );
+  }
+
+  Future<void> _loadWhatsNewBadge() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('whats_new_219_seen') ?? false;
+    if (mounted && !seen) setState(() => _showWhatsNewBadge = true);
   }
 
   void _onTabNotifier() {
@@ -174,6 +197,12 @@ class _HomeScreenState extends State<HomeScreen> {
     HapticFeedback.selectionClick();
     if (index != 0) {
       VideoSessionManager.pauseAll();
+    }
+    // Dismiss "what's new" badge on first tap of the RUN tab.
+    if (index == 4 && _showWhatsNewBadge) {
+      SharedPreferences.getInstance()
+          .then((p) => p.setBool('whats_new_219_seen', true));
+      setState(() => _showWhatsNewBadge = false);
     }
     // Twitter behaviour: tapping the already-selected Home tab scrolls to top + refreshes.
     if (index == 0 && _selectedIndex == 0 && _activeSubPage == null) {
@@ -303,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen),
                 _buildCenterNavItem(brandGreen),
                 _buildNavItem(3, Icons.card_giftcard_rounded, Icons.card_giftcard_outlined, 'Rewards', brandGreen),
-                _buildNavItem(4, Icons.directions_run_rounded, Icons.directions_run_outlined, 'RUN', brandGreen),
+                _buildNavItem(4, Icons.directions_run_rounded, Icons.directions_run_outlined, 'RUN', brandGreen, showBadge: _showWhatsNewBadge),
               ],
             ),
           ),
@@ -313,10 +342,17 @@ class _HomeScreenState extends State<HomeScreen> {
     ); // ConnectivityBanner
   }
 
-  Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
+  Widget _buildNavItem(
+    int index,
+    IconData selectedIcon,
+    IconData unselectedIcon,
+    String label,
+    Color brandGreen, {
+    bool showBadge = false,
+  }) {
     final isSelected = _selectedIndex == index;
     const textSecondary = AppTheme.textSecondary;
-    
+
     return Semantics(
       button: true,
       selected: isSelected,
@@ -333,10 +369,29 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(
-                isSelected ? selectedIcon : unselectedIcon,
-                color: isSelected ? brandGreen : textSecondary,
-                size: 24,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    isSelected ? selectedIcon : unselectedIcon,
+                    color: isSelected ? brandGreen : textSecondary,
+                    size: 24,
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      top: -3,
+                      right: -4,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E676),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
               Text(

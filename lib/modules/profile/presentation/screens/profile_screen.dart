@@ -1537,12 +1537,20 @@ class _StreakFreezeButtonState extends State<_StreakFreezeButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (_used) return const Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 22);
-    return GestureDetector(
-      onTap: _loading ? null : _use,
-      child: _loading
-          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          : const Icon(Icons.ac_unit, color: Colors.white70, size: 22),
+    if (_used) {
+      return const Tooltip(
+        message: 'Streak freeze active — your streak is protected today',
+        child: Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 22),
+      );
+    }
+    return Tooltip(
+      message: 'Streak Freeze — tap to protect your streak if you miss a day (1 per week)',
+      child: GestureDetector(
+        onTap: _loading ? null : _use,
+        child: _loading
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Icon(Icons.ac_unit, color: Colors.white70, size: 22),
+      ),
     );
   }
 }
