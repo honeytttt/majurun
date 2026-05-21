@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_player_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
@@ -716,36 +717,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             _buildProFeature(Icons.psychology, 'Advanced programs'),
             _buildProFeature(Icons.analytics, 'Progress tracking'),
             const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFFFD700).withValues(alpha: 0.1),
-                    const Color(0xFFFFD700).withValues(alpha: 0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    '\$1.99/month',
-                    style: TextStyle(
-                      color: Color(0xFFFFD700),
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'or \$15.99/year (Save 33%)',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
         actions: [
@@ -759,19 +730,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Subscription feature coming soon!'),
-                  backgroundColor: Color(0xFFFFD700),
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const SubscriptionScreen(
+                  isPaywall: true,
+                  paywallFeature: 'Workout Hub',
                 ),
-              );
+              ));
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFFD700),
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('Subscribe'),
+            child: const Text('View Plans'),
           ),
         ],
       ),

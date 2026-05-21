@@ -419,7 +419,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                                 const SizedBox(width: 12),
                                 _SocialButton(
-                                  label: 'Twitter / X',
+                                  label: 'X',
                                   iconWidget: const FaIcon(
                                     FontAwesomeIcons.xTwitter,
                                     size: 18,
