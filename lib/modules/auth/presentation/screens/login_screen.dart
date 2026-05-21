@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -389,7 +391,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 20),
 
-                            // Social logins — Google + Twitter (X) + Facebook
+                            // Social logins — Google + Apple (required by 4.8) + Twitter
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -401,20 +403,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ? null
                                       : () => _handleSocialAuth(authRepo.signInWithGoogle),
                                 ),
-                                const SizedBox(width: 12),
-                                _SocialButton(
-                                  label: 'Facebook',
-                                  iconWidget: const FaIcon(
-                                    FontAwesomeIcons.facebook,
-                                    size: 18,
-                                    color: Color(0xFF1877F2),
+                                if (!kIsWeb && Platform.isIOS) ...[
+                                  const SizedBox(width: 12),
+                                  _SocialButton(
+                                    label: 'Apple',
+                                    iconWidget: const Icon(
+                                      Icons.apple_rounded,
+                                      size: 22,
+                                      color: Colors.black,
+                                    ),
+                                    onTap: _isLoading
+                                        ? null
+                                        : () => _handleSocialAuth(authRepo.signInWithApple),
                                   ),
-                                  onTap: _isLoading
-                                      ? null
-                                      : () {
-                                          _showErrorSnackbar('Facebook login coming soon!');
-                                        },
-                                ),
+                                ],
                                 const SizedBox(width: 12),
                                 _SocialButton(
                                   label: 'Twitter / X',

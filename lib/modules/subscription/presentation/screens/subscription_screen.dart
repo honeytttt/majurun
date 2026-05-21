@@ -1,5 +1,7 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/core/services/analytics_service.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -383,12 +385,42 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
     }
   }
 
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Widget _buildLegalText() {
-    return Text(
-      'Payment will be charged to your ${_yearlySelected ? "App Store/Play Store" : "App Store/Play Store"} account. '
-      'Subscription renews automatically unless cancelled at least 24 hours before the end of the current period. '
-      'You can manage or cancel your subscription in your account settings.',
-      style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11),
+    final dim = Colors.white.withValues(alpha: 0.35);
+    final link = Colors.white.withValues(alpha: 0.6);
+    return Text.rich(
+      TextSpan(
+        style: TextStyle(color: dim, fontSize: 11, height: 1.6),
+        children: [
+          const TextSpan(
+            text: 'Payment will be charged to your App Store account at confirmation. '
+                'Subscription renews automatically unless cancelled at least 24 hours before the end of the current period. '
+                'Manage or cancel in your account settings.\n\n',
+          ),
+          TextSpan(
+            text: 'Terms of Use (EULA)',
+            style: TextStyle(color: link, decoration: TextDecoration.underline),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => _launchUrl(
+                    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+                  ),
+          ),
+          const TextSpan(text: '  ·  '),
+          TextSpan(
+            text: 'Privacy Policy',
+            style: TextStyle(color: link, decoration: TextDecoration.underline),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => _launchUrl('https://www.majurun.com/privacy-policy.html'),
+          ),
+        ],
+      ),
       textAlign: TextAlign.center,
     );
   }
