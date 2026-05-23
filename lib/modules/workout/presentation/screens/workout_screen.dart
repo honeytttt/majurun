@@ -717,6 +717,33 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             _buildProFeature(Icons.psychology, 'Advanced programs'),
             _buildProFeature(Icons.analytics, 'Progress tracking'),
             const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3)),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '\$1.99 / month',
+                    style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'or \$15.99 / year (save 33%)',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
         actions: [
@@ -742,7 +769,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('View Plans'),
+            child: const Text('Subscribe — \$1.99/mo'),
           ),
         ],
       ),

@@ -15,6 +15,8 @@ import 'package:majurun/modules/home/presentation/widgets/quoted_post_preview.da
 import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
 import 'package:majurun/modules/home/presentation/widgets/post_video_player.dart';
 import 'package:majurun/modules/profile/presentation/screens/user_profile_screen.dart';
+import 'package:majurun/core/widgets/report_bottom_sheet.dart';
+import 'package:majurun/core/services/dm_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 // ✅ Import expandable text and post detail screen
@@ -301,7 +303,33 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
                       icon: const Icon(Icons.more_vert, color: Colors.grey),
                       onPressed: () => _showOptionsBottomSheet(context),
                     )
-                  : null,
+                  : PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: Colors.grey),
+                      onSelected: (val) async {
+                        if (val == 'report' && context.mounted) {
+                          await ReportBottomSheet.showForPost(
+                            context,
+                            postId: widget.post.id,
+                            postOwnerId: widget.post.userId,
+                          );
+                        } else if (val == 'block' && currentUserId != null) {
+                          await _blockUserFromFeed(context, currentUserId);
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'report', child: Text('Report Post')),
+                        PopupMenuItem(
+                          value: 'block',
+                          child: Row(
+                            children: [
+                              Icon(Icons.block, size: 18, color: Colors.orange),
+                              SizedBox(width: 10),
+                              Text('Block User', style: TextStyle(color: Colors.orange)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
             ),
 
             // ✅ UPDATED: Post Text Content with ExpandableText
@@ -770,6 +798,34 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
         ),
       ),
     ).then((_) => SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]));
+  }
+
+  Future<void> _blockUserFromFeed(BuildContext context, String currentUserId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block User'),
+        content: Text(
+          'Block ${widget.post.username}? Their posts will be removed from your feed immediately and they won\'t be able to message you.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+    await DmService().blockUser(currentUserId, widget.post.userId);
+    // HomeScreen's stream listener picks up the Firestore change and rebuilds the feed instantly.
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.post.username} blocked — their posts have been removed')),
+      );
+    }
   }
 
   void _showOptionsBottomSheet(BuildContext context) {

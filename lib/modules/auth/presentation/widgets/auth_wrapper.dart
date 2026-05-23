@@ -69,7 +69,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
                     final data =
                         profileSnap.data?.data() as Map<String, dynamic>?;
-                    final hasProfile = data != null && data['dob'] != null;
+                    // profileComplete flag (set from build 224+); dob fallback for existing users
+                    final hasProfile = data != null &&
+                        (data['profileComplete'] == true ||
+                            data['dob'] != null);
 
                     return hasProfile
                         ? const HomeScreen()

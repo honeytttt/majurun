@@ -26,10 +26,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill name from Google/social login if available
     final user = FirebaseAuth.instance.currentUser;
     if (user?.displayName != null && user!.displayName!.isNotEmpty) {
       _fullName.text = user.displayName!;
+    } else if (user?.providerData.any((p) => p.providerId == 'apple.com') == true) {
+      // Apple user who hid their name — use a default so we never ask them to provide it
+      _fullName.text = 'Runner';
     }
   }
 
@@ -58,18 +60,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_dob == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your date of birth')),
-      );
-      return;
-    }
-    if (_gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your gender')),
-      );
-      return;
-    }
 
     setState(() => _loading = true);
     try {
@@ -87,9 +77,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (nicknameVal.isNotEmpty) 'nickname': nicknameVal,
         'email': user.email ?? '',
         'photoUrl': user.photoURL ?? '',
-        'dob': _dob!.toIso8601String(),
-        'gender': _gender,
+        if (_dob != null) 'dob': _dob!.toIso8601String(),
+        if (_gender != null) 'gender': _gender,
         'phoneNumber': _phone.text.trim(),
+        'profileComplete': true,
         'createdAt': FieldValue.serverTimestamp(),
         'workoutsCount': 0,
         'totalKm': 0.0,
@@ -105,8 +96,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }, SetOptions(merge: true));
 
       await user.updateDisplayName(_fullName.text.trim());
-      // AuthWrapper's snapshots() stream detects 'dob' is now set and
-      // automatically transitions to HomeScreen — no manual push needed.
+      // AuthWrapper detects profileComplete:true and transitions to HomeScreen.
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,7 +229,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 child: InputDecorator(
                                   decoration: InputDecoration(
-                                    labelText: 'Date of birth',
+                                    labelText: 'Date of birth (optional)',
                                     prefixIcon: Icon(Icons.cake_outlined, color: cs.primary),
                                     border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12)),
@@ -257,7 +247,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               // Gender
                               Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text('Gender',
+                                child: Text('Gender (optional)',
                                     style: text.bodyMedium
                                         ?.copyWith(color: cs.onSurfaceVariant)),
                               ),

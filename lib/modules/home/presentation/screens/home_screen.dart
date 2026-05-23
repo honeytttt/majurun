@@ -471,6 +471,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _bannerDismissed = false;
   bool _sendingVerification = false;
   Set<String> _blockedUserIds = {};
+  StreamSubscription<QuerySnapshot>? _blockedUsersSubscription;
   bool _showNewPostsBanner = false;
   double _lastScrollPixels = 0;
   int _newPostCount = 0;
@@ -533,20 +534,21 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     } catch (_) {}
   }
 
-  Future<void> _loadBlockedUsers() async {
+  void _loadBlockedUsers() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('blockedUsers')
-          .limit(500)
-          .get();
-      if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
-    } catch (e) {
-      debugPrint('⚠️ HomeScreen: failed to load blocked users: $e');
-    }
+    _blockedUsersSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('blockedUsers')
+        .limit(500)
+        .snapshots()
+        .listen(
+          (snap) {
+            if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
+          },
+          onError: (e) => debugPrint('⚠️ HomeScreen: blocked users stream error: $e'),
+        );
   }
 
   Future<void> _loadChallengeSummary() async {
@@ -569,6 +571,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   void dispose() {
     HomeFeedContent.refreshTrigger.removeListener(_onRefreshTrigger);
     _feedScrollController.dispose();
+    _blockedUsersSubscription?.cancel();
     super.dispose();
   }
 
