@@ -14,6 +14,12 @@ Before creating any new branch, Claude must:
 ### CI — actions/checkout updated (done in build 216)
 - ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files
 
+### CI — path filters (added build 225)
+- iOS and Android builds do **NOT** trigger on changes to `functions/**`, `**.md`, or Firebase config files
+- This prevents duplicate App Store Connect upload errors when deploying Cloud Functions without a code change
+- **Rule**: if you push only to `functions/`, deploy manually via `firebase deploy --only functions` — no build bump needed
+- If you push both Dart code AND functions changes together, bump the build number as normal
+
 ### iOS CI — Xcode version rule (enforced from build 159)
 - Runner: **`macos-15`** (fast queue — Xcode 26 is pre-installed on it)
 - **Never hardcode a specific Xcode version** — use dynamic selection: pick highest `Xcode_26.x`, fail loudly if not found

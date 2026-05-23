@@ -6,6 +6,13 @@ on:
     branches:
       - main
       - 'feature/**'
+    paths-ignore:
+      - 'functions/**'
+      - '**.md'
+      - '.firebaserc'
+      - 'firebase.json'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
   workflow_dispatch:
     inputs:
       build_mode:
