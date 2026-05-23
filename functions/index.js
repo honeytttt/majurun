@@ -79,13 +79,31 @@ exports.verifyRecaptcha = onCall(
   }
 );
 
-// Admin check via Firebase Custom Claim only.
-// Grant via: admin.auth().setCustomUserClaims(uid, { admin: true })
+// Admin check: custom claim (primary) OR known admin email (fallback).
+// Remove the email fallback once admin has run grantAdminClaim to set the custom claim.
+const ADMIN_EMAIL = "majurun.app@gmail.com";
 function requireAdmin(request) {
-  if (!request.auth || request.auth.token.admin !== true) {
+  if (!request.auth) throw new HttpsError("permission-denied", "Admin only.");
+  const isAdminClaim = request.auth.token.admin === true;
+  const isAdminEmail = request.auth.token.email === ADMIN_EMAIL;
+  if (!isAdminClaim && !isAdminEmail) {
     throw new HttpsError("permission-denied", "Admin only.");
   }
 }
+
+// One-time: the admin account calls this to grant itself the custom claim permanently.
+// After calling it, sign out + sign back in so the new token is issued, then
+// the email fallback in requireAdmin becomes unnecessary.
+exports.grantAdminClaim = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    if (!request.auth || request.auth.token.email !== ADMIN_EMAIL) {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+    await admin.auth().setCustomUserClaims(request.auth.uid, { admin: true });
+    return { success: true, message: "Admin claim granted. Sign out and sign back in." };
+  }
+);
 
 // Delete a user: Firebase Auth + all Firestore data
 exports.adminDeleteUser = onCall(
