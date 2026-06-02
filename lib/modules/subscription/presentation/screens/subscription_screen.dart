@@ -45,14 +45,17 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
   static const _darkBg = Color(0xFF0A0A0A);
 
   static const _features = [
-    (icon: '🗺️',  title: 'Advanced Route Maps',       sub: 'Elevation, split times & full GPS replay'),
-    (icon: '🎙️',  title: 'AI Voice Coach',             sub: 'Personalised real-time audio feedback'),
-    (icon: '📊',  title: 'Deep Performance Analytics', sub: 'Heart rate zones, VO2 Max estimate & trends'),
-    (icon: '🏋️',  title: 'Full Training Plans',        sub: 'Beginner → Marathon structured programmes'),
-    (icon: '🏆',  title: 'Unlimited Challenges',       sub: 'Join & create community challenges'),
-    (icon: '📤',  title: 'Export & Share',             sub: 'Export runs to GPX, Strava & Apple Health'),
-    (icon: '🔔',  title: 'Smart Reminders',            sub: 'AI-scheduled reminders based on your habits'),
-    (icon: '☁️',  title: 'Cloud Backup',               sub: 'Your data safe & synced across all devices'),
+    (icon: '🗺️',  title: 'Advanced Route Maps',        sub: 'Elevation, split times & full GPS replay'),
+    (icon: '🎙️',  title: 'AI Voice Coach',              sub: 'Personalised real-time audio feedback'),
+    (icon: '📊',  title: 'Deep Performance Analytics',  sub: 'Heart rate zones, VO2 Max estimate & trends'),
+    (icon: '🎯',  title: 'Race Time Predictor',         sub: 'Instant 5K → marathon estimates from any run'),
+    (icon: '🏋️',  title: 'Full Training Plans',         sub: 'Beginner → Marathon structured programmes'),
+    (icon: '🏆',  title: 'Unlimited Challenges',        sub: 'Join & create community challenges'),
+    (icon: '🔥',  title: 'Streak & Activity Heatmap',   sub: 'Consistency calendar, streaks & monthly goals'),
+    (icon: '📤',  title: 'Export & Share',              sub: 'Export runs to GPX, Strava & Apple Health'),
+    (icon: '🔔',  title: 'Smart Reminders',             sub: 'AI-scheduled reminders based on your habits'),
+    (icon: '🧠',  title: 'AI Weekly Insights',          sub: 'Personalised training analysis every Sunday'),
+    (icon: '☁️',  title: 'Cloud Backup',                sub: 'Your data safe & synced across all devices'),
   ];
 
   @override
@@ -98,6 +101,7 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
+                _buildPromoStrip(),
                 if (widget.isPaywall && widget.paywallFeature != null)
                   _buildPaywallBanner(),
                 _buildHeader(),
@@ -114,6 +118,54 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildPromoStrip() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2D1F00), Color(0xFF3D2A00), Color(0xFF2D1F00)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.65)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFB300).withValues(alpha: 0.12),
+            blurRadius: 18,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text('🎉', style: TextStyle(fontSize: 28)),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Launch Offer — 3 Months Free',
+                  style: TextStyle(
+                    color: Color(0xFFFFD740),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Start your free trial today. No charge for 3 months. Cancel anytime.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -167,6 +219,15 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
         Text(
           'Unlock your full running potential',
           style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          '3 months free · then cancel anytime',
+          style: TextStyle(
+            color: Color(0xFFFFCC02),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -325,8 +386,8 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
   Widget _buildPurchaseButton(PaymentService payment) {
     final product = _yearlySelected ? payment.yearlyProduct : payment.monthlyProduct;
     final label   = product != null
-        ? 'Start Pro — ${product.price}'
-        : 'Start Free Trial';
+        ? 'Start 3 Months Free — ${product.price} after'
+        : 'Start 3 Months Free';
 
     return SizedBox(
       width: double.infinity,

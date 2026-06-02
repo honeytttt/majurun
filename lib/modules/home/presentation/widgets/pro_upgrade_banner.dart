@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:majurun/core/services/subscription_service.dart';
 import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 
-/// A tasteful, non-intrusive Pro upgrade card shown in the feed for free users.
+/// Promotional Pro upgrade banner — "3 Months Free" launch offer.
 ///
-/// • Shown once every session (dismissed state is held in memory only).
-/// • Dismissed with a single tap on the × — no nag.
-/// • Uses a subtle animated gradient shimmer to stand out without feeling like an ad.
+/// • Shown once per session in the feed for free users.
+/// • Dismissed with a single tap on × — no nag.
+/// • Gold gradient shimmer signals value/urgency without feeling like an ad.
 /// • Hidden entirely for Pro subscribers.
 class ProUpgradeBanner extends StatefulWidget {
   const ProUpgradeBanner({super.key});
@@ -19,7 +19,7 @@ class ProUpgradeBanner extends StatefulWidget {
 
 class _ProUpgradeBannerState extends State<ProUpgradeBanner>
     with SingleTickerProviderStateMixin {
-  static bool _dismissed = false; // session-level dismiss
+  static bool _dismissed = false;
 
   late final Stream<bool> _proStream;
   late final AnimationController _shimmer;
@@ -30,7 +30,7 @@ class _ProUpgradeBannerState extends State<ProUpgradeBanner>
     _proStream = SubscriptionService().streamProStatus();
     _shimmer = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
     )..repeat();
   }
 
@@ -47,8 +47,7 @@ class _ProUpgradeBannerState extends State<ProUpgradeBanner>
     return StreamBuilder<bool>(
       stream: _proStream,
       builder: (context, snap) {
-        final isPro = snap.data ?? false;
-        if (isPro) return const SizedBox.shrink();
+        if (snap.data ?? false) return const SizedBox.shrink();
         return _buildBanner(context);
       },
     );
@@ -65,122 +64,147 @@ class _ProUpgradeBannerState extends State<ProUpgradeBanner>
         child: AnimatedBuilder(
           animation: _shimmer,
           builder: (context, child) {
-            final shift = _shimmer.value;
+            final t = _shimmer.value;
+            final sweep = math.cos(t * math.pi * 2);
             return Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
-                  begin: Alignment(math.cos(shift * math.pi * 2) - 1, -0.3),
-                  end: Alignment(math.cos(shift * math.pi * 2) + 1, 1.3),
+                  begin: Alignment(sweep - 1, -0.4),
+                  end: Alignment(sweep + 1, 1.4),
                   colors: const [
-                    Color(0xFF1A1A2E),
-                    Color(0xFF16213E),
-                    Color(0xFF0F3460),
-                    Color(0xFF1A1A2E),
+                    Color(0xFF1C1400),
+                    Color(0xFF2D1F00),
+                    Color(0xFF3D2A00),
+                    Color(0xFF2D1F00),
                   ],
+                ),
+                border: Border.all(
+                  color: const Color(0xFFFFB300).withValues(alpha: 0.55),
+                  width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00E676).withValues(alpha: 0.08),
-                    blurRadius: 20,
+                    color: const Color(0xFFFFB300).withValues(alpha: 0.18),
+                    blurRadius: 22,
                     spreadRadius: 1,
                   ),
                 ],
-                border: Border.all(
-                  color: const Color(0xFF00E676).withValues(alpha: 0.2),
-                ),
               ),
               child: child,
             );
           },
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+            padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
             child: Row(
               children: [
-                // Icon badge
+                // Gold lightning icon
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF00E676), Color(0xFF00BCD4)],
+                      colors: [Color(0xFFFFD740), Color(0xFFFF8F00)],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00E676).withValues(alpha: 0.3),
-                        blurRadius: 10,
+                        color: const Color(0xFFFFB300).withValues(alpha: 0.45),
+                        blurRadius: 14,
+                        spreadRadius: 1,
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.workspace_premium_rounded,
-                      color: Colors.black, size: 22),
+                  child: const Icon(Icons.bolt_rounded, color: Colors.black, size: 28),
                 ),
                 const SizedBox(width: 14),
-                // Text
+
+                // Copy
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Text(
-                            'MajuRun Pro',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFB300),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'LAUNCH OFFER',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color:
-                                  const Color(0xFF00E676).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: const Color(0xFF00E676)
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: const Text(
-                              'UPGRADE',
-                              style: TextStyle(
-                                color: Color(0xFF00E676),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
-                              ),
+                          const Text(
+                            'Limited time',
+                            style: TextStyle(
+                              color: Color(0xFFFFCC02),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       const Text(
-                        'Advanced splits · Route replay · Live cheers & more',
+                        '3 Months Free',
                         style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                          letterSpacing: 0.2,
                         ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'GPS maps · AI coach · Race predictor & more',
+                        style: TextStyle(color: Colors.white54, fontSize: 11.5),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                // Dismiss
-                GestureDetector(
-                  onTap: () => setState(() => _dismissed = true),
-                  behavior: HitTestBehavior.opaque,
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.close_rounded,
-                        color: Colors.white30, size: 18),
-                  ),
+                const SizedBox(width: 8),
+
+                // Dismiss + CTA
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _dismissed = true),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.only(bottom: 6),
+                        child: Icon(Icons.close_rounded, color: Colors.white30, size: 16),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFB300),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Claim →',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
