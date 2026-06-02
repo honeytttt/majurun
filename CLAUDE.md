@@ -69,13 +69,13 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 224** (version 1.0.2+224) — Apple rejection fixes uploaded successfully
-- **Release in progress: build 225** (version 1.0.2+225) — bump after functions-only push caused duplicate upload attempt
+- Last known upload: **build 225** (version 1.0.2+225) — subscriptions submitted for review
+- **Release in progress: build 227** (version 1.0.3+227) — marketing version bumped because Apple closed the 1.0.2 train after approval
 - **Build number rule**: if a build fails, keep the same build number and retry — only increment AFTER a successful upload
-- **Marketing version is `1.0.2`** for TestFlight builds — do NOT bump to 1.0.3 or higher without explicit user approval
-  - Format: `version: 1.0.2+<build_number>` — only the build number increments each release
-  - iOS App Store and Android Play Store both show `1.0.2` to users; the build number is internal only
-  - NOTE: TestFlight will not deliver a build to devices already running 1.0.2 if the new build has a lower marketing version (e.g. 1.0.0)
+- **Marketing version is `1.0.3`** going forward — Apple closed the 1.0.2 train; 1.0.2 can no longer accept new builds
+  - Format: `version: 1.0.3+<build_number>` — only the build number increments each release
+  - iOS App Store and Android Play Store both show `1.0.3` to users; the build number is internal only
+  - NOTE: TestFlight will not deliver a build to devices already running 1.0.3 if the new build has a lower marketing version
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
 
