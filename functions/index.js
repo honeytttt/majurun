@@ -1,27 +1,23 @@
 // functions/index.js
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { logger } = require("firebase-functions/v2");
-const { RecaptchaEnterpriseServiceClient } = require('@google-cloud/recaptcha-enterprise');
+const { logger } = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-// Optional: keep your global options if you want
-const { setGlobalOptions } = require("firebase-functions/v2");
+const { setGlobalOptions } = require("firebase-functions/v2/options");
 setGlobalOptions({ maxInstances: 10 });
-
-const client = new RecaptchaEnterpriseServiceClient();
 
 exports.verifyRecaptcha = onCall(
   {
-    region: "asia-southeast1",           // Good choice for Singapore
-    // memory: "256MB",                  // optional - uncomment if you need more memory
-    // timeoutSeconds: 60,               // optional
+    region: "asia-southeast1",
   },
   async (request) => {
+    const { RecaptchaEnterpriseServiceClient } = require('@google-cloud/recaptcha-enterprise');
+    const client = new RecaptchaEnterpriseServiceClient();
     const { token, action } = request.data;
 
     if (!token || !action) {
