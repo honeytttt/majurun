@@ -44,23 +44,46 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
   static const _brandGreen = Color(0xFF00E676);
   static const _darkBg = Color(0xFF0A0A0A);
 
+  late final TapGestureRecognizer _eulaRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  static const _freeFeatures = [
+    (icon: '📍', title: 'GPS Run Tracking',           sub: 'Real-time pace, distance & route map'),
+    (icon: '🎤', title: 'Voice Km Announcements',     sub: 'Spoken milestones every kilometre'),
+    (icon: '🏃', title: '0 to 5K Training Plan',      sub: 'Full 8-week beginner programme'),
+    (icon: '📜', title: 'Full Run History',            sub: 'All your runs, splits & summaries'),
+    (icon: '🏅', title: 'Achievements & Badges',       sub: '5K, 10K, Half Marathon & more'),
+    (icon: '🌍', title: 'Community Feed',              sub: 'Share runs, follow & cheer others'),
+    (icon: '🎮', title: 'Daily Challenges & Games',    sub: 'Trivia, puzzles & streak rewards'),
+    (icon: '🏆', title: 'Global Leaderboard',          sub: 'Compete with runners worldwide'),
+  ];
+
   static const _features = [
     (icon: '🗺️',  title: 'Advanced Route Maps',        sub: 'Elevation, split times & full GPS replay'),
     (icon: '🎙️',  title: 'AI Voice Coach',              sub: 'Personalised real-time audio feedback'),
     (icon: '📊',  title: 'Deep Performance Analytics',  sub: 'Heart rate zones, VO2 Max estimate & trends'),
     (icon: '🎯',  title: 'Race Time Predictor',         sub: 'Instant 5K → marathon estimates from any run'),
-    (icon: '🏋️',  title: 'Full Training Plans',         sub: 'Beginner → Marathon structured programmes'),
-    (icon: '🏆',  title: 'Unlimited Challenges',        sub: 'Join & create community challenges'),
+    (icon: '🏋️',  title: 'Full Training Plans',         sub: '5K→10K, 10K→Half, Half→Marathon programmes'),
+    (icon: '🏅',  title: 'Unlimited Challenges',        sub: 'Join & create unlimited community challenges'),
     (icon: '🔥',  title: 'Streak & Activity Heatmap',   sub: 'Consistency calendar, streaks & monthly goals'),
     (icon: '📤',  title: 'Export & Share',              sub: 'Export runs to GPX, Strava & Apple Health'),
     (icon: '🔔',  title: 'Smart Reminders',             sub: 'AI-scheduled reminders based on your habits'),
     (icon: '🧠',  title: 'AI Weekly Insights',          sub: 'Personalised training analysis every Sunday'),
     (icon: '☁️',  title: 'Cloud Backup',                sub: 'Your data safe & synced across all devices'),
+    (icon: '👟',  title: 'Shoe Tracker',                sub: 'Track mileage per shoe, get rotation alerts'),
+    (icon: '⚡',  title: 'Interval Training',           sub: 'Custom HIIT run intervals with voice cues'),
+    (icon: '🏁',  title: 'Virtual Races',               sub: 'Join timed virtual events & earn medals'),
+    (icon: '🧭',  title: 'Route Discovery',             sub: 'Explore top-rated local running routes'),
+    (icon: '👥',  title: 'Club Creation',               sub: 'Create & manage your own running club'),
   ];
 
   @override
   void initState() {
     super.initState();
+    _eulaRecognizer = TapGestureRecognizer()
+      ..onTap = () => _launchUrl('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/');
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _launchUrl('https://www.majurun.com/privacy-policy.html');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PaymentService().initialize();
       // Track paywall impression for conversion funnel analysis
@@ -72,6 +95,13 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
         },
       );
     });
+  }
+
+  @override
+  void dispose() {
+    _eulaRecognizer.dispose();
+    _privacyRecognizer.dispose();
+    super.dispose();
   }
 
   @override
@@ -108,7 +138,9 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
                 const SizedBox(height: 28),
                 _buildPricingToggle(payment),
                 const SizedBox(height: 28),
-                _buildFeatureList(),
+                _buildFreeFeatureSection(),
+                const SizedBox(height: 20),
+                _buildProFeatureSection(),
                 const SizedBox(height: 28),
                 _buildPurchaseButton(payment),
                 const SizedBox(height: 16),
@@ -357,29 +389,92 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
     );
   }
 
-  Widget _buildFeatureList() {
-    return Column(
-      children: _features.map((f) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          children: [
-            Text(f.icon, style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(f.title,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(f.sub,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12)),
-                ],
+  Widget _buildSectionHeader(String label, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
               ),
             ),
-            const Icon(Icons.check_circle_rounded, color: _brandGreen, size: 20),
-          ],
-        ),
-      )).toList(),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeFeatureSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('ALWAYS FREE', Colors.white54),
+        ..._freeFeatures.map((f) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              Text(f.icon, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(f.title,
+                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(f.sub,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11.5)),
+                  ],
+                ),
+              ),
+              Icon(Icons.check_rounded, color: Colors.white.withValues(alpha: 0.4), size: 18),
+            ],
+          ),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildProFeatureSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('PRO UNLOCKS ⚡', const Color(0xFFFFB300)),
+        ..._features.map((f) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Text(f.icon, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(f.title,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(f.sub,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.check_circle_rounded, color: _brandGreen, size: 20),
+            ],
+          ),
+        )),
+      ],
     );
   }
 
@@ -468,17 +563,13 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
           TextSpan(
             text: 'Terms of Use (EULA)',
             style: TextStyle(color: link, decoration: TextDecoration.underline),
-            recognizer: TapGestureRecognizer()
-              ..onTap = () => _launchUrl(
-                    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
-                  ),
+            recognizer: _eulaRecognizer,
           ),
           const TextSpan(text: '  ·  '),
           TextSpan(
             text: 'Privacy Policy',
             style: TextStyle(color: link, decoration: TextDecoration.underline),
-            recognizer: TapGestureRecognizer()
-              ..onTap = () => _launchUrl('https://www.majurun.com/privacy-policy.html'),
+            recognizer: _privacyRecognizer,
           ),
         ],
       ),

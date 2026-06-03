@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/modules/home/presentation/widgets/pro_banner_session.dart';
 import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 
 /// Promotional Pro upgrade banner — "3 Months Free" launch offer.
@@ -19,7 +20,6 @@ class ProUpgradeBanner extends StatefulWidget {
 
 class _ProUpgradeBannerState extends State<ProUpgradeBanner>
     with SingleTickerProviderStateMixin {
-  static bool _dismissed = false;
 
   late final Stream<bool> _proStream;
   late final AnimationController _shimmer;
@@ -42,7 +42,7 @@ class _ProUpgradeBannerState extends State<ProUpgradeBanner>
 
   @override
   Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
+    if (ProBannerSession.dismissed) return const SizedBox.shrink();
 
     return StreamBuilder<bool>(
       stream: _proStream,
@@ -182,7 +182,7 @@ class _ProUpgradeBannerState extends State<ProUpgradeBanner>
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     GestureDetector(
-                      onTap: () => setState(() => _dismissed = true),
+                      onTap: () => setState(() => ProBannerSession.dismissed = true),
                       behavior: HitTestBehavior.opaque,
                       child: const Padding(
                         padding: EdgeInsets.only(bottom: 6),

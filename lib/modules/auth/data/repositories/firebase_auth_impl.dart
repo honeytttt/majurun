@@ -185,41 +185,57 @@ class FirebaseAuthImpl implements AuthRepository {
 
   @override
   Future<AppUser?> signInWithApple() async {
-    final rawNonce = _generateNonce();
-    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+    try {
+      final rawNonce = _generateNonce();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
-    final appleCredential = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-      nonce: hashedNonce,
-    );
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
 
-    final oauthCredential = OAuthProvider('apple.com').credential(
-      idToken: appleCredential.identityToken,
-      rawNonce: rawNonce,
-      accessToken: appleCredential.authorizationCode,
-    );
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode,
+      );
 
-    final userCredential = await _auth.signInWithCredential(oauthCredential);
+      final userCredential = await _auth.signInWithCredential(oauthCredential);
 
-    if (userCredential.user != null) {
-      final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
-      if (!userDoc.exists) {
-        final givenName = appleCredential.givenName ?? '';
-        final familyName = appleCredential.familyName ?? '';
-        final displayName = '$givenName $familyName'.trim();
+      if (userCredential.user != null) {
+        final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
+        if (!userDoc.exists) {
+          final givenName = appleCredential.givenName ?? '';
+          final familyName = appleCredential.familyName ?? '';
+          final displayName = '$givenName $familyName'.trim();
 
-        await _db.collection('users').doc(userCredential.user!.uid).set({
-          'email': appleCredential.email ?? userCredential.user!.email ?? '',
-          'displayName': displayName.isNotEmpty ? displayName : 'Runner',
-          'photoUrl': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+          // Firestore write is best-effort — auth already succeeded; network failure
+          // here is recoverable on next sign-in without losing the authenticated session.
+          try {
+            await _db.collection('users').doc(userCredential.user!.uid).set({
+              'email': appleCredential.email ?? userCredential.user!.email ?? '',
+              'displayName': displayName.isNotEmpty ? displayName : 'Runner',
+              'photoUrl': '',
+              'createdAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          } catch (e) {
+            debugPrint('⚠️ Apple Sign-In: Firestore profile write failed (will retry on next login): $e');
+          }
+        }
       }
+      return _mapUser(userCredential.user);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // User tapped Cancel or the sheet was dismissed — not an error, just return null.
+      if (e.code == AuthorizationErrorCode.canceled) return null;
+      throw Exception('Apple Sign-In failed: ${e.message}');
+    } on FirebaseAuthException catch (e) {
+      throw Exception(e.message ?? 'Apple Sign-In failed. Please try again.');
+    } catch (e) {
+      throw Exception('Apple Sign-In failed. Please try again.');
     }
-    return _mapUser(userCredential.user);
   }
 
   String _generateNonce([int length = 32]) {

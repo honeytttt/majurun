@@ -46,6 +46,9 @@ import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart'
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_puzzle_card.dart';
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_trivia_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/pro_upgrade_banner.dart';
+import 'package:majurun/modules/home/presentation/widgets/pro_top_strip_banner.dart';
+import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 import 'package:majurun/modules/onboarding/feature_intro_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -71,13 +74,18 @@ class _HomeScreenState extends State<HomeScreen> {
   String _profileImageUrl = '';
   String _email = '';
   bool _showWhatsNewBadge = false;
+  bool _isPro = false;
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
+  StreamSubscription<bool>? _proStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
+    _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
+      if (mounted) setState(() => _isPro = isPro);
+    });
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
     // Post today's motivational + education cards (first user of the day triggers it).
     DailyContentService.maybePostDailyContent().catchError(
@@ -119,6 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     HomeScreen.tabNotifier.removeListener(_onTabNotifier);
     _userDataSubscription?.cancel();
+    _proStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -329,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget>[
                 _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', brandGreen),
-                _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen),
+                _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen, showCrown: !_isPro),
                 _buildCenterNavItem(brandGreen),
                 _buildNavItem(3, Icons.card_giftcard_rounded, Icons.card_giftcard_outlined, 'Rewards', brandGreen),
                 _buildNavItem(4, Icons.directions_run_rounded, Icons.directions_run_outlined, 'RUN', brandGreen, showBadge: _showWhatsNewBadge),
@@ -349,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String label,
     Color brandGreen, {
     bool showBadge = false,
+    bool showCrown = false,
   }) {
     final isSelected = _selectedIndex == index;
     const textSecondary = AppTheme.textSecondary;
@@ -389,6 +399,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 1.5),
                         ),
+                      ),
+                    ),
+                  if (showCrown)
+                    const Positioned(
+                      top: -5,
+                      right: -6,
+                      child: Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFFFFB300),
+                        size: 13,
                       ),
                     ),
                 ],
@@ -481,6 +501,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   int _challengesTotal = 0;
 
   bool _isAdmin = false;
+  bool _isPro = false;
+  StreamSubscription<bool>? _proStatusSubscription;
 
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
@@ -517,7 +539,10 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     _loadBlockedUsers();
     _loadChallengeSummary();
     _checkAdminClaim();
-    
+    _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
+      if (mounted) setState(() => _isPro = isPro);
+    });
+
     // Load cached posts for instant startup
     final cached = CacheService().getCachedPosts();
     if (cached.isNotEmpty) {
@@ -572,6 +597,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     HomeFeedContent.refreshTrigger.removeListener(_onRefreshTrigger);
     _feedScrollController.dispose();
     _blockedUsersSubscription?.cancel();
+    _proStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -778,6 +804,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         },
                       ),
                     ),
+                  _buildProCrownButton(),
                   Container(
                     width: 44,
                     height: 44,
@@ -829,6 +856,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               SliverToBoxAdapter(
                 child: Container(height: 1, color: silverMedium),
               ),
+
+              // Top promo strip — 3-month free launch offer (compact, dismissible)
+              const SliverToBoxAdapter(child: ProTopStripBanner()),
 
               // Soft email-verification nudge (Strava-style — dismissible)
               if (_showVerifyBanner)
@@ -1156,6 +1186,68 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProCrownButton() {
+    if (_isPro) {
+      return Container(
+        width: 44,
+        height: 44,
+        margin: const EdgeInsets.only(right: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFB300).withValues(alpha: 0.12),
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.45)),
+        ),
+        child: const Tooltip(
+          message: 'MajuRun Pro',
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFB300), size: 18),
+                Text(
+                  'PRO',
+                  style: TextStyle(
+                    color: Color(0xFFFFB300),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    // Free user: glowing gold crown CTA → subscription screen
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+      ),
+      child: Container(
+        width: 44,
+        height: 44,
+        margin: const EdgeInsets.only(right: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF3D2A00),
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.75)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFFB300).withValues(alpha: 0.28),
+              blurRadius: 10,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFB300), size: 22),
         ),
       ),
     );

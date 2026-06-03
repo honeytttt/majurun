@@ -79,17 +79,16 @@ exports.verifyRecaptcha = onCall(
   }
 );
 
-// Admin check: custom claim (primary) OR known admin email (fallback).
-// Remove the email fallback once admin has run grantAdminClaim to set the custom claim.
-const ADMIN_EMAIL = "majurun.app@gmail.com";
+// Admin check: requires custom claim admin:true.
+// To grant the claim, call grantAdminClaim() once from the admin account, then sign out and back in.
 function requireAdmin(request) {
   if (!request.auth) throw new HttpsError("permission-denied", "Admin only.");
-  const isAdminClaim = request.auth.token.admin === true;
-  const isAdminEmail = request.auth.token.email === ADMIN_EMAIL;
-  if (!isAdminClaim && !isAdminEmail) {
+  if (request.auth.token.admin !== true) {
     throw new HttpsError("permission-denied", "Admin only.");
   }
 }
+
+const ADMIN_EMAIL = "majurun.app@gmail.com";
 
 // One-time: the admin account calls this to grant itself the custom claim permanently.
 // After calling it, sign out + sign back in so the new token is issued, then
