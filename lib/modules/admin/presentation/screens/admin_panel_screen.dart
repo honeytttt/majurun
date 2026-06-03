@@ -22,7 +22,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -49,6 +49,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
             Tab(icon: Icon(Icons.article_rounded), text: 'Posts'),
             Tab(icon: Icon(Icons.terminal_rounded), text: 'Logs'),
             Tab(icon: Icon(Icons.route_rounded), text: 'Segments'),
+            Tab(icon: Icon(Icons.settings_rounded), text: 'Settings'),
           ],
         ),
       ),
@@ -59,6 +60,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           _PostsTab(),
           _LogsTab(),
           _SegmentsTab(),
+          _SettingsTab(),
         ],
       ),
     );
@@ -602,6 +604,98 @@ class _SegmentsTabState extends State<_SegmentsTab> {
                     },
                   ),
                 ),
+    );
+  }
+}
+
+// ─────────────────────────── SETTINGS TAB ───────────────────────────
+
+class _SettingsTab extends StatefulWidget {
+  const _SettingsTab();
+
+  @override
+  State<_SettingsTab> createState() => _SettingsTabState();
+}
+
+class _SettingsTabState extends State<_SettingsTab> {
+  bool _loading = false;
+  String? _result;
+
+  Future<void> _grantAdminClaim() async {
+    setState(() { _loading = true; _result = null; });
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-southeast1');
+      final res = await fn.httpsCallable('grantAdminClaim').call();
+      setState(() => _result = res.data['message'] as String? ?? 'Done! Sign out and back in.');
+    } on FirebaseFunctionsException catch (e) {
+      setState(() => _result = 'Error: ${e.message}');
+    } catch (e) {
+      setState(() => _result = 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Admin Claim',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Call this once to grant admin:true custom claim to the currently signed-in account. '
+            'Sign out and back in after to activate.',
+            style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.5),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _loading ? null : _grantAdminClaim,
+              icon: _loading
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.verified_user_rounded),
+              label: const Text('Grant Admin Claim to My Account'),
+            ),
+          ),
+          if (_result != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _result!.startsWith('Error')
+                    ? Colors.red.shade50
+                    : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _result!.startsWith('Error')
+                      ? Colors.red.shade200
+                      : Colors.green.shade200,
+                ),
+              ),
+              child: Text(
+                _result!,
+                style: TextStyle(
+                  color: _result!.startsWith('Error')
+                      ? Colors.red.shade800
+                      : Colors.green.shade800,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
