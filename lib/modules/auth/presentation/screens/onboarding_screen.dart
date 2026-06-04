@@ -242,7 +242,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 child: InputDecorator(
                                   decoration: InputDecoration(
-                                    labelText: 'Date of birth (optional)',
+                                    labelText: 'Date of birth',
                                     prefixIcon: Icon(Icons.cake_outlined, color: cs.primary),
                                     border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12)),
@@ -260,7 +260,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               // Gender
                               Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text('Gender (optional)',
+                                child: Text('Gender',
                                     style: text.bodyMedium
                                         ?.copyWith(color: cs.onSurfaceVariant)),
                               ),
