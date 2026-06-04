@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -320,12 +321,12 @@ class _CommentSheetState extends State<CommentSheet> {
         borderRadius: BorderRadius.circular(8),
         child: isMediaVideo
             ? CommentVideoPlayer(url: media['url'])
-            : Image.network(
-                media['url'],
+            : CachedNetworkImage(
+                imageUrl: media['url'],
                 height: 150,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                errorWidget: (_, __, ___) => const Icon(Icons.broken_image),
               ),
       ),
     );

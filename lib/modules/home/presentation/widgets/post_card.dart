@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -193,7 +194,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                                 backgroundColor: const Color(0xFF2D2D44),
                                 child: ClipOval(
                                   child: photoUrl.isNotEmpty
-                                    ? Image.network(photoUrl, width: 36, height: 36, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey, size: 20))
+                                    ? CachedNetworkImage(imageUrl: photoUrl, width: 36, height: 36, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.person, color: Colors.grey, size: 20))
                                     : const Icon(Icons.person, color: Colors.grey, size: 20),
                                 ),
                               );
@@ -364,7 +365,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         clipBehavior: Clip.antiAlias,
         child: first.type == MediaType.video 
           ? PostVideoPlayer(videoUrl: first.url, borderRadius: BorderRadius.circular(12))
-          : Image.network(first.url, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40, color: Colors.grey))),
+          : CachedNetworkImage(imageUrl: first.url, fit: BoxFit.cover, width: double.infinity, errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40, color: Colors.grey))),
       );
     }
     return const SizedBox.shrink();

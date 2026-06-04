@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -389,26 +390,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         minHeight: 200,
       ),
       color: Colors.grey[100],
-      child: Image.network(
-        media.url,
+      child: CachedNetworkImage(
+        imageUrl: media.url,
         fit: BoxFit.contain,
         width: double.infinity,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            height: 300,
-            color: Colors.grey[100],
-            child: Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                    : null,
-                color: const Color(0xFF00E676),
-              ),
-            ),
-          );
-        },
-        errorBuilder: (_, __, ___) => Container(
+        placeholder: (_, __) => Container(
+          height: 300,
+          color: Colors.grey[100],
+          child: const Center(
+            child: CircularProgressIndicator(color: Color(0xFF00E676)),
+          ),
+        ),
+        errorWidget: (_, __, ___) => Container(
           height: 300,
           color: Colors.grey[200],
           child: const Center(

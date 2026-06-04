@@ -302,7 +302,9 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
                 label: 'Yearly',
                 badge: 'BEST VALUE',
                 price: yearly?.price ?? '—',
-                sub: yearly != null ? '${yearly.price}/year' : '',
+                sub: yearly != null
+                    ? '≈ ${yearly.currencySymbol}${(yearly.rawPrice / 12).toStringAsFixed(2)}/mo'
+                    : '',
                 selected: _yearlySelected,
                 onTap: () => setState(() => _yearlySelected = true),
               ),
@@ -310,7 +312,7 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
                 label: 'Monthly',
                 badge: null,
                 price: monthly?.price ?? '—',
-                sub: monthly != null ? '${monthly.price}/month' : '',
+                sub: 'billed monthly',
                 selected: !_yearlySelected,
                 onTap: () => setState(() => _yearlySelected = false),
               ),
@@ -382,6 +384,16 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
                   fontSize: 13,
                 ),
               ),
+              if (sub.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  sub,
+                  style: TextStyle(
+                    color: selected ? Colors.black54 : Colors.white38,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

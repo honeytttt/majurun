@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class TrainingPlanDetailScreen extends StatelessWidget {
@@ -50,35 +51,20 @@ class TrainingPlanDetailScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Image.network(
-                  planImageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: planImageUrl,
                   fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image_not_supported,
-                              size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Plan Overview',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                    );
+                  placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+                  errorWidget: (_, __, ___) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image_not_supported, size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 8),
+                        Text('Plan Overview', style: TextStyle(color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ),
                   },
                 ),
               ),

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -436,24 +437,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     
     if (widget.currentImageUrl.isNotEmpty) {
       return ClipOval(
-        child: Image.network(
-          widget.currentImageUrl,
+        child: CachedNetworkImage(
+          imageUrl: widget.currentImageUrl,
           fit: BoxFit.cover,
           width: 110,
           height: 110,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Color(0xFF00E676),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Settings avatar load error: $error');
-            return const Icon(Icons.person, size: 55, color: Colors.grey);
-          },
+          placeholder: (_, __) => const Center(
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E676)),
+          ),
+          errorWidget: (_, __, ___) => const Icon(Icons.person, size: 55, color: Colors.grey),
         ),
       );
     }
