@@ -107,20 +107,11 @@ class AppBarLeading extends StatelessWidget {
           .doc(currentUser.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        debugPrint('🎭 AppBarLeading: StreamBuilder state = ${snapshot.connectionState}');
-        
         String photoUrl = '';
-        
+
         if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
           photoUrl = data?['photoUrl'] as String? ?? '';
-          
-          debugPrint('🎭 AppBarLeading: User data received');
-          debugPrint('   photoUrl = "$photoUrl"');
-          debugPrint('   length = ${photoUrl.length}');
-          debugPrint('   starts with http = ${photoUrl.startsWith('http')}');
-        } else {
-          debugPrint('⚠️  AppBarLeading: No user data or doc does not exist');
         }
 
         return GestureDetector(
