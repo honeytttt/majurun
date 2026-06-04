@@ -407,6 +407,13 @@ class _BadgeCard extends StatelessWidget {
             width: 140,
             height: 140,
             fit: BoxFit.cover,
+            placeholder: (_, __) => SizedBox(
+              width: 140,
+              height: 140,
+              child: Center(
+                child: CircularProgressIndicator(color: accent, strokeWidth: 2.5),
+              ),
+            ),
             errorWidget: (_, __, ___) => Container(
               width: 140,
               height: 140,
@@ -418,23 +425,6 @@ class _BadgeCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(milestone.phosphorIcon, size: 58, color: accent),
             ),
-            loadingBuilder: (_, child, progress) {
-              if (progress == null) return child;
-              return SizedBox(
-                width: 140,
-                height: 140,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: accent,
-                    strokeWidth: 2.5,
-                    value: progress.expectedTotalBytes != null
-                        ? progress.cumulativeBytesLoaded /
-                            progress.expectedTotalBytes!
-                        : null,
-                  ),
-                ),
-              );
-            },
           ),
         ),
       ),

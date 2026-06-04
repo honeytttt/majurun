@@ -1077,7 +1077,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         child: Icon(iconData, size: 40, color: accentColor.withValues(alpha: 0.5)),
                       ),
                     ),
-                    },
                   ),
                 ),
               ),
