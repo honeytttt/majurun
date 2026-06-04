@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 // @UI_LOCK: Enhanced Workout Hub with Video Navigation - 2026-02-25
 // -----------------------------------------------------------------------
 // THEME: Majurun Premium Dark Theme with Category Accent Colors
@@ -1061,33 +1062,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   colorFilter: isLocked
                       ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
                       : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
-                  child: Image.network(
-                    thumbnailUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: thumbnailUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: accentColor.withValues(alpha: 0.1),
-                        child: Center(
-                          child: Icon(
-                            iconData,
-                            size: 40,
-                            color: accentColor.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: accentColor.withValues(alpha: 0.1),
-                        child: Center(
-                          child: Icon(
-                            iconData,
-                            size: 40,
-                            color: accentColor.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      );
+                    placeholder: (_, __) => Container(
+                      color: accentColor.withValues(alpha: 0.1),
+                      child: Center(
+                        child: Icon(iconData, size: 40, color: accentColor.withValues(alpha: 0.5)),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: accentColor.withValues(alpha: 0.1),
+                      child: Center(
+                        child: Icon(iconData, size: 40, color: accentColor.withValues(alpha: 0.5)),
+                      ),
+                    ),
                     },
                   ),
                 ),

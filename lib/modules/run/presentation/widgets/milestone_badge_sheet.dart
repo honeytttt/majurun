@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -401,12 +402,12 @@ class _BadgeCard extends StatelessWidget {
       ),
       child: Center(
         child: ClipOval(
-          child: Image.network(
-            milestone.badgeImageUrl,
+          child: CachedNetworkImage(
+            imageUrl: milestone.badgeImageUrl,
             width: 140,
             height: 140,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            errorWidget: (_, __, ___) => Container(
               width: 140,
               height: 140,
               decoration: BoxDecoration(

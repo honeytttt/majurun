@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/follow_service.dart';
@@ -182,12 +183,12 @@ class _FollowersFollowingScreenState extends State<FollowersFollowingScreen>
         child: photoUrl.isEmpty
             ? const Icon(Icons.person, color: Colors.grey)
             : ClipOval(
-                child: Image.network(
-                  photoUrl,
+                child: CachedNetworkImage(
+                  imageUrl: photoUrl,
                   fit: BoxFit.cover,
                   width: 50,
                   height: 50,
-                  errorBuilder: (_, __, ___) {
+                  errorWidget: (_, __, ___) {
                     return const Icon(Icons.person, color: Colors.grey);
                   },
                 ),

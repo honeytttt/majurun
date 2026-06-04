@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -161,17 +162,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           leading: hasImage
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    mapImageUrl, // ✅ no "!" (removes unnecessary_non_null_assertion) [1](https://necms-my.sharepoint.com/personal/hanumaiah_ta_nec_com_sg/Documents/Microsoft%20Copilot%20Chat%20Files/feb6.txt)
+                                  child: CachedNetworkImage(
+                                    imageUrl: mapImageUrl,
                                     width: 46,
                                     height: 46,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const CircleAvatar(
-                                        backgroundColor: Colors.blue,
-                                        child: Icon(Icons.bolt, color: Colors.white),
-                                      );
-                                    },
+                                    errorWidget: (_, __, ___) => const CircleAvatar(
+                                      backgroundColor: Colors.blue,
+                                      child: Icon(Icons.bolt, color: Colors.white),
+                                    ),
                                   ),
                                 )
                               : const CircleAvatar(

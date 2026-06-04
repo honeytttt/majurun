@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -516,14 +517,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             height: 120,
                             color: Colors.grey[200],
                             child: media.type == MediaType.image
-                                ? Image.network(
-                                    media.url,
+                                ? CachedNetworkImage(
+                                    imageUrl: media.url,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Icon(Icons.error, color: Colors.red),
-                                      );
-                                    },
+                                    errorWidget: (_, __, ___) => const Center(
+                                      child: Icon(Icons.error, color: Colors.red),
+                                    ),
                                   )
                                 : const Center(
                                     child: Column(

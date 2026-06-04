@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/modules/dm/domain/entities/message.dart';
@@ -83,23 +84,20 @@ class MessageBubble extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                message.content,
+              child: CachedNetworkImage(
+                imageUrl: message.content,
                 fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    width: 200,
-                    height: 150,
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF00E676),
-                        strokeWidth: 2,
-                      ),
+                placeholder: (_, __) => Container(
+                  width: 200,
+                  height: 150,
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF00E676),
+                      strokeWidth: 2,
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ],

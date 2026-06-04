@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 // @UI_LOCK: Enhanced Community & Rewards Hub - 2026-02-27
 // -----------------------------------------------------------------------
 // FEATURES: Daily challenges, streaks, XP system, achievements, leaderboards
@@ -1104,12 +1105,12 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
     if (photoUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          photoUrl,
+        child: CachedNetworkImage(
+          imageUrl: photoUrl,
           width: double.infinity,
           height: double.infinity,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Center(
+          errorWidget: (_, __, ___) => Center(
             child: Text(initial, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: accentColor)),
           ),
         ),

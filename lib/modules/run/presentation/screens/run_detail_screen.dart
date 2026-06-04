@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -845,21 +846,19 @@ Keep moving 💪
         border: Border.all(color: Colors.grey.shade300),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        url,
+      child: CachedNetworkImage(
+        imageUrl: url,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.broken_image, color: Colors.grey.shade400, size: 48),
-                const SizedBox(height: 12),
-                Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
-              ],
-            ),
-          );
-        },
+        errorWidget: (_, __, ___) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, color: Colors.grey.shade400, size: 48),
+              const SizedBox(height: 12),
+              Text('Preview unavailable', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+            ],
+          ),
+        ),
       ),
     );
   }

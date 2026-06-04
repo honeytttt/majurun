@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -639,12 +640,12 @@ class _PostRunRecoveryCardState extends State<_PostRunRecoveryCard> {
                     child: VideoPlayer(_controller!),
                   )
                 else
-                  Image.network(
-                    _item.thumbUrl,
+                  CachedNetworkImage(
+                    imageUrl: _item.thumbUrl,
                     width: double.infinity,
                     height: 180,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorWidget: (_, __, ___) => Container(
                       height: 180,
                       color: const Color(0xFF1A2A1A),
                     ),

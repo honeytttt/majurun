@@ -990,10 +990,10 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
               transformationController: _ctrl,
               minScale: 0.5,
               maxScale: 8.0,
-              child: Image.network(
-                widget.imageUrl,
+              child: CachedNetworkImage(
+                imageUrl: widget.imageUrl,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Center(
+                errorWidget: (_, __, ___) => const Center(
                   child: Icon(Icons.broken_image, color: Colors.grey, size: 64),
                 ),
               ),
