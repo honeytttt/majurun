@@ -31,6 +31,18 @@ git checkout main && git merge <release-branch> && git push
 ```
 This keeps `main` current so future branches never miss features.
 
+### Production Release — Explicit Confirmation Required
+
+**NEVER push a production/App Store release without explicit confirmation from Hani.**
+
+- Keep the current marketing version (`1.0.4`) across all TestFlight builds until Hani says "push to prod" or "submit for App Store review"
+- Only bump the marketing version (`1.0.x`) when Apple closes the current train (rejection error)
+- Build number (`+xxx`) increments every push as normal
+- When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
+
+**Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
+**Current TestFlight version:** `1.0.4+230` — includes all quality improvements from June 4–5 session
+
 ---
 
 ## Critical Behaviors — Do Not Regress
