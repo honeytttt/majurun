@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,6 +27,7 @@ import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/modules/profile/presentation/screens/goals_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/race_predictor_card.dart';
 import 'package:majurun/modules/profile/presentation/widgets/vo2max_card.dart';
@@ -56,7 +57,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _showPosts = true;  // Show Posts by default
+  bool _showPosts = true;
+  bool _uploadingAvatar = false;
   // Cache the streak+activity future so it is created once, not on every rebuild.
   late final Future<Map<String, dynamic>> _streakFuture;
 
@@ -80,6 +82,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'streak': results[0] as Map<String, dynamic>,
             'summary': results[1] as WeeklySummary,
           }).catchError((Object _) => streakFallback);
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
+      final url = await StorageService().uploadFile(File(picked.path), false);
+      if (url == null) throw Exception('Upload failed');
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'photoUrl': url});
+      await user.updatePhotoURL(url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update photo: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
   }
 
   Future<void> _syncBadges() async {
@@ -472,13 +497,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          // Avatar
-          DirectUrlAvatar(
-            imageUrl: imageUrl,
-            radius: 50,
-            showBorder: true,
-            borderColor: const Color(0xFF00E676),
-            borderWidth: 3,
+          // Avatar — tap to change photo
+          GestureDetector(
+            onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                _uploadingAvatar
+                    ? Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF00E676), width: 3),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF00E676), strokeWidth: 2),
+                        ),
+                      )
+                    : DirectUrlAvatar(
+                        imageUrl: imageUrl,
+                        radius: 50,
+                        showBorder: true,
+                        borderColor: const Color(0xFF00E676),
+                        borderWidth: 3,
+                      ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00E676),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           
