@@ -106,7 +106,7 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                       SharePlus.instance.share(ShareParams(
                         text: '🏃 Just completed a run with MajuRun!\n\n'
                             '📏 Distance: $distance km\n'
-                            '⏱️ Time: $duration\n'
+                            '⏱️ Time: $timeString\n'
                             '⚡ Pace: $pace/km\n'
                             '🔥 Calories: $calories kcal\n\n'
                             '#MajuRun #Running #Fitness',
