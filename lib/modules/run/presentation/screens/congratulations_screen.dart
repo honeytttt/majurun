@@ -20,6 +20,7 @@ import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dar
 import 'package:majurun/modules/run/presentation/widgets/monthly_milestone_sheet.dart';
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
 import 'package:majurun/core/services/celebration_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
@@ -269,7 +270,10 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         action: SnackBarAction(
           label: 'View shoes',
           textColor: Colors.white,
-          onPressed: () {},
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ShoeTrackerScreen()),
+          ),
         ),
       ),
     );
@@ -1810,6 +1814,24 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00E676),
               foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              HomeScreen.tabNotifier.value = 3;
+            },
+            icon: const Icon(Icons.emoji_events_rounded),
+            label: const Text('Explore Challenges', style: TextStyle(fontSize: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFFFD700),
+              side: const BorderSide(color: Color(0xFFFFD700)),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),

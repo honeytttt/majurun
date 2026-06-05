@@ -418,18 +418,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ],
                                 const SizedBox(width: 12),
-                                _SocialButton(
-                                  label: 'X',
-                                  iconWidget: const FaIcon(
-                                    FontAwesomeIcons.xTwitter,
-                                    size: 18,
-                                    color: Colors.black,
+                                Tooltip(
+                                  message: 'Coming soon',
+                                  child: _SocialButton(
+                                    label: 'X',
+                                    iconWidget: const FaIcon(
+                                      FontAwesomeIcons.xTwitter,
+                                      size: 18,
+                                      color: Colors.black38,
+                                    ),
+                                    onTap: null,
                                   ),
-                                  onTap: _isLoading
-                                      ? null
-                                      : () {
-                                          _showErrorSnackbar('X / Twitter login coming soon!');
-                                        },
                                 ),
                               ],
                             ),

@@ -84,6 +84,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }).catchError((Object _) => streakFallback);
   }
 
+  void _showShareSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFF00E676).withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF00E676)),
+              ),
+              title: const Text('Invite Friends to MajuRun', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Share the app with your running buddies'),
+              onTap: () {
+                Navigator.pop(context);
+                SharePlus.instance.share(ShareParams(
+                  subject: 'Join me on MajuRun!',
+                  text: '🏃 Hey! I\'ve been using MajuRun to track my runs and it\'s amazing.\n\n'
+                      'Join me — it\'s free to download:\n'
+                      '📱 iOS: https://apps.apple.com/app/majurun/id6744042588\n\n'
+                      'Let\'s run together! 💪 #MajuRun',
+                ));
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.share_rounded, color: Colors.blue),
+              ),
+              title: const Text('Share My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Let others see your runs and achievements'),
+              onTap: () {
+                Navigator.pop(context);
+                SharePlus.instance.share(ShareParams(
+                  text: '🏃 Check out my running profile on MajuRun!\n\n'
+                      '${widget.currentName} — tracking every run, earning every badge.\n\n'
+                      '#MajuRun #Running #Fitness',
+                ));
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickAndUploadAvatar() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
@@ -295,18 +349,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: true,
         actions: [
-          // Share Profile Button
+          // Share / Invite Button
           Semantics(
             button: true,
-            label: 'Share profile',
+            label: 'Share or invite friends',
             child: IconButton(
               icon: const Icon(Icons.share_outlined, color: Color(0xFF00E676)),
-              tooltip: 'Share Profile',
-              onPressed: () {
-                SharePlus.instance.share(ShareParams(
-                  text: 'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
-                ));
-              },
+              tooltip: 'Share & Invite',
+              onPressed: () => _showShareSheet(),
             ),
           ),
           // Goals Button

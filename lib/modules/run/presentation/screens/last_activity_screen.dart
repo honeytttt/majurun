@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
 
 class LastActivityScreen extends StatefulWidget {
@@ -101,7 +102,16 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                     style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                   ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      SharePlus.instance.share(ShareParams(
+                        text: '🏃 Just completed a run with MajuRun!\n\n'
+                            '📏 Distance: $distance km\n'
+                            '⏱️ Time: $duration\n'
+                            '⚡ Pace: $pace/km\n'
+                            '🔥 Calories: $calories kcal\n\n'
+                            '#MajuRun #Running #Fitness',
+                      ));
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade50,
                       foregroundColor: Colors.blue.shade700,
