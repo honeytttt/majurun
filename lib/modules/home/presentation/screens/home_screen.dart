@@ -100,11 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _checkFeatureIntro() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('feature_intro_seen_v1') == true) return;
-    await prefs.setBool('feature_intro_seen_v1', true);
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const FeatureIntroScreen()),
     );
+    await prefs.setBool('feature_intro_seen_v1', true);
   }
 
   Future<void> _loadWhatsNewBadge() async {

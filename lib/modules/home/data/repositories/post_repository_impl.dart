@@ -409,6 +409,7 @@ class PostRepositoryImpl {
         .doc(postId)
         .collection(FirestoreCollections.comments)
         .orderBy(CommentFields.createdAt, descending: false)
+        .limit(100)
         .snapshots()
         .map((snap) => snap.docs
             .map((doc) => {...doc.data(), 'id': doc.id})

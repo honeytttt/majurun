@@ -26,10 +26,8 @@ class SubscriptionService {
     });
   }
 
-  // Legacy admin email — transitional fallback only.
-  // Authoritative admin source: Firebase Custom Claim `admin: true`.
-  // To grant admin: firebase.auth().setCustomUserClaims(uid, { admin: true })
-  // TODO: remove email fallback once all admin accounts have the custom claim.
+  // Email fallback — safety net only. Custom Claim `admin: true` is the
+  // authoritative check and is already set on the admin account.
   static const String adminEmail = 'majurun.app@gmail.com';
 
   /// Synchronous admin check (email only — use [isAdminAsync] where possible).

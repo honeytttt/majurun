@@ -1765,11 +1765,34 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         ),
         const SizedBox(height: 16),
 
+        // ── Community nudge ───────────────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF00E676).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.25)),
+          ),
+          child: const Row(
+            children: [
+              Text('🌍', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Your run was shared to the community feed — cheer on others too!',
+                  style: TextStyle(color: Color(0xFF00E676), fontSize: 12, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
         // ── View post ─────────────────────────────────────────────────────────
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            // Active immediately when postId known; grayed while save is running.
             onPressed: (_syncState == _SyncState.syncing && _postId == null)
                 ? null
                 : _viewPost,

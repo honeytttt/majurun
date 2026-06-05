@@ -300,7 +300,9 @@ class _SubscriptionViewState extends State<_SubscriptionView> {
             children: [
               _planToggle(
                 label: 'Yearly',
-                badge: 'BEST VALUE',
+                badge: (yearly != null && monthly != null && monthly.rawPrice > 0)
+                    ? 'SAVE ${((1 - yearly.rawPrice / (monthly.rawPrice * 12)) * 100).round()}%'
+                    : 'BEST VALUE',
                 price: yearly?.price ?? '—',
                 sub: yearly != null
                     ? '≈ ${yearly.currencySymbol}${(yearly.rawPrice / 12).toStringAsFixed(2)}/mo'

@@ -598,9 +598,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Semantics(
-                label: '$postsCount posts',
+                button: true,
+                label: '$postsCount posts, tap to view',
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () => setState(() => _showPosts = true),
                   child: _buildStatColumn('Posts', postsCount.toString()),
                 ),
               ),
@@ -1376,14 +1377,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Icon(Icons.post_add, size: 60, color: Colors.grey[400]),
+                    Icon(Icons.directions_run_rounded, size: 60, color: Colors.grey[300]),
                     const SizedBox(height: 16),
                     Text(
                       'No posts yet',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Complete a run and share it\nwith the MajuRun community.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[400], height: 1.5),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: const Text('Start a run'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E676),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                       ),
                     ),
                   ],

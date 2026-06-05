@@ -103,14 +103,18 @@ class _RunSummaryScreenState extends State<RunSummaryScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration:
           BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
-      child: widget.controller.lastVideoUrl == null
-          ? GestureDetector(
-              onTap: () => widget.controller.generateVeoVideo(),
-              child: const Center(
-                  child: Text('GENERATE VE-O REPLAY',
-                      style: TextStyle(color: Colors.cyanAccent))),
-            )
-          : const Center(child: Icon(Icons.check_circle, color: Colors.greenAccent, size: 40)),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.videocam_outlined, color: Colors.white24, size: 36),
+            SizedBox(height: 8),
+            Text('AI Video Replay', style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600)),
+            SizedBox(height: 4),
+            Text('Coming soon', style: TextStyle(color: Colors.white24, fontSize: 11)),
+          ],
+        ),
+      ),
     );
   }
 
