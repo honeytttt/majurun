@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/badge_service.dart';
+import 'package:majurun/core/services/daily_challenge_service.dart';
 import 'package:majurun/core/widgets/shimmer_loader.dart';
 
 class EventsScreen extends StatefulWidget {
@@ -26,11 +27,16 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
 
   late TabController _tabController;
   final BadgeService _badgeService = BadgeService();
+  final DailyChallengeService _challengeService = DailyChallengeService();
   List<RunnerBadge> _userBadges = [];
   bool _isLoading = true;
   int _currentStreak = 0;
   int _totalXP = 0;
   int _userLevel = 1;
+
+  List<Map<String, dynamic>> _weeklyChallenges = [];
+  List<Map<String, dynamic>> _monthlyChallenges = [];
+  bool _challengesLoading = true;
 
   @override
   void initState() {
@@ -89,8 +95,19 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         _userLevel = level;
         _isLoading = false;
       });
+
+      // Load real weekly/monthly challenges
+      final weekly = await _challengeService.getWeeklyChallenges(user.uid);
+      final monthly = await _challengeService.getMonthlyChallenges(user.uid);
+      if (mounted) {
+        setState(() {
+          _weeklyChallenges = weekly;
+          _monthlyChallenges = monthly;
+          _challengesLoading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() { _isLoading = false; _challengesLoading = false; });
     }
   }
 
@@ -558,30 +575,63 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildChallengesTab() {
-    final weeklyChallenges = [
-      {'name': 'Run 20km this week', 'progress': 0.65, 'reward': '150 XP + Badge', 'current': '13km', 'target': '20km'},
-      {'name': 'Complete 5 workouts', 'progress': 0.4, 'reward': '100 XP', 'current': '2', 'target': '5'},
-      {'name': 'Maintain 5-day streak', 'progress': 1.0, 'reward': '75 XP', 'current': '7', 'target': '5'},
-    ];
+  Map<String, dynamic> _challengeToCard(Map<String, dynamic> c) {
+    final progress = (c['progress'] as num?)?.toDouble() ?? 0.0;
+    final target = c['target'];
+    final unit = c['unit'] as String? ?? '';
+    final xp = c['xpReward'] as int? ?? 0;
+    final badge = c['badgeReward'] as String?;
+    final current = (progress * (target is num ? target.toDouble() : 0)).toStringAsFixed(unit == 'km' ? 1 : 0);
+    final targetStr = target is num
+        ? (unit == 'km' ? '${target.toStringAsFixed(0)} km' : '$target $unit')
+        : '$target';
+    return {
+      'name': c['name'] ?? '',
+      'progress': progress.clamp(0.0, 1.0),
+      'reward': badge != null ? '$xp XP + Badge' : '$xp XP',
+      'current': unit == 'km' ? '${current}km' : current,
+      'target': targetStr,
+      'completed': c['completed'] ?? false,
+    };
+  }
 
-    final monthlyChallenges = [
-      {'name': 'February 100K Challenge', 'progress': 0.45, 'reward': '500 XP + Special Badge', 'current': '45km', 'target': '100km'},
-      {'name': 'Try all workout types', 'progress': 0.71, 'reward': '200 XP', 'current': '5/7', 'target': '7'},
-    ];
+  Widget _buildChallengesTab() {
+    final now = DateTime.now();
+    final daysLeftInWeek = 7 - now.weekday;
+    final monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month - 1];
+
+    if (_challengesLoading) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        itemCount: 4,
+        itemBuilder: (_, __) => ShimmerLoader.challengeCardSkeleton(),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader('WEEKLY CHALLENGES', 'Resets in 3 days'),
+          _buildSectionHeader('WEEKLY CHALLENGES', 'Resets in $daysLeftInWeek day${daysLeftInWeek == 1 ? '' : 's'}'),
           const SizedBox(height: 12),
-          ...weeklyChallenges.map((c) => _buildChallengeCard(c)),
+          if (_weeklyChallenges.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: Text('No weekly challenges available', style: TextStyle(color: Colors.white38))),
+            )
+          else
+            ..._weeklyChallenges.map((c) => _buildChallengeCard(_challengeToCard(c))),
           const SizedBox(height: 24),
-          _buildSectionHeader('MONTHLY CHALLENGES', 'February 2026'),
+          _buildSectionHeader('MONTHLY CHALLENGES', '$monthName ${now.year}'),
           const SizedBox(height: 12),
-          ...monthlyChallenges.map((c) => _buildChallengeCard(c)),
+          if (_monthlyChallenges.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: Text('No monthly challenges available', style: TextStyle(color: Colors.white38))),
+            )
+          else
+            ..._monthlyChallenges.map((c) => _buildChallengeCard(_challengeToCard(c))),
         ],
       ),
     );
