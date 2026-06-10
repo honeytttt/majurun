@@ -573,7 +573,7 @@ class RunController extends ChangeNotifier {
       await WakeLockService.enable();
       stateController.noGpsMode = true;
       await stateController.startRun();
-      startAutoSave();
+      startAutoSave(planTitle);
     } catch (e) {
       _lastError = e.toString();
       rethrow;
