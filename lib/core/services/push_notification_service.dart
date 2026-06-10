@@ -425,15 +425,15 @@ class PushNotificationService {
   }
 
   /// Request Android battery optimization exemption so scheduled alarms
-  /// survive Doze mode. No-op on iOS. Safe to call every launch — the system
-  /// dialog only appears once unless the user later re-enables optimization.
+  /// survive Doze mode. No-op on iOS. Only requests if not already granted —
+  /// never opens battery settings on subsequent logins.
   Future<void> requestBatteryOptimizationExemption() async {
     if (!Platform.isAndroid) return;
     try {
-      // Always request — if already granted Android still opens the settings page
-      // so the user can confirm it's configured correctly.
-      await Permission.ignoreBatteryOptimizations.request();
-      debugPrint('🔋 Battery optimization exemption requested');
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      if (!status.isGranted) {
+        await Permission.ignoreBatteryOptimizations.request();
+      }
     } catch (e) {
       debugPrint('⚠️ Could not request battery optimization exemption: $e');
     }
