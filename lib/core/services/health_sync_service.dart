@@ -212,6 +212,8 @@ class HealthSyncService {
       'completedAt': Timestamp.fromDate(data['dateFrom'] as DateTime),
       'source': sourceName,
       'isExternal': true,
+      'shared': false,        // not yet posted to the social feed
+      'sharePrompted': false,  // user not yet asked to share
       'syncDate': FieldValue.serverTimestamp(),
     });
 
@@ -300,6 +302,123 @@ class HealthSyncService {
 
     await prefs.setBool(key, true);
     debugPrint('✅ Auto health sync on first install complete — imported: ${result.imported}');
+  }
+
+  /// Auto-sync on app resume. Debounced to once every 30 minutes so it never
+  /// runs on every quick foreground. Silent, short 7-day window so it's fast.
+  /// Only syncs if health permission is already granted — never prompts here.
+  /// Returns the number of newly imported runs.
+  Future<int> autoSyncOnResume() async {
+    try {
+      if (_auth.currentUser == null) return 0;
+
+      // Debounce: skip if we synced within the last 30 minutes.
+      final prefs = await SharedPreferences.getInstance();
+      const tsKey = 'health_last_resume_sync_ms';
+      final lastMs = prefs.getInt(tsKey) ?? 0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (nowMs - lastMs < 30 * 60 * 1000) return 0;
+
+      // Only sync if permission already granted — do not prompt on resume.
+      final hasPerms = await hasPermissions();
+      if (!hasPerms) return 0;
+
+      final result = await syncData(days: 7, silent: true);
+      await prefs.setInt(tsKey, nowMs);
+      debugPrint('🔄 Resume health sync — imported: ${result.imported}');
+      return result.imported;
+    } catch (e) {
+      debugPrint('⚠️ autoSyncOnResume error: $e');
+      return 0;
+    }
+  }
+
+  /// Returns the most recent imported run that hasn't been shared or had its
+  /// share-prompt dismissed yet. Used to show the "share this run?" feed banner.
+  /// Returns null if there's nothing to prompt.
+  Future<Map<String, dynamic>?> getUnsharedImportedRun() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+    try {
+      // Single orderBy (auto-indexed) then filter in memory — avoids needing
+      // a composite Firestore index for the two equality filters.
+      final snap = await _firestore
+          .collection('users').doc(uid)
+          .collection('training_history')
+          .orderBy('completedAt', descending: true)
+          .limit(15)
+          .get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        if (data['isExternal'] != true) continue;
+        if (data['sharePrompted'] == true) continue;
+        final completedAt = (data['completedAt'] as Timestamp?)?.toDate();
+        if (completedAt == null ||
+            DateTime.now().difference(completedAt).inDays > 7) {
+          continue;
+        }
+        return {...data, 'id': doc.id};
+      }
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ getUnsharedImportedRun error: $e');
+      return null;
+    }
+  }
+
+  /// Post an imported run to the social feed (no map — time/distance/pace only)
+  /// and mark it shared. [run] is a doc from getUnsharedImportedRun().
+  Future<void> shareImportedRunToFeed(Map<String, dynamic> run) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final docId = run['id'] as String;
+
+    final distanceKm = (run['distanceKm'] as num?)?.toDouble() ?? 0;
+    final durationSeconds = (run['durationSeconds'] as num?)?.toInt() ?? 0;
+    final pace = run['pace'] as String? ?? '0:00';
+    final calories = (run['calories'] as num?)?.toInt() ?? 0;
+    final source = run['source'] as String? ?? 'Health App';
+
+    String username = user.displayName ?? 'Runner';
+    try {
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      username = (userDoc.data()?['displayName'] as String?) ?? username;
+    } catch (_) {}
+
+    await _firestore.collection('posts').add({
+      'userId': user.uid,
+      'username': username,
+      'content': '🏃 Completed a ${distanceKm.toStringAsFixed(2)}km run! (via $source)',
+      'createdAt': FieldValue.serverTimestamp(),
+      'planTitle': run['planTitle'] ?? 'Imported Run',
+      'distance': distanceKm,
+      'pace': pace,
+      'durationSeconds': durationSeconds,
+      'calories': calories,
+      'routePoints': [],     // no GPS map for imported runs
+      'likes': [],
+      'type': 'run_activity',
+      'isExternal': true,
+    });
+
+    await _firestore
+        .collection('users').doc(user.uid)
+        .collection('training_history').doc(docId)
+        .update({'shared': true, 'sharePrompted': true});
+  }
+
+  /// Mark an imported run's share prompt as dismissed (don't ask again).
+  Future<void> dismissImportPrompt(String docId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('training_history').doc(docId)
+          .update({'sharePrompted': true});
+    } catch (e) {
+      debugPrint('⚠️ dismissImportPrompt error: $e');
+    }
   }
 
   /// Get the last sync date

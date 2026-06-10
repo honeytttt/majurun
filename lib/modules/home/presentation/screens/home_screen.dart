@@ -51,6 +51,7 @@ import 'package:majurun/core/services/subscription_service.dart';
 import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 import 'package:majurun/modules/onboarding/feature_intro_screen.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:majurun/core/services/health_sync_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -511,9 +512,43 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
   bool get _showNotifBanner => !_notifEnabled && !_notifBannerDismissed;
 
+  // Imported-run share prompt
+  Map<String, dynamic>? _importedRunToShare;
+  bool _sharingImportedRun = false;
+
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && !user.emailVerified && !_bannerDismissed;
+  }
+
+  Future<void> _shareImportedRun() async {
+    final run = _importedRunToShare;
+    if (run == null) return;
+    setState(() => _sharingImportedRun = true);
+    try {
+      await HealthSyncService().shareImportedRunToFeed(run);
+      if (mounted) {
+        setState(() => _importedRunToShare = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Run shared to your feed! 🎉')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharingImportedRun = false);
+    }
+  }
+
+  void _dismissImportedRun() {
+    final run = _importedRunToShare;
+    if (run == null) return;
+    HealthSyncService().dismissImportPrompt(run['id'] as String);
+    setState(() => _importedRunToShare = null);
   }
 
   Future<void> _sendVerification() async {
@@ -548,6 +583,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     _checkAdminClaim();
     PushNotificationService.isEnabled().then((enabled) {
       if (mounted) setState(() => _notifEnabled = enabled);
+    });
+    HealthSyncService().getUnsharedImportedRun().then((run) {
+      if (mounted && run != null) setState(() => _importedRunToShare = run);
     });
     _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
       if (mounted) setState(() => _isPro = isPro);
@@ -908,6 +946,52 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () => setState(() => _notifBannerDismissed = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Imported-run share prompt — "Share your Xkm run?"
+              if (_importedRunToShare != null)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: brandGreen.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: brandGreen.withValues(alpha: .25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.directions_run_rounded, size: 20, color: brandGreen),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Share your ${((_importedRunToShare!['distanceKm'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}km run from ${_importedRunToShare!['source'] ?? 'Health'}?',
+                            style: TextStyle(fontSize: 13, color: brandGreen, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _sharingImportedRun
+                            ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: brandGreen))
+                            : TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: brandGreen,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: _shareImportedRun,
+                                child: const Text('Share', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          color: brandGreen.withValues(alpha: .6),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: _dismissImportedRun,
                         ),
                       ],
                     ),

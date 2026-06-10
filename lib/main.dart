@@ -208,6 +208,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (user != null) {
         PushNotificationService().scheduleDefaultNotifications();
         EngagementService.maybeRun(user.uid); // engagement addons — isolated
+        // Auto-import any new runs from the health app (debounced, silent).
+        HealthSyncService().autoSyncOnResume();
       }
     }
   }
