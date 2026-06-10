@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:majurun/core/theme/app_effects.dart';
 import 'package:majurun/core/widgets/bounce_click.dart';
 import 'package:provider/provider.dart';
@@ -491,19 +492,49 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   Future<void> _handleStartRun() async {
     final runController = Provider.of<RunController>(context, listen: false);
-
-    // Apply coaching target pace before warmup so the first km announcement
-    // already knows the target. 0 = coaching off.
     runController.voiceController.setTargetPace(_targetPaceSeconds ?? 0);
 
-    // Start GPS + wakelock + TTS init BEFORE the warmup dialog.
-    // This is critical on iOS: GPS must be running before the screen locks
-    // so iOS keeps the Dart VM alive via background location mode.
-    // Without this, locking during warmup suspends the VM and the countdown
-    // freezes — the run never starts.
-    await runController.prewarmGps();
+    // Try to prewarm GPS. If location services are off, offer GPS-off mode.
+    try {
+      await runController.prewarmGps();
+    } catch (e) {
+      if (!mounted) return;
+      final noGps = await _showGpsOffDialog();
+      if (!mounted || !noGps) return;
+      // User chose to run without GPS — skip to warmup
+      await _launchRun(runController, noGps: true);
+      return;
+    }
     if (!mounted) return;
+    await _launchRun(runController, noGps: false);
+  }
 
+  Future<bool> _showGpsOffDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('GPS is off'),
+        content: const Text(
+          'Location services are disabled. You can still run — time and calories will be tracked, but distance and map won\'t be available.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+              Geolocator.openLocationSettings();
+            },
+            child: const Text('Enable GPS'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Run without GPS'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  Future<void> _launchRun(RunController runController, {required bool noGps}) async {
     // Show 5-second warmup countdown.
     await showDialog<void>(
       context: context,
@@ -512,12 +543,14 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         voiceController: runController.voiceController,
       ),
     );
-
     if (!mounted) return;
 
     try {
-      await runController.startRun();
-
+      if (noGps) {
+        await runController.startRunNoGps();
+      } else {
+        await runController.startRun();
+      }
       if (mounted) {
         Navigator.push(
           context,

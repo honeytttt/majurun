@@ -94,8 +94,13 @@ class RunStateController extends ChangeNotifier {
     return "${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
   }
 
+  // GPS-off mode — time/calorie tracking only, no location
+  bool _noGpsMode = false;
+  bool get noGpsMode => _noGpsMode;
+  set noGpsMode(bool v) => _noGpsMode = v;
+
   // Route points (memory-managed by location service)
-  List<LatLng> get routePoints => _locationService.getRouteLatLngs();
+  List<LatLng> get routePoints => _noGpsMode ? [] : _locationService.getRouteLatLngs();
 
   // Polylines for map (single polyline, properly managed)
   Set<Polyline> _polylines = {};
@@ -249,8 +254,10 @@ class RunStateController extends ChangeNotifier {
     _hasNotifiedIdle = false;
     _currentPosition = null;
 
-    // Start location tracking — skip if already started by prewarmGps()
-    if (!_locationService.isTracking) {
+    // Start location tracking — skip if already started by prewarmGps() or GPS-off mode
+    if (_noGpsMode) {
+      debugPrint('📵 GPS-off mode — skipping location tracking');
+    } else if (!_locationService.isTracking) {
       final success = await _locationService.startTracking();
       if (!success) {
         _lastError = 'Failed to start GPS tracking';
@@ -305,6 +312,7 @@ class RunStateController extends ChangeNotifier {
 
     debugPrint('⏹️ Stopping run...');
     _state = RunState.idle;
+    _noGpsMode = false;
     _stopTimer();
     await _locationService.stopTracking();
     // Clear point-by-point track — run is now saved via pending_runs

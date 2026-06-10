@@ -180,9 +180,10 @@ class RunController extends ChangeNotifier {
   String? get lastVideoUrl => stateController.lastVideoUrl;
 
   // GPS Quality
-  String get gpsQualityText => stateController.gpsQualityText;
-  Color get gpsQualityColor => stateController.gpsQualityColor;
+  String get gpsQualityText => stateController.noGpsMode ? 'No GPS' : stateController.gpsQualityText;
+  Color get gpsQualityColor => stateController.noGpsMode ? Colors.grey : stateController.gpsQualityColor;
   double get gpsAcceptanceRate => stateController.gpsAcceptanceRate;
+  bool get noGpsMode => stateController.noGpsMode;
 
   // History stats
   double get historyDistance => statsController.historyDistance;
@@ -561,6 +562,22 @@ class RunController extends ChangeNotifier {
     await WakeLockService.enable();
     await voiceController.ensureInitialized();
     await stateController.prewarmGps();
+  }
+
+  /// Start a run without GPS — tracks time and calories only.
+  /// Used when location services are disabled.
+  Future<void> startRunNoGps({String planTitle = 'Free Run'}) async {
+    try {
+      _lastError = null;
+      await voiceController.ensureInitialized();
+      await WakeLockService.enable();
+      stateController.noGpsMode = true;
+      await stateController.startRun();
+      startAutoSave();
+    } catch (e) {
+      _lastError = e.toString();
+      rethrow;
+    }
   }
 
   Future<void> startRun({String planTitle = 'Free Run', BuildContext? context}) async {
