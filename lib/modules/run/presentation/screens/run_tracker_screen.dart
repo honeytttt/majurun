@@ -494,19 +494,52 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     final runController = Provider.of<RunController>(context, listen: false);
     runController.voiceController.setTargetPace(_targetPaceSeconds ?? 0);
 
-    // Try to prewarm GPS. If location services are off, offer GPS-off mode.
+    // Try to prewarm GPS. Handle location errors gracefully.
     try {
       await runController.prewarmGps();
     } catch (e) {
       if (!mounted) return;
-      final noGps = await _showGpsOffDialog();
-      if (!mounted || !noGps) return;
-      // User chose to run without GPS — skip to warmup
-      await _launchRun(runController, noGps: true);
-      return;
+      final msg = e.toString();
+      if (msg.contains('__location_while_in_use__')) {
+        // iOS only — GPS will stop when screen locks. Show warning but let them continue.
+        await _showWhileInUseWarningDialog();
+        if (!mounted) return;
+        // Continue — GPS works while screen is on
+      } else {
+        // Location services off — offer GPS-off mode
+        final noGps = await _showGpsOffDialog();
+        if (!mounted || !noGps) return;
+        await _launchRun(runController, noGps: true);
+        return;
+      }
     }
     if (!mounted) return;
     await _launchRun(runController, noGps: false);
+  }
+
+  Future<void> _showWhileInUseWarningDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('GPS stops when screen locks'),
+        content: const Text(
+          'Your location is set to "While In Use". If your screen locks during a run, GPS will pause and your route may be incomplete.\n\nFor best results, go to Settings → MajuRun → Location → select "Always".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Geolocator.openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Continue anyway'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _showGpsOffDialog() async {

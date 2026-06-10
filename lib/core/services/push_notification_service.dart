@@ -424,6 +424,22 @@ class PushNotificationService {
     await _writeInAppNotification(title: title, body: body, type: 'reminder');
   }
 
+  /// Returns true if the user has granted notification permission.
+  /// Used to show an in-app banner nudging denied users to re-enable.
+  static Future<bool> isEnabled() async {
+    try {
+      if (Platform.isIOS) {
+        final settings = await FirebaseMessaging.instance.getNotificationSettings();
+        return settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional;
+      } else {
+        return await Permission.notification.isGranted;
+      }
+    } catch (_) {
+      return true; // default to true to avoid false-positive banners
+    }
+  }
+
   /// Request Android battery optimization exemption so scheduled alarms
   /// survive Doze mode. No-op on iOS. Only requests if not already granted —
   /// never opens battery settings on subsequent logins.

@@ -50,6 +50,8 @@ import 'package:majurun/modules/home/presentation/widgets/pro_top_strip_banner.d
 import 'package:majurun/core/services/subscription_service.dart';
 import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 import 'package:majurun/modules/onboarding/feature_intro_screen.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -504,6 +506,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _isPro = false;
   StreamSubscription<bool>? _proStatusSubscription;
 
+  bool _notifEnabled = true;
+  bool _notifBannerDismissed = false;
+
+  bool get _showNotifBanner => !_notifEnabled && !_notifBannerDismissed;
+
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && !user.emailVerified && !_bannerDismissed;
@@ -539,6 +546,9 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     _loadBlockedUsers();
     _loadChallengeSummary();
     _checkAdminClaim();
+    PushNotificationService.isEnabled().then((enabled) {
+      if (mounted) setState(() => _notifEnabled = enabled);
+    });
     _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
       if (mounted) setState(() => _isPro = isPro);
     });
@@ -859,6 +869,50 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
               // Top promo strip — 3-month free launch offer (compact, dismissible)
               const SliverToBoxAdapter(child: ProTopStripBanner()),
+
+              // Notifications disabled nudge — dismissible
+              if (_showNotifBanner)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.withValues(alpha: .3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_off_outlined, size: 20, color: Colors.orange),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Notifications are off — you\'ll miss run reminders and achievements.',
+                            style: TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () => openAppSettings(),
+                          child: const Text('Enable', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          color: Colors.orange.withValues(alpha: .6),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => setState(() => _notifBannerDismissed = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
               // Soft email-verification nudge (Strava-style — dismissible)
               if (_showVerifyBanner)
