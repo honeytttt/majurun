@@ -225,6 +225,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
         UserCountersInitializer.initializeOnFirstLaunch();
+        // Tag platform + activity so installs/active users can be counted in
+        // Firestore directly (backfills existing testers on their next login).
+        final platform = kIsWeb
+            ? 'web'
+            : (defaultTargetPlatform == TargetPlatform.android
+                ? 'android'
+                : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'other'));
+        FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'platform': platform,
+          'lastActiveAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)).ignore();
         // Restore active training plan progress from Firestore
         trainingService.loadProgress().ignore();
         // Initialize notifications + schedule default daily notifications

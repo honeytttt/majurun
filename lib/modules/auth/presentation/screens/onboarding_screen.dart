@@ -1,6 +1,8 @@
+import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -94,7 +96,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (_gender != null) 'gender': _gender,
         'phoneNumber': _phone.text.trim(),
         'profileComplete': true,
+        'platform': kIsWeb ? 'web' : (Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'other')),
         'createdAt': FieldValue.serverTimestamp(),
+        'lastActiveAt': FieldValue.serverTimestamp(),
         'workoutsCount': 0,
         'totalKm': 0.0,
         'totalRunSeconds': 0,
