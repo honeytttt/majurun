@@ -510,6 +510,11 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _notifEnabled = true;
   bool _notifBannerDismissed = false;
 
+  // Defer the heavy engagement cards (each does its own Firestore read) until
+  // after the first frame so the posts render first — big win on cold start
+  // (e.g. after reinstall) especially on Android.
+  bool _deferredCardsReady = false;
+
   bool get _showNotifBanner => !_notifEnabled && !_notifBannerDismissed;
 
   // Imported-run share prompt
@@ -586,6 +591,13 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     });
     HealthSyncService().getUnsharedImportedRun().then((run) {
       if (mounted && run != null) setState(() => _importedRunToShare = run);
+    });
+
+    // Let posts paint first, then bring in the engagement cards.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) setState(() => _deferredCardsReady = true);
+      });
     });
     _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
       if (mounted) setState(() => _isPro = isPro);
@@ -1057,40 +1069,44 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   ),
                 ),
 
-              // AI Coach — post-run insight card (visible up to 24h after a run)
-              const SliverToBoxAdapter(child: AiCoachingCard()),
+              // Engagement cards — deferred until after the first frame so the
+              // posts paint first on cold start (each card does a Firestore read).
+              if (_deferredCardsReady) ...[
+                // AI Coach — post-run insight card (visible up to 24h after a run)
+                const SliverToBoxAdapter(child: AiCoachingCard()),
 
-              // E1 — Streak hype panel (visible when currentStreak > 0)
-              const SliverToBoxAdapter(child: StreakHypeCard()),
+                // E1 — Streak hype panel (visible when currentStreak > 0)
+                const SliverToBoxAdapter(child: StreakHypeCard()),
 
-              // E2 — Weekly recap card (24 h window after Sunday 20:00)
-              const SliverToBoxAdapter(child: WeeklyRecapCard()),
+                // E2 — Weekly recap card (24 h window after Sunday 20:00)
+                const SliverToBoxAdapter(child: WeeklyRecapCard()),
 
-              // Race countdown card — pinned goal with days-to-race + weekly volume
-              const SliverToBoxAdapter(child: RaceCountdownCard()),
+                // Race countdown card — pinned goal with days-to-race + weekly volume
+                const SliverToBoxAdapter(child: RaceCountdownCard()),
 
-              // Daily Challenges banner
-              SliverToBoxAdapter(
-                child: _buildChallengesBanner(context),
-              ),
+                // Daily Challenges banner
+                SliverToBoxAdapter(
+                  child: _buildChallengesBanner(context),
+                ),
 
-              // Engagement addon cards (trivia, streak risk, etc.)
-              const SliverToBoxAdapter(child: EngagementFeedCard()),
+                // Engagement addon cards (trivia, streak risk, etc.)
+                const SliverToBoxAdapter(child: EngagementFeedCard()),
 
-              // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
-              const SliverToBoxAdapter(child: GamesFeedCard()),
+                // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
+                const SliverToBoxAdapter(child: GamesFeedCard()),
 
-              // Daily Run Path game (number-connection) with streak tracking
-              const SliverToBoxAdapter(child: DailyPuzzleCard()),
+                // Daily Run Path game (number-connection) with streak tracking
+                const SliverToBoxAdapter(child: DailyPuzzleCard()),
 
-              // Daily running trivia quiz with streak tracking
-              const SliverToBoxAdapter(child: DailyTriviaCard()),
+                // Daily running trivia quiz with streak tracking
+                const SliverToBoxAdapter(child: DailyTriviaCard()),
 
-              // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
-              const SliverToBoxAdapter(child: DailyMicroCard()),
+                // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
+                const SliverToBoxAdapter(child: DailyMicroCard()),
 
-              // Pro upgrade banner — shown once per session for free users; hidden for Pro
-              const SliverToBoxAdapter(child: ProUpgradeBanner()),
+                // Pro upgrade banner — shown once per session for free users; hidden for Pro
+                const SliverToBoxAdapter(child: ProUpgradeBanner()),
+              ],
 
               displayPosts.isEmpty
                   ? SliverFillRemaining(
