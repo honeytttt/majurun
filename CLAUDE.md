@@ -41,7 +41,7 @@ This keeps `main` current so future branches never miss features.
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+231` — includes all quality improvements from June 4–5 session
+**Current TestFlight version:** `1.0.4+233` — quality improvements + GPS-off mode, health auto-import, real challenges, permission banners
 
 ---
 

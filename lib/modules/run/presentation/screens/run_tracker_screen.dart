@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -494,24 +495,47 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     final runController = Provider.of<RunController>(context, listen: false);
     runController.voiceController.setTargetPace(_targetPaceSeconds ?? 0);
 
-    // Try to prewarm GPS. Handle location errors gracefully.
+    // 1. Check location services explicitly — startTracking() returns false
+    //    (does NOT throw) when GPS is off, so we must check up front.
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!mounted) return;
+    if (!serviceEnabled) {
+      final noGps = await _showGpsOffDialog();
+      if (!mounted || !noGps) return;
+      await _launchRun(runController, noGps: true);
+      return;
+    }
+
+    // 2. Check / request location permission.
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (!mounted) return;
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      final noGps = await _showGpsOffDialog();
+      if (!mounted || !noGps) return;
+      await _launchRun(runController, noGps: true);
+      return;
+    }
+
+    // 3. iOS "While In Use" — GPS pauses when screen locks. Warn but continue.
+    if (Platform.isIOS && permission == LocationPermission.whileInUse) {
+      await _showWhileInUseWarningDialog();
+      if (!mounted) return;
+    }
+
+    // 4. GPS available — prewarm then launch normally. If prewarm still fails
+    //    for any reason, fall back to GPS-off mode instead of erroring out.
     try {
       await runController.prewarmGps();
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString();
-      if (msg.contains('__location_while_in_use__')) {
-        // iOS only — GPS will stop when screen locks. Show warning but let them continue.
-        await _showWhileInUseWarningDialog();
-        if (!mounted) return;
-        // Continue — GPS works while screen is on
-      } else {
-        // Location services off — offer GPS-off mode
-        final noGps = await _showGpsOffDialog();
-        if (!mounted || !noGps) return;
-        await _launchRun(runController, noGps: true);
-        return;
-      }
+      final noGps = await _showGpsOffDialog();
+      if (!mounted || !noGps) return;
+      await _launchRun(runController, noGps: true);
+      return;
     }
     if (!mounted) return;
     await _launchRun(runController, noGps: false);
