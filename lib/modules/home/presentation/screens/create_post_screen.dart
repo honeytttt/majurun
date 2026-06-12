@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -203,7 +204,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   /// Pick and validate media (image or video)
+  bool _isPicking = false;
+
   Future<void> _pickMedia(bool isVideo, {ImageSource source = ImageSource.gallery}) async {
+    // Guard against a second pick while one is already open — image_picker
+    // throws PlatformException(already_active) on double-tap, which crashes.
+    if (_isPicking) return;
+
     // ✅ Check image count limit BEFORE picking (only for images)
     if (!isVideo && _mediaList.where((m) => m.type == MediaType.image).length >= PostLimitService.maxImagesPerPost) {
       _showError(_limitService.getImageCountMessage());
@@ -211,9 +218,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     final picker = ImagePicker();
-    final XFile? file = isVideo
-        ? await picker.pickVideo(source: ImageSource.gallery)
-        : await picker.pickImage(source: source, imageQuality: 85, maxWidth: 1080);
+    XFile? file;
+    try {
+      _isPicking = true;
+      file = isVideo
+          ? await picker.pickVideo(source: ImageSource.gallery)
+          : await picker.pickImage(source: source, imageQuality: 85, maxWidth: 1080);
+    } on PlatformException {
+      return; // already_active or cancelled — ignore
+    } finally {
+      _isPicking = false;
+    }
 
     if (file == null) return;
 

@@ -27,6 +27,7 @@ import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/modules/profile/presentation/screens/goals_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/race_predictor_card.dart';
@@ -139,11 +140,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickAndUploadAvatar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (picked == null || !mounted) return;
-
+    // Guard set before the picker opens so a double-tap can't trigger
+    // PlatformException(already_active), which crashes.
+    if (_uploadingAvatar) return;
     setState(() => _uploadingAvatar = true);
+
+    final picker = ImagePicker();
+    final XFile? picked;
+    try {
+      picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    } on PlatformException {
+      if (mounted) setState(() => _uploadingAvatar = false);
+      return;
+    }
+    if (picked == null || !mounted) {
+      if (mounted) setState(() => _uploadingAvatar = false);
+      return;
+    }
+
     try {
       final user = FirebaseAuth.instance.currentUser!;
       final url = await StorageService().uploadFile(File(picked.path), false);
