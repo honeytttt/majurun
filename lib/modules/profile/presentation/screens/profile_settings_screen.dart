@@ -439,6 +439,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       return ClipOval(
         child: CachedNetworkImage(
           imageUrl: widget.currentImageUrl,
+          memCacheWidth: 300,
           fit: BoxFit.cover,
           width: 110,
           height: 110,

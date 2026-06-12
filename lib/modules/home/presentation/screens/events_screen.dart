@@ -1157,6 +1157,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         borderRadius: BorderRadius.circular(8),
         child: CachedNetworkImage(
           imageUrl: photoUrl,
+          memCacheWidth: 200,
           width: double.infinity,
           height: double.infinity,
           fit: BoxFit.cover,

@@ -144,6 +144,7 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
                         )
                       : CachedNetworkImage(
                           imageUrl: original.media.first.url,
+                          memCacheWidth: 600,
                           height: 120,
                           width: double.infinity,
                           fit: BoxFit.cover,

@@ -392,6 +392,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       color: Colors.grey[100],
       child: CachedNetworkImage(
         imageUrl: media.url,
+        memCacheWidth: 1000,
         fit: BoxFit.contain,
         width: double.infinity,
         placeholder: (_, __) => Container(

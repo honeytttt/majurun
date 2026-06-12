@@ -86,6 +86,7 @@ class MessageBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
                 imageUrl: message.content,
+                memCacheWidth: 800,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(
                   width: 200,

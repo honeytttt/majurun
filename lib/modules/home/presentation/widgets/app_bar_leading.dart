@@ -130,6 +130,7 @@ class AppBarLeading extends StatelessWidget {
               child: photoUrl.isNotEmpty && photoUrl.startsWith('http')
                   ? CachedNetworkImage(
                       imageUrl: photoUrl,
+                      memCacheWidth: 200,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: Colors.grey[300],

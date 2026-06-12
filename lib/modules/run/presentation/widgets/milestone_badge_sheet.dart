@@ -404,6 +404,7 @@ class _BadgeCard extends StatelessWidget {
         child: ClipOval(
           child: CachedNetworkImage(
             imageUrl: milestone.badgeImageUrl,
+            memCacheWidth: 400,
             width: 140,
             height: 140,
             fit: BoxFit.cover,

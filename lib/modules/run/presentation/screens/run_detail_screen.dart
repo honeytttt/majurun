@@ -848,6 +848,7 @@ Keep moving 💪
       clipBehavior: Clip.antiAlias,
       child: CachedNetworkImage(
         imageUrl: url,
+        memCacheWidth: 800,
         fit: BoxFit.cover,
         errorWidget: (_, __, ___) => Center(
           child: Column(

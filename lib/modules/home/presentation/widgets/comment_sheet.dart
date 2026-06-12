@@ -323,6 +323,7 @@ class _CommentSheetState extends State<CommentSheet> {
             ? CommentVideoPlayer(url: media['url'])
             : CachedNetworkImage(
                 imageUrl: media['url'],
+                memCacheWidth: 600,
                 height: 150,
                 width: double.infinity,
                 fit: BoxFit.cover,

@@ -642,6 +642,7 @@ class _PostRunRecoveryCardState extends State<_PostRunRecoveryCard> {
                 else
                   CachedNetworkImage(
                     imageUrl: _item.thumbUrl,
+                    memCacheWidth: 800,
                     width: double.infinity,
                     height: 180,
                     fit: BoxFit.cover,

@@ -164,6 +164,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                   child: CachedNetworkImage(
                                     imageUrl: mapImageUrl,
+                                    memCacheWidth: 200,
                                     width: 46,
                                     height: 46,
                                     fit: BoxFit.cover,

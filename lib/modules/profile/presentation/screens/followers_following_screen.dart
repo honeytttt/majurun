@@ -185,6 +185,7 @@ class _FollowersFollowingScreenState extends State<FollowersFollowingScreen>
             : ClipOval(
                 child: CachedNetworkImage(
                   imageUrl: photoUrl,
+                  memCacheWidth: 150,
                   fit: BoxFit.cover,
                   width: 50,
                   height: 50,

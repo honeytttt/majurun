@@ -61,6 +61,7 @@ class SearchResultTile extends StatelessWidget {
             width: 48,
             height: 48,
             fit: BoxFit.cover,
+            memCacheWidth: 150,
             placeholder: (context, url) => Container(
               width: 48,
               height: 48,
