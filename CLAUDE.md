@@ -53,7 +53,7 @@ This keeps `main` current so future branches never miss features.
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+238` — OOM image caps + Crashlytics crash fixes (Twitter removed, image picker guard, profile null-check) + geolocator foreground-service crash fix. All work merged to `main` at this build.
+**Current TestFlight version:** `1.0.4+239` — adds: run starts on FIRST tap (GPS no longer blocks on slow initial fix). Plus 238's OOM image caps, Crashlytics crash fixes, geolocator FGS fix. All work on `main`.
 
 ### Deferred crash fixes (need device testing — do NOT bump blindly)
 From Crashlytics (build 237 baseline, Android ~85% crash-free):
