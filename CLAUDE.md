@@ -9,7 +9,7 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/production-polish-219` (build 219) — branch from here for new work.
+**Current base branch:** `feature/production-polish-238` (build 238) — branch from here for new work. `main` was brought current at build 238 (June 13, 2026), so branching from `main` is also valid.
 
 ### CI — actions/checkout updated (done in build 216)
 - ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files
@@ -53,9 +53,7 @@ This keeps `main` current so future branches never miss features.
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+237` — OOM image caps + Crashlytics crash fixes (Twitter removed, image picker guard, profile null-check)
-**Committed locally but NOT yet built (awaiting Hani's "trigger a build"):**
-- Geolocator foreground-service crash fix — `BackgroundLocationService.appInForeground` flag set from main.dart lifecycle; watchdog/error-recovery no longer restart the location FGS while backgrounded (Android 12+ `mAllowStartForeground` crash, 3 users)
+**Current TestFlight version:** `1.0.4+238` — OOM image caps + Crashlytics crash fixes (Twitter removed, image picker guard, profile null-check) + geolocator foreground-service crash fix. All work merged to `main` at this build.
 
 ### Deferred crash fixes (need device testing — do NOT bump blindly)
 From Crashlytics (build 237 baseline, Android ~85% crash-free):
