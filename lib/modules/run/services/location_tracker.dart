@@ -68,6 +68,12 @@ class LocationTracker extends ChangeNotifier {
       throw Exception('Location permission is required to track your run');
     }
 
+    // On iOS, "While In Use" stops GPS when the screen locks mid-run.
+    // Throw a specific error so the UI can prompt the user to upgrade to "Always".
+    if (Platform.isIOS && permission == LocationPermission.whileInUse) {
+      throw Exception('__location_while_in_use__');
+    }
+
     debugPrint('✅ All location checks PASSED');
   }
 

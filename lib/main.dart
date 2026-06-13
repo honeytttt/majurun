@@ -32,6 +32,7 @@ import 'modules/auth/presentation/widgets/auth_wrapper.dart';
 import 'core/utils/user_counters_initializer.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/health_sync_service.dart';
+import 'core/services/background_location_service.dart';
 import 'modules/engagement/engagement_service.dart';
 import 'core/services/remote_logger.dart';
 import 'core/services/cache_service.dart';
@@ -200,6 +201,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Track foreground state so the location service never restarts its
+    // foreground service from the background (crashes on Android 12+).
+    BackgroundLocationService.appInForeground =
+        state == AppLifecycleState.resumed;
+
     // Re-schedule notifications every time the app comes back to foreground.
     // Android cancels AlarmManager alarms on app update or device restart, so
     // rescheduling on resume ensures daily notifications survive both events.
@@ -208,6 +214,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (user != null) {
         PushNotificationService().scheduleDefaultNotifications();
         EngagementService.maybeRun(user.uid); // engagement addons — isolated
+        // Auto-import any new runs from the health app (debounced, silent).
+        HealthSyncService().autoSyncOnResume();
       }
     }
   }
@@ -223,6 +231,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
         UserCountersInitializer.initializeOnFirstLaunch();
+        // Tag platform + activity so installs/active users can be counted in
+        // Firestore directly (backfills existing testers on their next login).
+        final platform = kIsWeb
+            ? 'web'
+            : (defaultTargetPlatform == TargetPlatform.android
+                ? 'android'
+                : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'other'));
+        FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'platform': platform,
+          'lastActiveAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)).ignore();
         // Restore active training plan progress from Firestore
         trainingService.loadProgress().ignore();
         // Initialize notifications + schedule default daily notifications

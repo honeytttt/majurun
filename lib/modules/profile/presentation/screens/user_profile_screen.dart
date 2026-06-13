@@ -102,14 +102,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .get();
       _postsCount = postsSnapshot.docs.length;
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('❌ Error loading user data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -125,9 +121,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .doc(widget.userId)
           .get();
 
-      setState(() {
-        _isFollowing = doc.exists;
-      });
+      if (mounted) setState(() => _isFollowing = doc.exists);
     } catch (e) {
       debugPrint('❌ Error checking follow status: $e');
     }

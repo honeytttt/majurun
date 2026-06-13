@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -781,10 +782,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    widget.planImageUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.planImageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
+                    errorWidget: (_, __, ___) =>
                         const Icon(Icons.image, color: Color(0xFF7ED957)),
                   ),
                 ),
@@ -1100,7 +1101,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
                 constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
                 child: ClipRRect(
                   borderRadius: const BorderRadius.all(Radius.circular(20)),
-                  child: Image.network(widget.planImageUrl, fit: BoxFit.contain),
+                  child: CachedNetworkImage(imageUrl: widget.planImageUrl, fit: BoxFit.contain),
                 ),
               ),
               const SizedBox(height: 16),

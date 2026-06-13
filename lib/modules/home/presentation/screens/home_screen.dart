@@ -46,6 +46,14 @@ import 'package:majurun/modules/home/presentation/widgets/ai_coaching_card.dart'
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_puzzle_card.dart';
 import 'package:majurun/modules/puzzle/presentation/widgets/daily_trivia_card.dart';
 import 'package:majurun/modules/home/presentation/widgets/pro_upgrade_banner.dart';
+import 'package:majurun/modules/home/presentation/widgets/pro_top_strip_banner.dart';
+import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
+import 'package:majurun/modules/onboarding/feature_intro_screen.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:majurun/core/services/health_sync_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,18 +76,44 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userBio = 'Loading...';
   String _profileImageUrl = '';
   String _email = '';
+  bool _showWhatsNewBadge = false;
+  bool _isPro = false;
 
   StreamSubscription<DocumentSnapshot>? _userDataSubscription;
+  StreamSubscription<bool>? _proStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchFirebaseUserData();
+    _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
+      if (mounted) setState(() => _isPro = isPro);
+    });
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
     // Post today's motivational + education cards (first user of the day triggers it).
     DailyContentService.maybePostDailyContent().catchError(
       (e) => debugPrint('⚠️ DailyContentService: $e'),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkFeatureIntro();
+      _loadWhatsNewBadge();
+    });
+  }
+
+  Future<void> _checkFeatureIntro() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('feature_intro_seen_v1') == true) return;
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FeatureIntroScreen()),
+    );
+    await prefs.setBool('feature_intro_seen_v1', true);
+  }
+
+  Future<void> _loadWhatsNewBadge() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('whats_new_219_seen') ?? false;
+    if (mounted && !seen) setState(() => _showWhatsNewBadge = true);
   }
 
   void _onTabNotifier() {
@@ -96,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     HomeScreen.tabNotifier.removeListener(_onTabNotifier);
     _userDataSubscription?.cancel();
+    _proStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -174,6 +209,12 @@ class _HomeScreenState extends State<HomeScreen> {
     HapticFeedback.selectionClick();
     if (index != 0) {
       VideoSessionManager.pauseAll();
+    }
+    // Dismiss "what's new" badge on first tap of the RUN tab.
+    if (index == 4 && _showWhatsNewBadge) {
+      SharedPreferences.getInstance()
+          .then((p) => p.setBool('whats_new_219_seen', true));
+      setState(() => _showWhatsNewBadge = false);
     }
     // Twitter behaviour: tapping the already-selected Home tab scrolls to top + refreshes.
     if (index == 0 && _selectedIndex == 0 && _activeSubPage == null) {
@@ -300,10 +341,10 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget>[
                 _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home', brandGreen),
-                _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen),
+                _buildNavItem(1, Icons.fitness_center_rounded, Icons.fitness_center_outlined, 'Workouts', brandGreen, showCrown: !_isPro),
                 _buildCenterNavItem(brandGreen),
                 _buildNavItem(3, Icons.card_giftcard_rounded, Icons.card_giftcard_outlined, 'Rewards', brandGreen),
-                _buildNavItem(4, Icons.directions_run_rounded, Icons.directions_run_outlined, 'RUN', brandGreen),
+                _buildNavItem(4, Icons.directions_run_rounded, Icons.directions_run_outlined, 'RUN', brandGreen, showBadge: _showWhatsNewBadge),
               ],
             ),
           ),
@@ -313,10 +354,18 @@ class _HomeScreenState extends State<HomeScreen> {
     ); // ConnectivityBanner
   }
 
-  Widget _buildNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label, Color brandGreen) {
+  Widget _buildNavItem(
+    int index,
+    IconData selectedIcon,
+    IconData unselectedIcon,
+    String label,
+    Color brandGreen, {
+    bool showBadge = false,
+    bool showCrown = false,
+  }) {
     final isSelected = _selectedIndex == index;
     const textSecondary = AppTheme.textSecondary;
-    
+
     return Semantics(
       button: true,
       selected: isSelected,
@@ -333,10 +382,39 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(
-                isSelected ? selectedIcon : unselectedIcon,
-                color: isSelected ? brandGreen : textSecondary,
-                size: 24,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    isSelected ? selectedIcon : unselectedIcon,
+                    color: isSelected ? brandGreen : textSecondary,
+                    size: 24,
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      top: -3,
+                      right: -4,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E676),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  if (showCrown)
+                    const Positioned(
+                      top: -5,
+                      right: -6,
+                      child: Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Color(0xFFFFB300),
+                        size: 13,
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
               Text(
@@ -416,6 +494,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   bool _bannerDismissed = false;
   bool _sendingVerification = false;
   Set<String> _blockedUserIds = {};
+  StreamSubscription<QuerySnapshot>? _blockedUsersSubscription;
   bool _showNewPostsBanner = false;
   double _lastScrollPixels = 0;
   int _newPostCount = 0;
@@ -425,10 +504,56 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   int _challengesTotal = 0;
 
   bool _isAdmin = false;
+  bool _isPro = false;
+  StreamSubscription<bool>? _proStatusSubscription;
+
+  bool _notifEnabled = true;
+  bool _notifBannerDismissed = false;
+
+  // Defer the heavy engagement cards (each does its own Firestore read) until
+  // after the first frame so the posts render first — big win on cold start
+  // (e.g. after reinstall) especially on Android.
+  bool _deferredCardsReady = false;
+
+  bool get _showNotifBanner => !_notifEnabled && !_notifBannerDismissed;
+
+  // Imported-run share prompt
+  Map<String, dynamic>? _importedRunToShare;
+  bool _sharingImportedRun = false;
 
   bool get _showVerifyBanner {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && !user.emailVerified && !_bannerDismissed;
+  }
+
+  Future<void> _shareImportedRun() async {
+    final run = _importedRunToShare;
+    if (run == null) return;
+    setState(() => _sharingImportedRun = true);
+    try {
+      await HealthSyncService().shareImportedRunToFeed(run);
+      if (mounted) {
+        setState(() => _importedRunToShare = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Run shared to your feed! 🎉')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharingImportedRun = false);
+    }
+  }
+
+  void _dismissImportedRun() {
+    final run = _importedRunToShare;
+    if (run == null) return;
+    HealthSyncService().dismissImportPrompt(run['id'] as String);
+    setState(() => _importedRunToShare = null);
   }
 
   Future<void> _sendVerification() async {
@@ -461,7 +586,23 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     _loadBlockedUsers();
     _loadChallengeSummary();
     _checkAdminClaim();
-    
+    PushNotificationService.isEnabled().then((enabled) {
+      if (mounted) setState(() => _notifEnabled = enabled);
+    });
+    HealthSyncService().getUnsharedImportedRun().then((run) {
+      if (mounted && run != null) setState(() => _importedRunToShare = run);
+    });
+
+    // Let posts paint first, then bring in the engagement cards.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) setState(() => _deferredCardsReady = true);
+      });
+    });
+    _proStatusSubscription = SubscriptionService().streamProStatus().listen((isPro) {
+      if (mounted) setState(() => _isPro = isPro);
+    });
+
     // Load cached posts for instant startup
     final cached = CacheService().getCachedPosts();
     if (cached.isNotEmpty) {
@@ -478,20 +619,21 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     } catch (_) {}
   }
 
-  Future<void> _loadBlockedUsers() async {
+  void _loadBlockedUsers() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('blockedUsers')
-          .limit(500)
-          .get();
-      if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
-    } catch (e) {
-      debugPrint('⚠️ HomeScreen: failed to load blocked users: $e');
-    }
+    _blockedUsersSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('blockedUsers')
+        .limit(500)
+        .snapshots()
+        .listen(
+          (snap) {
+            if (mounted) setState(() => _blockedUserIds = snap.docs.map((d) => d.id).toSet());
+          },
+          onError: (e) => debugPrint('⚠️ HomeScreen: blocked users stream error: $e'),
+        );
   }
 
   Future<void> _loadChallengeSummary() async {
@@ -514,6 +656,8 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   void dispose() {
     HomeFeedContent.refreshTrigger.removeListener(_onRefreshTrigger);
     _feedScrollController.dispose();
+    _blockedUsersSubscription?.cancel();
+    _proStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -720,6 +864,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                         },
                       ),
                     ),
+                  _buildProCrownButton(),
                   Container(
                     width: 44,
                     height: 44,
@@ -771,6 +916,99 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               SliverToBoxAdapter(
                 child: Container(height: 1, color: silverMedium),
               ),
+
+              // Top promo strip — 3-month free launch offer (compact, dismissible)
+              const SliverToBoxAdapter(child: ProTopStripBanner()),
+
+              // Notifications disabled nudge — dismissible
+              if (_showNotifBanner)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.withValues(alpha: .3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_off_outlined, size: 20, color: Colors.orange),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Notifications are off — you\'ll miss run reminders and achievements.',
+                            style: TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () => openAppSettings(),
+                          child: const Text('Enable', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          color: Colors.orange.withValues(alpha: .6),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => setState(() => _notifBannerDismissed = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Imported-run share prompt — "Share your Xkm run?"
+              if (_importedRunToShare != null)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: brandGreen.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: brandGreen.withValues(alpha: .25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.directions_run_rounded, size: 20, color: brandGreen),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Share your ${((_importedRunToShare!['distanceKm'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}km run from ${_importedRunToShare!['source'] ?? 'Health'}?',
+                            style: TextStyle(fontSize: 13, color: brandGreen, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _sharingImportedRun
+                            ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: brandGreen))
+                            : TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: brandGreen,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: _shareImportedRun,
+                                child: const Text('Share', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          color: brandGreen.withValues(alpha: .6),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: _dismissImportedRun,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
               // Soft email-verification nudge (Strava-style — dismissible)
               if (_showVerifyBanner)
@@ -831,40 +1069,44 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
                   ),
                 ),
 
-              // AI Coach — post-run insight card (visible up to 24h after a run)
-              const SliverToBoxAdapter(child: AiCoachingCard()),
+              // Engagement cards — deferred until after the first frame so the
+              // posts paint first on cold start (each card does a Firestore read).
+              if (_deferredCardsReady) ...[
+                // AI Coach — post-run insight card (visible up to 24h after a run)
+                const SliverToBoxAdapter(child: AiCoachingCard()),
 
-              // E1 — Streak hype panel (visible when currentStreak > 0)
-              const SliverToBoxAdapter(child: StreakHypeCard()),
+                // E1 — Streak hype panel (visible when currentStreak > 0)
+                const SliverToBoxAdapter(child: StreakHypeCard()),
 
-              // E2 — Weekly recap card (24 h window after Sunday 20:00)
-              const SliverToBoxAdapter(child: WeeklyRecapCard()),
+                // E2 — Weekly recap card (24 h window after Sunday 20:00)
+                const SliverToBoxAdapter(child: WeeklyRecapCard()),
 
-              // Race countdown card — pinned goal with days-to-race + weekly volume
-              const SliverToBoxAdapter(child: RaceCountdownCard()),
+                // Race countdown card — pinned goal with days-to-race + weekly volume
+                const SliverToBoxAdapter(child: RaceCountdownCard()),
 
-              // Daily Challenges banner
-              SliverToBoxAdapter(
-                child: _buildChallengesBanner(context),
-              ),
+                // Daily Challenges banner
+                SliverToBoxAdapter(
+                  child: _buildChallengesBanner(context),
+                ),
 
-              // Engagement addon cards (trivia, streak risk, etc.)
-              const SliverToBoxAdapter(child: EngagementFeedCard()),
+                // Engagement addon cards (trivia, streak risk, etc.)
+                const SliverToBoxAdapter(child: EngagementFeedCard()),
 
-              // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
-              const SliverToBoxAdapter(child: GamesFeedCard()),
+                // Daily micro-game (Route Riddle / Pace Pulse / Gear Matcher)
+                const SliverToBoxAdapter(child: GamesFeedCard()),
 
-              // Daily Run Path game (number-connection) with streak tracking
-              const SliverToBoxAdapter(child: DailyPuzzleCard()),
+                // Daily Run Path game (number-connection) with streak tracking
+                const SliverToBoxAdapter(child: DailyPuzzleCard()),
 
-              // Daily running trivia quiz with streak tracking
-              const SliverToBoxAdapter(child: DailyTriviaCard()),
+                // Daily running trivia quiz with streak tracking
+                const SliverToBoxAdapter(child: DailyTriviaCard()),
 
-              // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
-              const SliverToBoxAdapter(child: DailyMicroCard()),
+                // Daily tip / joke / meme / motivation card (local SVG, rotates by day)
+                const SliverToBoxAdapter(child: DailyMicroCard()),
 
-              // Pro upgrade banner — shown once per session for free users; hidden for Pro
-              const SliverToBoxAdapter(child: ProUpgradeBanner()),
+                // Pro upgrade banner — shown once per session for free users; hidden for Pro
+                const SliverToBoxAdapter(child: ProUpgradeBanner()),
+              ],
 
               displayPosts.isEmpty
                   ? SliverFillRemaining(
@@ -1098,6 +1340,68 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProCrownButton() {
+    if (_isPro) {
+      return Container(
+        width: 44,
+        height: 44,
+        margin: const EdgeInsets.only(right: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFB300).withValues(alpha: 0.12),
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.45)),
+        ),
+        child: const Tooltip(
+          message: 'MajuRun Pro',
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFB300), size: 18),
+                Text(
+                  'PRO',
+                  style: TextStyle(
+                    color: Color(0xFFFFB300),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    // Free user: glowing gold crown CTA → subscription screen
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+      ),
+      child: Container(
+        width: 44,
+        height: 44,
+        margin: const EdgeInsets.only(right: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF3D2A00),
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.75)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFFB300).withValues(alpha: 0.28),
+              blurRadius: 10,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFB300), size: 22),
         ),
       ),
     );

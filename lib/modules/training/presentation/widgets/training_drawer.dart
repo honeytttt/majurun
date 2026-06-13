@@ -336,12 +336,12 @@ class _TrainingDrawerState extends State<TrainingDrawer> {
           : TextButton(
               onPressed: () => _showProDialog(context),
               child: const Text(
-                'UPGRADE TO PRO',
+                'UPGRADE TO PRO — from \$1.99/mo',
                 style: TextStyle(
                   color: Color(0xFFFFD700),
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
-                  letterSpacing: 1,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),

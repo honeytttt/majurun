@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
@@ -141,29 +142,27 @@ class _QuotedPostPreviewState extends State<QuotedPostPreview> {
                             child: Icon(Icons.play_circle_outline, color: Colors.white70, size: 40),
                           ),
                         )
-                      : Image.network(
-                          original.media.first.url,
+                      : CachedNetworkImage(
+                          imageUrl: original.media.first.url,
+                          memCacheWidth: 600,
                           height: 120,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return Container(
-                              height: 120,
-                              color: const Color(0xFF151520),
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF00E676),
-                                  ),
+                          placeholder: (_, __) => Container(
+                            height: 120,
+                            color: const Color(0xFF151520),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF00E676),
                                 ),
                               ),
-                            );
-                          },
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
                         ),
                 ),
               ],

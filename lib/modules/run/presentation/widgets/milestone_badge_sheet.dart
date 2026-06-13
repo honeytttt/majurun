@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -401,12 +402,20 @@ class _BadgeCard extends StatelessWidget {
       ),
       child: Center(
         child: ClipOval(
-          child: Image.network(
-            milestone.badgeImageUrl,
+          child: CachedNetworkImage(
+            imageUrl: milestone.badgeImageUrl,
+            memCacheWidth: 400,
             width: 140,
             height: 140,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            placeholder: (_, __) => SizedBox(
+              width: 140,
+              height: 140,
+              child: Center(
+                child: CircularProgressIndicator(color: accent, strokeWidth: 2.5),
+              ),
+            ),
+            errorWidget: (_, __, ___) => Container(
               width: 140,
               height: 140,
               decoration: BoxDecoration(
@@ -417,23 +426,6 @@ class _BadgeCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(milestone.phosphorIcon, size: 58, color: accent),
             ),
-            loadingBuilder: (_, child, progress) {
-              if (progress == null) return child;
-              return SizedBox(
-                width: 140,
-                height: 140,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: accent,
-                    strokeWidth: 2.5,
-                    value: progress.expectedTotalBytes != null
-                        ? progress.cumulativeBytesLoaded /
-                            progress.expectedTotalBytes!
-                        : null,
-                  ),
-                ),
-              );
-            },
           ),
         ),
       ),

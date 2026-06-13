@@ -1,7 +1,7 @@
 name: majurun
 description: A modular running app.
 publish_to: 'none'
-version: 1.0.2+218
+version: 1.0.4+238
 
 environment:
   sdk: ">=3.3.0 <4.0.0"   # raised minimum — most packages now require it
@@ -27,8 +27,10 @@ dependencies:
 
   # Auth / Social login ─────────────────────────────────────
   google_sign_in: ^6.3.0
+  sign_in_with_apple: ^6.0.0
   # flutter_facebook_auth: ^7.1.1
-  twitter_login: ^4.4.2
+  # twitter_login removed — unused in Dart, its native ChromeCustomTabsActivity
+  # was crashing 6 users (Crashlytics). X/Twitter login button is disabled.
 
   # Networking & storage ────────────────────────────────────
   dio: ^5.7.0

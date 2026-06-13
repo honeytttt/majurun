@@ -14,5 +14,11 @@
 
 	<!-- NOTE: In-App Purchase (StoreKit) does NOT need an entitlement.
 	     com.apple.developer.in-app-payments is for Apple Pay only — do NOT include it. -->
+
+	<!-- Sign in with Apple — required by App Store guideline 4.8 when offering third-party login -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>

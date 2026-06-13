@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,6 +27,8 @@ import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/modules/profile/presentation/screens/goals_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:image_picker/image_picker.dart';
 import 'package:majurun/core/services/payment_service.dart';
 import 'package:majurun/modules/profile/presentation/widgets/race_predictor_card.dart';
 import 'package:majurun/modules/profile/presentation/widgets/vo2max_card.dart';
@@ -56,7 +58,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _showPosts = true;  // Show Posts by default
+  bool _showPosts = true;
+  bool _uploadingAvatar = false;
   // Cache the streak+activity future so it is created once, not on every rebuild.
   late final Future<Map<String, dynamic>> _streakFuture;
 
@@ -80,6 +83,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'streak': results[0] as Map<String, dynamic>,
             'summary': results[1] as WeeklySummary,
           }).catchError((Object _) => streakFallback);
+  }
+
+  void _showShareSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFF00E676).withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF00E676)),
+              ),
+              title: const Text('Invite Friends to MajuRun', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Share the app with your running buddies'),
+              onTap: () {
+                Navigator.pop(context);
+                SharePlus.instance.share(ShareParams(
+                  subject: 'Join me on MajuRun!',
+                  text: '🏃 Hey! I\'ve been using MajuRun to track my runs and it\'s amazing.\n\n'
+                      'Join me — it\'s free to download:\n'
+                      '📱 iOS: https://apps.apple.com/app/majurun/id6744042588\n\n'
+                      'Let\'s run together! 💪 #MajuRun',
+                ));
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.share_rounded, color: Colors.blue),
+              ),
+              title: const Text('Share My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Let others see your runs and achievements'),
+              onTap: () {
+                Navigator.pop(context);
+                SharePlus.instance.share(ShareParams(
+                  text: '🏃 Check out my running profile on MajuRun!\n\n'
+                      '${widget.currentName} — tracking every run, earning every badge.\n\n'
+                      '#MajuRun #Running #Fitness',
+                ));
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    // Guard set before the picker opens so a double-tap can't trigger
+    // PlatformException(already_active), which crashes.
+    if (_uploadingAvatar) return;
+    setState(() => _uploadingAvatar = true);
+
+    final picker = ImagePicker();
+    final XFile? picked;
+    try {
+      picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    } on PlatformException {
+      if (mounted) setState(() => _uploadingAvatar = false);
+      return;
+    }
+    if (picked == null || !mounted) {
+      if (mounted) setState(() => _uploadingAvatar = false);
+      return;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
+      final url = await StorageService().uploadFile(File(picked.path), false);
+      if (url == null) throw Exception('Upload failed');
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'photoUrl': url});
+      await user.updatePhotoURL(url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update photo: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
   }
 
   Future<void> _syncBadges() async {
@@ -270,18 +363,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         centerTitle: true,
         actions: [
-          // Share Profile Button
+          // Share / Invite Button
           Semantics(
             button: true,
-            label: 'Share profile',
+            label: 'Share or invite friends',
             child: IconButton(
               icon: const Icon(Icons.share_outlined, color: Color(0xFF00E676)),
-              tooltip: 'Share Profile',
-              onPressed: () {
-                SharePlus.instance.share(ShareParams(
-                  text: 'Check out ${widget.currentName}\'s profile on MajuRun! 🏃‍♂️ #MajuRun',
-                ));
-              },
+              tooltip: 'Share & Invite',
+              onPressed: () => _showShareSheet(),
             ),
           ),
           // Goals Button
@@ -472,13 +561,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          // Avatar
-          DirectUrlAvatar(
-            imageUrl: imageUrl,
-            radius: 50,
-            showBorder: true,
-            borderColor: const Color(0xFF00E676),
-            borderWidth: 3,
+          // Avatar — tap to change photo
+          GestureDetector(
+            onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                _uploadingAvatar
+                    ? Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF00E676), width: 3),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF00E676), strokeWidth: 2),
+                        ),
+                      )
+                    : DirectUrlAvatar(
+                        imageUrl: imageUrl,
+                        radius: 50,
+                        showBorder: true,
+                        borderColor: const Color(0xFF00E676),
+                        borderWidth: 3,
+                      ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00E676),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           
@@ -545,9 +662,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Semantics(
-                label: '$postsCount posts',
+                button: true,
+                label: '$postsCount posts, tap to view',
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () => setState(() => _showPosts = true),
                   child: _buildStatColumn('Posts', postsCount.toString()),
                 ),
               ),
@@ -1323,14 +1441,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Icon(Icons.post_add, size: 60, color: Colors.grey[400]),
+                    Icon(Icons.directions_run_rounded, size: 60, color: Colors.grey[300]),
                     const SizedBox(height: 16),
                     Text(
                       'No posts yet',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Complete a run and share it\nwith the MajuRun community.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[400], height: 1.5),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: const Text('Start a run'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E676),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                       ),
                     ),
                   ],
@@ -1537,12 +1669,20 @@ class _StreakFreezeButtonState extends State<_StreakFreezeButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (_used) return const Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 22);
-    return GestureDetector(
-      onTap: _loading ? null : _use,
-      child: _loading
-          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          : const Icon(Icons.ac_unit, color: Colors.white70, size: 22),
+    if (_used) {
+      return const Tooltip(
+        message: 'Streak freeze active — your streak is protected today',
+        child: Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 22),
+      );
+    }
+    return Tooltip(
+      message: 'Streak Freeze — tap to protect your streak if you miss a day (1 per week)',
+      child: GestureDetector(
+        onTap: _loading ? null : _use,
+        child: _loading
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Icon(Icons.ac_unit, color: Colors.white70, size: 22),
+      ),
     );
   }
 }

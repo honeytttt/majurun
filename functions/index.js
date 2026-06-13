@@ -1,27 +1,23 @@
 // functions/index.js
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { logger } = require("firebase-functions/v2");
-const { RecaptchaEnterpriseServiceClient } = require('@google-cloud/recaptcha-enterprise');
+const { logger } = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-// Optional: keep your global options if you want
-const { setGlobalOptions } = require("firebase-functions/v2");
+const { setGlobalOptions } = require("firebase-functions/v2/options");
 setGlobalOptions({ maxInstances: 10 });
-
-const client = new RecaptchaEnterpriseServiceClient();
 
 exports.verifyRecaptcha = onCall(
   {
-    region: "asia-southeast1",           // Good choice for Singapore
-    // memory: "256MB",                  // optional - uncomment if you need more memory
-    // timeoutSeconds: 60,               // optional
+    region: "asia-southeast1",
   },
   async (request) => {
+    const { RecaptchaEnterpriseServiceClient } = require('@google-cloud/recaptcha-enterprise');
+    const client = new RecaptchaEnterpriseServiceClient();
     const { token, action } = request.data;
 
     if (!token || !action) {
@@ -79,13 +75,30 @@ exports.verifyRecaptcha = onCall(
   }
 );
 
-// Admin check via Firebase Custom Claim only.
-// Grant via: admin.auth().setCustomUserClaims(uid, { admin: true })
+// Admin check: requires custom claim admin:true.
+// To grant the claim, call grantAdminClaim() once from the admin account, then sign out and back in.
 function requireAdmin(request) {
-  if (!request.auth || request.auth.token.admin !== true) {
+  if (!request.auth) throw new HttpsError("permission-denied", "Admin only.");
+  if (request.auth.token.admin !== true) {
     throw new HttpsError("permission-denied", "Admin only.");
   }
 }
+
+const ADMIN_EMAIL = "majurun.app@gmail.com";
+
+// One-time: the admin account calls this to grant itself the custom claim permanently.
+// After calling it, sign out + sign back in so the new token is issued, then
+// the email fallback in requireAdmin becomes unnecessary.
+exports.grantAdminClaim = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    if (!request.auth || request.auth.token.email !== ADMIN_EMAIL) {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+    await admin.auth().setCustomUserClaims(request.auth.uid, { admin: true });
+    return { success: true, message: "Admin claim granted. Sign out and sign back in." };
+  }
+);
 
 // Delete a user: Firebase Auth + all Firestore data
 exports.adminDeleteUser = onCall(

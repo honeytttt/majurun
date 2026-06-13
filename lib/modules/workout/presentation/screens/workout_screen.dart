@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 // @UI_LOCK: Enhanced Workout Hub with Video Navigation - 2026-02-25
 // -----------------------------------------------------------------------
 // THEME: Majurun Premium Dark Theme with Category Accent Colors
@@ -7,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:majurun/core/services/subscription_service.dart';
+import 'package:majurun/modules/subscription/presentation/screens/subscription_screen.dart';
 import 'package:majurun/modules/workout/presentation/screens/workout_player_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
@@ -717,35 +719,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             _buildProFeature(Icons.analytics, 'Progress tracking'),
             const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFFFD700).withValues(alpha: 0.1),
-                    const Color(0xFFFFD700).withValues(alpha: 0.05),
-                  ],
-                ),
+                color: const Color(0xFFFFD700).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3)),
               ),
-              child: Column(
+              child: const Column(
                 children: [
-                  const Text(
-                    '\$1.99/month',
+                  Text(
+                    '\$1.99 / month',
                     style: TextStyle(
                       color: Color(0xFFFFD700),
-                      fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 2),
                   Text(
-                    'or \$15.99/year (Save 33%)',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+                    'or \$15.99 / year (save 33%)',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 8),
           ],
         ),
         actions: [
@@ -759,19 +758,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Subscription feature coming soon!'),
-                  backgroundColor: Color(0xFFFFD700),
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const SubscriptionScreen(
+                  isPaywall: true,
+                  paywallFeature: 'Workout Hub',
                 ),
-              );
+              ));
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFFD700),
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('Subscribe'),
+            child: const Text('Subscribe — \$1.99/mo'),
           ),
         ],
       ),
@@ -1063,34 +1062,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   colorFilter: isLocked
                       ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
                       : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
-                  child: Image.network(
-                    thumbnailUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: thumbnailUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: accentColor.withValues(alpha: 0.1),
-                        child: Center(
-                          child: Icon(
-                            iconData,
-                            size: 40,
-                            color: accentColor.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: accentColor.withValues(alpha: 0.1),
-                        child: Center(
-                          child: Icon(
-                            iconData,
-                            size: 40,
-                            color: accentColor.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      );
-                    },
+                    placeholder: (_, __) => Container(
+                      color: accentColor.withValues(alpha: 0.1),
+                      child: Center(
+                        child: Icon(iconData, size: 40, color: accentColor.withValues(alpha: 0.5)),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: accentColor.withValues(alpha: 0.1),
+                      child: Center(
+                        child: Icon(iconData, size: 40, color: accentColor.withValues(alpha: 0.5)),
+                      ),
+                    ),
                   ),
                 ),
               ),

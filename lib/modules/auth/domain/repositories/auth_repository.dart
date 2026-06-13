@@ -22,6 +22,7 @@ abstract class AuthRepository {
   });
 
   Future<AppUser?> signInWithGoogle();
+  Future<AppUser?> signInWithApple();
   Future<AppUser?> signInWithFacebook();
   Future<AppUser?> signInWithTwitter();
   Future<AppUser?> signInAsGuest();

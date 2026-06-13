@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_const_constructors
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -106,20 +107,11 @@ class AppBarLeading extends StatelessWidget {
           .doc(currentUser.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        debugPrint('🎭 AppBarLeading: StreamBuilder state = ${snapshot.connectionState}');
-        
         String photoUrl = '';
-        
+
         if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
           photoUrl = data?['photoUrl'] as String? ?? '';
-          
-          debugPrint('🎭 AppBarLeading: User data received');
-          debugPrint('   photoUrl = "$photoUrl"');
-          debugPrint('   length = ${photoUrl.length}');
-          debugPrint('   starts with http = ${photoUrl.startsWith('http')}');
-        } else {
-          debugPrint('⚠️  AppBarLeading: No user data or doc does not exist');
         }
 
         return GestureDetector(
@@ -136,52 +128,27 @@ class AppBarLeading extends StatelessWidget {
             ),
             child: ClipOval(
               child: photoUrl.isNotEmpty && photoUrl.startsWith('http')
-                  ? Image.network(
-                      photoUrl,
+                  ? CachedNetworkImage(
+                      imageUrl: photoUrl,
+                      memCacheWidth: 200,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) {
-                          debugPrint('✅ AppBarLeading: Avatar loaded successfully');
-                          return child;
-                        }
-                        
-                        final progress = loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded / 
-                              loadingProgress.expectedTotalBytes!
-                            : 0.0;
-                        
-                        debugPrint('⏳ AppBarLeading: Loading avatar... ${(progress * 100).toStringAsFixed(0)}%');
-                        
-                        return Container(
-                          color: Colors.grey[300],
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                value: progress,
-                                strokeWidth: 2,
-                                color: const Color(0xFF00E676),
-                              ),
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF00E676),
                             ),
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('❌ AppBarLeading: Image load ERROR');
-                        debugPrint('   URL: $photoUrl');
-                        debugPrint('   Error: $error');
-                        debugPrint('   Error type: ${error.runtimeType}');
-                        
-                        return Container(
-                          color: Colors.blueGrey,
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        );
-                      },
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.blueGrey,
+                        child: const Icon(Icons.person, color: Colors.white, size: 24),
+                      ),
                     )
                   : Container(
                       color: Colors.blueGrey,

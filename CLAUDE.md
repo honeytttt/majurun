@@ -9,10 +9,16 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/goals-visual-rings` (build 216+) — branch from here for new work.
+**Current base branch:** `feature/production-polish-238` (build 238) — branch from here for new work. `main` was brought current at build 238 (June 13, 2026), so branching from `main` is also valid.
 
 ### CI — actions/checkout updated (done in build 216)
 - ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files
+
+### CI — path filters (added build 225)
+- iOS and Android builds do **NOT** trigger on changes to `functions/**`, `**.md`, or Firebase config files
+- This prevents duplicate App Store Connect upload errors when deploying Cloud Functions without a code change
+- **Rule**: if you push only to `functions/`, deploy manually via `firebase deploy --only functions` — no build bump needed
+- If you push both Dart code AND functions changes together, bump the build number as normal
 
 ### iOS CI — Xcode version rule (enforced from build 159)
 - Runner: **`macos-15`** (fast queue — Xcode 26 is pre-installed on it)
@@ -24,6 +30,36 @@ Before creating any new branch, Claude must:
 git checkout main && git merge <release-branch> && git push
 ```
 This keeps `main` current so future branches never miss features.
+
+### Build Triggering — Explicit Confirmation Required (do NOT build per change)
+
+**NEVER bump the build number or push to a build-triggering branch without Hani saying so.**
+
+- A push to `feature/production-polish-219` (or any branch CI builds) triggers an iOS + Android build that uploads to TestFlight / Play Alpha. **Do not do this for every change.**
+- **Default workflow:** make the code change, run `flutter analyze` (or rely on the user), and **commit locally only** — OR stage changes without pushing. Do NOT `git push` and do NOT bump `pubspec.yaml` build number as part of routine work.
+- **Only when Hani explicitly says** "trigger a build", "push to TestFlight", "make a build", or similar:
+  1. Bump the `pubspec.yaml` build number (`+xxx`) once
+  2. Commit
+  3. Push (this fires CI → TestFlight + Play Alpha)
+- Batch multiple changes into ONE build when Hani asks — don't push intermediate builds.
+- If unsure whether to push, **ask first**.
+
+### Production Release — Explicit Confirmation Required
+
+**NEVER push a production/App Store release without explicit confirmation from Hani.**
+
+- Keep the current marketing version (`1.0.4`) across all TestFlight builds until Hani says "push to prod" or "submit for App Store review"
+- Only bump the marketing version (`1.0.x`) when Apple closes the current train (rejection error)
+- When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
+
+**Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
+**Current TestFlight version:** `1.0.4+238` — OOM image caps + Crashlytics crash fixes (Twitter removed, image picker guard, profile null-check) + geolocator foreground-service crash fix. All work merged to `main` at this build.
+
+### Deferred crash fixes (need device testing — do NOT bump blindly)
+From Crashlytics (build 237 baseline, Android ~85% crash-free):
+- **Billing `ProxyBillingActivity` NPE (4 users, still on 1.0.4):** upstream billing-client activity-recreation bug. Fix = bump `in_app_purchase` (`flutter pub upgrade in_app_purchase`) THEN device-test the full purchase flow (sandbox). Do as a dedicated post-launch pass, not mid-test-window.
+- **Google Sign-In `SignInHubActivity` NPE:** only on 1.0.0–1.0.3, NOT 1.0.4 — appears already resolved by newer play-services-auth. Monitor only.
+- **Firestore permission-denied / transaction-misuse (1 user each):** low priority; revisit if they recur on 1.0.4.
 
 ---
 
@@ -63,13 +99,13 @@ await session.setActive(true);
 
 ### TestFlight / Build Numbers
 - `pubspec.yaml` build number (after `+`) must **always exceed** the last uploaded App Store Connect build
-- Last known upload: **build 212** (version 1.0.2+212) — deep audit production fixes
-- **Release in progress: build 218** (version 1.0.2+218) — feature batch: heatmap, PR wall, profile stats, goal rings, shoe alerts
+- Last known upload: **build 225** (version 1.0.2+225) — subscriptions submitted for review
+- **Release in progress: build 229** (version 1.0.4+229) — marketing version bumped because Apple closed the 1.0.3 train after approval
 - **Build number rule**: if a build fails, keep the same build number and retry — only increment AFTER a successful upload
-- **Marketing version is `1.0.2`** for TestFlight builds — do NOT bump to 1.0.3 or higher without explicit user approval
-  - Format: `version: 1.0.2+<build_number>` — only the build number increments each release
-  - iOS App Store and Android Play Store both show `1.0.2` to users; the build number is internal only
-  - NOTE: TestFlight will not deliver a build to devices already running 1.0.2 if the new build has a lower marketing version (e.g. 1.0.0)
+- **Marketing version is `1.0.4`** going forward — Apple closed the 1.0.3 train; 1.0.3 can no longer accept new builds
+  - Format: `version: 1.0.4+<build_number>` — only the build number increments each release
+  - iOS App Store and Android Play Store both show `1.0.3` to users; the build number is internal only
+  - NOTE: TestFlight will not deliver a build to devices already running 1.0.3 if the new build has a lower marketing version
 - Always increment build number before pushing a release branch
 - Do not use `continue-on-error: true` on App Store Connect upload CI step — it silently hides rejection errors
 

@@ -183,7 +183,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
         ),
         IconButton(
           icon: const Icon(Icons.more_vert, color: Colors.white),
-          onPressed: () {},
+          onPressed: _showMoreOptions,
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -1208,6 +1208,41 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.share_rounded),
+              title: const Text('Share run stats'),
+              onTap: () { Navigator.pop(context); _shareRun(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.directions_run_rounded),
+              title: const Text('View full run details'),
+              subtitle: widget.runData.runId.isNotEmpty ? null : const Text('Run ID not available'),
+              enabled: widget.runData.runId.isNotEmpty,
+              onTap: widget.runData.runId.isEmpty ? null : () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/run-detail', arguments: widget.runData.runId);
+              },
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

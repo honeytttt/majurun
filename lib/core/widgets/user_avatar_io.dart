@@ -18,6 +18,7 @@ Widget buildUserAvatar({required String photoUrl, required double radius}) {
       height: radius * 2,
       child: CachedNetworkImage(
         imageUrl: url,
+        memCacheWidth: 200,
         fit: BoxFit.cover,
         placeholder: (context, url) => CircleAvatar(
           radius: radius,

@@ -20,6 +20,7 @@ import 'package:majurun/modules/run/presentation/widgets/live_cheers_overlay.dar
 import 'package:majurun/modules/run/presentation/widgets/monthly_milestone_sheet.dart';
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/shoe_tracking_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/shoe_tracker_screen.dart';
 import 'package:majurun/modules/segments/presentation/screens/segment_detail_screen.dart';
 import 'package:majurun/core/services/celebration_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
@@ -269,7 +270,10 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         action: SnackBarAction(
           label: 'View shoes',
           textColor: Colors.white,
-          onPressed: () {},
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ShoeTrackerScreen()),
+          ),
         ),
       ),
     );
@@ -1765,11 +1769,34 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
         ),
         const SizedBox(height: 16),
 
+        // ── Community nudge ───────────────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF00E676).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.25)),
+          ),
+          child: const Row(
+            children: [
+              Text('🌍', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Your run was shared to the community feed — cheer on others too!',
+                  style: TextStyle(color: Color(0xFF00E676), fontSize: 12, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
         // ── View post ─────────────────────────────────────────────────────────
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            // Active immediately when postId known; grayed while save is running.
             onPressed: (_syncState == _SyncState.syncing && _postId == null)
                 ? null
                 : _viewPost,
@@ -1787,6 +1814,24 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00E676),
               foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              HomeScreen.tabNotifier.value = 3;
+            },
+            icon: const Icon(Icons.emoji_events_rounded),
+            label: const Text('Explore Challenges', style: TextStyle(fontSize: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFFFD700),
+              side: const BorderSide(color: Color(0xFFFFD700)),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),

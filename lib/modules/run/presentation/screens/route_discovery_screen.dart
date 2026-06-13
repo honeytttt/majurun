@@ -73,11 +73,21 @@ class _RouteDiscoveryScreenState extends State<RouteDiscoveryScreen>
     setState(() { _nearbyLoading = true; _locationError = null; });
 
     try {
-      final permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _locationError = 'Location access is blocked. Enable it in Settings to find nearby routes.';
+            _nearbyLoading = false;
+          });
+        }
+        await Geolocator.openAppSettings();
+        return;
+      }
       if (permission == LocationPermission.denied) {
-        final req = await Geolocator.requestPermission();
-        if (req == LocationPermission.denied ||
-            req == LocationPermission.deniedForever) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
           if (mounted) {
             setState(() {
               _locationError = 'Location permission required to find nearby routes.';

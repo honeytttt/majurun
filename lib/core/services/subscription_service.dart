@@ -10,13 +10,24 @@ enum SubscriptionTier {
 
 /// Subscription service to manage pro features
 class SubscriptionService {
+  static final SubscriptionService _instance = SubscriptionService._internal();
+  factory SubscriptionService() => _instance;
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Legacy admin email — transitional fallback only.
-  // Authoritative admin source: Firebase Custom Claim `admin: true`.
-  // To grant admin: firebase.auth().setCustomUserClaims(uid, { admin: true })
-  // TODO: remove email fallback once all admin accounts have the custom claim.
+  Stream<bool>? _proStream;
+  String? _proStreamUid;
+
+  SubscriptionService._internal() {
+    _auth.authStateChanges().listen((_) {
+      _proStream = null;
+      _proStreamUid = null;
+    });
+  }
+
+  // Email fallback — safety net only. Custom Claim `admin: true` is the
+  // authoritative check and is already set on the admin account.
   static const String adminEmail = 'majurun.app@gmail.com';
 
   /// Synchronous admin check (email only — use [isAdminAsync] where possible).
@@ -112,28 +123,33 @@ class SubscriptionService {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return Stream.value(false);
 
-    // Admin always pro
     if (isAdmin()) return Stream.value(true);
 
-    return _firestore
+    if (_proStream != null && _proStreamUid == userId) return _proStream!;
+
+    _proStreamUid = userId;
+    _proStream = _firestore
         .collection('users')
         .doc(userId)
         .snapshots()
         .map((doc) {
-      if (!doc.exists) return false;
-      final data = doc.data()!;
+          if (!doc.exists) return false;
+          final data = doc.data()!;
 
-      final email = data['email'] as String?;
-      if (email == adminEmail) return true;
+          final email = data['email'] as String?;
+          if (email == adminEmail) return true;
 
-      final isPro = data['isPro'] as bool? ?? false;
-      if (!isPro) return false;
+          final isPro = data['isPro'] as bool? ?? false;
+          if (!isPro) return false;
 
-      final subscriptionExpiry = data['subscriptionExpiry'] as Timestamp?;
-      if (subscriptionExpiry == null) return true; // Lifetime
+          final subscriptionExpiry = data['subscriptionExpiry'] as Timestamp?;
+          if (subscriptionExpiry == null) return true;
 
-      return subscriptionExpiry.toDate().isAfter(DateTime.now());
-    });
+          return subscriptionExpiry.toDate().isAfter(DateTime.now());
+        })
+        .asBroadcastStream();
+
+    return _proStream!;
   }
 
   /// DEBUG / ADMIN ONLY — writes isPro directly to Firestore.

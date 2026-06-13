@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -133,8 +134,13 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
                     child: _buildTopBar(runController),
                   ),
 
+                  // GPS-off mode banner
+                  if (runController.noGpsMode)
+                    _buildNoGpsBanner(),
+
                   // Auto-pause banner
-                  if (runController.isAutoPaused || runController.state == RunState.paused)
+                  if (!runController.noGpsMode &&
+                      (runController.isAutoPaused || runController.state == RunState.paused))
                     _buildPauseBanner(runController),
 
                   // Map section
@@ -337,6 +343,28 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNoGpsBanner() {
+    return GestureDetector(
+      onTap: () => Geolocator.openLocationSettings(),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+        color: const Color(0xFFE65100),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.gps_off_rounded, color: Colors.white, size: 16),
+            SizedBox(width: 8),
+            Text(
+              'GPS OFF — time only  •  Tap to enable',
+              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }

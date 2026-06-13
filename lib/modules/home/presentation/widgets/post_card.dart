@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -193,7 +194,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
                                 backgroundColor: const Color(0xFF2D2D44),
                                 child: ClipOval(
                                   child: photoUrl.isNotEmpty
-                                    ? Image.network(photoUrl, width: 36, height: 36, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey, size: 20))
+                                    ? CachedNetworkImage(imageUrl: photoUrl, width: 36, height: 36, fit: BoxFit.cover, memCacheWidth: 150, errorWidget: (_, __, ___) => const Icon(Icons.person, color: Colors.grey, size: 20))
                                     : const Icon(Icons.person, color: Colors.grey, size: 20),
                                 ),
                               );
@@ -364,7 +365,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         clipBehavior: Clip.antiAlias,
         child: first.type == MediaType.video 
           ? PostVideoPlayer(videoUrl: first.url, borderRadius: BorderRadius.circular(12))
-          : Image.network(first.url, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40, color: Colors.grey))),
+          : CachedNetworkImage(imageUrl: first.url, fit: BoxFit.cover, width: double.infinity, memCacheWidth: 800, errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40, color: Colors.grey))),
       );
     }
     return const SizedBox.shrink();
@@ -390,6 +391,8 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
           await ReportBottomSheet.showForPost(context, postId: widget.post.id, postOwnerId: widget.post.userId);
         } else if (val == 'dm') {
           await _openDm(context);
+        } else if (val == 'block') {
+          await _blockUser(context, uid);
         }
       },
       itemBuilder: (ctx) => [
@@ -405,8 +408,43 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
             ],
           ),
         ),
+        if (!isOwn) const PopupMenuItem(
+          value: 'block',
+          child: Row(
+            children: [
+              Icon(Icons.block, size: 18, color: Colors.orange),
+              SizedBox(width: 10),
+              Text('Block User', style: TextStyle(color: Colors.orange)),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  Future<void> _blockUser(BuildContext context, String currentUserId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block User'),
+        content: Text('Block ${widget.post.username}? Their posts won\'t appear in your feed and they won\'t be able to message you.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+    await DmService().blockUser(currentUserId, widget.post.userId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.post.username} blocked')),
+      );
+    }
   }
 
   Widget _pill(String text, IconData icon, Color color) {
