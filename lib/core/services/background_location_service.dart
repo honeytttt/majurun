@@ -95,6 +95,12 @@ class BackgroundLocationService {
   factory BackgroundLocationService() => _instance;
   BackgroundLocationService._internal();
 
+  /// Whether the app is currently in the foreground. Set from main.dart's
+  /// lifecycle observer. Android 12+ throws ForegroundServiceStartNotAllowed
+  /// if we (re)start the location foreground service while backgrounded, so
+  /// the watchdog/error-recovery restarts are skipped when this is false.
+  static bool appInForeground = true;
+
   // State
   StreamSubscription<Position>? _positionStream;
   final _positionController = StreamController<FilteredPosition>.broadcast();
@@ -445,10 +451,18 @@ class BackgroundLocationService {
       if (last == null) return;
       final silentSeconds = DateTime.now().difference(last).inSeconds;
       if (silentSeconds >= _watchdogSilenceSeconds) {
-        debugPrint('⚠️ GPS watchdog: no update for ${silentSeconds}s — attempting stream restart');
         onGpsSilent?.call();
-        _startPositionStream();
-        _lastUpdateTime = DateTime.now();
+        // Restarting the stream re-starts the Android foreground service,
+        // which is blocked (and crashes) when called from the background on
+        // Android 12+. Only restart while foreground; recovery resumes when
+        // the app returns to the foreground.
+        if (appInForeground) {
+          debugPrint('⚠️ GPS watchdog: no update for ${silentSeconds}s — restarting stream');
+          _startPositionStream();
+          _lastUpdateTime = DateTime.now();
+        } else {
+          debugPrint('⚠️ GPS watchdog: silent ${silentSeconds}s but app backgrounded — deferring restart');
+        }
       }
     });
   }
@@ -458,7 +472,9 @@ class BackgroundLocationService {
     onError?.call('GPS signal lost. Move to an open area.');
 
     Future.delayed(const Duration(seconds: 3), () {
-      if (_isTracking && !_isPaused) {
+      // Skip restart while backgrounded — re-starting the foreground service
+      // from the background crashes on Android 12+ (mAllowStartForeground).
+      if (_isTracking && !_isPaused && appInForeground) {
         debugPrint('🔄 Attempting to restart GPS stream...');
         _startPositionStream();
       }

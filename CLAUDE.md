@@ -54,7 +54,14 @@ This keeps `main` current so future branches never miss features.
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
 **Current TestFlight version:** `1.0.4+237` — OOM image caps + Crashlytics crash fixes (Twitter removed, image picker guard, profile null-check)
-**Uncommitted/un-built local changes:** none pending beyond 237 — confirm with Hani before the next build
+**Committed locally but NOT yet built (awaiting Hani's "trigger a build"):**
+- Geolocator foreground-service crash fix — `BackgroundLocationService.appInForeground` flag set from main.dart lifecycle; watchdog/error-recovery no longer restart the location FGS while backgrounded (Android 12+ `mAllowStartForeground` crash, 3 users)
+
+### Deferred crash fixes (need device testing — do NOT bump blindly)
+From Crashlytics (build 237 baseline, Android ~85% crash-free):
+- **Billing `ProxyBillingActivity` NPE (4 users, still on 1.0.4):** upstream billing-client activity-recreation bug. Fix = bump `in_app_purchase` (`flutter pub upgrade in_app_purchase`) THEN device-test the full purchase flow (sandbox). Do as a dedicated post-launch pass, not mid-test-window.
+- **Google Sign-In `SignInHubActivity` NPE:** only on 1.0.0–1.0.3, NOT 1.0.4 — appears already resolved by newer play-services-auth. Monitor only.
+- **Firestore permission-denied / transaction-misuse (1 user each):** low priority; revisit if they recur on 1.0.4.
 
 ---
 
