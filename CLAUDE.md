@@ -31,17 +31,30 @@ git checkout main && git merge <release-branch> && git push
 ```
 This keeps `main` current so future branches never miss features.
 
+### Build Triggering — Explicit Confirmation Required (do NOT build per change)
+
+**NEVER bump the build number or push to a build-triggering branch without Hani saying so.**
+
+- A push to `feature/production-polish-219` (or any branch CI builds) triggers an iOS + Android build that uploads to TestFlight / Play Alpha. **Do not do this for every change.**
+- **Default workflow:** make the code change, run `flutter analyze` (or rely on the user), and **commit locally only** — OR stage changes without pushing. Do NOT `git push` and do NOT bump `pubspec.yaml` build number as part of routine work.
+- **Only when Hani explicitly says** "trigger a build", "push to TestFlight", "make a build", or similar:
+  1. Bump the `pubspec.yaml` build number (`+xxx`) once
+  2. Commit
+  3. Push (this fires CI → TestFlight + Play Alpha)
+- Batch multiple changes into ONE build when Hani asks — don't push intermediate builds.
+- If unsure whether to push, **ask first**.
+
 ### Production Release — Explicit Confirmation Required
 
 **NEVER push a production/App Store release without explicit confirmation from Hani.**
 
 - Keep the current marketing version (`1.0.4`) across all TestFlight builds until Hani says "push to prod" or "submit for App Store review"
 - Only bump the marketing version (`1.0.x`) when Apple closes the current train (rejection error)
-- Build number (`+xxx`) increments every push as normal
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+233` — quality improvements + GPS-off mode, health auto-import, real challenges, permission banners
+**Current TestFlight version:** `1.0.4+237` — OOM image caps + Crashlytics crash fixes (Twitter removed, image picker guard, profile null-check)
+**Uncommitted/un-built local changes:** none pending beyond 237 — confirm with Hani before the next build
 
 ---
 
