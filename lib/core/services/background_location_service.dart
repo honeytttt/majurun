@@ -205,28 +205,32 @@ class BackgroundLocationService {
     _isPaused = false;
     _autoPaused = false;
 
-    // Get initial position with high accuracy
+    // Try for a QUICK initial fix, but never block the run on it. On Android
+    // (esp. low-end / cold GPS) a high-accuracy fix can take well over 15s;
+    // hard-failing here caused "Failed to start GPS tracking" and forced the
+    // user to tap Start 4-5 times. Instead, start the stream regardless — it
+    // delivers the first fix as soon as GPS acquires one, so the run begins on
+    // the FIRST tap and GPS catches up within a few seconds.
     try {
-      debugPrint('📍 Getting initial GPS fix...');
+      debugPrint('📍 Attempting quick initial GPS fix...');
       final initialPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.bestForNavigation,
-          timeLimit: Duration(seconds: 15),
+          accuracy: LocationAccuracy.high, // 'high' acquires faster than bestForNavigation
+          timeLimit: Duration(seconds: 8),
         ),
       );
-
       _lastPosition = FilteredPosition.fromPosition(initialPosition);
       _routePoints.add(_lastPosition!);
       onGpsQualityChanged?.call(_lastPosition!.quality);
-
       _lastRawPosition = initialPosition;
-      debugPrint('✅ Initial position: ${initialPosition.latitude}, ${initialPosition.longitude} (accuracy: ${initialPosition.accuracy}m)');
+      debugPrint('✅ Quick initial fix: ${initialPosition.latitude}, ${initialPosition.longitude} (±${initialPosition.accuracy}m)');
     } catch (e) {
-      onError?.call('Failed to get initial GPS position. Please ensure GPS is enabled.');
-      return false;
+      // No quick fix yet — that's fine. Proceed; the stream will acquire GPS.
+      debugPrint('⚠️ No quick initial fix ($e) — starting stream to acquire GPS');
     }
 
-    // Start position stream with optimized settings
+    // Start position stream — delivers fixes as GPS acquires them, even if the
+    // initial one-shot fix above timed out.
     _startPositionStream();
     _startWatchdog();
     _startAccelerometer();
