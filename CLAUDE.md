@@ -53,7 +53,8 @@ This keeps `main` current so future branches never miss features.
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+239` — adds: run starts on FIRST tap (GPS no longer blocks on slow initial fix). Plus 238's OOM image caps, Crashlytics crash fixes, geolocator FGS fix. All work on `main`.
+**Current TestFlight version:** `1.0.4+240` — adds: faster Android cold start (Remote Config fetch no longer blocks first frame), DM fix (rules + `_startConversation` setState-after-dispose guards), iOS dSYM upload to Crashlytics. Plus 239's GPS first-tap fix, OOM caps, crash fixes. All on `main`.
+- DM Firestore rule fix (`resource == null` on conversations read) deployed to prod June 15 — live independent of app build.
 
 ### Deferred crash fixes (need device testing — do NOT bump blindly)
 From Crashlytics (build 237 baseline, Android ~85% crash-free):
