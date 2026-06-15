@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 
@@ -108,11 +110,18 @@ class RemoteConfigService {
             : const Duration(hours: 1),   // Production
       ));
 
-      // Fetch and activate
-      await fetchAndActivate();
-
+      // Defaults are now available — mark ready immediately so app startup
+      // never waits on a network round-trip.
       _isInitialized = true;
-      debugPrint('Remote config initialized');
+
+      // Fetch fresh values in the BACKGROUND. Previously this was awaited, and
+      // because serviceLocator.initialize() (which main() awaits before
+      // runApp) waited on it, the first frame was blocked on a Remote Config
+      // network fetch — a major Android cold-start delay. Fetched values
+      // activate a moment later; defaults are used until then.
+      unawaited(fetchAndActivate());
+
+      debugPrint('Remote config initialized (fetch running in background)');
     } catch (e) {
       debugPrint('Error initializing remote config: $e');
     }
