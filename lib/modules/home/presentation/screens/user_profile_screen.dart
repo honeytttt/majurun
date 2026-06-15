@@ -282,6 +282,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     try {
       final canSend = await _dmService.canSendMessage(currentUserId, widget.userId);
+      if (!mounted) return;
       if (!canSend) {
         _showErrorSnackBar('Cannot send message to this user');
         setState(() => _isCheckingMessagePermission = false);
@@ -301,6 +302,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         otherUserPhoto: _userData?['photoUrl'],
       );
 
+      if (!mounted) return;
       setState(() => _isCheckingMessagePermission = false);
 
       if (conversationId != null && mounted) {
@@ -320,6 +322,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
     } catch (e) {
       log('Error starting conversation: $e');
+      if (!mounted) return;
       setState(() => _isCheckingMessagePermission = false);
       _showErrorSnackBar('Failed to start conversation');
     }
