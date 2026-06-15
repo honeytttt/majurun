@@ -214,13 +214,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onSave: (newName, newBio, imageData, newEmail, newLocation, newNickname, newPhone) async {
             dynamic uploadedImageUrl = imageUrl;
 
-            if (kIsWeb && imageData is Uint8List) {
-              debugPrint('📤 Uploading from ProfileScreen...');
-              final user = FirebaseAuth.instance.currentUser;
-              if (user != null) {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null && imageData != null) {
+              if (kIsWeb && imageData is Uint8List) {
                 final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
                 final fileName = 'profile_${user.uid}_$timestamp.png';
                 uploadedImageUrl = await StorageService().uploadMedia(imageData, fileName, false);
+              } else if (!kIsWeb && imageData is File) {
+                // Mobile: upload the picked File (this was missing, so photo
+                // changes via Edit Profile didn't persist on iOS/Android).
+                uploadedImageUrl = await StorageService().uploadFile(imageData, false);
               }
             }
 
