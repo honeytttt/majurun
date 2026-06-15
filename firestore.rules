@@ -153,8 +153,13 @@ service cloud.firestore {
 
     // ─── Conversations / DMs ──────────────────────────────────────────────────
     match /conversations/{conversationId} {
+      // `resource == null` allows a get() on a not-yet-created conversation —
+      // getOrCreateConversation() reads the doc to check existence before
+      // creating it. Without this, the read rule errors on the null resource
+      // and denies, so starting a brand-new DM failed ("Failed to start
+      // conversation"). A non-existent doc has no data to leak.
       allow read: if isAuthenticated() &&
-        request.auth.uid in resource.data.participants;
+        (resource == null || request.auth.uid in resource.data.participants);
       allow create: if isAuthenticated() &&
         request.auth.uid in request.resource.data.participants;
       allow update: if isAuthenticated() &&

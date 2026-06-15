@@ -469,6 +469,28 @@ jobs:
 
           echo "Archive signed successfully"
 
+      # Upload dSYM symbol files to Crashlytics so iOS crash stack traces are
+      # symbolicated (otherwise iOS crashes show as "unprocessed" and the
+      # Crashlytics dashboard is effectively blind on iOS). Non-fatal: a failure
+      # here must never break the build.
+      - name: Upload dSYMs to Crashlytics
+        continue-on-error: true
+        run: |
+          DSYM_PATH="$RUNNER_TEMP/Runner.xcarchive/dSYMs"
+          UPLOAD_SYMBOLS="ios/Pods/FirebaseCrashlytics/upload-symbols"
+          GSP="ios/Runner/GoogleService-Info.plist"
+          if [ -x "$UPLOAD_SYMBOLS" ] && [ -d "$DSYM_PATH" ] && [ -f "$GSP" ]; then
+            echo "Uploading dSYMs from $DSYM_PATH to Crashlytics..."
+            "$UPLOAD_SYMBOLS" -gsp "$GSP" -p ios "$DSYM_PATH" \
+              && echo "✅ dSYMs uploaded to Crashlytics" \
+              || echo "⚠️ dSYM upload failed (non-fatal)"
+          else
+            echo "⚠️ Skipping dSYM upload — missing one of:"
+            echo "   upload-symbols: $UPLOAD_SYMBOLS"; [ -x "$UPLOAD_SYMBOLS" ] && echo "   (found)" || echo "   (MISSING)"
+            echo "   dSYMs: $DSYM_PATH"; [ -d "$DSYM_PATH" ] && ls -la "$DSYM_PATH" || echo "   (MISSING)"
+            echo "   plist: $GSP"; [ -f "$GSP" ] && echo "   (found)" || echo "   (MISSING)"
+          fi
+
       - name: Export IPA
         run: |
           cd ios
