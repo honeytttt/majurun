@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:majurun/core/widgets/shimmer_loading.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -723,10 +724,10 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
               fit: BoxFit.cover,
               width: double.infinity,
               memCacheWidth: 800,
-              placeholder: (context, url) => Container(
+              placeholder: (context, url) => const ShimmerBox(
+                width: double.infinity,
                 height: 220,
-                color: Colors.grey[200],
-                child: const Center(child: Icon(Icons.map_outlined, size: 48, color: Colors.grey)),
+                borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
               errorWidget: (context, url, error) => Container(
                 height: 180,
@@ -764,10 +765,10 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
               fit: BoxFit.contain,
               width: double.infinity,
               memCacheWidth: 800,
-              placeholder: (context, url) => Container(
+              placeholder: (context, url) => const ShimmerBox(
+                width: double.infinity,
                 height: 300,
-                color: Colors.grey[100],
-                child: const Center(child: CircularProgressIndicator()),
+                borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
               errorWidget: (context, url, error) {
                 debugPrint('❌ Error loading image: $error');
