@@ -53,7 +53,7 @@ This keeps `main` current so future branches never miss features.
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+240` — adds: faster Android cold start (Remote Config fetch no longer blocks first frame), DM fix (rules + `_startConversation` setState-after-dispose guards), iOS dSYM upload to Crashlytics. Plus 239's GPS first-tap fix, OOM caps, crash fixes. All on `main`.
+**Current TestFlight version:** `1.0.4+241` — adds: profile photo saves on mobile (Edit Profile was web-only), user search finds users (was case-sensitive prefix-only), avatars capped to 512px (near-instant load), Notification Fixer card removed. Plus 240's cold-start/DM/dSYM fixes.
 - DM Firestore rule fix (`resource == null` on conversations read) deployed to prod June 15 — live independent of app build.
 
 ### Deferred crash fixes (need device testing — do NOT bump blindly)
