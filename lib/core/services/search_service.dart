@@ -43,71 +43,54 @@ class SearchService {
   static const String _recentSearchesKey = 'recent_searches';
   static const int _maxRecentSearches = 10;
 
-  /// Search users by displayName (case-insensitive prefix search)
+  /// Search users by name (case-insensitive substring across name fields).
   Future<List<SearchResult>> searchUsers(String query) async {
     if (query.isEmpty) return [];
 
     try {
       final queryLower = query.toLowerCase();
 
-      // Firestore doesn't support case-insensitive search, so we fetch and filter
-      // For production, consider using Algolia or Firebase Extensions
+      // Firestore can't do case-insensitive substring search. The old prefix
+      // range query (orderBy('displayName').startAt/endAt) was case-sensitive
+      // and prefix-only, so "shaik" never matched "Shaik", and users missing a
+      // displayName field (e.g. Google sign-ins) were excluded entirely.
+      // Instead fetch a batch and filter client-side - same approach as
+      // searchPosts. Fine at current scale; move to Algolia / a search
+      // extension when the user base grows large.
       final snapshot = await _firestore
           .collection('users')
-          .orderBy('displayName')
-          .startAt([query])
-          .endAt(['$query\uf8ff'])
-          .limit(20)
+          .limit(300)
           .get();
 
       final results = <SearchResult>[];
-
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final displayName = (data['displayName'] as String?) ?? '';
+        final username = (data['username'] as String?) ?? '';
+        final nickname = (data['nickname'] as String?) ?? '';
 
-        // Additional case-insensitive filter
-        if (displayName.toLowerCase().contains(queryLower)) {
+        if (displayName.toLowerCase().contains(queryLower) ||
+            username.toLowerCase().contains(queryLower) ||
+            nickname.toLowerCase().contains(queryLower)) {
+          final title = displayName.isNotEmpty
+              ? displayName
+              : (username.isNotEmpty ? username : 'Runner');
           results.add(SearchResult(
             id: doc.id,
             type: 'user',
-            title: displayName,
+            title: title,
             subtitle: data['bio'] ?? '',
             imageUrl: data['photoUrl'],
             data: {...data, 'uid': doc.id},
           ));
+          if (results.length >= 20) break;
         }
       }
 
-      // Also try lowercase search if not many results
-      if (results.length < 5) {
-        final lowerSnapshot = await _firestore
-            .collection('users')
-            .orderBy('displayName')
-            .startAt([queryLower])
-            .endAt(['$queryLower\uf8ff'])
-            .limit(20)
-            .get();
-
-        for (final doc in lowerSnapshot.docs) {
-          if (!results.any((r) => r.id == doc.id)) {
-            final data = doc.data();
-            results.add(SearchResult(
-              id: doc.id,
-              type: 'user',
-              title: data['displayName'] ?? '',
-              subtitle: data['bio'] ?? '',
-              imageUrl: data['photoUrl'],
-              data: {...data, 'uid': doc.id},
-            ));
-          }
-        }
-      }
-
-      debugPrint('🔍 Found ${results.length} users for query: $query');
+      debugPrint('\u{1F50D} Found ${results.length} users for query: $query');
       return results;
     } catch (e) {
-      debugPrint('❌ Error searching users: $e');
+      debugPrint('\u274C Error searching users: $e');
       return [];
     }
   }

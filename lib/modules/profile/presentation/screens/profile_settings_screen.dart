@@ -71,13 +71,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     if (kIsWeb) {
-      final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final XFile? picked = await picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 80, maxWidth: 512, maxHeight: 512);
       if (picked != null && mounted) {
         _webImage = await picked.readAsBytes();
         setState(() {});
       }
     } else {
-      final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final XFile? picked = await picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 80, maxWidth: 512, maxHeight: 512);
       if (picked != null && mounted) {
         _imageFile = File(picked.path);
         setState(() {});

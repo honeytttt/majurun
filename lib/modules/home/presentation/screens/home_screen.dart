@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -179,6 +180,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final String fileName = 'profile_${user.uid}_$timestamp.png';
       if (kIsWeb && imageOrUrl is Uint8List) {
         finalImageUrl = await _storageService.uploadMedia(imageOrUrl, fileName, false);
+      } else if (!kIsWeb && imageOrUrl is File) {
+        // Mobile: the picked photo is a File — upload it. This branch was
+        // missing, so profile-photo changes via Edit Profile silently did
+        // nothing on iOS/Android ("able to edit but not save").
+        finalImageUrl = await _storageService.uploadFile(imageOrUrl, false);
       }
     }
 

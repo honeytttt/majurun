@@ -1,4 +1,4 @@
-import 'dart:io' show Platform, File;
+import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,7 +21,6 @@ import 'package:majurun/modules/profile/presentation/screens/contact_us_screen.d
 import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 import 'package:majurun/modules/profile/presentation/screens/about_screen.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
-import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/weekly_summary_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/modules/profile/presentation/screens/goals_screen.dart';
@@ -148,7 +147,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final picker = ImagePicker();
     final XFile? picked;
     try {
-      picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      // Cap avatar size — a profile photo never needs to be full camera
+      // resolution. Keeps the upload ~30-50KB so it downloads near-instantly.
+      picked = await picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 85, maxWidth: 512, maxHeight: 512);
     } on PlatformException {
       if (mounted) setState(() => _uploadingAvatar = false);
       return;
@@ -214,13 +216,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onSave: (newName, newBio, imageData, newEmail, newLocation, newNickname, newPhone) async {
             dynamic uploadedImageUrl = imageUrl;
 
-            if (kIsWeb && imageData is Uint8List) {
-              debugPrint('📤 Uploading from ProfileScreen...');
-              final user = FirebaseAuth.instance.currentUser;
-              if (user != null) {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null && imageData != null) {
+              if (kIsWeb && imageData is Uint8List) {
                 final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
                 final fileName = 'profile_${user.uid}_$timestamp.png';
                 uploadedImageUrl = await StorageService().uploadMedia(imageData, fileName, false);
+              } else if (!kIsWeb && imageData is File) {
+                // Mobile: upload the picked File (this was missing, so photo
+                // changes via Edit Profile didn't persist on iOS/Android).
+                uploadedImageUrl = await StorageService().uploadFile(imageData, false);
               }
             }
 
@@ -513,10 +518,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   
-                  if (!_showPosts)
-                    SliverToBoxAdapter(
-                      child: _buildNotificationFixer(),
-                    ),
 
                   // Bottom padding so last item isn't hidden behind system navigation bar
                   const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
@@ -1228,138 +1229,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationFixer() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.notification_important, color: Colors.blue),
-                SizedBox(width: 8),
-                Text(
-                  'Notification Fixer',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'If your daily reminders aren\'t appearing, your phone may be blocking them to save battery.',
-              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 16),
-            if (!kIsWeb && Platform.isIOS) ...[
-              // iOS: open system notification settings
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await PushNotificationService().openNotificationSettings();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Opening notification settings...')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.settings, size: 16),
-                  label: const Text('Open Notification Settings'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue,
-                    side: const BorderSide(color: Colors.blue),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ),
-            ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await PushNotificationService().requestBatteryOptimizationExemption();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('System settings opened — find MajuRun and tap "Don\'t optimize"'),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.battery_saver, size: 16),
-                      label: const Text('Ignore Optimization'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await PushNotificationService().requestExactAlarmPermission();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Exact alarm permission requested — tap Allow if prompted'),
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.alarm, size: 16),
-                      label: const Text('Allow Exact Alarms'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  await PushNotificationService().sendTestNotification();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Test notification sent!')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.send, size: 16),
-                label: const Text('Send Test Notification'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
