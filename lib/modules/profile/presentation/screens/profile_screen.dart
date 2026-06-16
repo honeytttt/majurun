@@ -148,7 +148,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final picker = ImagePicker();
     final XFile? picked;
     try {
-      picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      // Cap avatar size — a profile photo never needs to be full camera
+      // resolution. Keeps the upload ~30-50KB so it downloads near-instantly.
+      picked = await picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 85, maxWidth: 512, maxHeight: 512);
     } on PlatformException {
       if (mounted) setState(() => _uploadingAvatar = false);
       return;

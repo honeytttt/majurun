@@ -58,8 +58,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(
-      source: ImageSource.gallery, 
-      imageQuality: 70, // Added slight compression at picker level
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 512, // avatar never needs full camera resolution → fast load
+      maxHeight: 512,
     );
     
     if (picked != null && mounted) {
