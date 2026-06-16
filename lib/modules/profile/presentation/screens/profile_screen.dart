@@ -59,6 +59,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _showPosts = true;
   bool _uploadingAvatar = false;
+  File? _localAvatarFile; // optimistic: show the picked photo instantly
   // Cache the streak+activity future so it is created once, not on every rebuild.
   late final Future<Map<String, dynamic>> _streakFuture;
 
@@ -160,14 +161,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    // Optimistic: show the picked photo instantly while it uploads.
+    final localFile = File(picked.path);
+    setState(() => _localAvatarFile = localFile);
+
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      final url = await StorageService().uploadFile(File(picked.path), false);
+      final url = await StorageService().uploadFile(localFile, false);
       if (url == null) throw Exception('Upload failed');
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'photoUrl': url});
       await user.updatePhotoURL(url);
+      // Keep _localAvatarFile shown — it matches what was uploaded — so there's
+      // no flash while the fresh network URL warms its cache.
     } catch (e) {
+      // Upload failed — drop the optimistic image and tell the user.
       if (mounted) {
+        setState(() => _localAvatarFile = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update photo: $e'), backgroundColor: Colors.redAccent),
         );
@@ -568,16 +577,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Stack(
               alignment: Alignment.bottomRight,
               children: [
-                _uploadingAvatar
+                // Base avatar: the just-picked local file (optimistic — shows
+                // instantly) or the network image once there's no pending pick.
+                _localAvatarFile != null
                     ? Container(
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFF00E676), width: 3),
-                        ),
-                        child: const Center(
-                          child: CircularProgressIndicator(color: Color(0xFF00E676), strokeWidth: 2),
+                          image: DecorationImage(
+                            image: FileImage(_localAvatarFile!),
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       )
                     : DirectUrlAvatar(
@@ -587,13 +599,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderColor: const Color(0xFF00E676),
                         borderWidth: 3,
                       ),
+                // Camera badge — shows a small spinner while uploading so the
+                // photo itself stays visible (no full-avatar spinner).
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: const BoxDecoration(
                     color: Color(0xFF00E676),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black),
+                  child: _uploadingAvatar
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black),
                 ),
               ],
             ),

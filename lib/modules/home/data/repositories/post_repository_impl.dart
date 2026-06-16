@@ -88,6 +88,7 @@ class PostRepositoryImpl {
         return PostMedia(
           url: url,
           type: typeStr == 'video' ? MediaType.video : MediaType.image,
+          blurHash: (m is Map) ? m['blurHash'] as String? : null,
         );
       }).toList();
     }
@@ -277,7 +278,8 @@ class PostRepositoryImpl {
         PostFields.media: post.media
             .map((m) => {
                   'url': m.url,
-                  'type': m.type == MediaType.video ? 'video' : 'image'
+                  'type': m.type == MediaType.video ? 'video' : 'image',
+                  if (m.blurHash != null) 'blurHash': m.blurHash,
                 })
             .toList(),
         PostFields.createdAt: FieldValue.serverTimestamp(),

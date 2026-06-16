@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:majurun/core/widgets/shimmer_loading.dart';
 
 Widget buildUserAvatar({required String photoUrl, required double radius}) {
   final url = photoUrl.trim();
@@ -20,10 +21,12 @@ Widget buildUserAvatar({required String photoUrl, required double radius}) {
         imageUrl: url,
         memCacheWidth: 200,
         fit: BoxFit.cover,
-        placeholder: (context, url) => CircleAvatar(
-          radius: radius,
-          backgroundColor: Colors.grey.shade200,
-          child: const CircularProgressIndicator(strokeWidth: 2),
+        // Soft shimmer placeholder (skeleton) — feels instant and polished
+        // vs a spinner while the image downloads.
+        placeholder: (context, url) => ShimmerBox(
+          width: radius * 2,
+          height: radius * 2,
+          borderRadius: BorderRadius.circular(radius),
         ),
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,

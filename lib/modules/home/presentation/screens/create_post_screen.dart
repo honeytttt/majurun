@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/services/storage_service.dart';
+import 'package:majurun/core/services/blur_hash_service.dart';
 import 'package:majurun/core/services/post_limit_service.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/data/repositories/post_repository_impl.dart';
@@ -265,13 +266,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final url = await _storage.uploadMedia(bytes, file.name, isVideo);
 
       if (url != null && mounted) {
+        // Compute a BlurHash for images so the feed can show a blurred preview
+        // instantly while the full image downloads. Fail-safe (null on error).
+        final String? blurHash = isVideo ? null : await BlurHashService.encode(bytes);
+
+        if (!mounted) return;
         setState(() {
           _mediaList.add(PostMedia(
             url: url,
             type: isVideo ? MediaType.video : MediaType.image,
+            blurHash: blurHash,
           ));
         });
-        
+
         _showSuccess('${isVideo ? "Video" : "Image"} uploaded ($sizeStr)');
       } else {
         _showError('Upload failed. Please try again.');
