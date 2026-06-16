@@ -44,6 +44,10 @@ dependencies:
   flutter_svg: ^2.0.10+1
   cached_network_image: ^3.4.0
   image_picker: ^1.1.2
+  # BlurHash — instant blurred photo preview while the real image downloads.
+  flutter_blurhash: ^0.8.2   # render a hash as a placeholder widget/ImageProvider
+  blurhash_dart: ^1.2.1      # encode/decode the hash string
+  image: ^4.1.7              # decode image bytes for encoding (used by blurhash_dart)
   video_player: ^2.9.1
   chewie: ^1.8.1
   screenshot: ^3.0.0

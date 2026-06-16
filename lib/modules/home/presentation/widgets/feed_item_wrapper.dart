@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:majurun/core/widgets/shimmer_loading.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -724,11 +725,21 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
               fit: BoxFit.cover,
               width: double.infinity,
               memCacheWidth: 800,
-              placeholder: (context, url) => const ShimmerBox(
-                width: double.infinity,
-                height: 220,
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-              ),
+              placeholder: (context, url) => media.blurHash != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image(
+                        image: BlurHashImage(media.blurHash!),
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : const ShimmerBox(
+                      width: double.infinity,
+                      height: 220,
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
               errorWidget: (context, url, error) => Container(
                 height: 180,
                 color: Colors.grey[200],
@@ -765,11 +776,21 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
               fit: BoxFit.contain,
               width: double.infinity,
               memCacheWidth: 800,
-              placeholder: (context, url) => const ShimmerBox(
-                width: double.infinity,
-                height: 300,
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-              ),
+              placeholder: (context, url) => media.blurHash != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image(
+                        image: BlurHashImage(media.blurHash!),
+                        width: double.infinity,
+                        height: 300,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : const ShimmerBox(
+                      width: double.infinity,
+                      height: 300,
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
               errorWidget: (context, url, error) {
                 debugPrint('❌ Error loading image: $error');
                 return Container(

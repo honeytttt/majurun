@@ -7,11 +7,12 @@ enum MediaType { text, image, video, runMap }
 class PostMedia extends Equatable {
   final String url;
   final MediaType type;
+  final String? blurHash; // compact blurred-preview hash, shown while loading
 
-  const PostMedia({required this.url, required this.type});
+  const PostMedia({required this.url, required this.type, this.blurHash});
 
   @override
-  List<Object?> get props => [url, type];
+  List<Object?> get props => [url, type, blurHash];
 }
 
 class AppComment extends Equatable {
