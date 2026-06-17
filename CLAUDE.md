@@ -53,8 +53,9 @@ This keeps `main` current so future branches never miss features.
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+242` — adds: BlurHash blur-in for feed images (new deps: flutter_blurhash, blurhash_dart, image), shimmer placeholders, optimistic avatar update. Plus 241's profile-photo/search/avatar-cap fixes.
-- ⚠️ 242 adds 3 new packages — first CI run validates dependency resolution (can't pub get in WSL).
+**Current TestFlight version:** `1.0.4+243` — REVERTS BlurHash + shimmer placeholders (caused an app hang on both platforms in 242). Kept optimistic avatar + 512px avatar caps. Plain placeholders restored.
+- ⚠️ BlurHash is disabled (blur_hash_service.dart + PostMedia.blurHash field remain unused). Do NOT re-enable without on-device profiling — it hung 242.
+- ⚠️ Open Android crash on 1.0.4: image_picker `pickImages` already_active (5 events) — guard the multi-image pick path next.
 - DM Firestore rule fix (`resource == null` on conversations read) deployed to prod June 15 — live independent of app build.
 
 ### Deferred crash fixes (need device testing — do NOT bump blindly)
