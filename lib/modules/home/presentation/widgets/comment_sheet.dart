@@ -85,17 +85,30 @@ class _CommentSheetState extends State<CommentSheet> {
     super.dispose();
   }
 
-  // FIXED: Restored missing _pickMedia method
-  Future<void> _pickMedia(bool video) async {
-    final XFile? file = video
-        ? await _picker.pickVideo(source: ImageSource.gallery)
-        : await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+  bool _isPicking = false;
 
-    if (file != null) {
+  Future<void> _pickMedia(bool video) async {
+    // Guard against a second pick while one is open — image_picker throws
+    // PlatformException(already_active) on double-tap, which crashes.
+    if (_isPicking) return;
+    XFile? file;
+    try {
+      _isPicking = true;
+      file = video
+          ? await _picker.pickVideo(source: ImageSource.gallery)
+          : await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    } on PlatformException {
+      return;
+    } finally {
+      _isPicking = false;
+    }
+
+    if (file != null && mounted) {
       final bytes = await file.readAsBytes();
+      if (!mounted) return;
       setState(() {
         selectedMediaBytes = bytes;
-        selectedMediaName = file.name;
+        selectedMediaName = file!.name;
         isVideo = video;
       });
     }
