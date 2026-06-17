@@ -69,9 +69,10 @@ What the Android production approval actually depends on (and what does NOT):
 - When Hani confirms prod release: bump build number, update "What's New" text, commit, push, then create the new version in App Store Connect
 
 **Current prod version on App Store:** `1.0.3` (build 227) — released June 5, 2026
-**Current TestFlight version:** `1.0.4+243` — REVERTS BlurHash + shimmer placeholders (caused an app hang on both platforms in 242). Kept optimistic avatar + 512px avatar caps. Plain placeholders restored.
-- ⚠️ BlurHash is disabled (blur_hash_service.dart + PostMedia.blurHash field remain unused). Do NOT re-enable without on-device profiling — it hung 242.
-- ⚠️ Open Android crash on 1.0.4: image_picker `pickImages` already_active (5 events) — guard the multi-image pick path next.
+**Current TestFlight version:** `1.0.4+244` — FIXES the real home-feed freeze (infinite setState loop) + comment_sheet picker double-tap guard.
+- 🎯 **Build 244 root cause:** the "splash → home → can't tap" freeze was an infinite `setState` loop in `home_screen.dart` feed change-detection — it compared the live stream's first page (20) to `_allPosts` by LENGTH, which is permanently true once pagination grows `_allPosts` past 20. Fixed by using `newPostIds.difference(currentPostIds)` (genuinely new posts) + memoizing `getPostsStream()`. This was NOT BlurHash/shimmer (243 reverted those and still hung).
+- ✅ BlurHash/shimmer were wrongly blamed — safe to reintroduce later (separate task, device-test first). blur_hash_service.dart + PostMedia.blurHash remain unused/inert for now.
+- ✅ Android `pickImages`/`pickVideos` already_active crash: guarded in comment_sheet (build 244) + create_post (already guarded).
 - DM Firestore rule fix (`resource == null` on conversations read) deployed to prod June 15 — live independent of app build.
 
 ### Deferred crash fixes (need device testing — do NOT bump blindly)
