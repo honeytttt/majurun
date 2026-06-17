@@ -493,6 +493,10 @@ class HomeFeedContent extends StatefulWidget {
 
 class _HomeFeedContentState extends State<HomeFeedContent> {
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
+  // Memoized once — getPostsStream() builds a NEW stream on every call, so
+  // evaluating it inside build() made StreamBuilder tear down and re-subscribe
+  // the Firestore listener on every rebuild (resubscribe churn + extra reads).
+  late final Stream<List<AppPost>> _postsStream = _postRepo.getPostsStream();
   final ScrollController _feedScrollController = ScrollController();
   final NotificationService _notificationService = NotificationService();
   final List<AppPost> _allPosts = [];
@@ -717,7 +721,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
     const silverMedium = AppTheme.silverMedium;
 
     return StreamBuilder<List<AppPost>>(
-      stream: _postRepo.getPostsStream(),
+      stream: _postsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting && _allPosts.isEmpty) {
           return const SingleChildScrollView(
@@ -753,8 +757,13 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
           final newPostIds = posts.map((p) => p.id).toSet();
           final currentPostIds = _allPosts.map((p) => p.id).toSet();
 
-          final idsChanged = newPostIds.length != currentPostIds.length ||
-              !newPostIds.every((id) => currentPostIds.contains(id));
+          // Only react to GENUINELY new posts at the top of the feed.
+          // Do NOT compare lengths: _allPosts legitimately grows past the live
+          // stream's first page (20) via pagination, so a length check would be
+          // permanently true and spin setState→rebuild→setState forever — that
+          // was the home-screen freeze ("opens then can't tap anything").
+          final trulyNewIds = newPostIds.difference(currentPostIds);
+          final idsChanged = trulyNewIds.isNotEmpty;
           final likesChanged = !idsChanged &&
               posts.any((p) {
                 try {
@@ -772,7 +781,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
               // show the "new posts" banner instead of silently updating.
               final scrolledDown = _feedScrollController.hasClients &&
                   _feedScrollController.offset > 300;
-              final trulyNewIds = newPostIds.difference(currentPostIds);
 
               if (scrolledDown && trulyNewIds.isNotEmpty && _allPosts.isNotEmpty) {
                 setState(() {
