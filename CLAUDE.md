@@ -31,6 +31,22 @@ git checkout main && git merge <release-branch> && git push
 ```
 This keeps `main` current so future branches never miss features.
 
+### Android Closed Testing / Production Approval — TOP PRIORITY (do not jeopardise)
+
+**The app is in the Google Play closed-testing window working toward production access. The #1 concern is NOT getting rejected again. Keep this in mind for every change.**
+
+What the Android production approval actually depends on (and what does NOT):
+- ✅ **It depends ONLY on the closed test:** 12+ testers opted in, continuously, for 14 days, on the Alpha track. That's the gate.
+- ✅ **The Alpha track must always have a working release available.** Don't let a broken build leave the track empty — but a failed CI upload does NOT remove the existing release, so the track stays populated.
+- ❌ **It does NOT depend on crash-free rate, hangs, or bugs.** App quality issues do not directly cause a production-access rejection (the rejection reason is "needs more testing", i.e. the 12-testers/14-days rule). So our code changes (crash fixes, features, reverts) **do not affect the approval** as long as we don't break the closed test.
+- 🛑 **NEVER touch the tester list / email lists** — removing/re-adding testers drops the count below 12 and **resets the 14-day continuous counter to 0** (this is what caused the previous rejections).
+- 🛑 **Do not unpublish or switch the Alpha track.**
+
+**Bottom line for code work:** keep shipping fixes/features to Alpha freely — they don't risk the approval. The only things that risk it are touching the tester list or leaving the track without a release. Prioritise a STABLE build for testers (a hanging app could reduce engagement), but stability is about good UX, not an approval gate.
+
+### Local testing (Flutter now available in WSL)
+- `flutter analyze` works in this WSL env now — **run it locally before pushing** to catch compile errors instead of relying on CI (faster). May be slow on `/mnt/c`.
+
 ### Build Triggering — Explicit Confirmation Required (do NOT build per change)
 
 **NEVER bump the build number or push to a build-triggering branch without Hani saying so.**
