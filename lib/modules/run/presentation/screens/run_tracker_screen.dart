@@ -31,6 +31,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   // Guided coaching — null means coaching off
   int? _targetPaceSeconds; // seconds per km
+  // Guards the Start flow: Android GPS prewarm can take a few seconds, during
+  // which impatient users re-tap START and could launch duplicate runs. We
+  // ignore re-taps while starting and show instant "STARTING…" feedback.
+  bool _isStarting = false;
 
   @override
   void initState() {
@@ -243,10 +247,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
             _buildCoachingChip(),
             const SizedBox(height: 10),
             BounceClick(
-              onTap: _handleStartRun,
+              onTap: _isStarting ? null : _handleStartRun,
               child: Semantics(
                 button: true,
-                label: 'Start a new run',
+                label: _isStarting ? 'Starting run' : 'Start a new run',
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 22),
                   decoration: BoxDecoration(
@@ -254,15 +258,43 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: AppEffects.neonGlow(),
                   ),
-                  child: const Text(
-                    'START',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      color: Colors.white,
-                      letterSpacing: 2,
-                    ),
-                  ),
+                  // Instant feedback the moment START is tapped — on Android the
+                  // GPS prewarm takes a beat, and without this users think the
+                  // tap did nothing and re-tap (the guard also blocks re-taps).
+                  child: _isStarting
+                      ? const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'STARTING…',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 22,
+                                color: Colors.white,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Text(
+                          'START',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                            color: Colors.white,
+                            letterSpacing: 2,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -492,6 +524,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Future<void> _handleStartRun() async {
+    if (_isStarting) return; // ignore re-taps while a start is already underway
+    setState(() => _isStarting = true);
+    try {
+      await _runStartFlow();
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
+    }
+  }
+
+  Future<void> _runStartFlow() async {
     final runController = Provider.of<RunController>(context, listen: false);
     runController.voiceController.setTargetPace(_targetPaceSeconds ?? 0);
 
