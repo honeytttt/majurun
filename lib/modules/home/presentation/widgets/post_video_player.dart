@@ -46,7 +46,13 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
     _controller = null;
     await prev?.dispose();
     try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      // mixWithOthers: feed videos auto-play MUTED, but ExoPlayer still grabs
+      // Android audio focus by default, which STOPS the user's music (Spotify)
+      // while scrolling the feed. Coexist instead of taking exclusive focus.
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
       _controller = controller;
       await controller.initialize();
 

@@ -327,6 +327,11 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     try {
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(_celebrationVideoUrl),
+        // mixWithOthers: don't grab exclusive Android audio focus. The video is
+        // muted, but ExoPlayer still requests AUDIOFOCUS_GAIN by default, which
+        // STOPS Spotify/music on Android when this post-run screen appears.
+        // (iOS was fine because the AVAudioSession is already set to duckOthers.)
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
       );
       await controller.initialize();
       controller.setLooping(false);
