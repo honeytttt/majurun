@@ -39,8 +39,9 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   }
 
   Future<void> _postToFeed() async {
+    if (_isPosting) return; // guard against double-tap → duplicate run posts
     final runController = Provider.of<RunController>(context, listen: false);
-    
+
     setState(() => _isPosting = true);
 
     try {

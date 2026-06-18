@@ -111,6 +111,7 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
   }
 
   Future<void> _save(double distanceKm) async {
+    if (_isSaving) return; // guard double-tap → duplicate treadmill run
     setState(() => _isSaving = true);
 
     final durationSeconds = _secondsElapsed;

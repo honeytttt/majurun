@@ -84,6 +84,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   VideoPlayerController? _videoController;
   final ScreenshotController _screenshotController = ScreenshotController();
   bool _isGeneratingCard = false;
+  bool _postingAchievement = false; // in-flight guard for the achievement post
+  bool _achievementPosted = false; // latch: an achievement posts at most once
 
   // Sync status pill — shown when saveFuture is provided
   _SyncState _syncState = _SyncState.idle;
@@ -646,6 +648,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   }
 
   Future<void> _shareToSocial() async {
+    if (_isGeneratingCard) return; // guard re-entry (button is also disabled)
     setState(() => _isGeneratingCard = true);
     try {
       final unitPref = context.read<UnitPreferenceService>();
@@ -852,8 +855,12 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
   }
 
   Future<void> _postAchievementToFeed() async {
+    // Prevent duplicate achievement posts: ignore re-taps while posting AND
+    // once it has succeeded (an achievement should appear in the feed once).
+    if (_postingAchievement || _achievementPosted) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+    setState(() => _postingAchievement = true);
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final userName = (userDoc.data()?['displayName'] as String?) ?? user.displayName ?? 'Runner';
@@ -878,6 +885,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       });
 
       if (mounted) {
+        setState(() => _achievementPosted = true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Achievement posted to MajuRun feed!'),
@@ -888,6 +896,8 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
       }
     } catch (e) {
       debugPrint('❌ Achievement post failed: $e');
+    } finally {
+      if (mounted) setState(() => _postingAchievement = false);
     }
   }
 
@@ -1753,10 +1763,16 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _postAchievementToFeed,
-                        icon: const Icon(Icons.bolt_rounded, size: 18),
-                        label: const Text('Post to Feed',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: (_postingAchievement || _achievementPosted)
+                            ? null
+                            : _postAchievementToFeed,
+                        icon: Icon(
+                            _achievementPosted
+                                ? Icons.check_rounded
+                                : Icons.bolt_rounded,
+                            size: 18),
+                        label: Text(_achievementPosted ? 'Posted' : 'Post to Feed',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFFD700),
                           foregroundColor: Colors.black,

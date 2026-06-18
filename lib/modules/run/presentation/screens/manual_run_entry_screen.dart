@@ -119,6 +119,7 @@ class _ManualRunEntryScreenState extends State<ManualRunEntryScreen> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return; // guard double-tap → duplicate manual run
     if (!_formKey.currentState!.validate()) return;
     if (_totalSeconds == 0) {
       ScaffoldMessenger.of(context).showSnackBar(

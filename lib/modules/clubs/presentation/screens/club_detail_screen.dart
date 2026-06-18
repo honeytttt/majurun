@@ -64,6 +64,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen>
   }
 
   Future<void> _join() async {
+    if (_joining) return; // guard double-join
     setState(() => _joining = true);
     try {
       await _service.joinClub(widget.club.id);

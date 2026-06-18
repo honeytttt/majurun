@@ -26,6 +26,7 @@ class _ClubCreateScreenState extends State<ClubCreateScreen> {
   }
 
   Future<void> _submit() async {
+    if (_loading) return; // guard double-submit → duplicate club
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {

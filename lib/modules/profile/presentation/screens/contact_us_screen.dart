@@ -52,6 +52,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
   }
 
   Future<void> _submitForm() async {
+    if (_isLoading) return; // guard double-submit → duplicate contact message
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);

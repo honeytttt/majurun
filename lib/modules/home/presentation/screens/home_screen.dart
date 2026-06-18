@@ -538,7 +538,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
   Future<void> _shareImportedRun() async {
     final run = _importedRunToShare;
-    if (run == null) return;
+    if (run == null || _sharingImportedRun) return; // guard double-share
     setState(() => _sharingImportedRun = true);
     try {
       await HealthSyncService().shareImportedRunToFeed(run);

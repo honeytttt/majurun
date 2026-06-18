@@ -462,6 +462,7 @@ class _FollowButtonState extends State<_FollowButton> {
   bool _followed = false;
 
   Future<void> _follow() async {
+    if (_loading || _followed) return; // guard double-follow
     setState(() => _loading = true);
     try {
       await FollowService().followUser(widget.userId);

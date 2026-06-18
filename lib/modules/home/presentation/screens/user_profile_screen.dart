@@ -35,6 +35,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final DmService _dmService = DmService();
 
   bool _isFollowing = false;
+  bool _togglingFollow = false; // in-flight guard so double-taps don't drift counts
   bool _isBlocked = false;
   bool _isLoading = true;
   bool _showPosts = true;
@@ -184,6 +185,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _toggleFollow() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
+    if (_togglingFollow) return; // guard rapid double-tap (follower-count drift)
+    _togglingFollow = true;
 
     final currentUserId = currentUser.uid;
     final currentUsername = currentUser.displayName ?? 'Runner';
@@ -264,6 +267,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           const SnackBar(content: Text('Failed to update follow status')),
         );
       }
+    } finally {
+      _togglingFollow = false;
     }
   }
 

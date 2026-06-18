@@ -108,6 +108,7 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return; // guard double-submit → duplicate report
     if (_selectedReason == null) return;
     final reporterId = FirebaseAuth.instance.currentUser?.uid;
     if (reporterId == null) return;

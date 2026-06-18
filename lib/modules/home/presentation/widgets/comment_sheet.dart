@@ -116,36 +116,43 @@ class _CommentSheetState extends State<CommentSheet> {
 
   // FIXED: Restored missing _submitComment method
   Future<void> _submitComment() async {
+    // Guard against double-submit: media upload + addComment take time, and on
+    // slower devices/networks a re-tap creates DUPLICATE comments. Reset lives
+    // in a finally so a thrown error can't leave the button permanently locked.
+    if (isUploading) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || (_controller.text.trim().isEmpty && selectedMediaBytes == null)) return;
 
     setState(() => isUploading = true);
 
-    List<Map<String, dynamic>> mediaList = [];
-    if (selectedMediaBytes != null) {
-      String? url = await _cloudinary.uploadMedia(selectedMediaBytes!, selectedMediaName!, isVideo);
-      if (url != null) {
-        mediaList.add({'url': url, 'type': isVideo ? 'video' : 'image'});
+    try {
+      List<Map<String, dynamic>> mediaList = [];
+      if (selectedMediaBytes != null) {
+        String? url = await _cloudinary.uploadMedia(selectedMediaBytes!, selectedMediaName!, isVideo);
+        if (url != null) {
+          mediaList.add({'url': url, 'type': isVideo ? 'video' : 'image'});
+        }
       }
+
+      await _postRepo.addComment(
+        postId: widget.postId,
+        userId: user.uid,
+        username: user.displayName ?? 'Runner',
+        content: _controller.text.trim(),
+        parentId: replyingToId,
+        media: mediaList,
+      );
+
+      if (!mounted) return;
+      _controller.clear();
+      setState(() {
+        replyingToId = null;
+        replyingToUsername = null;
+        selectedMediaBytes = null;
+      });
+    } finally {
+      if (mounted) setState(() => isUploading = false);
     }
-
-    await _postRepo.addComment(
-      postId: widget.postId,
-      userId: user.uid,
-      username: user.displayName ?? 'Runner',
-      content: _controller.text.trim(),
-      parentId: replyingToId,
-      media: mediaList,
-    );
-
-    if (!mounted) return;
-    _controller.clear();
-    setState(() {
-      replyingToId = null;
-      replyingToUsername = null;
-      selectedMediaBytes = null;
-      isUploading = false;
-    });
   }
 
   Future<void> _shareCommentExternally(String content, String author) async {
