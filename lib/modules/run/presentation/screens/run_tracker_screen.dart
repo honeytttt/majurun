@@ -568,18 +568,12 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       if (!mounted) return;
     }
 
-    // 4. GPS available — prewarm then launch normally. If prewarm still fails
-    //    for any reason, fall back to GPS-off mode instead of erroring out.
-    try {
-      await runController.prewarmGps();
-    } catch (e) {
-      if (!mounted) return;
-      final noGps = await _showGpsOffDialog();
-      if (!mounted || !noGps) return;
-      await _launchRun(runController, noGps: true);
-      return;
-    }
-    if (!mounted) return;
+    // 4. GPS available — launch normally. The GPS prewarm now runs IN PARALLEL
+    //    with the warmup countdown inside _launchRun: Android's first fix can
+    //    take several seconds, and overlapping it with the 5s countdown removes
+    //    the perceived start lag. startTracking() never hard-fails on a slow
+    //    fix (it starts the stream and acquires GPS shortly after), so there's
+    //    nothing to fall back from here.
     await _launchRun(runController, noGps: false);
   }
 
@@ -634,7 +628,19 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   Future<void> _launchRun(RunController runController, {required bool noGps}) async {
-    // Show 5-second warmup countdown.
+    // Warm up GPS IN PARALLEL with the countdown. Android's first fix can take
+    // up to ~8s; running it during the 5s "get ready" countdown (instead of
+    // before it) hides the lag. We await it AFTER the countdown so startRun()
+    // sees tracking already started (startRun skips re-tracking when
+    // isTracking is true — avoids a double-start race).
+    Future<void>? prewarm;
+    if (!noGps) {
+      prewarm = runController.prewarmGps().catchError(
+        (e) => debugPrint('⚠️ prewarmGps (during countdown) failed: $e'),
+      );
+    }
+
+    // Show 5-second warmup countdown — instant visual feedback on tap.
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -643,6 +649,10 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       ),
     );
     if (!mounted) return;
+
+    // Ensure prewarm has finished (usually already done during the countdown)
+    // so tracking is started before startRun().
+    if (prewarm != null) await prewarm;
 
     try {
       if (noGps) {
