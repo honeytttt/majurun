@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:audio_session/audio_session.dart';
 
 /// Interval Training Service - Structured workouts like Nike Run Club
 /// Guides users through intervals with voice coaching
@@ -176,6 +178,30 @@ class IntervalTrainingService extends ChangeNotifier {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.5);
     await _tts.setVolume(1.0);
+
+    // Duck (not stop) background music during interval voice cues — same
+    // protected pattern as voice_controller. Configure ONCE here; deactivate
+    // after each phrase so Spotify/Apple Music restores to full volume.
+    if (!kIsWeb) {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+        avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.speech,
+          usage: AndroidAudioUsage.assistanceNavigationGuidance,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+        androidWillPauseWhenDucked: false,
+      ));
+      _tts.setCompletionHandler(() async {
+        try {
+          final s = await AudioSession.instance;
+          await s.setActive(false);
+        } catch (_) {}
+      });
+    }
   }
 
   /// Start a workout
@@ -336,6 +362,14 @@ class IntervalTrainingService extends ChangeNotifier {
   }
 
   Future<void> _speak(String text) async {
+    // Activate the duck-configured session so music lowers (not stops) on
+    // Android. Completion handler deactivates it to restore music volume.
+    if (!kIsWeb) {
+      try {
+        final session = await AudioSession.instance;
+        await session.setActive(true);
+      } catch (_) {}
+    }
     await _tts.speak(text);
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audio_session/audio_session.dart';
 
 /// Audio Coaching Service - Voice feedback like Nike Run Club
 /// Provides real-time motivation, stats updates, and milestone celebrations
@@ -66,8 +67,33 @@ class AudioCoachingService extends ChangeNotifier {
     await _tts.setVolume(_volume);
     await _tts.setPitch(1.0);
 
-    _tts.setCompletionHandler(() {
+    // Duck (not stop) background music during coaching cues — same protected
+    // pattern as voice_controller. Configure ONCE; deactivate when the queue
+    // is empty so Spotify/Apple Music restores to full volume.
+    if (!kIsWeb) {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+        avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.speech,
+          usage: AndroidAudioUsage.assistanceNavigationGuidance,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+        androidWillPauseWhenDucked: false,
+      ));
+    }
+
+    _tts.setCompletionHandler(() async {
       _isSpeaking = false;
+      // Only release focus when there's nothing else queued to say.
+      if (_messageQueue.isEmpty && !kIsWeb) {
+        try {
+          final s = await AudioSession.instance;
+          await s.setActive(false);
+        } catch (_) {}
+      }
       _processQueue();
     });
   }
@@ -340,7 +366,19 @@ class AudioCoachingService extends ChangeNotifier {
 
     _isSpeaking = true;
     final message = _messageQueue.removeAt(0);
-    _tts.speak(message);
+    _speakNow(message);
+  }
+
+  Future<void> _speakNow(String message) async {
+    // Activate the duck-configured session so music lowers (not stops) on
+    // Android. Completion handler deactivates it when the queue drains.
+    if (!kIsWeb) {
+      try {
+        final session = await AudioSession.instance;
+        await session.setActive(true);
+      } catch (_) {}
+    }
+    await _tts.speak(message);
   }
 
   /// Stop speaking
