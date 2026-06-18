@@ -313,6 +313,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   /// Create and submit the post
   Future<void> _handlePost() async {
+    // Guard against double-submit. The async validation + Firestore write below
+    // take long enough on slower devices/networks that users re-tap POST and
+    // create DUPLICATE posts (fast devices pop the screen before a second tap,
+    // which is why this looked device-specific). The re-entry guard plus an
+    // immediate spinner (set before the first await, below) close both the
+    // logical and the visual windows.
+    if (_isUploading) return;
+
     final text = _controller.text.trim();
     if (text.isEmpty && _mediaList.isEmpty) {
       _showError('Please add some content or media');
@@ -325,24 +333,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    // ✅ VALIDATE POST LIMITS
-    final hasVideo = _mediaList.any((m) => m.type == MediaType.video);
-    final imageCount = _mediaList.where((m) => m.type == MediaType.image).length;
-
-    final validationError = await _limitService.validatePost(
-      userId: user.uid,
-      imageCount: imageCount,
-      hasVideo: hasVideo,
-    );
-    
-    if (validationError != null) {
-      _showError(validationError);
-      return;
-    }
-
+    // Lock the button (it becomes a spinner) BEFORE the first await so a second
+    // tap during validation can't slip through and create a duplicate post.
     setState(() => _isUploading = true);
 
     try {
+      // ✅ VALIDATE POST LIMITS
+      final hasVideo = _mediaList.any((m) => m.type == MediaType.video);
+      final imageCount = _mediaList.where((m) => m.type == MediaType.image).length;
+
+      final validationError = await _limitService.validatePost(
+        userId: user.uid,
+        imageCount: imageCount,
+        hasVideo: hasVideo,
+      );
+
+      if (validationError != null) {
+        _showError(validationError);
+        return; // finally resets _isUploading so the user can fix and retry
+      }
+
       const uuid = Uuid();
       // Extract hashtags from content to enable #tag search
       final tags = RegExp(r'#(\w+)')
