@@ -164,8 +164,12 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   }
 
   String _formatSeconds(int secs) {
-    final m = secs ~/ 60;
+    final h = secs ~/ 3600;
+    final m = (secs % 3600) ~/ 60;
     final s = secs % 60;
+    if (h > 0) {
+      return "$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+    }
     return "$m:${s.toString().padLeft(2, '0')}";
   }
 
@@ -1152,10 +1156,13 @@ Keep moving 💪
         final elevChange = (group.first['elevationChange'] as num?)?.toDouble() ?? 0.0;
         final elevColor = elevChange > 0 ? Colors.orange.shade700 : elevChange < 0 ? Colors.blue.shade700 : Colors.grey;
 
-        // Time formatting
-        final tMin = totalSecs ~/ 60;
+        // Time formatting (handle groups that span over an hour)
+        final tHr = totalSecs ~/ 3600;
+        final tMin = (totalSecs % 3600) ~/ 60;
         final tSec = totalSecs % 60;
-        final timeStr = "$tMin:${tSec.toString().padLeft(2, '0')}";
+        final timeStr = tHr > 0
+            ? "$tHr:${tMin.toString().padLeft(2, '0')}:${tSec.toString().padLeft(2, '0')}"
+            : "$tMin:${tSec.toString().padLeft(2, '0')}";
 
         return Container(
           margin: const EdgeInsets.only(bottom: 10),

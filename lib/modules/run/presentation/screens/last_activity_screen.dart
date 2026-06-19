@@ -50,9 +50,12 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
     final durationSecondsRaw = widget.lastRun['durationSeconds'] ?? 0;
     final durationSeconds = (durationSecondsRaw is num) ? durationSecondsRaw.toInt() : 0;
 
-    final minutes = durationSeconds ~/ 60;
+    final hours = durationSeconds ~/ 3600;
+    final minutes = (durationSeconds % 3600) ~/ 60;
     final seconds = durationSeconds % 60;
-    final timeString = "$minutes:${seconds.toString().padLeft(2, '0')}";
+    final timeString = hours > 0
+        ? "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
+        : "$minutes:${seconds.toString().padLeft(2, '0')}";
 
     final pace = widget.lastRun['pace'] ?? '8:15';
     final calories = widget.lastRun['calories'] ?? 0;

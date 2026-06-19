@@ -108,7 +108,9 @@ class StatsController extends ChangeNotifier {
       for (final pb in result.pbs) {
         final timeStr = distanceKm > 0
             ? '${(durationSeconds / distanceKm / 60).floor()}:${((durationSeconds / distanceKm) % 60).toInt().toString().padLeft(2, '0')}/km'
-            : '${durationSeconds ~/ 60}:${(durationSeconds % 60).toString().padLeft(2, '0')}';
+            : durationSeconds >= 3600
+                ? '${durationSeconds ~/ 3600}:${((durationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(durationSeconds % 60).toString().padLeft(2, '0')}'
+                : '${durationSeconds ~/ 60}:${(durationSeconds % 60).toString().padLeft(2, '0')}';
         await PushNotificationService().showPersonalRecordNotification(
           recordType: pb,
           value: timeStr,
