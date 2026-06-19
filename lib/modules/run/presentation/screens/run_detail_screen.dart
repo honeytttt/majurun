@@ -65,7 +65,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
 
       final suggestedText = runController.generatePostText(
         planTitle: planTitle,
-        distance: '${distanceDouble.toStringAsFixed(2)} km',
+        distance: distanceDouble.toStringAsFixed(2),
         duration: _formatSeconds(durationSeconds),
         pace: pace,
         calories: calories,

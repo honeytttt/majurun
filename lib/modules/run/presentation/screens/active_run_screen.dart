@@ -1216,7 +1216,7 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     // Selfie + Edit path — open post editor
     final suggestedText = runController.generatePostText(
       planTitle: planTitle,
-      distance: '${distanceKm.toStringAsFixed(2)} km',
+      distance: distanceKm.toStringAsFixed(2),
       duration: duration,
       pace: pace,
       calories: calories,
@@ -1281,10 +1281,20 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     // ALWAYS create a post here (Draft/Auto-post).
     // This ensures that even if the editor crashes or is closed, the run is posted.
     // If selfieBytes exists, RunPostEditorScreen will "update" this post instead of creating a new one.
+    // Use the CAPTURED distance/duration. stopRun() above reset the state
+    // controller, so reading the live durationString here produced "00:00";
+    // and generateAIPost already appends " km", so passing "X km" produced
+    // "km km". Pass the bare number + the formatted captured seconds.
+    final h = durationSeconds ~/ 3600;
+    final m = (durationSeconds % 3600) ~/ 60;
+    final s = durationSeconds % 60;
+    final durStr = h > 0
+        ? '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+        : '$m:${s.toString().padLeft(2, '0')}';
     final suggestedText = runController.generatePostText(
       planTitle: planTitle,
-      distance: '${distanceKm.toStringAsFixed(2)} km',
-      duration: runController.stateController.durationString,
+      distance: distanceKm.toStringAsFixed(2),
+      duration: durStr,
       pace: pace,
       calories: calories,
     );

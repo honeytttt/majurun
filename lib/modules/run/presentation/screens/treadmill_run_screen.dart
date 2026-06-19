@@ -147,7 +147,7 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
     final runController = Provider.of<RunController>(context, listen: false);
     final suggestedText = runController.generatePostText(
       planTitle: 'Treadmill Run',
-      distance: '${distanceKm.toStringAsFixed(2)} km',
+      distance: distanceKm.toStringAsFixed(2),
       duration: durationStr,
       pace: pace,
       calories: calories,
