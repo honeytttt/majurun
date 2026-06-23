@@ -36,13 +36,21 @@ This keeps `main` current so future branches never miss features.
 **The app is in the Google Play closed-testing window working toward production access. The #1 concern is NOT getting rejected again. Keep this in mind for every change.**
 
 What the Android production approval actually depends on (and what does NOT):
-- ✅ **It depends ONLY on the closed test:** 12+ testers opted in, continuously, for 14 days, on the Alpha track. That's the gate.
+- ✅ **The 12/14 gate:** 12+ testers opted in, continuously, for 14 days, on the Alpha track. Necessary but NOT sufficient — see the description point below.
+- ✅ **The "what changed in your testing" application answer ALSO matters (likely cause of a prior rejection).** When applying for production access, Google asks how you tested. A thin/generic answer ("added new users for testing") reads as "just added bodies to hit the number" and triggers a "needs more testing" rejection even when 12/14 is met. The answer MUST show genuine testing → feedback → fixes: real devices, concrete feedback, concrete improvements shipped and re-verified. We have this story (builds 244–248: freeze, Spotify/audio, Start lag, duplicate posts, run-text fixes — all tester-driven).
 - ✅ **The Alpha track must always have a working release available.** Don't let a broken build leave the track empty — but a failed CI upload does NOT remove the existing release, so the track stays populated.
-- ❌ **It does NOT depend on crash-free rate, hangs, or bugs.** App quality issues do not directly cause a production-access rejection (the rejection reason is "needs more testing", i.e. the 12-testers/14-days rule). So our code changes (crash fixes, features, reverts) **do not affect the approval** as long as we don't break the closed test.
-- 🛑 **NEVER touch the tester list / email lists** — removing/re-adding testers drops the count below 12 and **resets the 14-day continuous counter to 0** (this is what caused the previous rejections).
+- ⚠️ **App quality is indirect, not zero.** Crash-free rate/hangs/bugs don't *directly* gate approval, BUT they feed the testing-description story (the fixes are the evidence Google wants) and a broken app reduces tester engagement. So keep shipping quality fixes.
+- 🛑 **NEVER touch the tester list / email lists** — removing/re-adding testers drops the count below 12 and **resets the 14-day continuous counter to 0** (a suspected cause of an earlier rejection).
 - 🛑 **Do not unpublish or switch the Alpha track.**
+- 👥 **Testers are friends and family**, invited via the closed-testing opt-in link. Tester count was 15 as of Jun 23, 2026.
 
-**Bottom line for code work:** keep shipping fixes/features to Alpha freely — they don't risk the approval. The only things that risk it are touching the tester list or leaving the track without a release. Prioritise a STABLE build for testers (a hanging app could reduce engagement), but stability is about good UX, not an approval gate.
+**Bottom line for code work:** keep shipping fixes/features to Alpha freely — they don't risk the approval and they BUILD the testing-story evidence. The two real risks are (1) touching the tester list / leaving the track empty, and (2) submitting a weak "what changed in testing" answer. Prioritise a STABLE build for testers (a hanging app reduces engagement).
+
+### Production access application — the "what changed in your testing" answer (paste-ready)
+Use a SPECIFIC, honest version like this (not "added new users"):
+> During the closed test, friends and family ran the app on a range of real Android devices and reported issues that appeared mainly on slower hardware or specific configurations. Based on their feedback we shipped multiple iterative fixes: an app freeze where the home screen opened but became unresponsive; background music (Spotify) being stopped instead of lowered during runs and post-run screens; the run "Start" button feeling unresponsive on Android (which caused accidental duplicate runs); duplicate posts/comments from double-tapping on slower devices; and run-summary text/duration formatting. Each fix was released to the closed track and re-verified by testers. Testing confirmed the app is now stable across the tested devices.
+- Recruitment: "Friends and family, invited via the closed-testing opt-in link."
+- Feedback channel: "Directly via messages and the in-app contact form, plus crash data via Firebase Crashlytics."
 
 ### Local testing (Flutter now available in WSL)
 - `flutter analyze` works in this WSL env now — **run it locally before pushing** to catch compile errors instead of relying on CI (faster). May be slow on `/mnt/c`.
