@@ -15,6 +15,7 @@ import 'package:majurun/core/config/app_config.dart';
 import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/modules/run/controllers/run_controller.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/core/services/live_tracking_service.dart';
 import 'package:majurun/modules/run/presentation/screens/run_post_editor_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/static_map_url.dart';
@@ -1116,7 +1117,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final unitPref = context.read<UnitPreferenceService>();
     final shareText = '🏃 Just finished a ${unitPref.formatDistance(distanceKm)} '
         'run in $duration!\nAvg pace: $pace/${unitPref.paceLabel} • $calories kcal burned 🔥\n\n'
-        'Tracked with MajuRun 🚀 #MajuRun #Running';
+        'Tracked with MajuRun 🚀 #MajuRun #Running\n'
+        'Download & run with me 👉 ${AppConstants.downloadUrl}';
 
     // Pre-capture the share card so the Share button can send it instantly.
     Uint8List? shareCardBytes;

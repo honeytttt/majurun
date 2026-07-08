@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/run/presentation/screens/pro_run_summary_screen.dart';
 import 'package:majurun/modules/run/presentation/widgets/pro_split_insights.dart';
@@ -686,6 +687,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
 ⚡ Pace: $pace /km
 🔥 Calories: $calories
 Keep moving 💪
+Download & run with me 👉 ${AppConstants.downloadUrl}
 ''';
 
     SharePlus.instance.share(ShareParams(text: shareText));

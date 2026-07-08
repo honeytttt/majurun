@@ -63,6 +63,16 @@ class AppConstants {
   static const String termsOfServiceUrl = 'https://www.majurun.com/terms-of-service.html';
   static const String supportEmail = 'admin@majurun.com';
   static const String websiteUrl = 'https://www.majurun.com';
+
+  /// Smart download link — served by landing/get/index.html, which detects the
+  /// visitor's device and forwards to the App Store (iOS) or Play Store
+  /// (Android). Used in shared run cards so a WhatsApp caption / status tap
+  /// takes friends straight to the right store to download MajuRun.
+  static const String downloadUrl = 'https://www.majurun.com/get';
+  static const String appStoreUrl =
+      'https://apps.apple.com/app/majurun/id6761485707';
+  static const String playStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.majurun.app';
 }
 
 /// Validation constants

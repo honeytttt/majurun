@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:majurun/core/services/personal_records_service.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/core/services/training_load_service.dart';
 import 'package:majurun/core/services/segments_service.dart';
 import 'package:majurun/core/services/celebration_service.dart';
@@ -1264,6 +1265,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
 ${_newPRs?.isNotEmpty ?? false ? '🏆 New Personal Records achieved!' : ''}
 
 #MajuRun #Running #Fitness
+Download & run with me 👉 ${AppConstants.downloadUrl}
 ''';
 
     SharePlus.instance.share(ShareParams(text: text));

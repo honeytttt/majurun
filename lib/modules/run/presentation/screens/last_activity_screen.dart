@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:majurun/core/utils/map_marker_builder.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
 
@@ -112,7 +113,8 @@ class _LastActivityScreenState extends State<LastActivityScreen> {
                             '⏱️ Time: $timeString\n'
                             '⚡ Pace: $pace/km\n'
                             '🔥 Calories: $calories kcal\n\n'
-                            '#MajuRun #Running #Fitness',
+                            '#MajuRun #Running #Fitness\n'
+                            'Download & run with me 👉 ${AppConstants.downloadUrl}',
                       ));
                     },
                     style: ElevatedButton.styleFrom(

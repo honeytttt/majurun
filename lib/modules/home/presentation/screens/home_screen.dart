@@ -61,14 +61,18 @@ class HomeScreen extends StatefulWidget {
 
   /// Global notifier — set value to switch tabs from anywhere in the app.
   /// e.g. HomeScreen.tabNotifier.value = 0; to jump to feed.
-  static final ValueNotifier<int> tabNotifier = ValueNotifier(0);
+  /// Defaults to 4 (RUN tab) so the app opens ready to start a run — this is
+  /// the primary action and removes the "how do I start a run?" confusion of
+  /// landing on the social feed first.
+  static final ValueNotifier<int> tabNotifier = ValueNotifier(4);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+  // Default to the RUN tab (index 4) so users land ready to start a run.
+  int _selectedIndex = 4;
   Widget? _activeSubPage;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final StorageService _storageService = StorageService();

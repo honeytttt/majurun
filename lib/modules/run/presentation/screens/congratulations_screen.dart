@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:majurun/core/constants/asset_urls.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/modules/home/domain/entities/post.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
 import 'package:majurun/modules/home/presentation/screens/post_detail_screen.dart';
@@ -644,6 +645,7 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     if (_resolvedPbs.isNotEmpty) lines.add('⚡ New Personal Best: ${_resolvedPbs.join(', ')}');
     if (_resolvedBadges.isNotEmpty) lines.add('🏅 Badge earned: ${_resolvedBadges.join(' & ')}');
     lines.add('\nTracked with MajuRun 🚀 #MajuRun #Running');
+    lines.add('Download & run with me 👉 ${AppConstants.downloadUrl}');
     return lines.join('\n');
   }
 
