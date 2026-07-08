@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _checkFeatureIntro() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('feature_intro_seen_v1') == true) return;
+    if (prefs.getBool('feature_intro_seen_v1') ?? false) return;
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const FeatureIntroScreen()),
@@ -1414,7 +1414,6 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
             BoxShadow(
               color: const Color(0xFFFFB300).withValues(alpha: 0.28),
               blurRadius: 10,
-              spreadRadius: 0,
             ),
           ],
         ),
