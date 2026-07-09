@@ -77,8 +77,17 @@
 
 <script>
   (function () {
+    // ── TEMPORARY: Android production is approved but NOT yet published, so the
+    // Play Store listing 404s for non-testers. While ANDROID_LIVE is false,
+    // Android visitors are NOT sent to a dead Play link — they stay on this
+    // branded page with a "coming soon" message. Flip ANDROID_LIVE to true the
+    // moment the Google Play production release is public (and nothing else
+    // needs changing — the Play button and redirect both follow this flag).
+    var ANDROID_LIVE = false;
+
     var APP_STORE = 'https://apps.apple.com/app/majurun/id6761485707';
     var PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.majurun.app';
+    var LANDING = 'https://www.majurun.com';
 
     var ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
     var isIOS = /iphone|ipad|ipod/.test(ua) ||
@@ -88,14 +97,29 @@
 
     var spinner = document.getElementById('spinner');
     var redir = document.getElementById('redir');
+    var androidBtn = document.getElementById('android');
+
+    // Keep the visible Google Play button honest while Android is pre-launch so
+    // a no-JS / desktop click is never a dead 404 link.
+    if (!ANDROID_LIVE && androidBtn) {
+      androidBtn.href = LANDING;
+      androidBtn.querySelector('small').textContent = 'Coming soon to';
+    }
 
     if (isIOS) {
       // Show only the relevant store, then forward.
-      document.getElementById('android').style.display = 'none';
+      if (androidBtn) androidBtn.style.display = 'none';
       window.location.replace(APP_STORE);
-    } else if (isAndroid) {
+    } else if (isAndroid && ANDROID_LIVE) {
       document.getElementById('ios').style.display = 'none';
       window.location.replace(PLAY_STORE);
+    } else if (isAndroid) {
+      // Pre-launch Android: don't redirect to a dead store link — stay here.
+      if (spinner) spinner.style.display = 'none';
+      if (redir) {
+        redir.textContent =
+          'MajuRun for Android is launching on Google Play very soon.';
+      }
     } else {
       // Desktop / unknown — no auto-redirect; let the user choose a store.
       if (spinner) spinner.style.display = 'none';
