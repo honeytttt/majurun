@@ -94,6 +94,14 @@ From Crashlytics (build 237 baseline, Android ~85% crash-free):
 - **Google Sign-In `SignInHubActivity` NPE:** only on 1.0.0–1.0.3, NOT 1.0.4 — appears already resolved by newer play-services-auth. Monitor only.
 - **Firestore permission-denied / transaction-misuse (1 user each):** low priority; revisit if they recur on 1.0.4.
 
+### QUEUED: Post-launch framework-upkeep build (Play Console warnings on build 249)
+**Not urgent — none blocked the release; the Android prod release went ACTIVE with all 4 present. Batch into ONE maintenance build AFTER the 1.0.4 launch settles. Device-test before pushing (do NOT bump blindly).** Google Play flagged 4 "recommended actions" on release 249 (Jul 2026), all framework/dependency-level:
+1. **SafetyNet deprecated** (`com.google.android.gms:play-services-safetynet:18.0.0`) — transitive dep pulled in by Firebase. We already use **Play Integrity** for App Check in prod (`main.dart` → `AndroidProvider.playIntegrity`), so this is only the SDK note. Fix: `flutter pub upgrade` Firebase libs (firebase_core/app_check/auth) so the old safetynet transitive drops.
+2. **Edge-to-edge on Android 15 (SDK 35)** — apps targeting SDK 35 render edge-to-edge by default; must handle insets. **Flutter framework** concern — fixed by upgrading Flutter (recent stable handles insets/`enableEdgeToEdge`).
+3. **Deprecated edge-to-edge APIs** (`Window.setStatusBarColor` / `setNavigationBarColor` / `setNavigationBarDividerColor`) — these originate in the **Flutter engine** (`io.flutter.embedding.*` / `PlatformPlugin`), NOT our code. Same fix: bump Flutter.
+4. **Portrait/orientation restriction for large screens (Android 16)** — `MainActivity android:screenOrientation="PORTRAIT"`. Intentional for a portrait running app; only affects tablets/foldables. Leave locked unless we decide to support large screens; if so, remove the restriction and test layouts.
+**Plan:** `flutter upgrade` → `flutter pub upgrade` (Firebase) → `flutter analyze` clean → device-test on Android 15/16 (edge-to-edge insets, run tracking, audio) → bump build → push as a dedicated upkeep build. #1–3 are essentially "upgrade Flutter + Firebase"; #4 is a deliberate keep-as-is.
+
 ---
 
 ## Critical Behaviors — Do Not Regress
