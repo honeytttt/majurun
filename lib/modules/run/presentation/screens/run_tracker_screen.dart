@@ -16,6 +16,8 @@ import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart'
 import 'package:majurun/modules/run/presentation/screens/interval_training_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/treadmill_run_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
+import 'package:majurun/modules/training/services/training_service.dart';
+import 'package:majurun/modules/training/presentation/screens/training_plan_detail_screen.dart';
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});
@@ -46,6 +48,16 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+
+    // Load lifetime totals so the stats grid shows real values on open. Without
+    // this, historyDistance/totalRuns/streak stay at 0 until the first run of
+    // the session is saved (saveRunHistory was the only thing calling refresh).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<RunController>(context, listen: false)
+            .refreshHistoryStats();
+      }
+    });
   }
 
   @override
@@ -96,6 +108,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
         child: Column(
           children: [
             _buildHeader(context),
+            _buildBeginnerPlanBanner(context),
             const Spacer(flex: 2),
             _buildControlCenter(context),
             const Spacer(flex: 2),
@@ -206,6 +219,121 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           ),
         );
       },
+    );
+  }
+
+  /// Attractive promo banner for the free "0 → 5K" beginner plan. Tapping it
+  /// opens the plan's detail/overview page where the user can start it.
+  Widget _buildBeginnerPlanBanner(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+      child: BounceClick(
+        onTap: () => _openBeginnerPlan(context),
+        child: Semantics(
+          button: true,
+          label: 'Start the free 0 to 5K beginner training plan',
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2D7A3E), Color(0xFF1B4D2C)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2D7A3E).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.directions_run_rounded,
+                      color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Flexible(
+                            child: Text(
+                              '0 → 5K Training',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'FREE',
+                              style: TextStyle(
+                                color: Color(0xFF1B4D2C),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Go from walking to running in 8 weeks',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    color: Colors.white70, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openBeginnerPlan(BuildContext context) {
+    final plans = context.read<TrainingService>().getAllPlans();
+    final plan = plans.firstWhere(
+      (p) => p['planId'] == 'train_0_to_5k',
+      orElse: () => <String, dynamic>{},
+    );
+    if (plan.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Training plan unavailable')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TrainingPlanDetailScreen(
+          planTitle: plan['title'] as String? ?? 'Train 0 to 5K',
+          planImageUrl: plan['imageUrl'] as String? ?? '',
+          planData: plan,
+        ),
+      ),
     );
   }
 
