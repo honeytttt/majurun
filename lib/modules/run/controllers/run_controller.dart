@@ -900,7 +900,15 @@ class RunController extends ChangeNotifier {
   // ============== STATS & HISTORY ==============
 
   Stream<List<dynamic>> getPostStream() => statsController.getPostStream();
-  Future<void> refreshHistoryStats() async => await statsController.refreshHistoryStats();
+  Future<void> refreshHistoryStats() async {
+    await statsController.refreshHistoryStats();
+    // StatsController notifies its own listeners, but RunController does NOT
+    // forward those (it only listens to stateController). The run-home stats
+    // grid is a Consumer<RunController>, so without this it never rebuilds and
+    // shows stale zeros until a run-state change happens to notify. Re-notify
+    // here so the refreshed lifetime totals appear immediately on screen open.
+    notifyListeners();
+  }
   Future<Map<String, dynamic>?> getLastActivity() async => await statsController.getLastActivity();
   Future<List<Map<String, dynamic>>> getRunHistory() async => await statsController.getRunHistory();
   Future<List<Map<String, dynamic>>> getRunHistoryPage({required int pageSize, DateTime? before}) async =>
