@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:majurun/core/theme/app_effects.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/core/widgets/unified_metric_tile.dart';
 import 'package:majurun/modules/home/presentation/widgets/run_map_preview.dart';
 import 'package:majurun/core/widgets/bounce_click.dart';
@@ -509,9 +510,12 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
   }
 
   void _sharePost(BuildContext context) {
-    final text = widget.post.content.trim().isNotEmpty
-        ? '${widget.post.username}: ${widget.post.content.trim()}\n\nPosted on MajuRun'
+    final body = widget.post.content.trim().isNotEmpty
+        ? '${widget.post.username}: ${widget.post.content.trim()}'
         : '${widget.post.username} posted a run on MajuRun';
+    // Share the post's own link — renders a rich preview card in WhatsApp/social
+    // and opens the post with an "Open in MajuRun" CTA.
+    final text = '$body\n\n${AppConstants.postShareBaseUrl}/${widget.post.id}';
     SharePlus.instance.share(ShareParams(text: text));
   }
 

@@ -46,8 +46,8 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
 
   Future<void> _stop() async {
     _timer?.cancel();
-    final distance = await _askDistance();
-    if (distance == null) {
+    final details = await _askRunDetails();
+    if (details == null) {
       // User cancelled — resume the timer if they want to keep going
       if (_isRunning && !_isPaused) {
         _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -56,37 +56,73 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
       }
       return;
     }
-    await _save(distance);
+    await _save(details.km, details.seconds);
   }
 
-  /// Shows a dialog asking the user to enter the treadmill distance.
-  /// Returns the km value, or null if cancelled.
-  Future<double?> _askDistance() async {
-    final controller = TextEditingController();
-    return showDialog<double>(
+  /// Shows a dialog asking the user to enter the treadmill distance AND time.
+  /// Time is pre-filled from the stopwatch but editable so the user can match
+  /// exactly what the treadmill display shows. Returns null if cancelled.
+  Future<({double km, int seconds})?> _askRunDetails() async {
+    final distController = TextEditingController();
+    final minController =
+        TextEditingController(text: (_secondsElapsed ~/ 60).toString());
+    final secController =
+        TextEditingController(text: (_secondsElapsed % 60).toString());
+    return showDialog<({double km, int seconds})>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Enter Distance'),
+        title: const Text('Enter Your Run'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'What distance did the treadmill show?',
+              'Enter what your treadmill showed:',
               style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: controller,
+              controller: distController,
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
               decoration: const InputDecoration(
+                labelText: 'Distance',
                 suffixText: 'km',
                 hintText: '5.00',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Time', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: minController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      suffixText: 'min',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: secController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      suffixText: 'sec',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -98,9 +134,12 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D7A3E)),
             onPressed: () {
-              final val = double.tryParse(controller.text.replaceAll(',', '.'));
-              if (val != null && val > 0) {
-                Navigator.pop(ctx, val);
+              final km = double.tryParse(distController.text.replaceAll(',', '.'));
+              final mins = int.tryParse(minController.text) ?? 0;
+              final secs = int.tryParse(secController.text) ?? 0;
+              final totalSeconds = mins * 60 + secs;
+              if (km != null && km > 0 && totalSeconds > 0) {
+                Navigator.pop(ctx, (km: km, seconds: totalSeconds));
               }
             },
             child: const Text('Save Run', style: TextStyle(color: Colors.white)),
@@ -110,11 +149,10 @@ class _TreadmillRunScreenState extends State<TreadmillRunScreen> {
     );
   }
 
-  Future<void> _save(double distanceKm) async {
+  Future<void> _save(double distanceKm, int durationSeconds) async {
     if (_isSaving) return; // guard double-tap → duplicate treadmill run
     setState(() => _isSaving = true);
 
-    final durationSeconds = _secondsElapsed;
     String pace = '0:00';
     if (distanceKm > 0 && durationSeconds > 0) {
       final paceSeconds = durationSeconds / distanceKm;

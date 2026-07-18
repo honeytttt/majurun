@@ -278,6 +278,9 @@ class BackgroundLocationService {
         distanceFilter: RunConstants.distanceFilterMeters,
         activityType: ActivityType.fitness,
         showBackgroundLocationIndicator: true,
+        // NOTE: allowBackgroundLocationUpdates already defaults to true and
+        // pauseLocationUpdatesAutomatically to false in geolocator_apple, so
+        // background GPS while the screen is locked is already enabled.
       );
     } else {
       locationSettings = const LocationSettings(

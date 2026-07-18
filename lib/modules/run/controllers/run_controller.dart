@@ -369,43 +369,108 @@ class RunController extends ChangeNotifier {
     final recovery = await RunRecoveryService.getRecoverableRun();
     if (recovery == null) return;
 
-    _hasShownRecoveryDialog = true;
+    final distanceKm = (recovery['distance'] as num?)?.toDouble() ?? 0.0;
+    final durationSeconds = (recovery['durationSeconds'] as num?)?.toInt() ?? 0;
 
+    // Ignore trivial leftovers (a false start / a few seconds) — don't nag.
+    if (distanceKm < 0.3 || durationSeconds < 30) {
+      await RunRecoveryService.clearRecoverableRun();
+      return;
+    }
+
+    _hasShownRecoveryDialog = true;
     if (!context.mounted) return;
 
-    final shouldRecover = await showDialog<bool>(
+    final startTime =
+        DateTime.tryParse(recovery['startTime'] as String? ?? '') ?? DateTime.now();
+
+    // Offer to SAVE the interrupted run (previously this dialog only said
+    // "recovery is being improved" and discarded the run — the data was lost).
+    final shouldSave = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Continue Previous Run?'),
+        title: const Text('Recover Unfinished Run?'),
         content: Text(
-          'You have an incomplete run from ${_formatDateTime(recovery['startTime'])}.\n\n'
-          'Distance: ${(recovery['distance'] as double).toStringAsFixed(2)} km\n'
-          'Duration: ${_formatDuration(recovery['durationSeconds'] as int)}\n\n'
-          'Would you like to continue where you left off?',
+          'Your run from ${_formatDateTime(startTime)} didn\'t finish saving '
+          '(the app may have closed mid-run).\n\n'
+          'Distance: ${distanceKm.toStringAsFixed(2)} km\n'
+          'Duration: ${_formatDuration(durationSeconds)}\n\n'
+          'Save it to your run history?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Start Fresh'),
+            child: const Text('Discard'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
+            child: const Text('Save Run'),
           ),
         ],
       ),
     );
 
-    if (shouldRecover ?? false) {
-      _showSnackBar?.call(
-        const SnackBar(
-          content: Text('Run recovery is being improved. Starting fresh run.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    if (shouldSave ?? false) {
+      try {
+        final route = <LatLng>[];
+        final rp = recovery['routePoints'];
+        if (rp is List) {
+          for (final p in rp) {
+            if (p is Map && p['lat'] != null && p['lng'] != null) {
+              route.add(LatLng(
+                (p['lat'] as num).toDouble(),
+                (p['lng'] as num).toDouble(),
+              ));
+            }
+          }
+        }
+        final planTitle = recovery['planTitle'] as String?;
+        final pace = (recovery['pace'] as String?) ??
+            _paceFor(distanceKm, durationSeconds);
+        final calories = (recovery['calories'] as num?)?.toInt() ??
+            (distanceKm * 85).round();
+        final avgBpm = (recovery['avgBpm'] as num?)?.toInt();
+
+        await statsController.saveRunHistory(
+          planTitle: (planTitle == null || planTitle.isEmpty)
+              ? 'Recovered Run'
+              : planTitle,
+          distanceKm: distanceKm,
+          durationSeconds: durationSeconds,
+          pace: pace,
+          routePoints: route.isEmpty ? null : route,
+          avgBpm: avgBpm,
+          calories: calories,
+          type: 'gps',
+          completed: true,
+        );
+        notifyListeners();
+        _showSnackBar?.call(
+          const SnackBar(
+            content: Text('✅ Recovered run saved to your history'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        _crashReporting.recordError(e, StackTrace.current,
+            reason: 'Run recovery save failed');
+        _showSnackBar?.call(
+          const SnackBar(
+            content: Text('Could not save the recovered run'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+
     await RunRecoveryService.clearRecoverableRun();
+  }
+
+  String _paceFor(double km, int seconds) {
+    if (km <= 0 || seconds <= 0) return '0:00';
+    final s = (seconds / km).round();
+    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 
   String _formatDateTime(DateTime dt) {
@@ -900,7 +965,15 @@ class RunController extends ChangeNotifier {
   // ============== STATS & HISTORY ==============
 
   Stream<List<dynamic>> getPostStream() => statsController.getPostStream();
-  Future<void> refreshHistoryStats() async => await statsController.refreshHistoryStats();
+  Future<void> refreshHistoryStats() async {
+    await statsController.refreshHistoryStats();
+    // StatsController notifies its own listeners, but RunController does NOT
+    // forward those (it only listens to stateController). The run-home stats
+    // grid is a Consumer<RunController>, so without this it never rebuilds and
+    // shows stale zeros until a run-state change happens to notify. Re-notify
+    // here so the refreshed lifetime totals appear immediately on screen open.
+    notifyListeners();
+  }
   Future<Map<String, dynamic>?> getLastActivity() async => await statsController.getLastActivity();
   Future<List<Map<String, dynamic>>> getRunHistory() async => await statsController.getRunHistory();
   Future<List<Map<String, dynamic>>> getRunHistoryPage({required int pageSize, DateTime? before}) async =>

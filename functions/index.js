@@ -1,5 +1,5 @@
 // functions/index.js
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { logger } = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -10,6 +10,137 @@ if (!admin.apps.length) {
 
 const { setGlobalOptions } = require("firebase-functions/v2/options");
 setGlobalOptions({ maxInstances: 10 });
+
+// ── Shareable post pages ─────────────────────────────────────────────────────
+// Renders a public page per post with Open Graph tags so a shared link shows a
+// rich, tappable preview (image/video + title) in WhatsApp / social apps, then
+// opens the post and offers to download the app. Media URLs already live in
+// S3/Cloudinary, so this page only references them — no new storage.
+function _escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function _pickPostMedia(d) {
+  let image = "";
+  let video = "";
+  const media = Array.isArray(d.media) ? d.media : [];
+  for (const m of media) {
+    if (!m || !m.url) continue;
+    if (m.type === "video" && !video) video = m.url;
+    if (m.type !== "video" && !image) image = m.url;
+  }
+  if (!image) image = d.selfieUrl || d.mapImageUrl || "";
+  return { image, video };
+}
+
+exports.postPage = onRequest(
+  { region: "us-central1", cors: true, maxInstances: 10 },
+  async (req, res) => {
+    const DOWNLOAD = "https://www.majurun.com/get";
+    const DEFAULT_IMG = "https://www.majurun.com/img/home-ss.jpeg";
+    try {
+      // Accept /post/<id>, /postPage/<id>, or ?id=<id> (routing-flexible).
+      const parts = (req.path || "").split("/").filter(Boolean);
+      const last = parts[parts.length - 1];
+      const id =
+        last && last !== "post" && last !== "postPage"
+          ? last
+          : (req.query.id || "").toString();
+
+      if (!id) {
+        res.redirect(302, DOWNLOAD);
+        return;
+      }
+
+      const doc = await admin.firestore().collection("posts").doc(id).get();
+      if (!doc.exists) {
+        res.redirect(302, DOWNLOAD);
+        return;
+      }
+
+      const d = doc.data() || {};
+      const username = d.username || "A runner";
+      const contentRaw = (d.content || "").toString().trim();
+      const { image, video } = _pickPostMedia(d);
+      const ogImage = image || DEFAULT_IMG;
+
+      const title = `${username} on MajuRun`;
+      const dist = typeof d.distance === "number" ? d.distance : null;
+      let summary = contentRaw;
+      if (!summary && dist) summary = `Ran ${dist.toFixed(2)} km with MajuRun`;
+      if (!summary) summary = "Check out this run on MajuRun";
+      const desc = summary.length > 160 ? summary.slice(0, 157) + "..." : summary;
+
+      const pageUrl = `https://www.majurun.com/post/${encodeURIComponent(id)}`;
+
+      const videoTags = video
+        ? `<meta property="og:video" content="${_escapeHtml(video)}" />
+    <meta property="og:video:secure_url" content="${_escapeHtml(video)}" />
+    <meta property="og:video:type" content="video/mp4" />
+    <meta name="twitter:card" content="player" />`
+        : `<meta name="twitter:card" content="summary_large_image" />`;
+
+      const mediaBlock = video
+        ? `<video controls playsinline poster="${_escapeHtml(ogImage)}" style="width:100%;border-radius:16px;background:#000"><source src="${_escapeHtml(video)}" type="video/mp4" /></video>`
+        : image
+          ? `<img src="${_escapeHtml(image)}" alt="Run" style="width:100%;border-radius:16px" />`
+          : "";
+
+      const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${_escapeHtml(title)} — MajuRun</title>
+<meta name="description" content="${_escapeHtml(desc)}" />
+<meta property="og:site_name" content="MajuRun" />
+<meta property="og:title" content="${_escapeHtml(title)}" />
+<meta property="og:description" content="${_escapeHtml(desc)}" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="${pageUrl}" />
+<meta property="og:image" content="${_escapeHtml(ogImage)}" />
+<meta name="twitter:title" content="${_escapeHtml(title)}" />
+<meta name="twitter:description" content="${_escapeHtml(desc)}" />
+<meta name="twitter:image" content="${_escapeHtml(ogImage)}" />
+${videoTags}
+<meta name="apple-itunes-app" content="app-id=6761485707" />
+<link rel="icon" type="image/png" href="https://www.majurun.com/img/app_icon.png" />
+<style>
+ *{box-sizing:border-box;margin:0;padding:0}
+ body{background:#0B0B14;color:#F4F4F8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;display:flex;justify-content:center;padding:20px}
+ .card{max-width:440px;width:100%}
+ .top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+ .top img{width:34px;height:34px;border-radius:9px}
+ .brand{font-weight:800;font-size:17px}
+ .user{color:#9A9AB5;font-size:14px;margin-bottom:10px}
+ .content{font-size:16px;line-height:1.5;margin:12px 0;white-space:pre-wrap}
+ .cta{display:block;background:#00E676;color:#05210F;font-weight:800;text-align:center;padding:15px;border-radius:14px;margin-top:20px;text-decoration:none}
+ .foot{color:#9A9AB5;font-size:12.5px;text-align:center;margin-top:16px}
+</style>
+</head><body>
+ <div class="card">
+   <div class="top"><img src="https://www.majurun.com/img/app_icon.png" alt="MajuRun"/><span class="brand">MajuRun</span></div>
+   <div class="user">${_escapeHtml(username)}</div>
+   ${mediaBlock}
+   ${contentRaw ? `<div class="content">${_escapeHtml(contentRaw)}</div>` : ""}
+   <a class="cta" href="${DOWNLOAD}">Open in MajuRun ↗</a>
+   <div class="foot">Shared from MajuRun — your AI running companion</div>
+ </div>
+</body></html>`;
+
+      res.set("Content-Type", "text/html; charset=utf-8");
+      res.set("Cache-Control", "public, max-age=300");
+      res.status(200).send(html);
+    } catch (e) {
+      logger.error("postPage error", e);
+      res.redirect(302, DOWNLOAD);
+    }
+  }
+);
 
 exports.verifyRecaptcha = onCall(
   {

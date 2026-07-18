@@ -1117,8 +1117,8 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
     final unitPref = context.read<UnitPreferenceService>();
     final shareText = '🏃 Just finished a ${unitPref.formatDistance(distanceKm)} '
         'run in $duration!\nAvg pace: $pace/${unitPref.paceLabel} • $calories kcal burned 🔥\n\n'
-        'Tracked with MajuRun 🚀 #MajuRun #Running\n'
-        'Download & run with me 👉 ${AppConstants.downloadUrl}';
+        '📲 Download & run with me 👉 ${AppConstants.downloadUrl}\n'
+        'Tracked with MajuRun 🚀 #MajuRun #Running';
 
     // Pre-capture the share card so the Share button can send it instantly.
     Uint8List? shareCardBytes;

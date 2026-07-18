@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
@@ -900,10 +901,13 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   }
 
   void _handleShare(BuildContext context) {
-    final shareText = widget.post.content.isNotEmpty
+    final content = widget.post.content.isNotEmpty
         ? widget.post.content
-        : 'Check out this post on MajuRun!';
-    SharePlus.instance.share(ShareParams(text: shareText));
+        : 'Check out this run on MajuRun!';
+    // Share the post's own link — it renders a rich preview card (image/video +
+    // title) in WhatsApp/social and opens the post with an "Open in MajuRun" CTA.
+    final url = '${AppConstants.postShareBaseUrl}/${widget.post.id}';
+    SharePlus.instance.share(ShareParams(text: '$content\n\n$url'));
   }
 
   void _showLoginSnack(BuildContext context) {
