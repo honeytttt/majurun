@@ -69,6 +69,12 @@ class AppConstants {
   /// (Android). Used in shared run cards so a WhatsApp caption / status tap
   /// takes friends straight to the right store to download MajuRun.
   static const String downloadUrl = 'https://www.majurun.com/get';
+
+  /// Base URL for shareable per-post pages (served by the `postPage` Cloud
+  /// Function via Firebase Hosting). A shared `<postShareBaseUrl>/<postId>` link
+  /// renders an Open Graph preview (image/video + title) in WhatsApp/social and
+  /// opens the post with an "Open in MajuRun" CTA.
+  static const String postShareBaseUrl = 'https://majurun-8d8b5.web.app/post';
   static const String appStoreUrl =
       'https://apps.apple.com/app/majurun/id6761485707';
   static const String playStoreUrl =

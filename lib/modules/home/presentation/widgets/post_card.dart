@@ -513,8 +513,9 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
     final body = widget.post.content.trim().isNotEmpty
         ? '${widget.post.username}: ${widget.post.content.trim()}'
         : '${widget.post.username} posted a run on MajuRun';
-    // Append the app link so a shared post drives installs (Twitter-style).
-    final text = '$body\n\n📲 See it on MajuRun 👉 ${AppConstants.downloadUrl}';
+    // Share the post's own link — renders a rich preview card in WhatsApp/social
+    // and opens the post with an "Open in MajuRun" CTA.
+    final text = '$body\n\n${AppConstants.postShareBaseUrl}/${widget.post.id}';
     SharePlus.instance.share(ShareParams(text: text));
   }
 

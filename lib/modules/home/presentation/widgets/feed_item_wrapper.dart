@@ -903,10 +903,11 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   void _handleShare(BuildContext context) {
     final content = widget.post.content.isNotEmpty
         ? widget.post.content
-        : 'Check out this post on MajuRun!';
-    // Append the app link so a shared post drives installs (Twitter-style).
-    final shareText = '$content\n\n📲 See it on MajuRun 👉 ${AppConstants.downloadUrl}';
-    SharePlus.instance.share(ShareParams(text: shareText));
+        : 'Check out this run on MajuRun!';
+    // Share the post's own link — it renders a rich preview card (image/video +
+    // title) in WhatsApp/social and opens the post with an "Open in MajuRun" CTA.
+    final url = '${AppConstants.postShareBaseUrl}/${widget.post.id}';
+    SharePlus.instance.share(ShareParams(text: '$content\n\n$url'));
   }
 
   void _showLoginSnack(BuildContext context) {
