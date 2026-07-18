@@ -113,6 +113,14 @@ From Crashlytics (build 237 baseline, Android ~85% crash-free):
 4. **Portrait/orientation restriction for large screens (Android 16)** — `MainActivity android:screenOrientation="PORTRAIT"`. Intentional for a portrait running app; only affects tablets/foldables. Leave locked unless we decide to support large screens; if so, remove the restriction and test layouts.
 **Plan:** `flutter upgrade` → `flutter pub upgrade` (Firebase) → `flutter analyze` clean → device-test on Android 15/16 (edge-to-edge insets, run tracking, audio) → bump build → push as a dedicated upkeep build. #1–3 are essentially "upgrade Flutter + Firebase"; #4 is a deliberate keep-as-is.
 
+### Observability & run-data safety (fixed on `feature/run-tracking-fixes`, build 254)
+From real-user feedback (Jul 18): a run crashed mid-way and lost distance. Investigation found we were **blind to crashes on both tools** + recovery was a no-op:
+- 🩹 **Crash reporting was OFF in two ways.** (1) **Sentry**: `SENTRY_DSN` was read via `String.fromEnvironment` but **CI never injected it** → empty DSN → SDK silently disabled → Sentry captured NOTHING. FIXED: DSN set as `defaultValue` in `sentry_service.dart` (a DSN is a write-only ingest key, safe to ship in-client like `firebase_options.dart`) + release/dist now dynamic via `package_info_plus` (was hardcoded `1.0.0`). Project: org `majurun`, EU region (`o4511754...ingest.de.sentry.io`), **free Developer plan** (~5k errors/mo — fine at current scale). (2) **Crashlytics on iOS build 249**: 249 was built BEFORE the dSYM-upload CI step existed (added in `8595c44`) → its crashes are permanently unsymbolicated. dSYM upload works for 250+ (verified build 253 uploaded `Runner.app.dSYM` + `App.framework.dSYM`), so **1.0.5+ crashes symbolicate fine**.
+- 🩹 **Crash recovery was inert (the actual data-loss bug).** Run state IS persisted every 10s (`_saveCurrentRunState` → `RunRecoveryService.saveActiveRun`), BUT `checkForRecoverableRun()` was **never called** and its confirm path only showed "recovery is being improved" then **discarded** the run. FIXED: it's now called on the RUN tab at launch and **saves** the interrupted run to history via `saveRunHistory`. ⚠️ Cannot recover data recorded while the app was fully dead (no GPS captured then) — the only cure for that is stopping the crash (needs the Sentry/Crashlytics trace).
+- 🩹 **Treadmill**: finish dialog now lets users enter/edit TIME (was stopwatch-only), pre-filled from the stopwatch.
+- **"2 runs but 1 post" is NOT a bug** — runs always save to private history; posting to the feed is optional. One run just wasn't posted.
+- **NEXT:** device-test crash-recovery (kill app mid-run → relaunch → Save) before trusting it; once 1.0.5 is out, watch Sentry + Crashlytics for the real crash and fix root cause.
+
 ---
 
 ## Critical Behaviors — Do Not Regress

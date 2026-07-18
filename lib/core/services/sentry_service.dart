@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -16,10 +18,30 @@ class SentryService {
   /// Initialize Sentry (call this in main.dart wrapper)
   /// Returns the runner function for SentryFlutter.init
   static Future<void> initializeApp(Future<void> Function() appRunner) async {
+    // Resolve the real app version so Sentry issues are tagged with the build
+    // they came from (was hardcoded to 1.0.0, making per-build filtering useless).
+    var release = 'majurun@unknown';
+    var dist = '0';
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      final info = await PackageInfo.fromPlatform();
+      release = 'majurun@${info.version}';
+      dist = info.buildNumber;
+    } catch (_) {
+      // Package info not ready — fall back to defaults, non-fatal.
+    }
+
     await SentryFlutter.init(
       (options) {
+        // A Sentry DSN is a write-only ingest key (safe to ship in the client
+        // per Sentry docs — it can only submit events, not read data). It's set
+        // as the DEFAULT here because CI was never injecting SENTRY_DSN via
+        // --dart-define, which left the DSN empty and silently DISABLED all
+        // crash reporting. With a default, Sentry works in every build.
         options.dsn = const String.fromEnvironment(
           'SENTRY_DSN',
+          defaultValue:
+              'https://fd6f0d7d8b278ca1241b6f184fce9c98@o4511754017308672.ingest.de.sentry.io/4511754026549328',
         );
         options.tracesSampleRate = kDebugMode ? 1.0 : 0.2;
         options.profilesSampleRate = kDebugMode ? 1.0 : 0.1;
@@ -34,9 +56,9 @@ class SentryService {
         // Environment
         options.environment = kDebugMode ? 'development' : 'production';
 
-        // Release info
-        options.release = 'majurun@1.0.0';
-        options.dist = '1';
+        // Release info — real version/build so issues filter by build.
+        options.release = release;
+        options.dist = dist;
 
         // Ignore certain exceptions
         options.beforeSend = (event, hint) {
