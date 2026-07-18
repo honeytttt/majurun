@@ -17,7 +17,7 @@ import 'package:majurun/modules/run/presentation/screens/interval_training_scree
 import 'package:majurun/modules/run/presentation/screens/treadmill_run_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/training/services/training_service.dart';
-import 'package:majurun/modules/training/presentation/screens/training_plan_detail_screen.dart';
+import 'package:majurun/modules/training/presentation/screens/active_workout_screen.dart';
 
 class RunTrackerScreen extends StatefulWidget {
   const RunTrackerScreen({super.key});
@@ -314,24 +314,31 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
   }
 
   void _openBeginnerPlan(BuildContext context) {
-    final plans = context.read<TrainingService>().getAllPlans();
-    final plan = plans.firstWhere(
-      (p) => p['planId'] == 'train_0_to_5k',
-      orElse: () => <String, dynamic>{},
-    );
-    if (plan.isEmpty) {
+    // Start the 0→5K plan and open the guided workout — same proven flow the
+    // training drawer uses. (The old TrainingPlanDetailScreen route opened but
+    // its "START TRAINING" button was a dead-end snackbar, so the banner
+    // appeared to do nothing.)
+    final trainingService = context.read<TrainingService>();
+    trainingService.startPlan('train_0_to_5k');
+    final workoutData = trainingService.getCurrentWorkout();
+
+    if (workoutData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Training plan unavailable')),
+        const SnackBar(content: Text('Could not load the 0 → 5K plan')),
       );
       return;
     }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TrainingPlanDetailScreen(
-          planTitle: plan['title'] as String? ?? 'Train 0 to 5K',
-          planImageUrl: plan['imageUrl'] as String? ?? '',
-          planData: plan,
+        builder: (ctx) => ActiveWorkoutScreen(
+          planTitle: workoutData['planTitle'],
+          currentWeek: workoutData['currentWeek'],
+          currentDay: workoutData['currentDay'],
+          planImageUrl: workoutData['imageUrl'],
+          workoutData: workoutData['workoutData'],
+          onCancel: () => Navigator.of(ctx).maybePop(),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:majurun/core/utils/app_constants.dart';
 import 'package:majurun/core/utils/page_transitions.dart';
 import 'package:majurun/modules/run/presentation/screens/run_history_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
@@ -900,9 +901,11 @@ class _FeedItemWrapperState extends State<FeedItemWrapper>
   }
 
   void _handleShare(BuildContext context) {
-    final shareText = widget.post.content.isNotEmpty
+    final content = widget.post.content.isNotEmpty
         ? widget.post.content
         : 'Check out this post on MajuRun!';
+    // Append the app link so a shared post drives installs (Twitter-style).
+    final shareText = '$content\n\n📲 See it on MajuRun 👉 ${AppConstants.downloadUrl}';
     SharePlus.instance.share(ShareParams(text: shareText));
   }
 

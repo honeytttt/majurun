@@ -9,7 +9,15 @@ Before creating any new branch, Claude must:
 2. Identify which branch has the highest build number — that is the correct base
 3. Branch from there, NOT from `main` unless main IS the highest build
 
-**Current base branch:** `feature/production-polish-238` (build 238) — branch from here for new work. `main` was brought current at build 238 (June 13, 2026), so branching from `main` is also valid.
+**Current base branch:** `feature/run-home-banner-stats` (build **252**, marketing **1.0.5**) — highest build; branch from here for new work. (Older `main`/`feature/production-polish-238` are at 238 and STALE — do NOT branch from them.)
+
+### 🔴 PRODUCTION DISCIPLINE — the app is LIVE on both stores (App Store + Google Play)
+**MajuRun 1.0.4 is in production for real users on iOS and Android.** A bad change reaches paying users. Therefore, for EVERY change from now on:
+1. **Work on a dedicated feature branch** — never commit new work straight onto `main`. One logical change-set per branch so it can be reverted cleanly.
+2. **Every change must have a rollback path.** Prefer ADDITIVE, reversible changes over destructive rewrites. If a change is large/risky, isolate it on its own branch (and/or its own commit) so `git revert <sha>` or dropping the branch fully undoes it. (Example: the WhatsApp image→link share rewrite was reverted this way — kept as one isolated set.)
+3. **Never delete/replace large blocks of working, shipped code for a marginal gain** — the risk to prod outweighs it. Choose the smallest diff that works.
+4. **Device-test before bumping the build** where possible; keep the last-known-good build tag noted here.
+5. **Marketing version is now `1.0.5`** (1.0.4 train closed after App Store approval). Build numbers only go up; only bump after a successful upload.
 
 ### CI — actions/checkout updated (done in build 216)
 - ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files

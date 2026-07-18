@@ -644,8 +644,10 @@ class _CongratulationsScreenState extends State<CongratulationsScreen>
     ];
     if (_resolvedPbs.isNotEmpty) lines.add('⚡ New Personal Best: ${_resolvedPbs.join(', ')}');
     if (_resolvedBadges.isNotEmpty) lines.add('🏅 Badge earned: ${_resolvedBadges.join(' & ')}');
-    lines.add('\nTracked with MajuRun 🚀 #MajuRun #Running');
-    lines.add('Download & run with me 👉 ${AppConstants.downloadUrl}');
+    // Put the download link right under the run stats (not buried at the very
+    // bottom where users miss it); branding + hashtags go last.
+    lines.add('\n📲 Download & run with me 👉 ${AppConstants.downloadUrl}');
+    lines.add('Tracked with MajuRun 🚀 #MajuRun #Running');
     return lines.join('\n');
   }
 
