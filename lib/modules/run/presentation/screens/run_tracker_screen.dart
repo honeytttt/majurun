@@ -53,10 +53,12 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
     // this, historyDistance/totalRuns/streak stay at 0 until the first run of
     // the session is saved (saveRunHistory was the only thing calling refresh).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Provider.of<RunController>(context, listen: false)
-            .refreshHistoryStats();
-      }
+      if (!mounted) return;
+      final rc = Provider.of<RunController>(context, listen: false);
+      rc.refreshHistoryStats();
+      // Surface any run that was interrupted by a crash/force-kill so the user
+      // can save it instead of silently losing it.
+      rc.checkForRecoverableRun(context);
     });
   }
 
