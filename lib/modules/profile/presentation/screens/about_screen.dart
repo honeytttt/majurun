@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:majurun/core/utils/app_constants.dart';
+import 'package:majurun/core/services/crash_reporting_service.dart';
+import 'package:majurun/core/services/sentry_service.dart';
 
 /// About Screen with App Info, Privacy Policy, Terms of Service
 /// Required for App Store compliance
@@ -16,6 +19,11 @@ class _AboutScreenState extends State<AboutScreen> {
   String _version = '';
   String _buildNumber = '';
 
+  // Hidden diagnostics: tapping the version label 7 times opens a crash-reporting
+  // self-test dialog. Invisible to normal users; lets us verify Sentry/Crashlytics
+  // actually deliver events on a real release build. Safe to remove once verified.
+  int _versionTapCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +35,71 @@ class _AboutScreenState extends State<AboutScreen> {
         });
       }
     });
+  }
+
+  void _onVersionTapped() {
+    _versionTapCount++;
+    if (_versionTapCount >= 7) {
+      _versionTapCount = 0;
+      _showDiagnosticsDialog();
+    }
+  }
+
+  void _showDiagnosticsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Crash reporting self-test'),
+        content: const Text(
+          'Verify that crash/error events reach Sentry and Crashlytics.\n\n'
+          '• Send test event: non-fatal, app keeps running.\n'
+          '• Force crash: the app WILL close — reopen it, then check '
+          'Crashlytics/Sentry in a few minutes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _sendTestEvent();
+            },
+            child: const Text('Send test event'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.read<CrashReportingService>().forceTestCrash();
+            },
+            child: const Text(
+              'Force crash',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendTestEvent() async {
+    final messenger = ScaffoldMessenger.of(context);
+    // Non-fatal test to BOTH pipelines: Crashlytics (recordError) + Sentry.
+    await context.read<CrashReportingService>().recordError(
+          Exception('MajuRun diagnostics: test non-fatal event'),
+          StackTrace.current,
+          reason: 'Manual self-test from About screen',
+        );
+    await SentryService().captureMessage(
+      'MajuRun diagnostics: test event from About screen',
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Test event sent — check Crashlytics & Sentry shortly'),
+      ),
+    );
   }
 
   Future<void> _launchUrl(String url) async {
@@ -96,11 +169,15 @@ class _AboutScreenState extends State<AboutScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    versionText,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _onVersionTapped,
+                    child: Text(
+                      versionText,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),

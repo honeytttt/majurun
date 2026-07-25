@@ -43,23 +43,49 @@ class CrashReportingService {
   }
 
   /// Set up global error handling
+  ///
+  /// IMPORTANT: Sentry (initialized in main.dart BEFORE this runs) installs its
+  /// OWN `FlutterError.onError` / `PlatformDispatcher.onError` handlers. We must
+  /// CHAIN to them, not replace them — otherwise Crashlytics would silently
+  /// swallow every Dart error and Sentry would receive nothing. We capture the
+  /// existing (Sentry) handler and forward to it after recording to Crashlytics,
+  /// so BOTH tools capture every uncaught Dart error. Do not regress this to a
+  /// plain assignment.
   void setupGlobalErrorHandling() {
-    // Handle Flutter framework errors
+    // Handle Flutter framework errors — record to Crashlytics, then forward to
+    // the previously-installed handler (Sentry, which also console-dumps in debug).
+    final previousFlutterOnError = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
-      if (kDebugMode) {
-        FlutterError.dumpErrorToConsole(details);
-      } else if (_isSupported && _crashlytics != null) {
+      if (!kDebugMode && _isSupported && _crashlytics != null) {
         _crashlytics!.recordFlutterFatalError(details);
+      }
+      if (previousFlutterOnError != null) {
+        previousFlutterOnError(details);
+      } else if (kDebugMode) {
+        FlutterError.dumpErrorToConsole(details);
       }
     };
 
-    // Handle async errors (errors not caught by Flutter)
+    // Handle async errors (errors not caught by Flutter) — record to Crashlytics,
+    // then forward to Sentry's handler so it captures the same uncaught errors.
+    final previousDispatcherOnError = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
       if (!kDebugMode && _isSupported && _crashlytics != null) {
         _crashlytics!.recordError(error, stack, fatal: true);
       }
+      previousDispatcherOnError?.call(error, stack);
       return true;
     };
+  }
+
+  /// Force a FATAL native crash to verify the Crashlytics pipeline end-to-end.
+  /// Reachable only via the hidden 7-tap gesture on the About screen version
+  /// label (invisible to normal users). The app will terminate — reopen it and
+  /// the crash should appear in Firebase Crashlytics within a few minutes.
+  void forceTestCrash() {
+    if (_isSupported && _crashlytics != null) {
+      _crashlytics!.crash();
+    }
   }
 
   /// Log a non-fatal error
