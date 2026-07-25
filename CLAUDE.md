@@ -19,6 +19,15 @@ Before creating any new branch, Claude must:
 4. **Device-test before bumping the build** where possible; keep the last-known-good build tag noted here.
 5. **Marketing version is now `1.0.5`** (1.0.4 train closed after App Store approval). Build numbers only go up; only bump after a successful upload.
 
+#### 🛑 ZERO-CRASH / ZERO-REGRESSION RULE (added Jul 25, 2026 — app is LIVE and about to be PROMOTED)
+**The app is in production on both stores and Hani is actively promoting/growing it. From now on, EVERY change must be provably safe — we cannot afford a crash or a broken existing feature from any change, however small.** Before making ANY change:
+1. **Default to the smallest possible additive diff.** Prefer adding a new, isolated code path over editing a working one. If an existing shipped feature works, do not "improve" its internals for a marginal gain.
+2. **Trace the blast radius first.** Before editing a file, identify every caller/feature that depends on it (grep for the symbol). If a change could touch runs, GPS, audio/voice ducking, feed, posting, purchases, or auth — treat it as high-risk and isolate it.
+3. **Never wrap/replace global handlers, audio sessions, or lifecycle hooks without chaining** — replacing `FlutterError.onError`, `PlatformDispatcher.onError`, or the audio session config silently breaks other features (this exact bug: Crashlytics clobbered Sentry). Always chain to the previous handler.
+4. **If a change is not clearly safe, it goes on its own branch and is device-tested before any build bump.** When in doubt, ask Hani rather than guessing.
+5. **`flutter analyze` clean is necessary but NOT sufficient** — analyze does not catch runtime regressions. Reason explicitly about what could break at runtime, especially on slower Android devices and in background (screen-off) states.
+6. **Minor/cosmetic requests are still gated by "won't disturb the working app."** If a nice-to-have (onboarding copy, voice tweak) carries any risk to a core flow, defer it and say so — do not ship it bundled with unrelated work.
+
 ### CI — actions/checkout updated (done in build 216)
 - ✅ Bumped `actions/checkout@v4` → `actions/checkout@v5` in both workflow files
 
