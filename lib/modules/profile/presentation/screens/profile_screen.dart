@@ -745,7 +745,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-          
+
+          const SizedBox(height: 10),
+
+          // Voice Coach entry — a clearly-labeled, always-visible row so users
+          // can find (and turn off) run voice announcements. The same settings
+          // were previously only reachable via a tiny AppBar icon that testers
+          // could not find. Additive: the AppBar icon is left untouched.
+          SizedBox(
+            width: double.infinity,
+            child: Semantics(
+              button: true,
+              label: 'Voice coach settings — turn announcements on or off',
+              child: OutlinedButton.icon(
+                onPressed: _navigateToVoiceSettings,
+                icon: const Icon(Icons.record_voice_over,
+                    color: Color(0xFF00E676)),
+                label: const Text(
+                  'Voice Coach  ·  turn voice on/off',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  side: BorderSide(color: Colors.grey[300]!),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           const SizedBox(height: 16),
 
           // Run stats strip — always visible
