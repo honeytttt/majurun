@@ -136,7 +136,15 @@ class _RouteRiddleCardState extends State<RouteRiddleCard> {
         ),
         onMapCreated: (ctrl) {
           Future.delayed(const Duration(milliseconds: 300), () {
-            ctrl.animateCamera(CameraUpdate.newLatLngBounds(_bounds(), 24));
+            // Card can be scrolled out of the feed / dismissed within the
+            // delay — the controller is then disposed and animateCamera
+            // throws StateError. Camera fit is cosmetic, so skip it.
+            if (!mounted) return;
+            try {
+              ctrl.animateCamera(CameraUpdate.newLatLngBounds(_bounds(), 24));
+            } on StateError {
+              // Map widget disposed between the mounted check and the call.
+            }
           });
         },
         polylines: {
