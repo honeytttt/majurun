@@ -478,18 +478,42 @@ jobs:
         run: |
           DSYM_PATH="$RUNNER_TEMP/Runner.xcarchive/dSYMs"
           UPLOAD_SYMBOLS="ios/Pods/FirebaseCrashlytics/upload-symbols"
-          GSP="ios/Runner/GoogleService-Info.plist"
-          if [ -x "$UPLOAD_SYMBOLS" ] && [ -d "$DSYM_PATH" ] && [ -f "$GSP" ]; then
-            echo "Uploading dSYMs from $DSYM_PATH to Crashlytics..."
-            "$UPLOAD_SYMBOLS" -gsp "$GSP" -p ios "$DSYM_PATH" \
+          # Route symbols by EXPLICIT app id (-ai), NOT by -gsp. The Firebase
+          # project has TWO iOS app registrations sharing bundle id
+          # com.majurun.app, and the bundled GoogleService-Info.plist points at
+          # the WRONG one (…ios:29f733…). Every -gsp upload therefore succeeded
+          # into that ghost app while crashes arrived on …ios:f473bb… — the id
+          # in lib/firebase_options.dart, i.e. the app the console shows as
+          # "majurun (ios)". That mismatch is why builds 255/257 sat with
+          # "Missing (required)" dSYMs and unprocessed crashes despite the CI
+          # log reporting a successful upload.
+          # The app id is a client identifier (already committed in
+          # lib/firebase_options.dart) — safe to hardcode here. Do NOT revert to
+          # -gsp unless the duplicate app registrations are cleaned up first.
+          CRASHLYTICS_APP_ID="1:648836412000:ios:f473bb4ec42e8cd1ac8905"
+          if [ -x "$UPLOAD_SYMBOLS" ] && [ -d "$DSYM_PATH" ]; then
+            echo "Uploading dSYMs from $DSYM_PATH to Crashlytics app $CRASHLYTICS_APP_ID..."
+            "$UPLOAD_SYMBOLS" -ai "$CRASHLYTICS_APP_ID" -p ios "$DSYM_PATH" \
               && echo "✅ dSYMs uploaded to Crashlytics" \
               || echo "⚠️ dSYM upload failed (non-fatal)"
           else
             echo "⚠️ Skipping dSYM upload — missing one of:"
             echo "   upload-symbols: $UPLOAD_SYMBOLS"; [ -x "$UPLOAD_SYMBOLS" ] && echo "   (found)" || echo "   (MISSING)"
             echo "   dSYMs: $DSYM_PATH"; [ -d "$DSYM_PATH" ] && ls -la "$DSYM_PATH" || echo "   (MISSING)"
-            echo "   plist: $GSP"; [ -f "$GSP" ] && echo "   (found)" || echo "   (MISSING)"
           fi
+
+      # Retain the dSYMs as a build artifact so a mis-routed or failed
+      # Crashlytics upload can be recovered by hand via the console's
+      # "Upload dSYM files" box. Builds 255/257 could NOT be recovered because
+      # only the IPA was archived and the dSYMs died with the runner.
+      - name: Upload dSYMs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MajuRun-iOS-dSYMs-${{ github.run_number }}
+          path: ${{ runner.temp }}/Runner.xcarchive/dSYMs
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: Export IPA
         run: |
