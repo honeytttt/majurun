@@ -102,6 +102,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Play Billing Library's internal activity crashes with a NullPointerException
+             (PendingIntent.getIntentSender() on null) when Android recreates it from a stale
+             saved instance state after the process was killed mid-purchase (low-memory devices).
+             noHistory removes it from the back stack so there's nothing to restore. -->
+        <activity
+            android:name="com.android.billingclient.api.ProxyBillingActivity"
+            android:exported="false"
+            android:noHistory="true"
+            tools:node="merge" />
+        <activity
+            android:name="com.android.billingclient.api.ProxyBillingActivityV2"
+            android:exported="false"
+            android:noHistory="true"
+            tools:node="merge" />
+
         <!-- Foreground Service for Run Tracking -->
         <service
             android:name=".RunTrackingService"
