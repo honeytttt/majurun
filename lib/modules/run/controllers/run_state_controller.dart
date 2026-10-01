@@ -133,6 +133,7 @@ class RunStateController extends ChangeNotifier {
   final List<KmSplit> _kmSplits = [];
   List<KmSplit> get kmSplits => List.unmodifiable(_kmSplits);
   int _lastKmTime = 0;
+  int _lastHalfKmTime = 0; // seconds elapsed at the last half/full-km mark
 
   // Idle detection
   int _idleSeconds = 0;
@@ -250,6 +251,7 @@ class RunStateController extends ChangeNotifier {
     _lastAnnouncedHalfKm = 0.0;
     _kmSplits.clear();
     _lastKmTime = 0;
+    _lastHalfKmTime = 0;
     _idleSeconds = 0;
     _hasNotifiedIdle = false;
     _currentPosition = null;
@@ -353,6 +355,7 @@ class RunStateController extends ChangeNotifier {
     _lastAnnouncedHalfKm = 0.0;
     _kmSplits.clear();
     _lastKmTime = 0;
+    _lastHalfKmTime = 0;
     _idleSeconds = 0;
     _hasNotifiedIdle = false;
     _currentPosition = null;
@@ -496,12 +499,23 @@ class RunStateController extends ChangeNotifier {
     );
 
     _lastKmTime = _secondsElapsed;
+    _lastHalfKmTime = _secondsElapsed;
   }
 
   void _handleHalfKmMilestone(double distanceKm) {
+    // True pace for this 500m segment (elapsed time since the last half/full
+    // km mark), not the generic 30s rolling-window pace — that window resets
+    // every 30s and is too noisy over a short segment to be accurate.
+    final thisHalfKmTime = _secondsElapsed - _lastHalfKmTime;
+    final paceMinutes = thisHalfKmTime / 30.0; // 0.5km segment: seconds/30 = min/km
+    final paceMin = paceMinutes.floor();
+    final paceSec = ((paceMinutes - paceMin) * 60).round();
+    final halfKmPaceString = "$paceMin:${paceSec.toString().padLeft(2, '0')}";
+    _lastHalfKmTime = _secondsElapsed;
+
     onHalfKmMilestone?.call(
       distanceKm: distanceKm,
-      currentPace: currentPaceString,
+      currentPace: halfKmPaceString,
     );
   }
 
