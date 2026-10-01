@@ -1279,6 +1279,14 @@ class VoiceController extends ChangeNotifier {
   Future<void> speakCountdown(int count) async {
     try {
       await ensureInitialized();
+      if (!kIsWeb) {
+        // Without this, the completion handler from the previous countdown
+        // number leaves the session inactive and later speak() calls queue
+        // silently (no audio, no error) until an unrelated OS interruption
+        // forces iOS to reactivate the session and flush the backlog.
+        final session = await AudioSession.instance;
+        await session.setActive(true);
+      }
       final word = count == 1 ? 'One' : '$count';
       await _tts.speak(word);
     } catch (e) {
