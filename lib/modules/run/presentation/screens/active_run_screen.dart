@@ -28,6 +28,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:majurun/core/models/segment.dart';
 import 'package:majurun/core/services/segment_service.dart';
 import 'package:majurun/modules/home/presentation/screens/home_screen.dart';
+import 'package:majurun/core/services/voice_settings_service.dart';
+import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 
 
 /// Production-grade active run screen with:
@@ -241,9 +243,12 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
               ),
               const SizedBox(width: 8),
               Tooltip(
-                message: runController.isVoiceEnabled ? 'Mute voice coach' : 'Unmute voice coach',
+                message: runController.isVoiceEnabled
+                    ? 'Mute voice coach (hold to customize)'
+                    : 'Unmute voice coach (hold to customize)',
                 child: GestureDetector(
                   onTap: runController.toggleVoice,
+                  onLongPress: () => _showVoiceCustomizationSheet(context),
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -264,6 +269,115 @@ class _ActiveRunScreenState extends State<ActiveRunScreen> with TickerProviderSt
           ),
         ],
       ),
+    );
+  }
+
+  /// Quick in-run voice customization — long-press the volume icon.
+  /// Writes straight to the shared VoiceSettingsService singleton, which
+  /// VoiceController already reads from on every announcement, so toggles
+  /// take effect immediately without touching VoiceController.
+  void _showVoiceCustomizationSheet(BuildContext context) {
+    final settingsService = VoiceSettingsService();
+    var settings = settingsService.settings;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            Widget toggle(String title, bool value, ValueChanged<bool> onChanged) {
+              return SwitchListTile(
+                title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 15)),
+                value: value,
+                onChanged: (v) {
+                  onChanged(v);
+                  settingsService.saveSettings(settings).catchError((_) {});
+                },
+                activeTrackColor: const Color(0xFF2D7A3E),
+                thumbColor: WidgetStateProperty.resolveWith((states) {
+                  return states.contains(WidgetState.selected)
+                      ? const Color(0xFF7ED957)
+                      : Colors.white54;
+                }),
+                contentPadding: EdgeInsets.zero,
+              );
+            }
+
+            return Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Icon(Icons.volume_up, color: Color(0xFF7ED957), size: 22),
+                      SizedBox(width: 10),
+                      Text(
+                        'Customize Voices',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Turn off just the announcements you don\'t want',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 20),
+                  toggle('Half-km updates (0.5, 1.5, 2.5…)', settings.halfKmUpdates, (v) {
+                    setSheetState(() => settings = settings.copyWith(halfKmUpdates: v));
+                  }),
+                  toggle('Full-km updates', settings.fullKmUpdates, (v) {
+                    setSheetState(() => settings = settings.copyWith(fullKmUpdates: v));
+                  }),
+                  toggle('Last km pace', settings.lastKmPace, (v) {
+                    setSheetState(() => settings = settings.copyWith(lastKmPace: v));
+                  }),
+                  toggle('Average pace', settings.averagePace, (v) {
+                    setSheetState(() => settings = settings.copyWith(averagePace: v));
+                  }),
+                  toggle('Encouragement / coach tips', settings.encouragement, (v) {
+                    setSheetState(() => settings = settings.copyWith(encouragement: v));
+                  }),
+                  toggle('Pause & resume', settings.pauseResume, (v) {
+                    setSheetState(() => settings = settings.copyWith(pauseResume: v));
+                  }),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(sheetCtx).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const VoiceSettingsScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'More voice settings (voice, speed, haptics)',
+                      style: TextStyle(color: Color(0xFF7ED957), fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
