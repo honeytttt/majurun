@@ -11,6 +11,7 @@ import 'package:majurun/core/services/haptic_service.dart';
 import 'package:majurun/core/services/watch_sync_service.dart';
 import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
+import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
@@ -639,6 +640,8 @@ class RunController extends ChangeNotifier {
       stateController.noGpsMode = true;
       await stateController.startRun();
       startAutoSave(planTitle);
+      // Don't let the "haven't run today" reminder fire while a run is live.
+      PushNotificationService().cancelNoRunReminder().catchError((_) {});
     } catch (e) {
       _lastError = e.toString();
       rethrow;
@@ -678,6 +681,9 @@ class RunController extends ChangeNotifier {
 
       // Start tracking
       await stateController.startRun();
+
+      // Don't let the "haven't run today" reminder fire while a run is live.
+      PushNotificationService().cancelNoRunReminder().catchError((_) {});
 
       // Fetch weather for the start location
       try {

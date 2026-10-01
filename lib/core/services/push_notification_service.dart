@@ -988,6 +988,32 @@ class PushNotificationService {
     try {
       await _ensureInitialized();
       await _localNotifications.cancel(_noRunReminderNotifId); // cancel stale iOS notification
+
+      // Skip entirely if the user already ran today — same lastRunDate check
+      // StreakRiskNotifier uses. Re-evaluated on every call (login/resume),
+      // so the reminder comes back automatically once a new day starts.
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        try {
+          final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+          final lastRunDate = (doc.data()?['lastRunDate'] as Timestamp?)?.toDate();
+          if (lastRunDate != null) {
+            final today = DateTime.now();
+            final sameDay = lastRunDate.year == today.year &&
+                lastRunDate.month == today.month &&
+                lastRunDate.day == today.day;
+            if (sameDay) {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('no_run_reminder_enabled', false);
+              debugPrint('✅ No-run reminder skipped — already ran today');
+              return;
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ scheduleNoRunReminder lastRunDate check failed, scheduling anyway: $e');
+        }
+      }
+
       await _initTimezone();
       final location = tz.local;
       final now = tz.TZDateTime.now(location);
