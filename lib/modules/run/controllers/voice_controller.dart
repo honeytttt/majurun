@@ -789,6 +789,17 @@ class VoiceController extends ChangeNotifier {
   bool _isInitialized = false;
   final _random = Random();
 
+  // Audio-session release bookkeeping. The session is released only after
+  // ALL queued utterances finish and no new speech started for
+  // [_kSessionReleaseDelay]. Releasing it immediately per utterance raced the
+  // next utterance (e.g. countdown "4" -> "3") and deactivated the iOS
+  // session while AVSpeechSynthesizer was starting — the synthesizer then
+  // stalled silently and music stayed ducked until an OS interruption.
+  static const Duration _kSessionReleaseDelay = Duration(milliseconds: 1500);
+  int _pendingUtterances = 0;
+  int _speechGeneration = 0;
+  DateTime _lastSpeakAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   // Tracks which approaching-milestone announcements have already fired
   // so they don't repeat on every GPS tick.
   final Set<double> _announcedApproaching = {};
@@ -925,6 +936,10 @@ class VoiceController extends ChangeNotifier {
         await _tts.setSpeechRate(_settings.speechRate);
         await _tts.setPitch(1.0);
         await _tts.setVolume(1.0);
+        // flutter_tts otherwise deactivates the shared session natively on
+        // every utterance finish — the same instant release that stalls a
+        // queued utterance. Release is owned by _scheduleSessionRelease().
+        await _tts.autoStopSharedSession(false);
         debugPrint('✅ Voice initialized for iOS ($name)');
       } else {
         await _tts.setLanguage('en-US');
@@ -952,12 +967,11 @@ class VoiceController extends ChangeNotifier {
           androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
           androidWillPauseWhenDucked: false,
         ));
-        // Deactivate session after each TTS phrase so music restores immediately
-        _tts.setCompletionHandler(() async {
-          try {
-            final s = await AudioSession.instance;
-            await s.setActive(false);
-          } catch (_) {}
+        // Deactivate session after TTS finishes so music restores — deferred
+        // until no further speech is queued (see _scheduleSessionRelease).
+        _tts.setCompletionHandler(() {
+          if (_pendingUtterances > 0) _pendingUtterances--;
+          _scheduleSessionRelease();
         });
       }
 
@@ -993,22 +1007,57 @@ class VoiceController extends ChangeNotifier {
     _finalApproachAnnounced = false;
   }
 
+  /// Activate the (already configured) session before an utterance and
+  /// record it as pending, so a completion of an EARLIER utterance can't
+  /// release the session underneath this one.
+  Future<void> _activateSessionForSpeech() async {
+    _speechGeneration++;
+    _pendingUtterances++;
+    _lastSpeakAt = DateTime.now();
+    if (kIsWeb) return;
+    final session = await AudioSession.instance;
+    await session.setActive(true);
+  }
+
+  /// Release the session (music un-ducks) once speech has been idle for
+  /// [_kSessionReleaseDelay]. Skipped if newer speech started meanwhile or
+  /// an utterance is still queued — that utterance's completion reschedules.
+  void _scheduleSessionRelease() {
+    if (kIsWeb) return;
+    final generation = _speechGeneration;
+    Future.delayed(_kSessionReleaseDelay, () async {
+      if (generation != _speechGeneration) return;
+      // Safety valve: a lost completion callback must not keep music
+      // ducked forever.
+      final stale = DateTime.now().difference(_lastSpeakAt) > const Duration(seconds: 30);
+      if (_pendingUtterances > 0 && !stale) return;
+      _pendingUtterances = 0;
+      try {
+        final s = await AudioSession.instance;
+        await s.setActive(
+          false,
+          avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+        );
+      } catch (_) {}
+    });
+  }
+
   Future<void> _speak(String text) async {
     if (!_isVoiceEnabled || !_settings.masterEnabled) return;
     try {
       if (!_isInitialized) await _initTts();
 
-      if (!kIsWeb) {
-        // Session already configured with duckOthers in _initTts().
-        // Just activate — music ducks. Completion handler deactivates.
-        final session = await AudioSession.instance;
-        await session.setActive(true);
-      }
+      // Session already configured with duckOthers in _initTts().
+      // Just activate — music ducks. Completion handler deactivates.
+      await _activateSessionForSpeech();
 
       await _tts.speak(text);
       debugPrint('🔊 Speaking: $text');
     } catch (e) {
       debugPrint('⚠️ Error speaking: $e');
+      // No completion will arrive for a failed speak — release accordingly.
+      if (_pendingUtterances > 0) _pendingUtterances--;
+      _scheduleSessionRelease();
       await _initTts();
     }
   }
@@ -1279,18 +1328,16 @@ class VoiceController extends ChangeNotifier {
   Future<void> speakCountdown(int count) async {
     try {
       await ensureInitialized();
-      if (!kIsWeb) {
-        // Without this, the completion handler from the previous countdown
-        // number leaves the session inactive and later speak() calls queue
-        // silently (no audio, no error) until an unrelated OS interruption
-        // forces iOS to reactivate the session and flush the backlog.
-        final session = await AudioSession.instance;
-        await session.setActive(true);
-      }
+      // Activate like _speak() does; the deferred release keeps the session
+      // up across the whole 5-4-3-2-1 sequence instead of toggling it per
+      // number (which raced and stalled the synthesizer after "4").
+      await _activateSessionForSpeech();
       final word = count == 1 ? 'One' : '$count';
       await _tts.speak(word);
     } catch (e) {
       debugPrint('⚠️ Countdown TTS error: $e');
+      if (_pendingUtterances > 0) _pendingUtterances--;
+      _scheduleSessionRelease();
     }
   }
 
