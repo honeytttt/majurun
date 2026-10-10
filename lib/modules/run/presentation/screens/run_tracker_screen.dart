@@ -15,6 +15,7 @@ import 'package:majurun/modules/run/presentation/screens/last_activity_screen.da
 import 'package:majurun/modules/run/presentation/screens/active_run_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/interval_training_screen.dart';
 import 'package:majurun/modules/run/presentation/screens/treadmill_run_screen.dart';
+import 'package:majurun/modules/profile/presentation/screens/voice_settings_screen.dart';
 import 'package:majurun/modules/training/presentation/widgets/training_drawer.dart';
 import 'package:majurun/modules/training/services/training_service.dart';
 import 'package:majurun/modules/training/presentation/screens/active_workout_screen.dart';
@@ -111,6 +112,7 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
           children: [
             _buildHeader(context),
             _buildBeginnerPlanBanner(context),
+            _buildVoiceCoachBanner(context),
             const Spacer(flex: 2),
             _buildControlCenter(context),
             const Spacer(flex: 2),
@@ -226,6 +228,52 @@ class _RunTrackerScreenState extends State<RunTrackerScreen>
 
   /// Attractive promo banner for the free "0 → 5K" beginner plan. Tapping it
   /// opens the plan's detail/overview page where the user can start it.
+  /// Slim, always-visible entry to voice coach settings — the in-run
+  /// long-press on the volume icon is too hidden for most users.
+  Widget _buildVoiceCoachBanner(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+      child: BounceClick(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VoiceSettingsScreen()),
+        ),
+        child: Semantics(
+          button: true,
+          label: 'Customize voice coach announcements',
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D7A3E).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF2D7A3E).withValues(alpha: 0.25),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.record_voice_over_rounded,
+                    color: Color(0xFF2D7A3E), size: 20),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Customize voice coach',
+                    style: TextStyle(
+                      color: Color(0xFF1B4D2C),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    color: Color(0xFF2D7A3E), size: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBeginnerPlanBanner(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
