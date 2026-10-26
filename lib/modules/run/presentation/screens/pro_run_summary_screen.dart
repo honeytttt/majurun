@@ -84,6 +84,7 @@ class _ProRunSummaryScreenState extends State<ProRunSummaryScreen>
       }
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });

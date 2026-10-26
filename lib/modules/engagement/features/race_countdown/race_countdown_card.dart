@@ -61,6 +61,7 @@ class _RaceCountdownCardState extends State<RaceCountdownCard> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     await FirebaseFirestore.instance.collection('users').doc(uid).update({'raceGoal': goal});
+    if (!mounted) return;
     setState(() => _goal = goal);
   }
 
@@ -68,6 +69,7 @@ class _RaceCountdownCardState extends State<RaceCountdownCard> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     await FirebaseFirestore.instance.collection('users').doc(uid).update({'raceGoal': FieldValue.delete()});
+    if (!mounted) return;
     setState(() => _goal = null);
   }
 

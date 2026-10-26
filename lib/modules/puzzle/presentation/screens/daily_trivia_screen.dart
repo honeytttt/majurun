@@ -72,6 +72,7 @@ class _DailyTriviaScreenState extends State<DailyTriviaScreen>
   Future<void> _next() async {
     if (_currentIndex < _questions.length - 1) {
       await _slideCtrl.reverse();
+      if (!mounted) return;
       setState(() {
         _currentIndex++;
         _selectedOption = null;
@@ -80,6 +81,7 @@ class _DailyTriviaScreenState extends State<DailyTriviaScreen>
       _slideCtrl.forward();
     } else {
       final stats = await _service.completeToday(_score);
+      if (!mounted) return;
       setState(() { _finished = true; _finalStats = stats; });
     }
   }

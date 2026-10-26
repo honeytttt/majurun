@@ -92,6 +92,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
 
   Future<void> _loadRecentSearches() async {
     final searches = await _searchService.getRecentSearches();
+    if (!mounted) return;
     setState(() {
       _recentSearches = searches;
     });
@@ -125,6 +126,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     try {
       final results = await _searchService.searchAll(query);
 
+      if (!mounted) return;
       setState(() {
         _userResults = results['users'] ?? [];
         _postResults = results['posts'] ?? [];
@@ -136,6 +138,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       await _searchService.saveRecentSearch(query);
       await _loadRecentSearches();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isSearching = false;
         _hasSearched = true;

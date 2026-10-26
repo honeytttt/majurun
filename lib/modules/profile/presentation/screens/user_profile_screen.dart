@@ -153,6 +153,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             .doc(currentUserId)
             .delete();
 
+        if (!mounted) return;
         setState(() {
           _isFollowing = false;
           _followersCount--;
@@ -193,6 +194,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           followerPhotoUrl: currentUser.photoURL,
         );
 
+        if (!mounted) return;
         setState(() {
           _isFollowing = true;
           _followersCount++;

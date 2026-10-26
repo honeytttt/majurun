@@ -216,6 +216,7 @@ class _FollowersFollowingScreenState extends State<FollowersFollowingScreen>
                     } else {
                       await _followService.followUser(userId);
                     }
+                    if (!mounted) return;
                     setState(() {});
                   },
                   style: ElevatedButton.styleFrom(

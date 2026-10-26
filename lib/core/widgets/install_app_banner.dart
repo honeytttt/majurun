@@ -24,6 +24,7 @@ class _InstallAppBannerState extends State<InstallAppBanner> {
     
     // Only show if not dismissed and not already installed
     if (!dismissed && !_isRunningAsStandalone()) {
+      if (!mounted) return;
       setState(() => _showBanner = true);
     }
   }
@@ -37,6 +38,7 @@ class _InstallAppBannerState extends State<InstallAppBanner> {
   Future<void> _dismiss() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_dismissedKey, true);
+    if (!mounted) return;
     setState(() => _showBanner = false);
   }
 

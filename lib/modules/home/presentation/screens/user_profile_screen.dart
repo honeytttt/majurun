@@ -158,6 +158,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .get();
       _postsCount = postsSnap.size;
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
     } catch (e) {
       log('Error loading profile ${widget.userId}: $e');
@@ -176,6 +177,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .collection('following')
           .doc(widget.userId)
           .get();
+      if (!mounted) return;
       setState(() => _isFollowing = doc.exists);
     } catch (e) {
       log('Follow status check failed: $e');
@@ -208,6 +210,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             .doc(currentUserId)
             .delete();
 
+        if (!mounted) return;
         setState(() {
           _isFollowing = false;
           _followersCount--;
@@ -249,6 +252,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           followerPhotoUrl: currentUser.photoURL,
         );
 
+        if (!mounted) return;
         setState(() {
           _isFollowing = true;
           _followersCount++;

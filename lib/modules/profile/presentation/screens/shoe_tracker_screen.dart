@@ -140,6 +140,7 @@ class _ShoeTrackerScreenState extends State<ShoeTrackerScreen>
                             double.tryParse(kmCtrl.text) ?? 0.0,
                         purchaseDate: DateTime.now(),
                       );
+                      if (!mounted) return;
                       setState(() => _loading = false);
                     },
                     style: ElevatedButton.styleFrom(

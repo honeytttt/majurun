@@ -220,6 +220,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with SingleTi
     // ✅ Start GPS tracking when the actual session begins (after warmup)
     await _startGpsTrackingIfNeeded();
 
+    if (!mounted) return;
     setState(() {
       _isWarmup = false;
       _isRunning = true;

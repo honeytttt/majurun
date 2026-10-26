@@ -67,6 +67,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked != null && mounted) {
       if (kIsWeb) {
         final bytes = await picked.readAsBytes();
+        if (!mounted) return;
         setState(() => _webImage = bytes);
       } else {
         setState(() => _imageFile = File(picked.path));

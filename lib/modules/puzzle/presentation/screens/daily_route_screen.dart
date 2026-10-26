@@ -197,6 +197,7 @@ class _DailyRouteScreenState extends State<DailyRouteScreen>
     HapticFeedback.heavyImpact();
     await Future.delayed(const Duration(milliseconds: 100));
     HapticFeedback.heavyImpact();
+    if (!mounted) return;
     setState(() => _solved = true);
     _winCtrl.forward();
     final stats = await DailyPuzzleService().completeToday(1);

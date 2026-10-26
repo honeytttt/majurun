@@ -75,6 +75,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           source: ImageSource.gallery, imageQuality: 80, maxWidth: 512, maxHeight: 512);
       if (picked != null && mounted) {
         _webImage = await picked.readAsBytes();
+        if (!mounted) return;
         setState(() {});
       }
     } else {

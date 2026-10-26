@@ -44,6 +44,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
           .toList();
 
       final results = await Future.wait(futures);
+      if (!mounted) return;
       setState(() {
         _posts = results.whereType<AppPost>().toList();
         _loading = false;

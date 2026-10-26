@@ -626,6 +626,7 @@ class _SettingsTabState extends State<_SettingsTab> {
     try {
       final fn = FirebaseFunctions.instanceFor(region: 'asia-southeast1');
       final res = await fn.httpsCallable('grantAdminClaim').call();
+      if (!mounted) return;
       setState(() => _result = res.data['message'] as String? ?? 'Done! Sign out and back in.');
     } on FirebaseFunctionsException catch (e) {
       setState(() => _result = 'Error: ${e.message}');

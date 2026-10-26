@@ -51,6 +51,7 @@ class _TriviaCardState extends State<TriviaCard>
     if (!mounted) return;
     if (answered) {
       final sel = await TriviaService.selectedAnswerToday();
+      if (!mounted) return;
       setState(() {
         _selectedIndex = sel;
         _loading = false;

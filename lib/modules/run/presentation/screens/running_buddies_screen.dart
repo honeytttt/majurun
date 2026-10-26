@@ -63,6 +63,7 @@ class _RunningBuddiesScreenState extends State<RunningBuddiesScreen> {
 
       final followerIds = followersSnap.docs.map((d) => d.id).toList();
       if (followerIds.isEmpty) {
+        if (!mounted) return;
         setState(() { _buddies = []; _loading = false; });
         return;
       }
@@ -103,6 +104,7 @@ class _RunningBuddiesScreenState extends State<RunningBuddiesScreen> {
       // Sort: highest compatibility first
       matches.sort((a, b) => b.compatibility.compareTo(a.compatibility));
 
+      if (!mounted) return;
       setState(() { _buddies = matches; _loading = false; });
     } catch (e) {
       debugPrint('RunningBuddies error: $e');
