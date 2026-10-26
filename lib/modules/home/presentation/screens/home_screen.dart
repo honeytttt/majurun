@@ -503,6 +503,10 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
   late final Stream<List<AppPost>> _postsStream = _postRepo.getPostsStream();
   final ScrollController _feedScrollController = ScrollController();
   final NotificationService _notificationService = NotificationService();
+  // Created once so home rebuilds (tab switches, feed paging) don't re-open
+  // the unread-count listener each time.
+  late final Stream<int> _unreadCountStream =
+      _notificationService.getUnreadCountStream();
   final List<AppPost> _allPosts = [];
   bool _isLoadingMore = false;
   bool _bannerDismissed = false;
@@ -1426,7 +1430,7 @@ class _HomeFeedContentState extends State<HomeFeedContent> {
 
   Widget _buildNotificationIcon(BuildContext context) {
     return StreamBuilder<int>(
-      stream: _notificationService.getUnreadCountStream(),
+      stream: _unreadCountStream,
       builder: (context, snapshot) {
         final unreadCount = snapshot.data ?? 0;
 

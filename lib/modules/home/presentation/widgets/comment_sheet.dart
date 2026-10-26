@@ -24,6 +24,10 @@ class CommentSheet extends StatefulWidget {
 class _CommentSheetState extends State<CommentSheet> {
   final TextEditingController _controller = TextEditingController();
   final PostRepositoryImpl _postRepo = PostRepositoryImpl();
+  // Created once — re-creating it in build() re-subscribed on every keystroke
+  // that called setState (e.g. @mention suggestions), flickering the list.
+  late final Stream<List<Map<String, dynamic>>> _commentsStream =
+      _postRepo.getCommentsStream(widget.postId);
   final CloudinaryService _cloudinary = CloudinaryService();
   final ImagePicker _picker = ImagePicker();
 
@@ -190,7 +194,7 @@ class _CommentSheetState extends State<CommentSheet> {
           const Divider(height: 1, color: Color(0xFFEEEEEE)),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _postRepo.getCommentsStream(widget.postId),
+              stream: _commentsStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

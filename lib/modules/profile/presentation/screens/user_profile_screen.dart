@@ -83,25 +83,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         }
       }
 
-      final followersSnapshot = await FirebaseFirestore.instance
+      _followersCount = await _countDocs(FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
-          .collection('followers')
-          .get();
-      _followersCount = followersSnapshot.docs.length;
+          .collection('followers'));
 
-      final followingSnapshot = await FirebaseFirestore.instance
+      _followingCount = await _countDocs(FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
-          .collection('following')
-          .get();
-      _followingCount = followingSnapshot.docs.length;
+          .collection('following'));
 
-      final postsSnapshot = await FirebaseFirestore.instance
+      _postsCount = await _countDocs(FirebaseFirestore.instance
           .collection('posts')
-          .where('userId', isEqualTo: widget.userId)
-          .get();
-      _postsCount = postsSnapshot.docs.length;
+          .where('userId', isEqualTo: widget.userId));
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
@@ -286,6 +280,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  /// Server-side count (1 read) with a fallback to the old full fetch, so
+  /// offline profiles still show cached numbers (count() needs the server).
+  Future<int> _countDocs(Query<Map<String, dynamic>> query) async {
+    try {
+      final agg = await query.count().get();
+      return agg.count ?? 0;
+    } catch (_) {
+      return (await query.get()).size;
+    }
   }
 
   @override

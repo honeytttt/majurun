@@ -138,25 +138,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         log('PROFILE ${widget.username} → totalKm:$_totalKm joined:$_createdAt');
       }
 
-      final followersSnap = await FirebaseFirestore.instance
+      _followersCount = await _countDocs(FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
-          .collection('followers')
-          .get();
-      _followersCount = followersSnap.size;
+          .collection('followers'));
 
-      final followingSnap = await FirebaseFirestore.instance
+      _followingCount = await _countDocs(FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
-          .collection('following')
-          .get();
-      _followingCount = followingSnap.size;
+          .collection('following'));
 
-      final postsSnap = await FirebaseFirestore.instance
+      _postsCount = await _countDocs(FirebaseFirestore.instance
           .collection('posts')
-          .where('userId', isEqualTo: widget.userId)
-          .get();
-      _postsCount = postsSnap.size;
+          .where('userId', isEqualTo: widget.userId));
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -342,6 +336,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
+  }
+
+  /// Server-side count (1 read) with a fallback to the old full fetch, so
+  /// offline profiles still show cached numbers (count() needs the server).
+  Future<int> _countDocs(Query<Map<String, dynamic>> query) async {
+    try {
+      final agg = await query.count().get();
+      return agg.count ?? 0;
+    } catch (_) {
+      return (await query.get()).size;
+    }
   }
 
   @override

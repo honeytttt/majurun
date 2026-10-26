@@ -28,6 +28,10 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final DmService _dmService = DmService();
+  // Created once so sending (setState) doesn't tear down and re-open the
+  // messages listener.
+  late final Stream<List<Message>> _messagesStream =
+      _dmService.getMessagesStream(widget.conversationId);
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
 
@@ -156,7 +160,7 @@ class _ChatScreenState extends State<ChatScreen> {
           // Messages list
           Expanded(
             child: StreamBuilder<List<Message>>(
-              stream: _dmService.getMessagesStream(widget.conversationId),
+              stream: _messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
