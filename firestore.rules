@@ -18,11 +18,27 @@ service cloud.firestore {
       );
     }
 
+    // Entitlement fields are server-owned: only verifySubscription (Admin SDK,
+    // which bypasses these rules) may grant Pro. A client may still change them
+    // as long as the result is NOT Pro (expiry/downgrade paths write isPro=false).
+    function entitlementKeys() {
+      return ['isPro', 'subscriptionExpiry', 'subscriptionType',
+              'entitlementSource', 'lastVerifiedAt'];
+    }
+    function noProOnCreate() {
+      return request.resource.data.get('isPro', false) == false;
+    }
+    function noProEscalation() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(entitlementKeys())
+          || request.resource.data.get('isPro', false) == false;
+    }
+
     // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && ((isOwner(userId) && noProOnCreate()) || isAdmin());
+      allow update: if isAuthenticated() && ((isOwner(userId) && noProEscalation()) || isAdmin());
       allow delete: if isAdmin();
 
       // followers/{followerId} — the follower document represents followerId following userId.
