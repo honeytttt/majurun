@@ -982,16 +982,27 @@ class PushNotificationService {
     await prefs.setBool('daily_motivation_enabled', false);
   }
 
-  /// Schedule a daily "you haven't run today" reminder.
-  /// Fires every evening — users who already ran can ignore/dismiss.
+  /// Schedule the "you haven't run today" reminder as one-shot alarms for the
+  /// next [_noRunReminderDays] evenings, instead of a single repeating alarm.
+  ///
+  /// Why: a repeating alarm meant cancelling it on run start killed EVERY
+  /// future day, and it only came back if the app was reopened on a later day
+  /// before 19:00 — so after a run, the reminder silently stopped. With
+  /// per-day slots, a run cancels only today's slot and the following
+  /// evenings still fire even if the app is never opened. Re-called on every
+  /// login/resume, which rolls the window forward.
   Future<void> scheduleNoRunReminder({int hour = 19, int minute = 0}) async {
     try {
       await _ensureInitialized();
-      await _localNotifications.cancel(_noRunReminderNotifId); // cancel stale iOS notification
+      // Legacy repeating alarm (builds ≤ 260) + all existing day slots.
+      await _localNotifications.cancel(_noRunReminderNotifId);
+      for (var i = 0; i < _noRunReminderDays; i++) {
+        await _localNotifications.cancel(_noRunReminderSlotBase + i);
+      }
 
-      // Skip entirely if the user already ran today — same lastRunDate check
-      // StreakRiskNotifier uses. Re-evaluated on every call (login/resume),
-      // so the reminder comes back automatically once a new day starts.
+      // Skip TODAY only if the user already ran today — same lastRunDate
+      // check StreakRiskNotifier uses. Later days are always scheduled.
+      var ranToday = false;
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
         try {
@@ -999,70 +1010,93 @@ class PushNotificationService {
           final lastRunDate = (doc.data()?['lastRunDate'] as Timestamp?)?.toDate();
           if (lastRunDate != null) {
             final today = DateTime.now();
-            final sameDay = lastRunDate.year == today.year &&
+            ranToday = lastRunDate.year == today.year &&
                 lastRunDate.month == today.month &&
                 lastRunDate.day == today.day;
-            if (sameDay) {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('no_run_reminder_enabled', false);
-              debugPrint('✅ No-run reminder skipped — already ran today');
-              return;
-            }
           }
         } catch (e) {
           debugPrint('⚠️ scheduleNoRunReminder lastRunDate check failed, scheduling anyway: $e');
         }
       }
 
+      // Also skip today if a run was STARTED today on this device — covers
+      // resumes mid-run (lastRunDate is only written when the run ends) and
+      // offline runs whose Firestore write hasn't landed yet.
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(_noRunReminderRunStartedKey) == _dayKey(DateTime.now())) {
+        ranToday = true;
+      }
+
       await _initTimezone();
       final location = tz.local;
       final now = tz.TZDateTime.now(location);
-      var scheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
-      if (scheduled.isBefore(now)) {
-        scheduled = scheduled.add(const Duration(days: 1));
+      final scheduleMode = await _resolveScheduleMode();
+      final messages = List<String>.from(_eveningReminders)..shuffle();
+
+      var count = 0;
+      for (var offset = 0; offset < _noRunReminderDays; offset++) {
+        final day = DateTime(now.year, now.month, now.day + offset);
+        final scheduled =
+            tz.TZDateTime(location, day.year, day.month, day.day, hour, minute);
+        if (offset == 0 && (ranToday || scheduled.isBefore(now))) continue;
+
+        await _localNotifications.zonedSchedule(
+          _noRunReminderSlotId(day),
+          'Time for a run? 🏃',
+          messages[offset % messages.length],
+          scheduled,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _runReminderChannelId,
+              'Run Reminders',
+              importance: Importance.high,
+              priority: Priority.high,
+              icon: '@mipmap/ic_launcher',
+            ),
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+          androidScheduleMode: scheduleMode,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.wallClockTime,
+        );
+        count++;
       }
 
-      final message = (List<String>.from(_eveningReminders)..shuffle()).first;
-      final scheduleMode = await _resolveScheduleMode();
-
-      await _localNotifications.zonedSchedule(
-        _noRunReminderNotifId,
-        'Time for a run? 🏃',
-        message,
-        scheduled,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            _runReminderChannelId,
-            'Run Reminders',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-        androidScheduleMode: scheduleMode,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.wallClockTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
-
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('no_run_reminder_enabled', true);
-      debugPrint('✅ No-run reminder scheduled at $hour:$minute (mode: $scheduleMode)');
+      debugPrint('✅ No-run reminder scheduled for $count evening(s) at $hour:$minute '
+          '(ranToday: $ranToday, mode: $scheduleMode)');
     } catch (e) {
       debugPrint('❌ scheduleNoRunReminder error: $e');
     }
   }
 
-  /// Cancel no-run reminders.
+  /// Cancel only TODAY's no-run reminder (called when a run starts). Future
+  /// evenings stay scheduled so the reminder keeps working after a run.
   Future<void> cancelNoRunReminder() async {
-    await _localNotifications.cancel(_noRunReminderNotifId);
+    await _localNotifications.cancel(_noRunReminderNotifId); // legacy repeating alarm
+    await _localNotifications.cancel(_noRunReminderSlotId(DateTime.now()));
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('no_run_reminder_enabled', false);
+    await prefs.setString(_noRunReminderRunStartedKey, _dayKey(DateTime.now()));
+  }
+
+  static const String _noRunReminderRunStartedKey = 'no_run_reminder_run_started_day';
+
+  String _dayKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
+  /// Number of evenings ahead the no-run reminder is pre-scheduled.
+  static const int _noRunReminderDays = 7;
+
+  /// IDs 210–216 — one slot per weekday-cycle so 7 consecutive days never collide.
+  static const int _noRunReminderSlotBase = 210;
+
+  int _noRunReminderSlotId(DateTime day) {
+    final daysSinceEpoch =
+        DateTime.utc(day.year, day.month, day.day).millisecondsSinceEpoch ~/ 86400000;
+    return _noRunReminderSlotBase + daysSinceEpoch % _noRunReminderDays;
   }
 
   /// Schedule a weekly subscription upsell notification for free users.
