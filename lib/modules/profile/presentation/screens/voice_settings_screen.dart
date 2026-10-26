@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:majurun/core/services/voice_settings_service.dart';
-import 'package:majurun/modules/run/controllers/voice_controller.dart';
+import 'package:majurun/modules/run/controllers/run_controller.dart';
+import 'package:majurun/modules/run/controllers/run_state_controller.dart';
 import 'package:majurun/core/services/audio_coaching_service.dart';
 
 class VoiceSettingsScreen extends StatefulWidget {
@@ -12,7 +14,6 @@ class VoiceSettingsScreen extends StatefulWidget {
 
 class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
   final VoiceSettingsService _service = VoiceSettingsService();
-  final VoiceController _voiceController = VoiceController();
   VoiceSettings _settings = VoiceSettings.defaults();
   bool _isLoading = true;
   bool _isSaving = false;
@@ -71,8 +72,18 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
     });
   }
 
+  // Uses the app's single VoiceController (owned by RunController) instead of
+  // constructing a new one. flutter_tts routes ALL native callbacks to the
+  // most recently constructed FlutterTts, so a second instance here silently
+  // stole the run controller's completion events for the rest of the session
+  // (defeating the deferred session release that stops the countdown stall),
+  // and its dispose() -> stop() cut off any in-progress run announcement.
   Future<void> _testVoice() async {
-    await _voiceController.testVoice();
+    final runController = context.read<RunController>();
+    final voice = runController.voiceController;
+    // Pick up the latest saved voice/rate — but never re-init mid-run.
+    if (runController.state == RunState.idle) await voice.reloadVoice();
+    await voice.testVoice();
   }
 
   @override
@@ -706,9 +717,4 @@ class _VoiceSettingsScreenState extends State<VoiceSettingsScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _voiceController.dispose();
-    super.dispose();
-  }
 }
