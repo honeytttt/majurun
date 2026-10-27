@@ -1,7 +1,9 @@
 import 'package:health/health.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 
@@ -14,6 +16,28 @@ class HealthSyncResult {
 }
 
 class HealthSyncService {
+  // iOS: AppDelegate's HealthBackgroundObserver sets this SharedPreferences key
+  // (native "flutter.health_bg_pending_ms") after showing a "Run synced"
+  // notification for a workout saved to Apple Health while the app was closed.
+  static const String _bgPendingKey = 'health_bg_pending_ms';
+  static const MethodChannel _bgChannel = MethodChannel('com.majurun.app/health_bg');
+
+  /// Bumped (to a timestamp) after a run announced by that notification has
+  /// been imported, so the UI can offer to open it.
+  static final ValueNotifier<int> backgroundRunImported = ValueNotifier(0);
+
+  static bool _resumeSyncInFlight = false;
+
+  /// iOS only: when a new watch run lands while the app is in the
+  /// FOREGROUND, the native observer calls "newRun" — import it right away.
+  static void listenForBackgroundRuns() {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    _bgChannel.setMethodCallHandler((call) async {
+      if (call.method == 'newRun') await HealthSyncService().autoSyncOnResume();
+      return null;
+    });
+  }
+
   final Health _health;
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -309,15 +333,29 @@ class HealthSyncService {
   /// Only syncs if health permission is already granted — never prompts here.
   /// Returns the number of newly imported runs.
   Future<int> autoSyncOnResume() async {
+    // Resume and the native "newRun" call can overlap — never run two syncs
+    // at once (both would pass the duplicate check and import the run twice).
+    if (_resumeSyncInFlight) return 0;
+    _resumeSyncInFlight = true;
     try {
       if (_auth.currentUser == null) return 0;
 
-      // Debounce: skip if we synced within the last 30 minutes.
       final prefs = await SharedPreferences.getInstance();
+
+      // A "Run synced" notification was shown for a new Apple Health run —
+      // import now instead of waiting out the debounce. The native side
+      // writes the key, so drop the Dart-side cache first.
+      var bgPendingMs = 0;
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        await prefs.reload();
+        bgPendingMs = prefs.getInt(_bgPendingKey) ?? 0;
+      }
+
+      // Debounce: skip if we synced within the last 30 minutes.
       const tsKey = 'health_last_resume_sync_ms';
       final lastMs = prefs.getInt(tsKey) ?? 0;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (nowMs - lastMs < 30 * 60 * 1000) return 0;
+      if (bgPendingMs == 0 && nowMs - lastMs < 30 * 60 * 1000) return 0;
 
       // Only sync if permission already granted — do not prompt on resume.
       final hasPerms = await hasPermissions();
@@ -325,11 +363,19 @@ class HealthSyncService {
 
       final result = await syncData(days: 7, silent: true);
       await prefs.setInt(tsKey, nowMs);
+      if (bgPendingMs != 0) {
+        await prefs.remove(_bgPendingKey);
+        if (result.imported > 0) {
+          backgroundRunImported.value = DateTime.now().millisecondsSinceEpoch;
+        }
+      }
       debugPrint('🔄 Resume health sync — imported: ${result.imported}');
       return result.imported;
     } catch (e) {
       debugPrint('⚠️ autoSyncOnResume error: $e');
       return 0;
+    } finally {
+      _resumeSyncInFlight = false;
     }
   }
 

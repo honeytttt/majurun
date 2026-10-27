@@ -53,6 +53,8 @@ import 'package:majurun/modules/subscription/presentation/screens/subscription_s
 import 'package:majurun/modules/onboarding/feature_intro_screen.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/health_sync_service.dart';
+import 'package:majurun/core/utils/page_transitions.dart';
+import 'package:majurun/modules/run/presentation/screens/run_detail_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -95,6 +97,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _isPro = isPro);
     });
     HomeScreen.tabNotifier.addListener(_onTabNotifier);
+    // iOS "Run synced" notifications for Apple Health / Apple Watch runs.
+    HealthSyncService.listenForBackgroundRuns();
+    HealthSyncService.backgroundRunImported.addListener(_onBackgroundRunImported);
     // Post today's motivational + education cards (first user of the day triggers it).
     DailyContentService.maybePostDailyContent().catchError(
       (e) => debugPrint('⚠️ DailyContentService: $e'),
@@ -131,9 +136,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// A run announced by the iOS "Run synced" notification has just been
+  /// imported — offer to open it. Never navigates on its own, so opening the
+  /// app to start a run is not interrupted.
+  Future<void> _onBackgroundRunImported() async {
+    final stats = context.read<RunController>().statsController;
+    try {
+      final runs = await stats.getRunHistoryPage(pageSize: 1);
+      if (!mounted || runs.isEmpty) return;
+      final run = runs.first;
+      if (run['isExternal'] != true) return;
+      final km = ((run['distance'] as num?)?.toDouble() ?? 0).toStringAsFixed(2);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🏃 New $km km run synced'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'VIEW',
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.of(context).push(SlideUpRoute(page: RunDetailScreen(runData: run)));
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('⚠️ background run snackbar failed: $e');
+    }
+  }
+
   @override
   void dispose() {
     HomeScreen.tabNotifier.removeListener(_onTabNotifier);
+    HealthSyncService.backgroundRunImported.removeListener(_onBackgroundRunImported);
     _userDataSubscription?.cancel();
     _proStatusSubscription?.cancel();
     super.dispose();

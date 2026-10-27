@@ -7,6 +7,11 @@
 	<true/>
 	<key>com.apple.developer.healthkit.access</key>
 	<array/>
+	<!-- Lets HealthKit wake the app when a new workout is saved (AppDelegate
+	     HealthBackgroundObserver → "Run synced" notification). The distribution
+	     provisioning profile must include this entitlement. -->
+	<key>com.apple.developer.healthkit.background-delivery</key>
+	<true/>
 
 	<!-- Push Notifications — production = App Store + TestFlight -->
 	<key>aps-environment</key>
