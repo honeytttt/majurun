@@ -110,6 +110,7 @@ final class HealthBackgroundObserver {
           return workout.workoutActivityType == .running
             && !bundle.hasPrefix("com.majurun")   // MajuRun's own runs are already in the app
             && workout.endDate > cutoff
+            && !self.overlapsNativeRun(workout)   // same run also recorded on the phone
         }
         guard let latest = runs.max(by: { $0.endDate < $1.endDate }) else { completion(); return }
 
@@ -145,6 +146,23 @@ final class HealthBackgroundObserver {
     // One id per workout — a repeated wake for the same run replaces, never duplicates.
     let request = UNNotificationRequest(identifier: "health_run_\(workout.uuid.uuidString)", content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request) { _ in done() }
+  }
+
+  /// True if MajuRun was recording a run on this phone during [workout]
+  /// (markers written by Dart HealthSyncService.markNativeRun). Such a run is
+  /// already in the app, and the importer skips the watch copy as a duplicate.
+  private func overlapsNativeRun(_ workout: HKWorkout) -> Bool {
+    let defaults = UserDefaults.standard
+    guard let startMs = (defaults.object(forKey: "flutter.native_run_started_ms") as? NSNumber)?.doubleValue,
+          startMs > 0 else { return false }
+    let start = Date(timeIntervalSince1970: startMs / 1000)
+    let endMs = (defaults.object(forKey: "flutter.native_run_ended_ms") as? NSNumber)?.doubleValue ?? 0
+    // No end yet = still running; cap at 6h so a crashed run can't suppress forever.
+    var end = endMs >= startMs ? Date(timeIntervalSince1970: endMs / 1000) : Date()
+    end = min(end, start.addingTimeInterval(6 * 3600))
+    let slack: TimeInterval = 10 * 60
+    return workout.startDate < end.addingTimeInterval(slack)
+      && workout.endDate > start.addingTimeInterval(-slack)
   }
 
   /// H:MM:SS when an hour or longer, otherwise M:SS (never total-minutes).

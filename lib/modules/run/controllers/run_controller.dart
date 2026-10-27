@@ -12,6 +12,7 @@ import 'package:majurun/core/services/watch_sync_service.dart';
 import 'package:majurun/core/services/interval_training_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:majurun/core/services/health_sync_service.dart';
 import 'package:majurun/core/services/run_recovery_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
 import 'package:majurun/core/services/wake_lock_service.dart';
@@ -642,6 +643,7 @@ class RunController extends ChangeNotifier {
       startAutoSave(planTitle);
       // Don't let the "haven't run today" reminder fire while a run is live.
       PushNotificationService().cancelNoRunReminder().catchError((_) {});
+      HealthSyncService.markNativeRun(started: true);
     } catch (e) {
       _lastError = e.toString();
       rethrow;
@@ -684,6 +686,7 @@ class RunController extends ChangeNotifier {
 
       // Don't let the "haven't run today" reminder fire while a run is live.
       PushNotificationService().cancelNoRunReminder().catchError((_) {});
+      HealthSyncService.markNativeRun(started: true);
 
       // Fetch weather for the start location
       try {
@@ -767,6 +770,7 @@ class RunController extends ChangeNotifier {
   }) async {
     try {
       debugPrint('🎬 RunController: Stopping run');
+      HealthSyncService.markNativeRun(started: false);
       debugPrint("📸 Map image provided: ${mapImageBytes != null ? '${mapImageBytes.length} bytes' : 'null'}");
 
       // Capture final stats before stopping

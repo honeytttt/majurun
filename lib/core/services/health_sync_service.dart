@@ -28,6 +28,20 @@ class HealthSyncService {
 
   static bool _resumeSyncInFlight = false;
 
+  // Read by the iOS HealthBackgroundObserver (as "flutter.<key>") so it does
+  // not announce a watch workout that MajuRun was recording on this phone.
+  static const String _nativeRunStartedKey = 'native_run_started_ms';
+  static const String _nativeRunEndedKey = 'native_run_ended_ms';
+
+  /// Call when a MajuRun run starts / stops on this phone. Best-effort.
+  static Future<void> markNativeRun({required bool started}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(started ? _nativeRunStartedKey : _nativeRunEndedKey,
+          DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
+  }
+
   /// iOS only: when a new watch run lands while the app is in the
   /// FOREGROUND, the native observer calls "newRun" — import it right away.
   static void listenForBackgroundRuns() {
@@ -205,8 +219,9 @@ class HealthSyncService {
 
     // Skip if a native (non-external) MajuRun run already covers this workout
     final workoutStart = data['dateFrom'] as DateTime;
+    final workoutEnd = data['dateTo'] as DateTime;
     final distanceM = data['distance'] as double;
-    if (await _nativeRunExistsAt(uid, workoutStart, distanceM / 1000)) {
+    if (await _nativeRunExistsAt(uid, workoutStart, workoutEnd, distanceM / 1000)) {
       debugPrint('⏭️ Skipping duplicate: native run exists near ${workoutStart.toIso8601String()}');
       return false;
     }
@@ -244,12 +259,20 @@ class HealthSyncService {
     return true;
   }
 
-  /// Returns true if a native (MajuRun-recorded) run exists within ±10 min
-  /// of [dateTime] with a distance within 15% of [distanceKm].
-  /// Prevents the same run appearing twice when Health Connect echoes it back.
-  Future<bool> _nativeRunExistsAt(String uid, DateTime dateTime, double distanceKm) async {
-    final windowStart = Timestamp.fromDate(dateTime.subtract(const Duration(minutes: 10)));
-    final windowEnd   = Timestamp.fromDate(dateTime.add(const Duration(minutes: 10)));
+  /// Returns true if a native (MajuRun-recorded) run with a distance within
+  /// 15% of [distanceKm] was saved during the workout window.
+  /// Prevents the same run appearing twice when it was recorded on the phone
+  /// AND the watch (or Health Connect echoes it back).
+  ///
+  /// Native runs store completedAt = when the run was SAVED (≈ its end), while
+  /// imports store the workout START — so the window spans start−10 min to
+  /// end+30 min. (It used to be start±10 min, which missed any shared run
+  /// longer than ~10 min.) Strictly wider than before, so it never misses a
+  /// duplicate the old check caught.
+  Future<bool> _nativeRunExistsAt(
+      String uid, DateTime workoutStart, DateTime workoutEnd, double distanceKm) async {
+    final windowStart = Timestamp.fromDate(workoutStart.subtract(const Duration(minutes: 10)));
+    final windowEnd   = Timestamp.fromDate(workoutEnd.add(const Duration(minutes: 30)));
 
     final snapshot = await _firestore
         .collection('users').doc(uid)
