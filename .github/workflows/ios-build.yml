@@ -205,6 +205,16 @@ jobs:
           UUID=$(security cms -D -i $PROFILE_PATH | plutil -extract UUID raw -)
           cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
           echo "iOS provisioning profile installed: $UUID"
+          # Runner.entitlements requests HealthKit background delivery — fail
+          # early with a clear message if the profile was generated without it
+          # (otherwise the archive fails later with a vaguer signing error).
+          if security cms -D -i $PROFILE_PATH | grep -q "com.apple.developer.healthkit.background-delivery"; then
+            echo "✅ Profile includes HealthKit background delivery"
+          else
+            echo "❌ Provisioning profile is missing com.apple.developer.healthkit.background-delivery."
+            echo "   Regenerate 'MajuRun Distribution' in the Apple Developer portal and update BUILD_PROVISION_PROFILE_BASE64."
+            exit 1
+          fi
 
           # Install watchOS provisioning profile (if provided)
           if [ -n "$WATCH_PROFILE_BASE64" ]; then
@@ -673,6 +683,14 @@ jobs:
 
           if grep -q "product-errors" "$UPLOAD_LOG"; then
             echo "❌ Upload rejected by App Store Connect — see errors above"
+            exit 1
+          fi
+          # Require a POSITIVE success marker too. Account-level rejections
+          # (e.g. "A required agreement is missing or has expired", run
+          # 36885207829) print an ERROR: line WITHOUT product-errors, and this
+          # step used to report success for them while nothing reached TestFlight.
+          if ! grep -q "success-message" "$UPLOAD_LOG"; then
+            echo "❌ App Store Connect did not confirm the upload (no success-message) — see output above"
             exit 1
           fi
 
