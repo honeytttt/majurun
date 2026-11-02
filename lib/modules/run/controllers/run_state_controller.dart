@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:majurun/core/services/background_location_service.dart';
+import 'package:majurun/core/services/error_handler_service.dart';
 import 'package:majurun/core/services/offline_database_service.dart';
 import 'package:majurun/core/services/weather_service.dart';
 
@@ -139,6 +140,8 @@ class RunStateController extends ChangeNotifier {
   int _idleSeconds = 0;
   static const int _idleThresholdSeconds = 600; // 10 minutes
   bool _hasNotifiedIdle = false;
+  // Report at most one failed run-point write per run to Crashlytics.
+  bool _hasReportedRunPointError = false;
 
   // Callbacks
   VoidCallback? onGpsSilent; // GPS stopped updating for 30s — show warning in UI
@@ -180,10 +183,15 @@ class RunStateController extends ChangeNotifier {
           speed: position.speed,
           altitude: position.altitude,
           recordedAt: DateTime.now(),
-        )).catchError((Object e) {
+        )).catchError((Object e, StackTrace st) {
           // Fire-and-forget: a failed write (e.g. SQLITE_BUSY) must not become
           // an uncaught async error. The in-memory route is unaffected.
           debugPrint('⚠️ Run point not persisted: $e');
+          if (!_hasReportedRunPointError) {
+            _hasReportedRunPointError = true;
+            ErrorHandlerService().handleError(e,
+                stackTrace: st, context: 'RunStateController.appendRunPoint');
+          }
         });
       }
     };
@@ -258,6 +266,7 @@ class RunStateController extends ChangeNotifier {
     _lastHalfKmTime = 0;
     _idleSeconds = 0;
     _hasNotifiedIdle = false;
+    _hasReportedRunPointError = false;
     _currentPosition = null;
 
     // Start location tracking — skip if already started by prewarmGps() or GPS-off mode
@@ -362,6 +371,7 @@ class RunStateController extends ChangeNotifier {
     _lastHalfKmTime = 0;
     _idleSeconds = 0;
     _hasNotifiedIdle = false;
+    _hasReportedRunPointError = false;
     _currentPosition = null;
     _lastError = null;
     notifyListeners();
