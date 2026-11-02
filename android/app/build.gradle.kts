@@ -105,4 +105,9 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Wear OS support for smartwatch connectivity
     implementation("com.google.android.gms:play-services-wearable:18.1.0")
+    // google_sign_in_android 6.2.1 pins play-services-auth 21.0.0, which has a
+    // SignInHubActivity.onCreate NPE in Crashlytics (1.0.0–1.0.7). Gradle takes
+    // the highest requested version, so this lifts it. Stay on 21.x: 22.0.0 is a
+    // major bump and the plugin still uses the legacy GoogleSignIn API.
+    implementation("com.google.android.gms:play-services-auth:21.6.0")
 }
