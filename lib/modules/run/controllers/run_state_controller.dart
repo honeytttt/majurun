@@ -180,7 +180,11 @@ class RunStateController extends ChangeNotifier {
           speed: position.speed,
           altitude: position.altitude,
           recordedAt: DateTime.now(),
-        ));
+        )).catchError((Object e) {
+          // Fire-and-forget: a failed write (e.g. SQLITE_BUSY) must not become
+          // an uncaught async error. The in-memory route is unaffected.
+          debugPrint('⚠️ Run point not persisted: $e');
+        });
       }
     };
 
