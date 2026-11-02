@@ -172,15 +172,33 @@ class HealthSyncService {
       // 4. Save workouts to Firebase (with progress reporting)
       final total = workouts.length;
       int done = 0;
+      bool importedRunToday = false;
       for (final entry in workouts.entries) {
         final result = await _saveToFirebase(user.uid, entry.key, entry.value);
         if (result) {
           imported++;
+          final type = entry.value['workoutType'] as String;
+          final end = entry.value['dateTo'] as DateTime;
+          final now = DateTime.now();
+          if ((type.contains('run') || type.contains('treadmill')) &&
+              end.year == now.year && end.month == now.month && end.day == now.day) {
+            importedRunToday = true;
+          }
         } else {
           skipped++;
         }
         done++;
         onProgress?.call(done, total);
+      }
+
+      // A watch/Health run today counts as "ran today": silence tonight's
+      // "haven't run today" + "Streak at Risk" alarms. Best-effort.
+      if (importedRunToday) {
+        try {
+          await PushNotificationService().cancelNoRunReminder();
+        } catch (e) {
+          debugPrint('⚠️ cancelNoRunReminder after import failed: $e');
+        }
       }
 
       debugPrint('✅ Health Sync Complete: $imported imported, $skipped skipped');

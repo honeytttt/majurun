@@ -1079,11 +1079,17 @@ class PushNotificationService {
   Future<void> cancelNoRunReminder() async {
     await _localNotifications.cancel(_noRunReminderNotifId); // legacy repeating alarm
     await _localNotifications.cancel(_noRunReminderSlotId(DateTime.now()));
+    // "Streak at Risk" (StreakRiskNotifier) is also a one-shot 19:00 alarm,
+    // scheduled when the app opens — it must die with today's run too.
+    await _localNotifications.cancel(_streakRiskNotifId);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_noRunReminderRunStartedKey, _dayKey(DateTime.now()));
   }
 
   static const String _noRunReminderRunStartedKey = 'no_run_reminder_run_started_day';
+
+  /// StreakRiskNotifier's notification id (engagement range 500).
+  static const int _streakRiskNotifId = 500;
 
   String _dayKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
@@ -1390,7 +1396,9 @@ class PushNotificationService {
           (now.hour == eveningHour && now.minute >= eveningMinute);
       final eveningWrittenKey = 'inapp_evening_$dateKey';
 
-      if (eveningFired && prefs.getBool(eveningWrittenKey) != true) {
+      // Its messages say "you haven't run today" — skip on a run day.
+      final ranToday = prefs.getString(_noRunReminderRunStartedKey) == _dayKey(now);
+      if (eveningFired && !ranToday && prefs.getBool(eveningWrittenKey) != true) {
         final message = (List<String>.from(_eveningReminders)..shuffle()).first;
         await _writeInAppNotification(
           title: 'Time for a run? 🏃',

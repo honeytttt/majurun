@@ -115,6 +115,7 @@ final class HealthBackgroundObserver {
         guard let latest = runs.max(by: { $0.endDate < $1.endDate }) else { completion(); return }
 
         UserDefaults.standard.set(Int(Date().timeIntervalSince1970 * 1000), forKey: self.pendingKey)
+        if Calendar.current.isDateInToday(latest.endDate) { self.silenceTonightsReminders() }
         self.postNotification(for: latest) {
           DispatchQueue.main.async {
             if UIApplication.shared.applicationState == .active {
@@ -163,6 +164,23 @@ final class HealthBackgroundObserver {
     let slack: TimeInterval = 10 * 60
     return workout.startDate < end.addingTimeInterval(slack)
       && workout.endDate > start.addingTimeInterval(-slack)
+  }
+
+  /// Native mirror of Dart PushNotificationService.cancelNoRunReminder(), so a
+  /// watch run silences tonight's alarms even if MajuRun is never opened.
+  /// flutter_local_notifications uses the int id as the iOS identifier:
+  /// 500 = "Streak at Risk", 210 + (local date as days-since-epoch % 7) =
+  /// today's "haven't run today" slot. The day key stops Dart re-scheduling.
+  private func silenceTonightsReminders() {
+    let today = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+    guard let y = today.year, let m = today.month, let d = today.day else { return }
+    var utc = Calendar(identifier: .gregorian)
+    utc.timeZone = TimeZone(identifier: "UTC")!
+    guard let utcMidnight = utc.date(from: DateComponents(year: y, month: m, day: d)) else { return }
+    let daysSinceEpoch = Int(utcMidnight.timeIntervalSince1970) / 86400
+    UNUserNotificationCenter.current().removePendingNotificationRequests(
+      withIdentifiers: ["500", "201", String(210 + daysSinceEpoch % 7)])
+    UserDefaults.standard.set("\(y)-\(m)-\(d)", forKey: "flutter.no_run_reminder_run_started_day")
   }
 
   /// H:MM:SS when an hour or longer, otherwise M:SS (never total-minutes).

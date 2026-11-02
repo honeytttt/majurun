@@ -35,6 +35,15 @@ class StreakRiskNotifier {
       // Only do this check once per calendar day
       if (prefs.getBool('$_prefPrefix$todayKey') ?? false) return;
 
+      // A run was started (or a watch run imported) today — Firestore's
+      // lastRunDate lags until the run is saved. Key written by
+      // PushNotificationService.cancelNoRunReminder ('y-m-d', unpadded).
+      final now = DateTime.now();
+      if (prefs.getString('no_run_reminder_run_started_day') ==
+          '${now.year}-${now.month}-${now.day}') {
+        return;
+      }
+
       // Read streak data
       final doc = await FirebaseFirestore.instance
           .collection('users')
