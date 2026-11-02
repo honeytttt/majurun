@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
+import 'package:majurun/core/services/streak_service.dart';
 
 class HealthSyncResult {
   final int imported;
@@ -199,6 +200,9 @@ class HealthSyncService {
         } catch (e) {
           debugPrint('⚠️ cancelNoRunReminder after import failed: $e');
         }
+        // Count it toward the streak like a phone run. Same-day is a no-op in
+        // updateStreak, so phone + watch on one day still adds 1. Never throws.
+        await StreakService().updateStreak(user.uid);
       }
 
       debugPrint('✅ Health Sync Complete: $imported imported, $skipped skipped');
