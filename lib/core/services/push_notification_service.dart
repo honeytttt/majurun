@@ -10,7 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:flutter_timezone/flutter_timezone.dart';
 
 /// Background message handler - must be top-level function
@@ -821,24 +821,32 @@ class PushNotificationService {
 
   // ==================== TIMEZONE INIT ====================
 
-  bool _tzInitialized = false;
+  bool _tzDataLoaded = false;
+  bool _tzResolved = false;
 
-  /// Initialise timezone database and set tz.local to the device's real timezone.
-  /// Must be called before any zonedSchedule call.
+  /// Load the timezone database once, then set tz.local to the device's
+  /// CURRENT timezone. Must be called before any zonedSchedule call.
+  ///
+  /// The zone is re-read on every call: reminders are rescheduled on each app
+  /// resume, and the device timezone can change while the process is alive
+  /// (travel, manual change). Reading it only once kept reminders on the old
+  /// zone (e.g. Singapore times for a user now in India).
   Future<void> _initTimezone() async {
-    if (_tzInitialized) return;
-    tz_data.initializeTimeZones();
-    final String rawTz = await FlutterTimezone.getLocalTimezone();
-    final String localTz = _normalizeTimezone(rawTz);
-    try {
-      tz.setLocalLocation(tz.getLocation(localTz));
-    } catch (_) {
-      // Fallback to UTC if the timezone name is unrecognised
-      tz.setLocalLocation(tz.getLocation('UTC'));
-      debugPrint('⚠️ Unknown timezone "$localTz", falling back to UTC');
+    if (!_tzDataLoaded) {
+      tz_data.initializeTimeZones();
+      _tzDataLoaded = true;
     }
-    _tzInitialized = true;
-    debugPrint('🕐 Timezone set to: $localTz');
+    String localTz = 'UTC';
+    try {
+      localTz = _normalizeTimezone(await FlutterTimezone.getLocalTimezone());
+      tz.setLocalLocation(tz.getLocation(localTz));
+      _tzResolved = true;
+    } catch (_) {
+      // Keep the last good zone if we have one; UTC only on first failure.
+      if (!_tzResolved) tz.setLocalLocation(tz.getLocation('UTC'));
+      debugPrint('⚠️ Unknown timezone "$localTz", keeping ${tz.local.name}');
+    }
+    debugPrint('🕐 Timezone set to: ${tz.local.name}');
   }
 
   /// Map deprecated/legacy IANA timezone names to their current equivalents.
