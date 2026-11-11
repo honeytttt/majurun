@@ -1,3 +1,5 @@
+import 'dart:math' show max;
+
 import 'package:health/health.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:majurun/core/services/push_notification_service.dart';
 import 'package:majurun/core/services/streak_service.dart';
+import 'package:majurun/core/services/user_stats_service.dart';
 
 class HealthSyncResult {
   final int imported;
@@ -312,8 +315,99 @@ class HealthSyncService {
         final diff = (native - distanceKm).abs() / distanceKm;
         if (diff <= 0.15) return true;
       }
+      // Also match on time overlap (catches GPS gaps > 15%).
+      final span = _nativeSpan(d);
+      if (span != null &&
+          _isSameRun(span.$1, span.$2, native, workoutStart, workoutEnd, distanceKm)) {
+        return true;
+      }
     }
     return false;
+  }
+
+  /// Two runs by the same person that overlap in time are the same run.
+  /// Strict on purpose: the overlap must cover at least half of the LONGER
+  /// run (so a 50-second accidental start can't match a 1-hour watch run),
+  /// and both distances must be > 0 and within 35% of each other.
+  static bool _isSameRun(DateTime aStart, DateTime aEnd, double aKm,
+      DateTime bStart, DateTime bEnd, double bKm) {
+    if (aKm <= 0 || bKm <= 0) return false;
+    if ((aKm - bKm).abs() / max(aKm, bKm) > 0.35) return false;
+    final overlapStart = aStart.isAfter(bStart) ? aStart : bStart;
+    final overlapEnd = aEnd.isBefore(bEnd) ? aEnd : bEnd;
+    final overlap = overlapEnd.difference(overlapStart).inSeconds;
+    final longer = max(aEnd.difference(aStart).inSeconds,
+        bEnd.difference(bStart).inSeconds);
+    return longer > 0 && overlap * 2 >= longer;
+  }
+
+  /// A MajuRun run has no stored start: completedAt is when it was SAVED
+  /// (≈ its end) and durationSeconds excludes pauses. Estimate the span as
+  /// completedAt − duration … completedAt. Pauses or a late save shift the
+  /// estimate so it overlaps LESS — the rule can miss, never wrongly match.
+  static (DateTime, DateTime)? _nativeSpan(Map<String, dynamic> d) {
+    final end = (d['completedAt'] as Timestamp?)?.toDate();
+    final secs = (d['durationSeconds'] as num?)?.toInt() ?? 0;
+    if (end == null || secs <= 0) return null;
+    return (end.subtract(Duration(seconds: secs)), end);
+  }
+
+  /// Imported runs store completedAt = the workout START.
+  static (DateTime, DateTime)? _importSpan(Map<String, dynamic> d) {
+    final start = (d['completedAt'] as Timestamp?)?.toDate();
+    final secs = (d['durationSeconds'] as num?)?.toInt() ?? 0;
+    if (start == null || secs <= 0) return null;
+    return (start, start.add(Duration(seconds: secs)));
+  }
+
+  static const String _duplicateCleanupKey = 'health_duplicate_cleanup_v1';
+
+  /// Deletes imported Apple Health / Health Connect copies (`ext_` docs) of
+  /// runs that were ALSO recorded in MajuRun (pre-263 imports only checked
+  /// ±10 min of the workout start, so shared runs were imported twice).
+  ///
+  /// Only `ext_` imports are ever deleted — a MajuRun-recorded run, a Strava
+  /// import, or an import already shared to the feed is never touched. The
+  /// source workout stays in Apple Health, so nothing is lost. Recalculates
+  /// the profile totals if anything was removed. Returns the number removed.
+  Future<int> removeImportedDuplicates({required int days}) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return 0;
+    final since = DateTime.now().subtract(Duration(days: days));
+    final snapshot = await _firestore
+        .collection('users').doc(uid)
+        .collection('training_history')
+        .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
+        .get();
+
+    final natives = <(DateTime, DateTime, double)>[];
+    final imports = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (final doc in snapshot.docs) {
+      final d = doc.data();
+      if (d['isExternal'] == true) {
+        if (doc.id.startsWith('ext_') && d['shared'] != true) imports.add(doc);
+      } else {
+        final span = _nativeSpan(d);
+        if (span != null) {
+          natives.add((span.$1, span.$2, (d['distanceKm'] as num?)?.toDouble() ?? 0));
+        }
+      }
+    }
+
+    var removed = 0;
+    for (final doc in imports) {
+      final d = doc.data();
+      final span = _importSpan(d);
+      if (span == null) continue;
+      final km = (d['distanceKm'] as num?)?.toDouble() ?? 0;
+      if (natives.any((n) => _isSameRun(n.$1, n.$2, n.$3, span.$1, span.$2, km))) {
+        await doc.reference.delete();
+        removed++;
+      }
+    }
+    if (removed > 0) await UserStatsService().recalculateAndSyncStats(uid);
+    debugPrint('🧹 Removed $removed imported duplicate run(s) from the last $days days');
+    return removed;
   }
 
   String _getSourceTitle(String sourceName) {
@@ -396,6 +490,13 @@ class HealthSyncService {
         bgPendingMs = prefs.getInt(_bgPendingKey) ?? 0;
       }
 
+      // One-time: remove imported copies of runs also recorded in MajuRun.
+      // The flag is set only after success, so a failure retries next resume.
+      if (prefs.getBool(_duplicateCleanupKey) != true) {
+        await removeImportedDuplicates(days: 400);
+        await prefs.setBool(_duplicateCleanupKey, true);
+      }
+
       // Debounce: skip if we synced within the last 30 minutes.
       const tsKey = 'health_last_resume_sync_ms';
       final lastMs = prefs.getInt(tsKey) ?? 0;
@@ -408,6 +509,9 @@ class HealthSyncService {
 
       final result = await syncData(days: 7, silent: true);
       await prefs.setInt(tsKey, nowMs);
+      // A watch run imported BEFORE the phone run was saved slips past the
+      // import check — catch it here on the next sync.
+      await removeImportedDuplicates(days: 8);
       if (bgPendingMs != 0) {
         await prefs.remove(_bgPendingKey);
         if (result.imported > 0) {
